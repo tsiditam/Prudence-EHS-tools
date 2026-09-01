@@ -78,7 +78,12 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
       'TVOC is measured by PID and represents total ionizable compounds. Individual compound identification requires TO-17 thermal desorption GC/MS.',
     ],
     technicalContext: [
-      'Mølhave (1991) TVOC tiers are advisory benchmarks, not regulatory limits.',
+      // Was 'Mølhave (1991) TVOC tiers are advisory benchmarks, not regulatory
+      // limits.' until 2026-08. A caveat that a tier is only advisory still
+      // puts the tier in front of the reader, which is the whole mechanism by
+      // which those figures kept reaching client-facing text. AtmosFlow now
+      // applies no TVOC threshold at all, so there is no tier to qualify.
+      'No consensus health-based exposure limit exists for total VOCs, and none is applied here. A TVOC result is an aggregate indicator, not a basis for judging acceptability.',
     ],
     defaultRecommendedActions: [
       { priority: 'short_term', timeframe: '7–30 days', action: 'Collect sorbent tube samples for TO-17 speciation (thermal desorption GC/MS) to identify individual VOC compounds.', standardReference: 'EPA TO-17' },

@@ -156,11 +156,11 @@ Cut in 2026-08, each with the test it failed:
 | ACGIH TLV (CO) | A **third** parallel occupational limit beside the REL and the PEL, driving no criterion — the report named a limit it never used. Also ACGIH-copyrighted and licensed, and ACGIH states the TLVs are not for adoption as standards. |
 | OSH Act §5(a)(1) | An enforcement hook. Invoking it edges toward the compliance determination the platform states it does not make. |
 | OSHA 1989 vacated-rule history | Regulatory history. The conclusion it supported — practice acts on 35, not 50 — is still stated, without the litigation narrative. |
-| Seifert (1990) | A second citation for the same background range Mølhave already supports, and Mølhave's are the tiers actually applied. |
+| Seifert (1990) | A second citation for the same background range Mølhave already supports, and Mølhave's were the tiers actually applied. *(Mølhave followed it out in 2026-08 — see "TVOC has no criteria" below — so the background range now has no citation because it has no criterion.)* |
 | NYC DOHMH | A second humidity number (65 %) beside the ASHRAE 55 bound (60 %) the engine applies, and a municipal document cited as a national benchmark — tagged `edition: 'current'` for something unrevised since 2008. |
 
 Kept, because each passes: the OSHA PELs, the NIOSH RELs, ASHRAE 55 and 62.1,
-the EPA NAAQS, Mølhave, Persily, IICRC S520, and every sampling **method**
+the EPA NAAQS, Persily, IICRC S520, and every sampling **method**
 (NIOSH 2016 / 0800, EPA TO-17, and the ACGIH *Bioaerosols* guidance in
 `sampling.js` — methodology, not an exposure limit, and it tells the reader
 what to order).
@@ -192,7 +192,7 @@ Two of the three WELL criteria could never have fired anyway: `co_well` (9 ppm)
 ties `co_epa_naaqs_8h` and `pm25_well` (15 µg/m³) ties `pm25_who_24h`, so a tier
 above matched first in each worst-first ladder. `pm10_well` was ordered
 reachable, but nothing evaluates PM10 — `scoring.js` calls `evaluateCriteria`
-for `pm25`, `co`, `hcho` and `tvoc` only. **Removing them from the ladder
+for `pm25`, `co` and `hcho` only. **Removing them from the ladder
 changed no score and no finding.**
 
 They are **not deleted**. `referenceProfiles.js` offers WELL v2 as a selectable
@@ -201,6 +201,48 @@ Logger Studio reference, and that is a legitimate opt-in — an assessor picks i
 citation from this registry so Logger Studio and the walkthrough cite
 identically. The rule is about **who decides**: the assessor may apply a
 certification target, the engine may not apply one unbidden.
+
+*The WELL profile for TVOC was the exception and it is gone (2026-08), removed
+with every other TVOC reference rather than kept as the parameter's last
+selectable yardstick — see below. PM2.5, PM10 and CO keep theirs.*
+
+## TVOC has no criteria, deliberately
+
+`CRITERIA.tvoc` does not exist. `tvoc_molhave_concern` (500 µg/m³) and
+`tvoc_molhave_action` (3,000 µg/m³) were removed in 2026-08, and with them
+every surface on which this platform judged a TVOC reading.
+
+**Why.** TVOC is a non-specific sum: it aggregates whatever a photoionization
+detector responds to into one mass-equivalent number and identifies none of
+it. No regulatory or consensus health-based limit exists for that quantity.
+Mølhave's 1991 tiers were a chamber-study dose-response framework — a
+description of how symptom likelihood varied across a defined 22-compound
+mixture, not a limit anybody promulgated — and applying them produced a
+severity, a citation, a client-facing finding and a sampling recommendation as
+though they were one. Captioning them "advisory" did not help: a tier printed
+beside a measured value reads as a limit however it is labelled, which is
+precisely how they spread.
+
+**What that means in code.** `evaluateCriteria` returns null for a parameter
+with no registry entry and `scoring.js` guards `if (hit)`, so the ABSENCE of
+the key is the behaviour — no branch anywhere tests for it. Removed in the
+same change: the reference profiles (including the WELL target, so the chart
+draws the series and no line), the `checkTVOC` live-advisor rule, the
+concentration-triggered VOC-speciation sampling entry, and the TVOC term in
+the chemical causal chain. The renovation/off-gassing TO-17 sampling entry is
+untouched — it fires on a recorded SOURCE, not on a concentration, so it needs
+no threshold to be defensible.
+
+**What TVOC still does.** It is captured, converted between units, charted,
+tabulated and reported. `reportModel` classifies it `not_evaluated` rather
+than `acceptable`, because calling an unjudgeable reading acceptable is the
+more dangerous of the two available errors, and `sections-atmosflow.js` renders
+that as a distinct "Not evaluated" severity token. Every prose surface states
+the measured value and what would be needed to say more — speciation by EPA
+Method TO-17, which yields individual compounds that each carry a real
+exposure limit.
+
+Guard: `tests/engine/no-molhave.test.ts`.
 
 ## Severity does not move with averaging period
 
@@ -387,9 +429,11 @@ numbers. Linking them added no claim — the values already matched.
 
 **The rule is traceability, not linkage**, and the first version of this guard
 got that wrong. It demanded a criterion for every profile, which the TVOC
-`well` profile has none of *by design* — `citation-discipline.test.ts` records
+`well` profile had none of *by design* — `citation-discipline.test.ts` records
 that as "the documented pattern for a profile with no registry threshold
-behind it". The correct response to a guard flagging a deliberate decision is
+behind it". *(That profile was itself removed in 2026-08, so the example is
+now historical; the pattern it established still governs any self-sourced
+profile.)* The correct response to a guard flagging a deliberate decision is
 to fix the guard. Instead a criterion was invented to satisfy it and the
 profile's WELL citation was replaced with a LEED one, on the reasoning that
 the corpus "contradicted" WELL. It does not — the corpus entry for that figure
@@ -400,9 +444,9 @@ declaring its own citation. What fails is a line at a number with neither, and
 the self-sourced profiles are pinned as a named list so the exception cannot
 spread quietly.
 
-It also checks the **label**: "Mølhave advisory (500 µg/m³)" states the figure
-in text, where a stale one is invisible to any check that only reads the
-resolved value.
+It also checks the **label**: a profile named "NIOSH REL (0.016 ppm)" states
+the figure in text, where a stale one is invisible to any check that only reads
+the resolved value.
 
 ### Limits and bands
 
@@ -465,9 +509,8 @@ fourth thing it travels with, and they split three ways rather than two:
 | Across bases, single compound | HCHO ppb ↔ µg/m³ | Needs a molecular weight, but the weight is a fact about the analyte. Exact. |
 | Across bases, a mixture | TVOC ppb ↔ µg/m³ | Needs a molecular weight the mixture does not have, so one is **chosen**. |
 
-Only the third case sets `equivalenceBasis` on the criterion (`'isobutylene'`
-on both Mølhave tiers), and setting it is a requirement rather than a
-permission: `resolveReference` attaches the named compound and the
+Only the third case sets `equivalenceBasis` on the criterion, and setting it
+is a requirement rather than a permission: `resolveReference` attaches the named compound and the
 response-factor limitation to any value that crossed, and
 `tests/lib/vocConversion.test.ts` fails if a tier crosses without one.
 
@@ -479,7 +522,13 @@ not "isobutylene") and returns three states, each licensing a different
 sentence: recognised (a fact about this survey), recorded-but-unweighable
 (isobutylene is used and the note names the mismatch), and not recorded (a
 stated convention). Pass it as `ctx.calibrationGas` / `opts.calibrationGas`;
-a meter spanned to toluene resolves Mølhave at 133 ppb, not 218.
+a meter spanned to toluene resolves a 500 µg/m³ mass threshold at 133 ppb,
+not 218.
+
+**No criterion sets `equivalenceBasis` today.** The only two that did were the
+TVOC tiers, removed in 2026-08 (below). The field, its validation and the
+projection in `referenceProfiles.js` are kept as a whole contract so the rule
+does not have to be rediscovered if a mixture threshold is ever added.
 
 All of it goes through one module, `src/utils/vocConversion.js`, in both
 directions — the published tier projecting into the logged unit, and a logged
@@ -487,7 +536,7 @@ ppb reading converting into the engine's µg/m³ `tv` field.
 
 **Why one module.** The conversion had been implemented in three places under
 three policies. The parse-to-reading path converted, the reference-projection
-path refused to, and a ppb log therefore produced a Mølhave comparison in the
+path refused to, and a ppb log therefore produced a scored comparison in the
 assessment and no reference line at all in the monitoring report — from the
 same instrument, on the same air. The property that closes it is asserted
 directly: the same series must reach the same verdict whether the data moves
@@ -495,8 +544,7 @@ to the reference or the reference moves to the data.
 
 **Why a disclosure and not a refusal.** The limitation is real — a PID's
 response varies by compound, so its total is indicative rather than
-speciated, and Mølhave's 500 µg/m³ is the mass of a defined 22-compound
-chamber mixture. But that limitation belongs to the READING, and it exists in
+speciated. But that limitation belongs to the READING, and it exists in
 every unit: a PID displaying µg/m³ computed that number from the same
 isobutylene-equivalent response, by the same arithmetic. Withholding the tier
 from ppb-logging meters therefore removed nothing unsound; it removed the

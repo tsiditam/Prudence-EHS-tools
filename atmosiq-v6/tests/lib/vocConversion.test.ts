@@ -4,17 +4,33 @@
  * reach the same conclusion about the same air.
  *
  * Path A — the assessment. `sensorAveragesToFields` converts a ppb mean into
- * the zone's `tv` field, which is µg/m³, and the engine compares that to
- * Mølhave's 500.
+ * the zone's `tv` field, which is µg/m³.
  *
- * Path B — the monitoring report. `resolveReference` projects Mølhave's 500
- * into the unit the series was logged in, and the chart compares the ppb
- * readings against that.
+ * Path B — the monitoring report. `resolveReference` projected a published
+ * TVOC threshold into the unit the series was logged in, and the chart
+ * compared the ppb readings against that.
  *
  * The two used to disagree: path A converted, path B refused to, so the same
  * instrument produced a comparison in the report and no reference line at all
- * in the chart. Both paths now go through `convertTvoc`, which is what the
- * agreement test below actually enforces.
+ * in the chart. Unifying them on `convertTvoc` is why this module exists.
+ *
+ * ── Path B no longer exists (2026-08) ─────────────────────────────────────
+ * Every TVOC threshold was removed — see `tests/engine/no-molhave.test.ts` —
+ * so there is nothing left to project and nothing left to disagree with.
+ *
+ * The module is untouched by that, deliberately. Path A is a factual question
+ * about the air: a logger reporting ppb feeding an engine field denominated
+ * in µg/m³ has to cross bases correctly, disclose the compound it crossed
+ * against, and follow the survey's own calibration record when one exists.
+ * Getting that wrong is an error about the measurement, not about a verdict,
+ * and it stays an error whether or not anything scores the result.
+ *
+ * So the tests below split along that line: everything about converting a
+ * READING is kept and still asserted, and everything that projected a
+ * THRESHOLD is replaced by an assertion that no threshold survives to
+ * project. The figures 500 µg/m³ ≈ 218 ppb isobutylene ≈ 133 ppb toluene
+ * still appear, now purely as conversion arithmetic with the answers already
+ * worked out — not because anything compares a reading to them.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -115,10 +131,11 @@ describe('tvocEquivalenceNote', () => {
   })
 })
 
-describe('the two paths agree about the same air', () => {
-  // The defect this whole module exists to close. Build one ppb series, send
-  // it down both paths, and require the same answer.
-  const PPB = [800, 200, 200, 800, 200, 200]   // mean 400 ppb ≈ 918 µg/m³, above the tier
+describe('the surviving path converts and discloses', () => {
+  // What is left of the two-path property. There is one path now, so the
+  // assertion is no longer "the two agree" but "this one is right and says
+  // what it assumed" — which is the half that was ever about the air.
+  const PPB = [800, 200, 200, 800, 200, 200]   // mean 400 ppb
 
   const logOf = (unit: string, vals: number[]) => ({
     version: 2,
@@ -130,42 +147,54 @@ describe('the two paths agree about the same air', () => {
     }],
   })
 
-  it('reaches the same verdict whether the data moves or the reference does', () => {
-    // Path A: the ppb mean converts into the µg/m³ `tv` field, compared to 500.
+  it('carries a ppb mean into the engine field in µg/m³, against a named compound', () => {
     const { fields, details } = sensorAveragesToFields(logOf('ppb', PPB) as any, { stat: 'mean' })
-    const tvUgm3 = Number(fields.tv)
-    const pathA = tvUgm3 > STD.c.tvoc.con
-
-    // Path B: Mølhave's 500 projects into ppb, compared to the ppb mean.
-    const limitPpb = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!.limit as number
-    const meanPpb = PPB.reduce((a, b) => a + b, 0) / PPB.length
-    const pathB = meanPpb > limitPpb
-
-    expect(pathB).toBe(pathA)
-    // And not vacuously — the series is genuinely above the tier.
-    expect(pathA).toBe(true)
-    // Path A must also disclose what it assumed, in its own preview note.
+    // 400 ppb x 56.11 / 24.45 is about 918 µg/m³. The field is rounded for
+    // display, so compare to the converter within a whole unit.
+    expect(Number(fields.tv)).toBeCloseTo(convertTvoc(400, 'ppb', 'µg/m³')!.value, 0)
+    expect(Number(fields.tv)).toBeGreaterThan(900)
+    // And it discloses the assumption in its own preview note, unprompted.
     expect(details.find((d: any) => d.param === 'tvoc')!.note).toMatch(/Isobutylene/)
   })
 
-  it('agrees again just under the tier, where a wrong conversion would show', () => {
-    // 200 ppb ≈ 459 µg/m³ — below 500 on both paths only if the same
-    // molecular weight is used at both ends.
-    const near = [200, 200, 200]
-    const { fields } = sensorAveragesToFields(logOf('ppb', near) as any, { stat: 'mean' })
-    const limitPpb = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!.limit as number
-    expect(Number(fields.tv) > STD.c.tvoc.con).toBe(false)
-    expect(200 > limitPpb).toBe(false)
+  it('follows the recorded span gas rather than the default', () => {
+    const iso = sensorAveragesToFields(logOf('ppb', PPB) as any, { stat: 'mean' })
+    const tol = sensorAveragesToFields(logOf('ppb', PPB) as any, { stat: 'mean', tvocRef: 'toluene' })
+    // Toluene is the heavier molecule, so the same ppb series is more mass.
+    expect(Number(tol.fields.tv)).toBeGreaterThan(Number(iso.fields.tv))
+    expect(Number(tol.fields.tv)).toBeCloseTo(convertTvoc(400, 'ppb', 'µg/m³', { reference: 'toluene' })!.value, 0)
+  })
+
+  it('leaves a mass log alone — there is no basis to cross', () => {
+    const { fields } = sensorAveragesToFields(logOf('µg/m³', [400, 400]) as any, { stat: 'mean' })
+    expect(Number(fields.tv)).toBe(400)
+  })
+
+  it('has no threshold on the other side to disagree with', () => {
+    // Path B, asserted as absent. `STD.c.tvoc` is gone and no profile
+    // resolves, so the comparison this file was written to reconcile cannot
+    // now be made from either direction.
+    expect((STD as any).c.tvoc).toBeUndefined()
+    for (const unit of ['ppb', 'µg/m³', 'mg/m³', 'ppm']) {
+      expect(resolveReference('tvoc', 'molhave', { unit }), unit).toBeNull()
+      expect(paramReference('tvoc', { unit }).limit, unit).toBeNull()
+    }
   })
 })
 
 describe('the equivalence basis is declared once', () => {
-  it('is set on exactly the TVOC criteria, and on nothing that converts exactly', () => {
+  it('is set on nothing today — the only two criteria that had it are gone', () => {
+    // It was `['tvoc/tvoc_molhave_action', 'tvoc/tvoc_molhave_concern']`, and
+    // those were the only two thresholds this platform ever crossed a basis
+    // for. The FIELD is kept, with its projection in referenceProfiles and
+    // the rule below, because a field whose behaviour had been deleted would
+    // silently do nothing the next time somebody set it. So this asserts the
+    // contract is idle, not that it was dismantled.
     const withBasis: string[] = []
     for (const [param, list] of Object.entries(CRITERIA)) {
       for (const c of list as any[]) if (c.equivalenceBasis) withBasis.push(`${param}/${c.id}`)
     }
-    expect(withBasis.sort()).toEqual(['tvoc/tvoc_molhave_action', 'tvoc/tvoc_molhave_concern'])
+    expect(withBasis.sort()).toEqual([])
   })
 
   it('names a compound the converter actually knows', () => {
@@ -176,18 +205,17 @@ describe('the equivalence basis is declared once', () => {
     }
   })
 
-  it('every TVOC tier published in µg/m³ discloses when it crossed, and only then', () => {
-    // The rule has to hold per profile, not just for the one that prompted
-    // it — including WELL, which carries no registry entry and declares the
-    // basis on the profile itself.
+  it('has no TVOC tier left to disclose a crossing for', () => {
+    // This required every µg/m³-published TVOC tier to name isobutylene when
+    // it resolved in ppb, and to stay silent when it resolved in mass — the
+    // rule held per profile, including WELL, which declared the basis on
+    // itself with no registry entry behind it. All three profiles went in
+    // 2026-08. The disclosure rule survives for any future mass threshold;
+    // what is asserted here is that nothing invokes it.
     for (const id of ['molhave', 'molhave-action', 'well']) {
-      const ppb = resolveReference('tvoc', id, { unit: 'ppb' })!
-      expect(ppb.limit, `${id} did not resolve in ppb`).toBeGreaterThan(0)
-      expect(ppb.note, `${id} crossed silently`).toMatch(/isobutylene-equivalent/i)
-
-      const ug = resolveReference('tvoc', id, { unit: 'µg/m³' })!
-      expect(ug.note || '', `${id} claims an assumption it did not make`)
-        .not.toMatch(/isobutylene-equivalent/i)
+      for (const unit of ['ppb', 'µg/m³']) {
+        expect(resolveReference('tvoc', id, { unit }), `${id}/${unit}`).toBeNull()
+      }
     }
   })
 })
@@ -237,47 +265,51 @@ describe('parseCalibrationGas', () => {
 })
 
 describe('the survey’s own calibration gas decides the weight', () => {
-  it('restates the tier through the recorded compound, not the default', () => {
-    const iso = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!
-    const tol = resolveReference('tvoc', 'molhave', { unit: 'ppb', calibrationGas: 'Toluene 100 ppm' })!
-    expect(iso.limit).toBe(218)      // 500 × 24.45 ÷ 56.11
-    expect(tol.limit).toBe(133)      // 500 × 24.45 ÷ 92.14
-    expect(tol.note).toMatch(/toluene-equivalent/i)
-    expect(tol.note).toMatch(/Toluene 100 ppm/)
+  // It still does — for the reading. Every assertion here used to run through
+  // `resolveReference`, restating a 500 µg/m³ tier as 218 ppb against
+  // isobutylene or 133 ppb against toluene. With no tier to restate, the same
+  // property is asserted where it still bites: on the measured value crossing
+  // into the engine's µg/m³ field, where the wrong molecular weight silently
+  // changes what the report says the air contained.
+
+  it('converts through the recorded compound, not the default', () => {
+    const iso = convertTvoc(218, 'ppb', 'µg/m³')!
+    const tol = convertTvoc(133, 'ppb', 'µg/m³', { reference: 'toluene' })!
+    // Both land near 500 µg/m³ from different ppb readings, which is the
+    // point: ppb and µg/m³ are different quantities, and which one a number
+    // is says nothing until the compound is named. (The ppb inputs are
+    // themselves rounded, so this is within a couple of µg/m³, not exact.)
+    expect(iso.value).toBeCloseTo(500, -1)
+    expect(tol.value).toBeCloseTo(500, -1)
+    expect(iso.reference!.label).toBe('Isobutylene')
+    expect(tol.reference!.label).toBe('Toluene')
   })
 
   it('changes nothing when the log is already in mass units', () => {
-    // The recorded gas is only a conversion input. It cannot move a tier
+    // The recorded gas is only a conversion input. It cannot move a value
     // that never crosses a basis.
-    const a = resolveReference('tvoc', 'molhave', { unit: 'µg/m³' })!
-    const b = resolveReference('tvoc', 'molhave', { unit: 'µg/m³', calibrationGas: 'Toluene' })!
-    expect(a.limit).toBe(500)
-    expect(b.limit).toBe(500)
-    expect(b.note || '').not.toMatch(/toluene/i)
+    expect(convertTvoc(500, 'mg/m³', 'µg/m³')!.value).toBe(500000)
+    expect(convertTvoc(500, 'mg/m³', 'µg/m³', { reference: 'toluene' })!.value).toBe(500000)
   })
 
   it('falls back to the default for a gas it cannot weigh, and names the mismatch', () => {
-    const r = resolveReference('tvoc', 'molhave', { unit: 'ppb', calibrationGas: 'Freon 12' })!
-    expect(r.limit).toBe(218)
-    expect(r.note).toMatch(/Freon 12/)
-    expect(r.note).toMatch(/do not reflect it/i)
+    const gas = parseCalibrationGas('Freon 12')
+    expect(convertTvoc(218, 'ppb', 'µg/m³', { reference: gas.key })!.reference!.label)
+      .toBe('Isobutylene')
+    const note = tvocEquivalenceNote(tvocReference(gas.key), gas)
+    expect(note).toMatch(/Freon 12/)
+    expect(note).toMatch(/do not reflect it/i)
   })
 
-  it('reaches the Logger Studio cards through the same option', () => {
-    expect(paramReference('tvoc', { unit: 'ppb' }).limit).toBe(218)
-    const tol = paramReference('tvoc', { unit: 'ppb', calibrationGas: 'Toluene 100 ppm' })
-    expect(tol.limit).toBe(133)
-    expect(tol.note).toMatch(/toluene-equivalent/i)
-  })
-
-  it('keeps both paths in agreement once a gas is recorded', () => {
-    // The same property as above, but with the assumption now sourced from
-    // the survey record rather than a default. A wiring that reached one path
-    // and not the other would break here and nowhere else.
-    const mean = 400
-    const ug = convertTvoc(mean, 'ppb', 'µg/m³', { reference: 'toluene' })!.value
-    const limitPpb = resolveReference('tvoc', 'molhave', { unit: 'ppb', calibrationGas: 'Toluene' })!.limit as number
-    expect(ug > STD.c.tvoc.con).toBe(mean > limitPpb)
-    expect(ug > STD.c.tvoc.con).toBe(true)
+  it('reaches the Logger Studio cards, which now show no line at all', () => {
+    // `paramReference` still takes `calibrationGas` — the parameter is part
+    // of its contract and another parameter may yet need it — but for TVOC
+    // there is no longer a reference for it to weigh.
+    for (const gas of [undefined, 'Toluene 100 ppm', 'Freon 12']) {
+      const r = paramReference('tvoc', { unit: 'ppb', calibrationGas: gas })
+      expect(r.limit, String(gas)).toBeNull()
+      expect(r.refs, String(gas)).toEqual([])
+      expect(String(r.note), String(gas)).toMatch(/no consensus health-based limit/i)
+    }
   })
 })

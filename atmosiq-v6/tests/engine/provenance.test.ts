@@ -133,10 +133,23 @@ describe('every quantity a finding states is grounded', () => {
   it('would catch a silent unit conversion', () => {
     // The TVOC defect: 500 µg/m³ was rendered as 218 after an unrequested
     // conversion to ppb. The converted figure is grounded in nothing.
-    const [tvoc] = claimsFor(FIXTURES[0].zones).filter((c) => c.parameter === 'tvoc')
-    expect(tvoc).toBeDefined()
-    const converted: ClaimProvenance = { ...tvoc, text: 'TVOCs 218 ppb — above the advisory tier.' }
-    expect(ungroundedQuantities(converted).map((q) => q.value)).toContain(218)
+    //
+    // TVOC no longer produces a claim to hang this on — the tiers, and with
+    // them every TVOC finding, went in 2026-08. The defect CLASS is not about
+    // TVOC, though: it is a renderer restating a criterion's value in a unit
+    // the criterion never carried, and formaldehyde reproduces it exactly.
+    // The NIOSH REL is 0.016 ppm; 16 ppb is the same air and a different
+    // number, and nothing in the claim supports it.
+    const [hcho] = claimsFor(FIXTURES[0].zones).filter((c) => c.parameter === 'hcho')
+    expect(hcho, 'the fixture should produce a formaldehyde claim').toBeDefined()
+    const converted: ClaimProvenance = { ...hcho, text: 'Formaldehyde 16 ppb — above the NIOSH REL.' }
+    expect(ungroundedQuantities(converted).map((q) => q.value)).toContain(16)
+  })
+
+  it('has no TVOC claim to convert, because TVOC states nothing', () => {
+    // Recorded rather than deleted: a parameter dropping out of the claim set
+    // is worth asserting deliberately, so a reintroduction is visible here.
+    expect(claimsFor(FIXTURES[0].zones).filter((c) => c.parameter === 'tvoc')).toEqual([])
   })
 
   it('would catch a band the engine did not apply', () => {

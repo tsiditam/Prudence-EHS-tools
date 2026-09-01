@@ -121,12 +121,28 @@ describe('confidence is monotonic in evidence', () => {
   })
 
   it('a measured exceedance with a source and symptoms is Strong', () => {
+    // Was `tv: '4000'` — a TVOC reading above Mølhave's action tier. The
+    // chemical chain's TVOC term went in 2026-08 with every TVOC threshold:
+    // "the TVOC was elevated" is not an explanation this platform can offer
+    // without a limit to call it elevated against. HCHO carries the chain
+    // now, and carries it better — it has a real exposure limit behind it,
+    // so `measured` means something.
     const c = chain({
-      tv: '4000',
+      hc: '0.5',
       src_internal: ['New furniture / finishes'],
       sy: ['Eye irritation', 'Headache'],
     }, 'Chemical Exposure')!
     expect(c.confidence).toBe('Strong')
+  })
+
+  it('a TVOC reading alone builds no chemical chain, at any concentration', () => {
+    for (const tv of ['500', '3000', '4000', '25000']) {
+      expect(chain({
+        tv,
+        src_internal: ['New furniture / finishes'],
+        sy: ['Eye irritation', 'Headache'],
+      }, 'Chemical Exposure'), `tv=${tv}`).toBeUndefined()
+    }
   })
 })
 

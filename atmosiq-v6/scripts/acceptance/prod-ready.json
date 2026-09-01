@@ -706,10 +706,11 @@
         },
         {
           "type": "grep_matches",
-          "pattern": "molhave-tvoc-framework",
+          "pattern": "sbs-bri",
           "paths": [
             "src/constants/standards-corpus.js"
-          ]
+          ],
+          "_comment": "Was molhave-tvoc-framework until 2026-08. That entry was removed with every TVOC threshold - AtmosFlow measures TVOC and compares it to nothing - so the criterion now samples a different corpus entry to prove the corpus is populated. sbs-bri is a good stand-in: it is the SBS/BRI construct distinction, load-bearing prose that is unlikely to be retired."
         },
         {
           "type": "file_exists",
@@ -1017,7 +1018,7 @@
     },
     {
       "id": "REPORT-TEMPLATES",
-      "label": "User-template DOCX render path exists",
+      "label": "A user template is reachable, fills from the real assessment, and repeats per finding",
       "checks": [
         {
           "type": "file_exists",
@@ -1056,8 +1057,39 @@
         {
           "type": "file_exists",
           "path": "src/components/settings/ReportTemplatesPanel.jsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "<ReportTemplatesPanel",
+          "paths": [
+            "src/components/SettingsScreen.jsx"
+          ],
+          "_comment": "The mount. Without it the panel is 352 lines of unreachable code and the feature has no entry point."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "LIST_REGISTRY|SECTION_RESOLVERS",
+          "paths": [
+            "lib/report-templates/token-registry.ts",
+            "lib/report-templates/render.ts"
+          ],
+          "minCount": 2,
+          "_comment": "Repeating sections. paragraphLoop was always on, so docxtemplater supported loops the whole time - what was missing was array DATA, and a section tag handed the empty string renders zero times without erroring."
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/ReportTemplatesPanel.test.tsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildJasperContext",
+          "paths": [
+            "tests/lib/report-template-render.test.ts"
+          ],
+          "_comment": "The regression that closes the class: render against the context production actually passes, not a fixture written to match the resolvers. Verified by inversion - reverting the finding-path repair fails 8 tests in that file."
         }
-      ]
+      ],
+      "_comment": "Was 'User-template DOCX render path exists', and every check asked whether a FILE exists. It passed for the whole time the feature was unusable, twice over. (1) UNREACHABLE: SettingsScreen never imported ReportTemplatesPanel, so nothing in the app could upload a template and generate_report could only answer no_templates_saved - while its own failure text pointed the assessor at a Settings section that did not exist. (2) EMPTY: the resolvers were authored against the flat `context = {...}` literal MobileApp.jsx used to hand Jasper. Jasper migrated onto buildAssessmentContext, where findings live at walkthrough_findings and recommendations/sampling under engine_outputs, and the render path inherited the new shape unrepointed. Thirteen of twenty-seven tokens went dead, including every finding, recommendation, sampling and report-identity token, and a missing token renders blank BY DESIGN - so a rendered report came out as letterhead with nothing under it and nothing anywhere went red. A gate that cannot tell built from working is the shadow-artifact trap CLAUDE.md names. These checks assert the mount, the repeating-section registry, and the test that renders against a REAL buildJasperContext - the last is the one that matters, because the old fixture was hand-shaped to agree with the resolvers and therefore agreed with nothing else."
     },
     {
       "id": "API-JS-IMPORT-GUARDRAIL",
@@ -1720,33 +1752,55 @@
       "label": "Jasper can explain the issued monitoring report from the model it was rendered from",
       "_comment": "Everything about the report except the readings - the location, the client, the instrument, and above all WHICH reference profile was chosen per parameter - was typed into MonitoringReportSheet and discarded when it closed. So the issued session now rides the sensorData envelope (which already persists to draft, report and cloud) and lib/jasper/monitoring-report-summary.ts re-derives the exact document through buildMonitoringReportModel - the same pure function the DOCX renderer calls. Reading the model beats extracting our own DOCX on every axis: lossless, exact, and cheap. Scope is EXPLAIN, not review: the tool ships usage_rules because neither that nor the locked status vocabulary can be enforced by a data shape. The load-bearing property is that a comparison the report WITHHELD (calibration not covering the period, status Not Established) can never reach Jasper as within/above/outside - the statistics still print, so that is the easiest misreading in the document.",
       "checks": [
-        { "type": "file_exists", "path": "lib/jasper/monitoring-report-summary.ts" },
-        { "type": "file_exists", "path": "tests/lib/monitoring-report-summary.test.ts" },
-        { "type": "file_exists", "path": "tests/api/read-monitoring-report.test.ts" },
-        { "type": "file_exists", "path": "tests/lib/monitoring-report-persistence.test.ts" },
+        {
+          "type": "file_exists",
+          "path": "lib/jasper/monitoring-report-summary.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/monitoring-report-summary.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/api/read-monitoring-report.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/lib/monitoring-report-persistence.test.ts"
+        },
         {
           "type": "grep_matches",
           "pattern": "read_monitoring_report",
-          "paths": ["src/constants/field-assistant-tools.js", "src/constants/field-assistant-prompt.js"],
+          "paths": [
+            "src/constants/field-assistant-tools.js",
+            "src/constants/field-assistant-prompt.js"
+          ],
           "_comment": "Registered as a tool AND documented in the prompt. A tool the prompt never mentions is one the model does not reach for."
         },
         {
           "type": "grep_matches",
           "pattern": "monitoring_report",
-          "paths": ["lib/context/buildAssessmentContext.ts", "lib/context/types.ts"],
+          "paths": [
+            "lib/context/buildAssessmentContext.ts",
+            "lib/context/types.ts"
+          ],
           "_comment": "Wired into the one normalized context every consumer reads, and typed there."
         },
         {
           "type": "grep_matches",
           "pattern": "monitoringReport",
-          "paths": ["src/utils/sensorParser.js"],
+          "paths": [
+            "src/utils/sensorParser.js"
+          ],
           "minCount": 2,
           "_comment": "normalizeSensorData runs on every read of a stored envelope. If it drops the field the report is gone on the next open and nothing else would notice."
         },
         {
           "type": "grep_matches",
           "pattern": "EXPLAIN this report; do not review it",
-          "paths": ["src/constants/field-assistant-tools.js"],
+          "paths": [
+            "src/constants/field-assistant-tools.js"
+          ],
           "_comment": "The scope decision, asserted where it is enforced rather than only in a doc."
         }
       ]
@@ -2512,20 +2566,33 @@
       "label": "Every published threshold is reconciled against an independent record, and every reference line traces to a criterion",
       "_comment": "The systemic answer to two fabricated citations. Numbers live in constants/criteria.js (machine) and constants/standards-corpus.js (curated prose with primary-source citations), authored independently. Nothing compared them, so the engine scored temperature against an invented 67-82 F band for four months while the corpus three directories away carried the correct 68-76 / 73-79 and had done all along. standards-reconciliation.test.ts requires a declared figure to match the registry EXACTLY and requires every criterion to be either documented or named in a visible gap ledger with a reason - there is no third state. reference-line-provenance.test.ts requires every rendered reference line to resolve to a criterion, in the criterion's value, under the criterion's citation. Both are run by BUILD-02; these checks assert they exist and are wired, because a guard nobody runs is the failure mode that produced this criterion.",
       "checks": [
-        { "type": "file_exists", "path": "tests/engine/standards-reconciliation.test.ts" },
-        { "type": "file_exists", "path": "tests/engine/reference-line-provenance.test.ts" },
-        { "type": "file_exists", "path": "tests/engine/criterion-coverage.test.ts" },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/standards-reconciliation.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/reference-line-provenance.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/criterion-coverage.test.ts"
+        },
         {
           "type": "grep_matches",
           "pattern": "figures: \\[",
-          "paths": ["src/constants/standards-corpus.js"],
+          "paths": [
+            "src/constants/standards-corpus.js"
+          ],
           "minCount": 3,
           "_comment": "The corpus half of the ledger. Without declared figures the reconciliation has nothing to compare and passes vacuously."
         },
         {
           "type": "grep_matches",
           "pattern": "resolveBand",
-          "paths": ["src/constants/criteria.js"],
+          "paths": [
+            "src/constants/criteria.js"
+          ],
           "minCount": 2,
           "_comment": "Band criteria. Temperature and humidity had no registry entry because the registry could only express value > threshold, and they are the only two parameters whose citations were wrong."
         }
@@ -2536,20 +2603,66 @@
       "label": "An over-reaching sentence retired in the phrase library is retired in the engine that actually ships it",
       "_comment": "src/engine/report/phrases/ decides what may be said about a condition, but it is read by renderClientReport and PrintReport only. The AtmosFlow DOCX - the sole client deliverable since 2026-08 - renders raw text from scoring.js and scoring-legacy.js via reportModel.collectFindings and genRecs. So three retirements were written down, believed, and went on shipping anyway: the automatic Legionella / ASHRAE 188 escalation (fired by one intake dropdown, citing a standard scoped to aerosol-generating water systems, and closing by ASSERTING occupant respiratory symptoms nothing had recorded), the automatic EPA-registered-biocide instruction, and the ATSDR occupant-risk-communication action. Each surfaced only because somebody read a screenshot. editorial-engine-parity.test.ts makes the general property machine-checkable - no engine finding may contain a bannedAlternative of the condition type it classifies to - and pins the three named retirements at the engine, at collectFindings and in genRecs. It also asserts what must REMAIN, because an absence-only guard is satisfied by an engine that recommends nothing at all.",
       "checks": [
-        { "type": "file_exists", "path": "tests/engine/editorial-engine-parity.test.ts" },
-        { "type": "file_exists", "path": "tests/engine/drain-pan-no-legionella.test.ts" },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/editorial-engine-parity.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/drain-pan-no-legionella.test.ts"
+        },
         {
           "type": "grep_excludes",
           "pattern": "'[^']*(Legionella|ASHRAE Standard 188|EPA-registered biocide|per ATSDR guidance)",
-          "paths": ["src/engines/scoring.js", "src/engines/scoring-legacy.js"],
+          "paths": [
+            "src/engines/scoring.js",
+            "src/engines/scoring-legacy.js"
+          ],
           "_comment": "Anchored to a single-quoted STRING LITERAL, not the bare words. The runner does not strip comments, and both files carry removal records that name Legionella and quote the retired sentence in full - the unanchored form matched 4 of those comment lines, which is the exact false-positive class NO-COMPOSITE-SCORE was already re-anchored to avoid. Verified both ways: 0 hits on the current files, 4 hits on a fixture carrying the original literals. Finding-level and recommendation-level detection lives in the two tests above, which BUILD-02 runs."
         },
         {
           "type": "grep_matches",
           "pattern": "bannedAlternatives",
-          "paths": ["tests/engine/editorial-engine-parity.test.ts"],
+          "paths": [
+            "tests/engine/editorial-engine-parity.test.ts"
+          ],
           "minCount": 2,
           "_comment": "The general half. Without it this criterion degrades into three string checks that say nothing about the fourth remnant."
+        }
+      ]
+    },
+    {
+      "id": "NO-TVOC-THRESHOLD",
+      "label": "TVOC is measured, charted and reported, and compared against nothing",
+      "_comment": "The Molhave 1991 advisory tiers (500 / 3,000 ug/m3) were the only basis on which this platform judged a total-VOC reading, and they were not a limit - they are a chamber-study dose-response framework, and no regulatory or consensus health-based limit exists for a non-specific sum that identifies no compound. Applying them produced a severity, a citation, a client-facing finding, a live field advisory, a sampling trigger and a causal-chain term. All of it was removed in 2026-08, together with the WELL v2 target that offered a third yardstick. Captioning a tier 'advisory' is what let it spread: a figure printed beside a measured value reads as a limit however it is labelled, and every surface that carried one also carried a disclaimer. no-molhave.test.ts pins the class rather than the instances - behavioural assertions through the real entry points at every tier boundary, plus a source sweep for a TVOC threshold in a rendered position with comments stripped, because twenty-odd files now carry removal records that name the figures and a guard that could not tell a record from a string would fire on its own documentation. It also pins what must REMAIN: the reading is still captured and unit-converted, the report says 'not evaluated' rather than 'acceptable', and the renovation-source TO-17 sampling entry still fires (it keys on a recorded source, not a concentration).",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "tests/engine/no-molhave.test.ts"
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "tvoc:\\s*\\{[^}]*(con|act|well)\\s*:|id:\\s*'(tvoc_molhave|molhave)",
+          "paths": [
+            "src/constants/standards.js",
+            "src/constants/criteria.js",
+            "src/utils/referenceProfiles.js",
+            "src/utils/sensorThresholds.js",
+            "src/engines/scoring.js",
+            "src/engines/liveAdvisor.js",
+            "src/engines/causalChains.js",
+            "src/engines/sampling.js"
+          ],
+          "_comment": "Anchored to the SHAPES a reintroduction would take - the STD.c.tvoc constant block, and a criterion or profile declared as `id: 'molhave...'` / `id: 'tvoc_molhave...'` - rather than the bare word. The runner does not strip comments and every one of these files now carries a removal record naming the tiers, their figures and their old ids; the unanchored form matched one of those records on the first run, which is the same false-positive class NO-COMPOSITE-SCORE and EDITORIAL-ENGINE-PARITY were both re-anchored to avoid. Verified both ways: 0 hits on the current tree, and a hit on each file when the constant block, the criterion or the profile is put back."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "stripComments|PROHIBITIONS",
+          "paths": [
+            "tests/engine/no-molhave.test.ts"
+          ],
+          "minCount": 2,
+          "_comment": "The general half. Without the source sweep - and without its two exemptions, one for removal records and one for the strings that FORBID the comparison - this criterion degrades into a handful of greps that say nothing about the next surface somebody adds."
         }
       ]
     },
@@ -2607,7 +2720,7 @@
             "src/report",
             "src/utils"
           ],
-          "_comment": "The methodology PROSE, not just the arithmetic. PrintReport.jsx published 'Appendix B \u2014 Transparent Scoring Summary' \u2014 the composite formula, the 25/25/20/15/15 point caps and a 1.5x weight for data halls \u2014 in a client deliverable for four months after v3.0 removed the score, and every check here stayed green. Two reasons, both now closed: the checks matched code shapes while this was rendered text, and the one guard that did sweep the file (no-scoring.test.ts) hunted for comparison operators that an HTML template writes as &lt; entities. That test now decodes entities and matches prose; this criterion is the independent second pair of eyes, because a single guard that can be blinded is not a guard. The pattern is anchored to a RENDERED shape \u2014 the phrase must follow a '>' inside a tag, or sit in the toc.push string literal \u2014 because the acceptance runner greps raw text with no comment stripping, and every file involved carries a removal record naming the section. Verified both ways before it was wired in: it matches all five of the lines that actually shipped, and none of the removal-record comments that describe them."
+          "_comment": "The methodology PROSE, not just the arithmetic. PrintReport.jsx published 'Appendix B — Transparent Scoring Summary' — the composite formula, the 25/25/20/15/15 point caps and a 1.5x weight for data halls — in a client deliverable for four months after v3.0 removed the score, and every check here stayed green. Two reasons, both now closed: the checks matched code shapes while this was rendered text, and the one guard that did sweep the file (no-scoring.test.ts) hunted for comparison operators that an HTML template writes as &lt; entities. That test now decodes entities and matches prose; this criterion is the independent second pair of eyes, because a single guard that can be blinded is not a guard. The pattern is anchored to a RENDERED shape — the phrase must follow a '>' inside a tag, or sit in the toc.push string literal — because the acceptance runner greps raw text with no comment stripping, and every file involved carries a removal record naming the section. Verified both ways before it was wired in: it matches all five of the lines that actually shipped, and none of the removal-record comments that describe them."
         },
         {
           "type": "grep_excludes",

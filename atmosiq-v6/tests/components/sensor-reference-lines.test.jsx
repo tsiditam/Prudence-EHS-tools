@@ -23,7 +23,11 @@ const series = (param, n = 4) =>
 describe('REF_LINE_DEFS catalogue', () => {
   it('exposes a key + source standard for every parameter family', () => {
     const keys = REF_LINE_DEFS.map((d) => d.key)
-    expect(keys).toEqual(expect.arrayContaining(['co2', 'rh', 'pm', 'co', 'tvoc']))
+    expect(keys).toEqual(expect.arrayContaining(['co2', 'rh', 'pm', 'co']))
+    // No 'tvoc' key: removed in 2026-08 with every TVOC threshold. Absent
+    // rather than present-and-never-applicable, so the toggle list does not
+    // advertise a reference the reader can never turn on.
+    expect(keys).not.toContain('tvoc')
     REF_LINE_DEFS.forEach((d) => expect(typeof d.std).toBe('string'))
   })
 
@@ -36,12 +40,13 @@ describe('REF_LINE_DEFS catalogue', () => {
     expect(def('co').applies(['co'], {})).toBe(true)
   })
 
-  it('gates the TVOC tiers to mass-based (µg/m³) series only — Mølhave tiers are µg/m³', () => {
-    const tvoc = REF_LINE_DEFS.find((d) => d.key === 'tvoc')
-    expect(tvoc.applies(['tvoc'], { tvoc: 'µg/m³' })).toBe(true)
-    expect(tvoc.applies(['tvoc'], { tvoc: 'ug/m3' })).toBe(true)
-    expect(tvoc.applies(['tvoc'], { tvoc: 'ppb' })).toBe(false)
-    expect(tvoc.applies(['tvoc'], { tvoc: 'ppm' })).toBe(false)
+  it('offers no TVOC line to gate', () => {
+    // This pinned the unit gate: the two tiers are published in µg/m³ and
+    // loggers often report ppb, so the line only applied to a mass-based
+    // series. The gate was correct and the tiers behind it were not — see
+    // tests/engine/no-molhave.test.ts — so the whole entry went rather than
+    // the gate being widened.
+    expect(REF_LINE_DEFS.find((d) => d.key === 'tvoc')).toBeUndefined()
   })
 })
 
@@ -50,12 +55,15 @@ describe('GRAPH_DEFS', () => {
     const byId = Object.fromEntries(GRAPH_DEFS.map((g) => [g.id, g]))
     expect(byId.co).toBeTruthy()
     expect(byId.tvoc).toBeTruthy()
-    // CO and TVOC have STD reference lines, so they carry a refKey.
+    // CO has an STD reference line, so it carries a refKey.
     expect(typeof byId.co.refKey).toBe('string')
-    expect(typeof byId.tvoc.refKey).toBe('string')
     // HCHO has no fixed reference line (unit-ambiguous) → no refKey, by design.
     expect(byId.hcho).toBeTruthy()
     expect(byId.hcho.refKey).toBeUndefined()
+    // TVOC joined it in 2026-08. Its chart is still drawn — the series is
+    // still worth seeing — but a refKey with no catalogue entry behind it
+    // would put an empty toggle in front of the reader.
+    expect(byId.tvoc.refKey).toBeUndefined()
   })
 })
 
@@ -75,11 +83,22 @@ describe('chart reference lines render from STD when showRefs is on', () => {
     expect(container.textContent).toContain(`NIOSH REL ${STD.c.co.niosh}`)
   })
 
-  it('TVOC chart shows Mølhave tiers for µg/m³ but not for ppb', () => {
-    const mass = render(<TVOCTimelineChart data={series('tvoc')} units={{ tvoc: 'µg/m³' }} width={500} height={240} showRefs />)
-    expect(mass.container.textContent).toContain(`${STD.c.tvoc.con} µg/m³`)
-    cleanup()
-    const ppb = render(<TVOCTimelineChart data={series('tvoc')} units={{ tvoc: 'ppb' }} width={500} height={240} showRefs />)
-    expect(ppb.container.textContent).not.toContain(`${STD.c.tvoc.con} µg/m³`)
+  it('TVOC chart draws the series and no reference line, in either unit', () => {
+    // A reference line is the most consequential mark on a chart — it is what
+    // a reader judges the trace against. `showRefs` is still accepted so the
+    // call site needs no special case; on this chart it has nothing to turn
+    // on.
+    for (const unit of ['µg/m³', 'ppb']) {
+      const r = render(<TVOCTimelineChart data={series('tvoc')} units={{ tvoc: unit }} width={500} height={240} showRefs />)
+      const text = r.container.textContent
+      // Match the LABEL a reference line carries, not a bare number: the Y
+      // axis legitimately ticks through 500 when the series spans it, and a
+      // guard that could not tell a tick from a threshold would be unusable.
+      expect(text, unit).not.toMatch(/Mølhave|Molhave/)
+      expect(text, unit).not.toMatch(/(?:500|3,?000|25,?000)\s*(?:µg\/m³|ug\/m3|ppb)/)
+      // The series itself is still charted.
+      expect(text, unit).toContain(unit)
+      cleanup()
+    }
   })
 })

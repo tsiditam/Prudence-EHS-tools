@@ -16,7 +16,7 @@
  *     → 200 { id, name, tokens_found, tokens_unknown }
  *
  *   POST { action: 'list' }
- *     → 200 { templates: [{ id, name, tokens_found, tokens_unknown,
+ *     → 200 { templates: [{ id, name, tokens_found, tokens_missing,
  *               size_bytes, created_at }] }
  *
  *   POST { action: 'delete', id }

@@ -27,8 +27,9 @@ import { ENGINE_VERSION, STANDARDS_MANIFEST_DATE } from '../version.js'
 //     for 1000 ppm CO₂", 63(2): 74–75) is a DIFFERENT document from
 //     the 2022 ASHRAE Position Document on Indoor Carbon Dioxide.
 //     Cite separately if both are referenced.
-//   • Mølhave 1991 paper title is "Volatile organic compounds, indoor
-//     air quality and health" (lowercase per Indoor Air style).
+//   • TVOC has NO threshold in this file and none anywhere in the
+//     platform (2026-08). If a TVOC number is being added here, that is
+//     the bug — see the TVOC removal record in constants/criteria.js.
 //   • Chen & Zhao 2011 paper is in Atmospheric Environment, not
 //     Building and Environment.
 
@@ -44,7 +45,9 @@ export const STANDARDS_MANIFEST = {
   // is moisture control, not thermal comfort - see the note on STD.t.rh.
   'EPA Mold, Moisture and Your Home': 'current (keep indoor RH below 60%, ideally 30-50%)',
   'WELL Building Standard v2': 'Q3 2024 (IAQ features A01/V01 — OPT-IN only: an assessor-selectable Logger Studio reference, never applied by the engine on its own; see certification_target in criteria.js)',
-  'Molhave TVOC tiers': '1991 (advisory only)',
+  // 'Molhave TVOC tiers' was removed in 2026-08 along with every TVOC
+  // threshold. The manifest lists what a report may CITE, and TVOC is no
+  // longer compared to anything, so there is nothing left to cite.
   // Move 5 — methodology currency layer. Bibliographic only — these
   // standards are NOT integrated into STD scoring thresholds (engine
   // is sacred); they appear in the report's Standards Currency
@@ -243,12 +246,11 @@ export const STD = {
     // number — see PM_NAAQS_NOTE in referenceProfiles.js.
     pm25: { epa: 35,    who: 15,   epaAnnual: 9,  whoAnnual: 5,  well: 15,  epaUnhealthy: 55.5 },
     pm10: { epa: 150,   who: 45,   whoAnnual: 15, well: 50 },
-    // TVOC `con` is 500 µg/m³ — the Mølhave 1991 multifactorial-exposure
-    // advisory tier (≈219 ppb isobutylene-equiv). Advisory only: TVOC has
-    // no consensus health limit; always carry the Mølhave disclaimer. `well`
-    // is the WELL v2 (A01) continuous-monitoring TVOC target, 500 µg/m³ (a
-    // green-building target, numerically coincident with Mølhave's tier).
-    tvoc: { con: 500,   act: 3000, well: 500 },
+    // `tvoc` held { con: 500, act: 3000, well: 500 } until 2026-08. All three
+    // are gone: the first two were Mølhave's 1991 advisory tiers, the third an
+    // unverified WELL v2 certification target. TVOC is measured and reported
+    // but never judged, so there is no threshold to keep. Any code reaching
+    // for STD.c.tvoc is reaching for a decision this platform no longer makes.
   },
 }
 

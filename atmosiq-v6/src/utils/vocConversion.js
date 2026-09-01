@@ -8,15 +8,20 @@
  *
  * Why this module exists at all
  * -----------------------------
- * Most field PIDs log TVOC in ppb; Mølhave's advisory tiers, WELL's
- * performance target and the engine's `tv` reading field are all µg/m³. So
- * a conversion has to happen somewhere, and it had been happening in three
+ * Most field PIDs log TVOC in ppb; the engine's `tv` reading field is µg/m³.
+ * So a conversion has to happen somewhere, and it had been happening in three
  * places under three different policies — the parse-to-reading path
  * converted (`sensorAveragesToFields`), the reference-projection path
  * refused to, and the criteria registry described a third rule. The same
  * ppb log therefore reached the assessment as a µg/m³ number scored against
- * Mølhave, and reached the monitoring report as "no valid comparison can be
- * made". Both cannot be right.
+ * an advisory tier, and reached the monitoring report as "no valid comparison
+ * can be made". Both cannot be right.
+ *
+ * This module is unaffected by the 2026-08 removal of every TVOC THRESHOLD.
+ * Nothing judges a TVOC reading any more, but readings still cross units —
+ * a logger reporting ppb feeding an engine field in µg/m³, a card displaying
+ * one while the series is stored in the other — and getting that wrong is a
+ * factual error about the air regardless of whether anything scores it.
  *
  * The policy, stated once
  * -----------------------
@@ -38,8 +43,7 @@
  * isobutylene-equivalent number is a real, reproducible measurement of the
  * air — it is what the instrument measured — but a PID's response varies by
  * compound, so it is not the speciated mass of whatever mixture is actually
- * present, and Mølhave's 500 µg/m³ is the mass of a defined 22-compound
- * chamber mixture. The comparison is indicative. That limitation belongs to
+ * present. The value is indicative. That limitation belongs to
  * the reading and exists in EVERY unit; it is not created by converting,
  * and withholding the conversion does not remove it.
  *

@@ -133,6 +133,11 @@ export function fromCloudRow(a) {
   out.comp = composite
   out.composite = composite
   if (a.updated_at) out.ts = a.updated_at
+  // Same conditional discipline as the acknowledgement below: this object is
+  // spread over a local copy, so an unconditional key would push `null` over
+  // a uid the local record already carries — re-identifying an assessment a
+  // customer may have paid against. Absent means the cloud has nothing to say.
+  if (a.assessment_uid) out.assessmentUid = a.assessment_uid
   // Emitted ONLY when the cloud actually has one. This object is spread
   // over a local copy, so an unconditional key would push `null` onto a
   // report whose acknowledgement had not synced up yet — silently
@@ -528,6 +533,12 @@ const SupaStorage = {
             // writes them any more. The `composite` column now carries the
             // finding census `summarizeAssessment` returns; it is the same
             // slot for the same thing, and it is not a rating.
+            // The assessment's durable identity. It also rides inside
+            // `payload`, so the round-trip works without this column — but it
+            // needs to be a real column for the server to bind on: a
+            // client-minted uid means nothing until a row proves this user
+            // owns it. See src/billing/assessmentUid.js.
+            assessment_uid: assessment.assessmentUid || null,
             // Lossless app-shape snapshot — preserves fields the flattened
             // columns drop (equipment, floorPlan, sensorData, labResults,
             // standardsManifest). fromCloudRow prefers this on the way down.
@@ -535,9 +546,17 @@ const SupaStorage = {
           }
           const { error } = await supabase.from('assessments').upsert(row)
           if (error) {
-            // payload column not migrated yet → retry without it so the core
-            // report still syncs (it restores via the flattened columns).
+            // A column this build writes is not migrated on this project yet
+            // → retry without the optional ones so the core report still
+            // syncs (it restores via the flattened columns, and
+            // `assessment_uid` also rides inside `payload`).
+            //
+            // Dropped together rather than probed one at a time: the error
+            // does not say WHICH column is missing, and a second failed
+            // round trip per save is worse than losing two optional fields
+            // on a project that is behind on migrations.
             delete row.payload
+            delete row.assessment_uid
             const { error: e2 } = await supabase.from('assessments').upsert(row)
             if (e2) throw e2
           }

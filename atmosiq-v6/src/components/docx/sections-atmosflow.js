@@ -73,6 +73,12 @@ const SEV = {
   advisory: { label: 'Advisory', color: PILL.amb },
   elevated: { label: 'Elevated', color: PILL.org },
   priority: { label: 'Priority', color: PILL.red },
+  // A parameter that was MEASURED but is not compared to anything — TVOC
+  // since 2026-08, when the Mølhave tiers were removed. Neutral grey, and
+  // deliberately not green: falling through to "Acceptable" would state a
+  // verdict the platform has no basis for, which is the more dangerous of the
+  // two ways to get an unjudgeable reading wrong.
+  not_evaluated: { label: 'Not evaluated', color: '6B7380' },
 }
 const sev = (t) => SEV[t] || SEV.ok
 const fmt = (v) => (v === null || v === undefined || v === '' ? '—' : String(v))

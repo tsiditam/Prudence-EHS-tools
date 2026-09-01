@@ -24,7 +24,13 @@ describe('summarizeParameters', () => {
     expect(p.co2.range).toBe('760–1247')
     expect(p.co2.outcome).toBe('elevated')      // max >= 1000
     expect(p.co.outcome).toBe('acceptable')      // < 9 ppm
-    expect(p.tvoc.outcome).toBe('advisory')      // 520 >= 500
+    // Not 'advisory' (520 >= Mølhave's 500) and pointedly not 'acceptable':
+    // since 2026-08 TVOC has no threshold, so the parameter cannot be
+    // called any of the three. Calling an unjudgeable reading acceptable is
+    // the more dangerous of the two errors available, which is why this is
+    // its own token rather than a fallback. See no-molhave.test.ts.
+    expect(p.tvoc.outcome).toBe('not_evaluated')
+    expect(p.tvoc.mean).toBe(365)                // still measured and reported
     expect(p.relativeHumidity.outcome).toBe('acceptable')
   })
   it('omits parameters with no data', () => {

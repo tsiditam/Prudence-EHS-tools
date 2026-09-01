@@ -886,7 +886,16 @@ Run tests after any change to `src/engine/`, `src/engines/`, `src/components/doc
   boundary does NOT rest on either label: in the report it is the
   limitation statement, and in chat the required "## Defensibility note"
   section.
-- TVOC interpretation without Mølhave 1991 advisory tier disclaimer
+- TVOC compared against any threshold, tier or band. AtmosFlow applies
+  none (2026-08): no consensus health-based limit exists for a
+  non-specific sum of organic species, so a TVOC reading is measured,
+  charted and reported, never described as above, below, within or
+  exceeding anything. This line used to say the opposite — it required a
+  Mølhave 1991 advisory-tier disclaimer on any TVOC interpretation, which
+  is how those tiers reached client-facing text with a caveat attached
+  and a severity behind them. The removal record is in
+  `src/constants/criteria.js`; the guard is
+  `tests/engine/no-molhave.test.ts`.
 - ASHRAE 62.1 cited as a CO₂ contaminant limit (it isn't — see Persily
   2021)
 - Spore counts framed as health proof (they aren't — IOM 2004,

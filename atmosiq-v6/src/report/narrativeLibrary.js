@@ -16,8 +16,9 @@
  *
  * Tone rules baked in: "consistent with / suggests / may indicate"; never
  * "caused / proves / unsafe / noncompliant"; ASHRAE 62.1 is a ventilation
- * indicator, not a CO2 limit; TVOC is a non-specific indicator (Mølhave
- * legacy context only); PM2.5/NAAQS cited for scale, not as an office limit.
+ * indicator, not a CO2 limit; TVOC is a non-specific indicator that this
+ * platform compares to nothing; PM2.5/NAAQS cited for scale, not as an
+ * office limit.
  */
 
 // ── Static "what it is and why we measure it" explainers ───────────
@@ -64,18 +65,24 @@ export const OBSERVED = {
       ? base + ' Levels were generally low and comparable to values commonly observed in mechanically ventilated office environments.'
       : base + ' Higher readings in some zones are consistent with intermittent local sources (e.g. printing or cooking) — transient and local rather than a building-wide condition.'
   },
-  tvoc(s, outcome) {
-    const base = `Observed: TVOC ranged ${r2(s)} (isobutylene-equivalent; site mean ${s.mean} ${s.unit}). TVOC by photoionization is a non-specific, instrument- and calibration-dependent reading: it does not identify individual compounds and, on its own, does not establish exposure or toxicological significance.`
-    return outcome === 'acceptable'
-      ? base + ' Readings did not suggest a prominent VOC source during the assessment window. The Mølhave (1991) tiers are noted only as legacy context.'
-      : base + ' Higher readings suggest that identifiable VOC sources are present and warrant source investigation. The Mølhave (1991) tiers are noted only as legacy context.'
+  // The only OBSERVED template that does not branch on outcome, and the
+  // signature keeps its second argument so every caller stays uniform.
+  // Until 2026-08 this branched acceptable / not-acceptable against Mølhave's
+  // tiers and closed each branch by naming them. With no TVOC threshold left,
+  // both halves became statements the data cannot carry: one said readings
+  // "did not suggest a prominent VOC source", the other that sources "are
+  // present" — a verdict either way, drawn from a sum that identifies no
+  // compound. What the reading supports is the reading, plus what would be
+  // needed to say more.
+  tvoc(s) {
+    return `Observed: TVOC ranged ${r2(s)} (isobutylene-equivalent; site mean ${s.mean} ${s.unit}). TVOC by photoionization is a non-specific, instrument- and calibration-dependent reading: it does not identify individual compounds and, on its own, does not establish exposure or toxicological significance. No consensus health-based limit exists for total VOCs and this assessment applies none, so the value is reported as measured — useful for comparing zones and tracking change, not for judging acceptability. Where a VOC source is suspected, speciation by sorbent tube with thermal desorption GC/MS (EPA Method TO-17) identifies the individual compounds, each of which has an exposure limit of its own.`
   },
 }
 
 // ── Fixed blocks ───────────────────────────────────────────────────
 export const SEVERITY_LEGEND_NOTE = 'Acceptable: within recognized references. Advisory: monitor / investigate source. Elevated: corrective action recommended. Priority: prompt action recommended.'
 
-export const REFERENCE_FRAMEWORK = 'Outcomes are compared against recognized consensus and regulatory references: ASHRAE 62.1 (ventilation, used as an indicator basis for CO2 — not a CO2 contaminant limit), ASHRAE 55 (thermal comfort), US EPA NAAQS (CO and PM2.5), OSHA PELs (29 CFR 1910.1000), and the Mølhave (1991) advisory tiers for TVOC. References are used to contextualize readings, not to render compliance determinations.'
+export const REFERENCE_FRAMEWORK = 'Outcomes are compared against recognized consensus and regulatory references: ASHRAE 62.1 (ventilation, used as an indicator basis for CO2 — not a CO2 contaminant limit), ASHRAE 55 (thermal comfort), US EPA NAAQS (CO and PM2.5), OSHA PELs (29 CFR 1910.1000). References are used to contextualize readings, not to render compliance determinations. TVOC is deliberately absent from that list: no consensus health-based limit exists for a non-specific sum of organic species, so the measured value is reported without comparison to any reference.'
 
 export const ABOUT_ATMOSFLOW = 'AtmosFlow is an IAQ assessment platform: it captures field observations and direct-reading measurements, compares them against recognized references, and assembles a consultant-grade, defensible report for review by a qualified industrial hygienist or EHS professional. It identifies risk indicators and produces prioritized follow-up — it does not make regulatory classifications or compliance determinations. Learn more at atmosflow.net.'
 

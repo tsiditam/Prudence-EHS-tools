@@ -77,7 +77,10 @@ function formatThresholds() {
     if (STD.c.co) lines.push(`  CO ppm: OSHA ${STD.c.co.osha}, NIOSH ${STD.c.co.niosh}`)
     if (STD.c.hcho) lines.push(`  HCHO ppm: OSHA ${STD.c.hcho.osha}, NIOSH ${STD.c.hcho.niosh}, action ${STD.c.hcho.al}`)
     if (STD.c.pm25) lines.push(`  PM₂.₅ µg/m³ (24h): EPA NAAQS ${STD.c.pm25.epa}, WHO ${STD.c.pm25.who}`)
-    if (STD.c.tvoc) lines.push(`  TVOC ppb (Mølhave 1991 advisory): concern ${STD.c.tvoc.con}, action ${STD.c.tvoc.act}`)
+    // TVOC is deliberately absent (2026-08). This block tells Jasper what
+    // limits it may cite; TVOC has none, and listing Mølhave's tiers here is
+    // exactly how the assistant came to quote them as though they were one.
+    lines.push('  TVOC: no exposure limit exists — a non-specific sum, not compared against anything. Do not cite a TVOC threshold.')
     lines.push('')
   }
 

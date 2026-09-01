@@ -34,7 +34,14 @@ describe('catalogue', () => {
     expect(profilesFor('pm10').map((p) => p.id)).toEqual(['epa', 'who', 'who-annual', 'well'])
     expect(profilesFor('co').map((p) => p.id)).toEqual(['epa-naaqs', 'niosh-rel', 'osha-pel', 'well'])
     expect(profilesFor('co2').map((p) => p.id)).toContain('outdoor-differential')
-    expect(profilesFor('tvoc').map((p) => p.id)).toEqual(['molhave', 'molhave-action', 'well', 'none'])
+    // TVOC offers nothing to choose between. Its four profiles (two Mølhave
+    // tiers, the WELL target and the explicit "no line" option) went in
+    // 2026-08 with every other TVOC threshold — and the KEY is absent rather
+    // than empty, because `parametersWithProfiles` returns `Object.keys`, so
+    // an empty array would still advertise a choice. See
+    // tests/engine/no-molhave.test.ts.
+    expect(profilesFor('tvoc')).toEqual([])
+    expect(parametersWithProfiles()).not.toContain('tvoc')
   })
 
   it('has a default for every parameter it covers', () => {
@@ -98,39 +105,23 @@ describe('the acute action tier (the figure’s red span)', () => {
     expect(resolveReference('pm25', 'epa-annual', { unit: 'µg/m³' })!.action).toBeNull()
     expect(resolveReference('pm25', 'well', { unit: 'µg/m³' })!.action).toBeNull()
     expect(resolveReference('co2', 'ashrae-advisory', { unit: 'ppm' })!.action).toBeNull()
-    expect(resolveReference('tvoc', 'molhave', { unit: 'ppb' })!.action).toBeNull()
+    expect(resolveReference('tvoc', 'molhave', { unit: 'ppb' })).toBeNull()  // no TVOC reference at all since 2026-08
     expect(resolveReference('temp', 'ashrae-comfort', { unit: '°F', ts: Date.UTC(2026, 6, 15) })!.action).toBeNull()
   })
 })
 
 describe('unit projection', () => {
-  it('projects the TVOC advisory into every unit that has a basis, naming what it assumed', () => {
-    const ugm3 = resolveReference('tvoc', 'molhave', { unit: 'µg/m³' })!
-    expect(ugm3.limit).toBe(STD.c.tvoc.con)
-    // 500 × 24.45 ÷ 56.11. The molecular weight is isobutylene's — a choice,
-    // not a fact about the mixture — so the number is only allowed out of
-    // the resolver with the choice attached to it.
-    const ppb = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!
-    expect(ppb.limit).toBe(218)
-    expect(ppb.note).toMatch(/isobutylene-equivalent/i)
-    // And the mass units assumed nothing, so they must not claim to have.
-    expect(ugm3.note || '').not.toMatch(/isobutylene-equivalent/i)
-  })
-
-  it('keeps the action tier above the advisory tier in every unit it resolves in', () => {
-    ;['µg/m³', 'mg/m³'].forEach((unit) => {
-      const a = resolveReference('tvoc', 'molhave', { unit })!.limit as number
-      const b = resolveReference('tvoc', 'molhave-action', { unit })!.limit as number
-      expect(b, `action tier not above advisory in ${unit}`).toBeGreaterThan(a)
-    })
-    // Including the volumetric units, where both tiers cross bases against
-    // the SAME reference compound — so the ordering has to survive the
-    // crossing. It would not if the two tiers ever picked different ones.
-    ;['ppb', 'ppm'].forEach((unit) => {
-      const a = resolveReference('tvoc', 'molhave', { unit })!.limit as number
-      const b = resolveReference('tvoc', 'molhave-action', { unit })!.limit as number
-      expect(b, `action tier not above advisory in ${unit}`).toBeGreaterThan(a)
-    })
+  it('has no TVOC advisory left to project', () => {
+    // This pinned 500 µg/m³ resolving to 218 ppb through isobutylene's
+    // molecular weight, with the choice of compound disclosed on the note —
+    // and, separately, that the mass units claimed no assumption they had not
+    // made. Both tiers were removed in 2026-08. The projection machinery is
+    // kept for any future mass-published threshold (see vocConversion.test),
+    // but TVOC no longer reaches it from any unit.
+    for (const unit of ['µg/m³', 'mg/m³', 'ppb', 'ppm']) {
+      expect(resolveReference('tvoc', 'molhave', { unit }), unit).toBeNull()
+      expect(resolveReference('tvoc', 'molhave-action', { unit }), unit).toBeNull()
+    }
   })
 
   it('delegates the season- and unit-dependent temperature band', () => {
@@ -150,13 +141,14 @@ describe('framing notes', () => {
     })
   })
 
-  it('no longer carries the Mølhave advisory caveat on the Mølhave TVOC profiles', () => {
-    ;['molhave', 'molhave-action', 'none'].forEach((id) => {
-      const p = profilesFor('tvoc').find((x) => x.id === id)!
-      expect(p.note, `unexpected note on tvoc/${id}`).toBeNull()
-    })
-    // The WELL performance target keeps its own certification-target note.
-    expect(profilesFor('tvoc').find((x) => x.id === 'well')!.note).toBeTruthy()
+  it('has no TVOC profile left to carry a caveat', () => {
+    // The caveat on the Mølhave profiles was dropped first, then the profiles
+    // themselves. Worth recording why the order went that way: the caveat
+    // said the tiers were advisory rather than regulatory, which read as a
+    // safeguard and worked as a delivery mechanism — a tier printed beside a
+    // measured value is a comparison however it is captioned. Removing the
+    // disclaimer did not make the tier safe; removing the tier did.
+    expect(profilesFor('tvoc')).toEqual([])
   })
 
   it('names a citable source for every profile that sets a value', () => {
@@ -181,11 +173,20 @@ describe('profiles that need data the session may not have', () => {
     expect(r.unavailable).toBe('outdoorBaseline')
   })
 
-  it('honours an explicit "no reference line" choice', () => {
-    const r = resolveReference('tvoc', 'none', { unit: 'ppb' })!
-    expect(r.limit).toBeNull()
-    expect(r.band).toBeNull()
-    expect(r.unavailable).toBeNull() // a choice, not a missing input
+  it('no longer offers an explicit "no reference line" choice anywhere', () => {
+    // `tvoc/none` was the only opt-out profile in the catalogue, and it went
+    // with the rest of TVOC's in 2026-08. It existed because TVOC was the one
+    // parameter where an assessor might reasonably want the series drawn with
+    // no line against it — which is now what TVOC does unconditionally, so
+    // the option has nothing left to express.
+    //
+    // The distinction it demonstrated survives and is asserted directly above
+    // on `co2/outdoor-differential`: a resolver that returns no number has to
+    // say WHY, and `unavailable` is what separates a missing input from a
+    // deliberate blank. Nothing today is the deliberate-blank case.
+    for (const param of parametersWithProfiles()) {
+      expect(profilesFor(param).map((x) => x.id), param).not.toContain('none')
+    }
   })
 
   it('accepts a custom comfort range', () => {
@@ -287,8 +288,12 @@ describe('PM10', () => {
   })
 
   it('every new reference carries a screening-framing note that passes the scanner', () => {
-    for (const [param, id] of [['pm25', 'epa-annual'], ['pm25', 'who-annual'], ['pm25', 'well'], ['co', 'well'], ['tvoc', 'well']] as const) {
-      const r = resolveReference(param, id, { unit: param === 'tvoc' ? 'µg/m³' : (param === 'co' ? 'ppm' : 'µg/m³') })!
+    // ['tvoc', 'well'] was in this list until 2026-08. The WELL TVOC target
+    // was removed with the Mølhave tiers rather than kept as the parameter's
+    // last selectable yardstick: opt-in does not rescue a figure with no
+    // health basis behind it.
+    for (const [param, id] of [['pm25', 'epa-annual'], ['pm25', 'who-annual'], ['pm25', 'well'], ['co', 'well']] as const) {
+      const r = resolveReference(param, id, { unit: param === 'co' ? 'ppm' : 'µg/m³' })!
       expect(r.note, `${param}/${id} note`).toBeTruthy()
       expect(scan(r.note as string), `banned language in ${param}/${id}`).toEqual([])
     }
@@ -338,90 +343,77 @@ describe('PM10', () => {
   })
 })
 
-describe('TVOC in the unit the instrument logged', () => {
-  const tvocPts = (unit: string, scale: number) => {
+describe('TVOC has no reference in any unit the instrument might log', () => {
+  // ── What this block used to pin, and why it is gone ──────────────────────
+  //
+  // It pinned that Mølhave's 500 µg/m³ projected into ~218 ppb through
+  // isobutylene's molecular weight, with the assumption disclosed on the note.
+  //
+  // That itself was a reinstatement. The projection had been withdrawn once,
+  // on the reasoning that 500 µg/m³ is the mass of a defined 22-compound
+  // chamber mixture while a PID reports isobutylene-equivalent response, so
+  // the two are different quantities. The reasoning was right about the
+  // limitation and wrong about the remedy: the limitation belongs to the
+  // READING and exists whichever unit the instrument displays, so withholding
+  // the tier from ppb removed it from half the instruments in the field on
+  // the basis of a display setting and left the other half comparing against
+  // it with no disclosure at all.
+  //
+  // In 2026-08 the question was settled at the root instead. There is no
+  // 500 µg/m³ tier. Mølhave's figures are a chamber-study dose-response
+  // framework, not a limit, and no consensus health-based limit exists for a
+  // non-specific sum — so the argument about which unit to state it in was an
+  // argument about how to render a comparison that should never have been
+  // made. Both tiers, and the WELL target beside them, are gone.
+  //
+  // The two properties this block proved about the STATEMENT machinery —
+  // scale-invariance and sub-unit precision — were real and are not about
+  // TVOC. They are re-asserted below on formaldehyde, which still has a
+  // reference and still crosses scales.
+
+  it('resolves nothing, in any unit, under any profile id', () => {
+    for (const id of ['molhave', 'molhave-action', 'well', 'none', 'default', '']) {
+      for (const unit of ['ppb', 'ppm', 'µg/m³', 'mg/m³', '']) {
+        expect(resolveReference('tvoc', id, { unit }), `${id}/${unit}`).toBeNull()
+      }
+    }
+  })
+})
+
+describe('a reference reads the same across scales, at its own precision', () => {
+  // Inherited from the TVOC block above. Formaldehyde is the right carrier:
+  // its NIOSH REL is 0.016 ppm, so ppm and ppb are one quantity at two
+  // scales, and the ppm magnitude is small enough to trip the rounding trap
+  // that once collapsed a cited reference to "0".
+  const hchoPts = (scale: number) => {
     const out: any[] = []
-    for (let i = 0; i < 30; i++) out.push({ t: T0 + i * 10 * MIN, tvoc: (i % 3 === 0 ? 340 : 90) * scale })
+    for (let i = 0; i < 30; i++) out.push({ t: T0 + i * 10 * MIN, hcho: (i % 3 === 0 ? 0.04 : 0.005) * scale })
     return out
   }
 
-  // ── What these tests pin, and the round trip they have been through ──
-  //
-  // They originally pinned that Mølhave's 500 µg/m³ projects into ~218 ppb.
-  // That was withdrawn on the reasoning that 500 µg/m³ is the mass of a
-  // defined 22-compound chamber mixture while a PID reports
-  // isobutylene-equivalent response, so the two are different quantities.
-  //
-  // The reasoning was right about the limitation and wrong about the remedy.
-  // The limitation is a property of the READING, and it exists whichever
-  // unit the instrument is set to display — a PID logging µg/m³ computes
-  // that number from the same isobutylene-equivalent response, internally,
-  // by the same arithmetic. Withholding the tier from ppb therefore did not
-  // remove an unsound comparison; it removed the tier from half the
-  // instruments in the field on the basis of a display setting, and left the
-  // other half comparing against it with no disclosure at all.
-  //
-  // So the tier projects into every unit with a basis, and the assumption is
-  // disclosed with it. That is the property pinned below.
+  const share = (unit: string, scale: number) => {
+    const ref = resolveReference('hcho', 'niosh-rel', { unit })!
+    return parameterStats(hchoPts(scale), 'hcho', { reference: { limit: ref.limit } })!.pctAbove
+  }
 
-  it('projects Mølhave into ppb against a named compound, and says which', () => {
-    const ppb = resolveReference('tvoc', 'molhave', { unit: 'ppb' })!
-    expect(ppb.limit).toBe(218)      // 500 × 24.45 ÷ 56.11
-    expect(ppb.unavailable).toBeFalsy()
-    // The assumption must reach the reader wherever the number does.
-    expect(ppb.note).toMatch(/isobutylene-equivalent/i)
-    expect(ppb.note).toMatch(/TO-17/)
+  it('puts the same share of readings above the reference whichever scale was logged', () => {
+    const inPpm = share('ppm', 1)
+    expect(share('ppb', 1000)).toBeCloseTo(inPpm, 5)
+    expect(inPpm).toBeGreaterThan(0)
   })
 
-  it('resolves in mass units, where the conversion is only a change of scale', () => {
-    const ug = resolveReference('tvoc', 'molhave', { unit: 'µg/m³' })!
-    expect(ug.limit).toBe(500)
-    const mg = resolveReference('tvoc', 'molhave', { unit: 'mg/m³' })!
-    // 0.5, not 1. Rounding a mass unit to whole numbers doubled the
-    // reference — a separate defect the measurand work surfaced.
-    expect(mg.limit).toBe(0.5)
-    for (const r of [ug, mg]) expect(r.unavailable).toBeFalsy()
-  })
-
-  it('applies the same disclosure to every mass-published TVOC tier', () => {
-    // Mølhave's action tier and WELL's performance target are the same kind
-    // of figure and cross the same way. A rule that reached only the tier
-    // that prompted it would let the next report state a converted number
-    // with nothing attached.
-    for (const id of ['molhave-action', 'well']) {
-      const r = resolveReference('tvoc', id, { unit: 'ppb' })!
-      expect(r.limit, `${id} did not resolve in ppb`).toBeGreaterThan(0)
-      expect(r.note, `${id} states no assumption`).toMatch(/isobutylene-equivalent/i)
-    }
-  })
-
-  it('reports the same air the same way across units that mean the same thing', () => {
-    // Was "one atmosphere, three units", spanning ppb, µg/m³ and ppm — and
-    // that framing was the error: for a TVOC mixture those are not one
-    // atmosphere described three ways, they are two different measurands.
-    // The property is real and still asserted, over the units where it is
-    // true: µg/m³ and mg/m³ are one quantity at two scales, so the share of
-    // readings above the reference must not depend on which was logged.
-    const share = (unit: string, scale: number) => {
-      const ref = resolveReference('tvoc', 'molhave', { unit })!
-      return parameterStats(tvocPts(unit, scale), 'tvoc', { reference: { limit: ref.limit } })!.pctAbove
-    }
-    const inUg = share('µg/m³', 2.283)
-    expect(share('mg/m³', 0.002283)).toBeCloseTo(inUg, 5)
-    expect(inUg).toBeGreaterThan(0)
-  })
-
-  it('states the reference in the reader’s unit, at its own precision', () => {
+  it('states the reference in the reader’s unit without rounding it away', () => {
     const say = (unit: string, scale: number) => {
-      const ref = resolveReference('tvoc', 'molhave', { unit })!
-      const st = parameterStats(tvocPts(unit, scale), 'tvoc', { reference: { limit: ref.limit } })!
-      return parameterStatement('tvoc', st, { limit: ref.limit }, { units: { tvoc: unit } })!
+      const ref = resolveReference('hcho', 'niosh-rel', { unit })!
+      const st = parameterStats(hchoPts(scale), 'hcho', { reference: { limit: ref.limit } })!
+      return parameterStatement('hcho', st, { limit: ref.limit }, { units: { hcho: unit } })!
     }
-    expect(say('µg/m³', 2.283)).toContain('(500 µg/m³)')
-    // A sub-unit magnitude must not collapse the cited value to "0 mg/m³".
-    // This was pinned in ppm, where the reference no longer resolves; mg/m³
-    // is the surviving unit where the same rounding trap exists — and it
-    // caught a real one: 0.5 mg/m³ was being rounded to 1.
-    expect(say('mg/m³', 0.002283)).toContain('(0.5 mg/m³)')
+    expect(say('ppb', 1000)).toContain('(16 ppb)')
+    // The sub-unit case, and the actual defect being guarded: the statement
+    // renders to two decimal places, so 0.016 ppm prints as 0.02 ppm — small,
+    // but still a number. Whole-number rounding here would cite "0 ppm", the
+    // same class of error that once doubled a 0.5 mg/m³ TVOC reference to 1.
+    expect(say('ppm', 1)).toContain('(0.02 ppm)')
+    expect(say('ppm', 1)).not.toContain('(0 ppm)')
   })
 })

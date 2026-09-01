@@ -177,12 +177,11 @@ function buildContextChips(context) {
     if (Number.isFinite(pm) && pm >= 12) {
       out.push({ id: 'pm', label: 'PM₂.₅ elevated', tone: 'warn', icon: 'cloud' })
     }
-    const tv = Number(zone.tv)
-    if (Number.isFinite(tv) && tv >= 500) {
-      // 500 µg/m³ — Mølhave 1991 advisory tier midpoint; surfaced
-      // as a signal that TVOC is in the "complaints possible" band.
-      out.push({ id: 'tvoc', label: 'TVOC elevated', tone: 'warn', icon: 'flask' })
-    }
+    // No TVOC chip, deliberately (2026-08). One fired at >= 500 µg/m³ and read
+    // "TVOC elevated" — Mølhave's advisory tier, rendered as a warning badge
+    // beside chips backed by real limits. Elevated relative to what is the
+    // question the platform no longer answers for TVOC; the value is shown in
+    // the readings, unlabelled.
   }
 
   return out

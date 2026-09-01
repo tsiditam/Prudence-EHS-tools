@@ -143,7 +143,7 @@ Eight strings moved:
 |---|---|
 | `ventilation_co2_only` | ASHRAE 62.1 compliance requires measured supply airflow… |
 | `ventilation_inadequate_outdoor_air` | CO₂ is a ventilation effectiveness indicator, not a contaminant (Persily 2021) |
-| `tvoc_screening_elevated` | Mølhave (1991) tiers are advisory benchmarks, not regulatory limits |
+| `tvoc_screening_elevated` | No consensus health-based exposure limit exists for total VOCs, and none is applied here *(reworded 2026-08: the string named the Mølhave tiers until every TVOC threshold was removed)* |
 | `objectionable_odor` | The presence of an odor does not necessarily indicate a health hazard |
 | `temperature_outside_comfort` | Comfort interpretation depends on activity level, clothing, physiology |
 | `humidity_microbial_amplification_range` | Continuous RH logging over 14+ days is recommended… |

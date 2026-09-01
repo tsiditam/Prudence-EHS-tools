@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
 import { resolveFinalizeTarget } from '../utils/finalizeTarget'
+import { ensureAssessmentUid } from '../billing/assessmentUid'
 import { hasDraftContent, isAbandonedDraft } from '../utils/draftContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
@@ -1138,7 +1139,12 @@ export default function MobileApp() {
       // re-finalize recomputes them. Fresh drafts have none, so this is a
       // no-op for them.
       const prev = (await STO.get(draftId)) || {}
-      const draft = { ...prev, id:draftId, presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, site_id: currentSiteId || null, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      // The assessment's durable identity, stamped on first save and never
+      // recomputed after — `ensureAssessmentUid` returns `prev`'s value when
+      // there is one. Record ids are not durable (finalize mints a new one),
+      // so anything that has to outlive the draft→report transition keys on
+      // this instead. See src/billing/assessmentUid.js.
+      const draft = { ...prev, id:draftId, assessmentUid: ensureAssessmentUid({ ...prev, id: draftId }), presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, site_id: currentSiteId || null, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
       await STO.set(draftId, draft)
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
@@ -1422,6 +1428,15 @@ export default function MobileApp() {
       }
     }
     if (!d) return false
+    // Backfill the durable identity on a record that predates it, and write
+    // it back so it is stamped once rather than re-derived on every open.
+    // DERIVED, never minted — `ensureAssessmentUid` is deterministic for a
+    // record that has an id, which is what stops a re-open from silently
+    // becoming a different assessment.
+    if (!d.assessmentUid) {
+      d = { ...d, assessmentUid: ensureAssessmentUid(d) }
+      try { await STO.set(id, d) } catch { /* quota — the value is derived, so the next open agrees anyway */ }
+    }
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
     setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
     setCurrentSiteId(d.site_id || null)  // PR 1: inherit site binding if the draft carries one
@@ -1647,7 +1662,19 @@ export default function MobileApp() {
     // PR 1: stamp the report with the bound site_id when present
     // (deep-link hydration or a previous "Save site" finalize).
     // siteLink.findMostRecentReportForSite uses this on the next round.
-    const report = { id:rid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
+    // Carry the assessment's durable identity ACROSS the id change.
+    //
+    // `rid` is a brand-new `rpt-` id whenever this is a first finalize, so
+    // deriving a uid from it here would hand the same assessment a different
+    // identity the moment it became a deliverable — the one transition the
+    // uid exists to survive. Read it off the record being finalized instead:
+    // the opened report when re-finalizing, else the draft body the autosave
+    // stamped. `ensureAssessmentUid` is the last resort, for a finalize with
+    // no stored body behind it at all.
+    const priorBody = (draftId ? await STO.get(draftId) : null) || {}
+    const assessmentUid =
+      viewRpt?.assessmentUid || priorBody.assessmentUid || ensureAssessmentUid({ id: draftId || rid })
+    const report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
     await STO.set(rid, report)
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
@@ -1769,7 +1796,12 @@ export default function MobileApp() {
     // the included charts from their data points here — a self-contained-SVG
     // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
     const sensorDataForReport = await ensureLoggerChartImages(sensorData)
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
+    // `id` is the record this export is OF. Without it every export of the
+    // same report mints a fresh Report ID downstream — see the fallback in
+    // src/report/reportModel.js. `viewRpt` is the opened finalized report;
+    // `draftId` is the session pointer, which finalize advances to the new
+    // report id, so this resolves to the same value on every re-export.
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', findings: comp?.findings?.total, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -1855,7 +1887,8 @@ export default function MobileApp() {
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    // `id` — the record this export is OF. See the note in executeExport.
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
       const built = await getAtmosFlowDocxBlob(reportData)
@@ -1906,7 +1939,8 @@ export default function MobileApp() {
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    const reportData = { building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    // `id` — the record this export is OF. See the note in executeExport.
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     const built = await getAtmosFlowDocxBlob(reportData)
     // Size pre-check. The DOCX is uploaded to Storage and attached to the
     // review email by the server; keep it under a cap that leaves the
@@ -2073,6 +2107,15 @@ export default function MobileApp() {
       setReportOpenError({ name: 'ReportNotFound', message: `Report "${meta?.facility || meta?.id}" could not be loaded from this device or the cloud.`, stack: '' })
       setViewRpt(meta); setView('report')
       return
+    }
+    // Same backfill as resumeDraft. This is the path a customer takes to
+    // re-download a report they already have, so a MINTED uid here would make
+    // an old report look like a new assessment on every open — under
+    // per-report pricing, a second charge for a document they already bought.
+    // `ensureAssessmentUid` derives deterministically from the record id.
+    if (!rpt.assessmentUid) {
+      rpt = { ...rpt, assessmentUid: ensureAssessmentUid(rpt) }
+      try { await STO.set(meta.id, rpt) } catch { /* quota — derived, so the next open agrees anyway */ }
     }
     setReportOpenError(null)
     trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', findings: meta.findings })

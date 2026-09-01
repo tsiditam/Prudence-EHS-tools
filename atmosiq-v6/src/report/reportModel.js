@@ -38,7 +38,11 @@ const PARAMS = [
   // humidity ratio) and no lower one. See STD.t.rh in constants/standards.js.
   { key: 'relativeHumidity', zoneKey: 'rh', label: 'Relative humidity', unit: '%', basis: 'US EPA moisture control (30–60%)' },
   { key: 'pm25', zoneKey: 'pm', label: 'Fine particulate (PM2.5)', unit: 'µg/m³', basis: 'US EPA NAAQS (context)' },
-  { key: 'tvoc', zoneKey: 'tv', label: 'Total VOCs (TVOC)', unit: 'µg/m³', basis: 'Mølhave (1991) advisory' },
+  // No basis, and the column says so. This read 'Mølhave (1991) advisory'
+  // until 2026-08; leaving a basis in place while the outcome column says
+  // Not evaluated would have the table cite a threshold the report then
+  // declines to apply. TVOC is measured and reported, never judged.
+  { key: 'tvoc', zoneKey: 'tv', label: 'Total VOCs (TVOC)', unit: 'µg/m³', basis: 'No applicable threshold — reported, not judged' },
 ]
 
 const OUTCOME = { acceptable: 0, advisory: 1, elevated: 2 }
@@ -68,7 +72,12 @@ function paramOutcome(key, s) {
     case 'temperature': return (max > STD.t.temp.summer.max || min < STD.t.temp.summer.min) ? 'advisory' : 'acceptable'
     case 'relativeHumidity': return (max > 70 || min < 20) ? 'elevated' : (max > STD.t.rh.max || min < STD.t.rh.min) ? 'advisory' : 'acceptable'
     case 'pm25': return max >= STD.c.pm25.epa ? 'elevated' : max >= STD.c.pm25.who ? 'advisory' : 'acceptable'
-    case 'tvoc': return max >= STD.c.tvoc.act ? 'elevated' : max >= STD.c.tvoc.con ? 'advisory' : 'acceptable'
+    // TVOC has no band. It was `>= act ? 'elevated' : >= con ? 'advisory'`
+    // against Mølhave's tiers until 2026-08. With no threshold behind it the
+    // parameter cannot be called elevated, advisory OR acceptable — the last
+    // is the one worth naming, because calling an unjudgeable reading
+    // "acceptable" is the more dangerous of the two errors.
+    case 'tvoc': return 'not_evaluated'
     default: return 'acceptable'
   }
 }
@@ -231,6 +240,16 @@ export function buildReportModel(data = {}, opts = {}) {
       assessorName: profile.name || ps.ps_assessor || 'Assessor',
       assessorCredentials: (profile.certs || []).join(', '),
       companyName: profile.firm || 'Prudence Safety & Environmental Consulting, LLC',
+      // The Report ID a client quotes back when they ring about a document.
+      // `data.id` is the record this export is of; the fallback is for a
+      // caller that has no record at all — the marketing sample, a preview.
+      //
+      // Until 2026-08 NO caller passed `id`, so the fallback ran every time
+      // and the SAME report printed a different Report ID on every export.
+      // Regenerate after a typo fix and the client is holding two documents
+      // that disagree about which one they are. `Date.now()` is a timestamp,
+      // not an identity: it changes on re-issue, which is precisely when a
+      // stable id matters most.
       reportId: data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`,
       mode: opts.mode || 'draft', // 'draft' | 'final' | 'sample'
       // Report lifecycle. `mode` above is the legacy switch and is kept
@@ -264,7 +283,10 @@ export function buildReportModel(data = {}, opts = {}) {
 
 // ── Render-model assembly (Report JSON + narrative library → renderer) ──
 
-const OUTCOME_TO_SEV = { acceptable: 'ok', advisory: 'advisory', elevated: 'elevated', priority: 'priority' }
+// `not_evaluated` maps to itself rather than falling through to `'ok'` —
+// the `|| 'ok'` at each call site would otherwise print "Acceptable" for a
+// parameter this platform has no basis to judge. See paramOutcome / TVOC.
+const OUTCOME_TO_SEV = { acceptable: 'ok', advisory: 'advisory', elevated: 'elevated', priority: 'priority', not_evaluated: 'not_evaluated' }
 const ENGINE_SEV_TO_SEV = { critical: 'priority', high: 'elevated', medium: 'advisory', low: 'ok', pass: 'ok', info: 'ok' }
 const REF_BASIS = {
   'ASHRAE 62.1-2025': 'Ventilation and Acceptable Indoor Air Quality. Ventilation-indicator basis for CO2 (prescribes airflow, not a CO2 limit).',

@@ -25,7 +25,13 @@
  *     conclusion it supported (practice acts on 35, not 50) is stated
  *     plainly without it.
  *   • Seifert (1990) — a second citation for the same background range
- *     Mølhave already supports, whose tiers are the ones actually applied.
+ *     Mølhave already supports, whose tiers were the ones actually applied.
+ *   • Mølhave (1991) — followed it out in 2026-08, on a different ground.
+ *     Seifert was cut for being redundant; Mølhave was cut because the
+ *     tiers themselves went. `applicableStandards` is printed to the client
+ *     as what a parameter was assessed against, so a paper whose figures the
+ *     engine does not apply states a basis that does not exist. See
+ *     tests/engine/no-molhave.test.ts.
  *   • NYC DOHMH — a second humidity number (65 %) beside the ASHRAE 55
  *     bound (60 %) that the engine applies, and a municipal document
  *     cited as a national benchmark, tagged `edition: 'current'` for
@@ -33,7 +39,7 @@
  *   • WELL v2 — see the certification-target block below.
  *
  * What was NOT cut, because each passes: the OSHA PELs, the NIOSH RELs,
- * ASHRAE 55 and 62.1, the EPA NAAQS, Mølhave, Persily, IICRC S520, and
+ * ASHRAE 55 and 62.1, the EPA NAAQS, Persily, IICRC S520, and
  * every sampling METHOD (NIOSH 2016 / 0800, EPA TO-17, and the ACGIH
  * *Bioaerosols* guidance in `sampling.js` — methodology, not a limit).
  * The specialty-occupancy standards (ISO 14644-1, NFPA 855, IEEE 1635,
@@ -63,6 +69,7 @@ describe('cut citations stay cut', () => {
     ['OSH Act General Duty Clause — an enforcement hook', /General Duty|5\(a\)\(1\)/i],
     ['the OSHA 1989 vacated-rule history', /1989 air.contaminants|vacated/i],
     ['Seifert (1990) — a duplicate of Mølhave', /Seifert/i],
+    ['Mølhave (1991) — the TVOC tiers went, so the citation went', /Mølhave|Molhave/i],
     ['NYC DOHMH — a second humidity number, cited nationally', /DOHMH|New York City Department of Health/i],
   ]
 
@@ -110,7 +117,7 @@ describe('a certification target is opt-in, never applied by the engine', () => 
     // co_well (9 ppm) tied co_epa_naaqs_8h (9); pm25_well (15) tied
     // pm25_who_24h (15) — a tier above matched first in both worst-first
     // ladders. pm10_well was ordered reachable, but nothing evaluates pm10:
-    // scoring.js calls evaluateCriteria for pm25, co, hcho and tvoc only.
+    // scoring.js calls evaluateCriteria for pm25, co and hcho only.
     // So this was dead weight carrying a citation, not a live comparison.
     const byId = new Map(allCriteria().map((c) => [c.id, c]))
     for (const [target, shadowedBy] of [
@@ -132,9 +139,13 @@ describe('a certification target is opt-in, never applied by the engine', () => 
     const well = Object.values(raw).flat().filter((p) => p.id === 'well')
     expect(well.length, 'the WELL profiles were deleted, not just de-automated').toBeGreaterThan(0)
 
-    // Only the LINKED ones — the TVOC profile declares its own source
-    // because no `tvoc_well` criterion exists, which is the documented
-    // pattern for a profile with no registry threshold behind it.
+    // Only the LINKED ones. The TVOC profile declared its own source
+    // because no `tvoc_well` criterion existed — the documented pattern for
+    // a profile with no registry threshold behind it, and the decision a
+    // guard once tried to overturn by inventing a criterion to satisfy
+    // itself. The profile was removed outright in 2026-08 with the rest of
+    // TVOC's, so the pattern it established now has no live instance; PM2.5,
+    // PM10 and CO keep their linked WELL profiles.
     const linked = well.filter((p) => p.criterionId)
     expect(linked.length, 'no WELL profile still links a criterion').toBeGreaterThan(0)
     const ids = new Set(allCriteria().map((c) => c.id))
@@ -164,7 +175,6 @@ describe('the citations that earn their place are still there', () => {
     ['ASHRAE 55', /ASHRAE (Standard )?55/],
     ['ASHRAE 62.1', /ASHRAE (Standard )?62\.1/],
     ['the EPA NAAQS', /NAAQS/],
-    ['Mølhave, for the TVOC tiers that have no regulatory limit', /Mølhave/],
     ['Persily, which forecloses reading CO₂ as a contaminant limit', /Persily/],
     ['a confirmatory sampling method', /NIOSH Method|TO-17/],
   ]

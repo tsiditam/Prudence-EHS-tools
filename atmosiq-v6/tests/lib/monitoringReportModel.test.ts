@@ -783,11 +783,24 @@ describe('a calibration that cannot vouch for the data withdraws the comparison'
   })
 })
 
-describe('the PID calibration gas reaches the reference table', () => {
-  // The session is where the span gas is recorded for a monitoring report;
-  // nothing else on that surface knows it. If the model does not pass it into
-  // reference resolution, the TVOC line silently reverts to isobutylene and
-  // the report contradicts its own instrument section.
+describe('the PID calibration gas has no TVOC reference left to weigh', () => {
+  // This block pinned that the session's recorded span gas reached reference
+  // resolution: with 'Toluene 100 ppm' the TVOC row read "133 ppb", without a
+  // recorded gas it read "218 ppb" and said the fallback was a convention
+  // rather than a record. Both numbers were Mølhave's 500 µg/m³ restated
+  // through a molecular weight.
+  //
+  // The tiers went in 2026-08 (tests/engine/no-molhave.test.ts), so there is
+  // no TVOC row to weigh and no contradiction left to prevent. What the
+  // reference table promises is "here is what each reading was compared
+  // against" — TVOC was compared against nothing, so it has no row rather
+  // than an empty one.
+  //
+  // The gas itself is still recorded and still load-bearing elsewhere: it
+  // drives the reading conversion on the Logger Studio card
+  // (`tvocEquivLabel`) and on log import (`sensorAveragesToFields`), where a
+  // ppb series crossing into a µg/m³ field needs a molecular weight whether
+  // or not anything scores the result.
   const tvocDataset = () => {
     const points: any[] = []
     for (let i = 0; i < 60; i++) points.push({ t: T0 + i * 10 * MIN, tvoc: 400 })
@@ -800,19 +813,30 @@ describe('the PID calibration gas reaches the reference table', () => {
       quality: { flags: [] },
     }
   }
-  const tvocRow = (over: any) =>
-    build({ datasets: [{ ...tvocDataset(), role: 'indoor' }], ...over })
-      .referenceRows.find((r: any) => r.param === 'tvoc')
+  const built = (over: any) => build({ datasets: [{ ...tvocDataset(), role: 'indoor' }], ...over })
+  const tvocRow = (over: any) => built(over).referenceRows.find((r: any) => r.param === 'tvoc')
 
-  it('restates Mølhave through the recorded compound', () => {
-    const row = tvocRow({ calibration: { date: '2026-03-12', gas: 'Toluene 100 ppm' } })
-    expect(row.value).toBe('133 ppb')
-    expect(row.note).toMatch(/toluene-equivalent/i)
+  it('produces no TVOC reference row, whatever gas the session recorded', () => {
+    for (const calibration of [
+      { date: '2026-03-12', gas: 'Toluene 100 ppm' },
+      { date: '2026-03-12', gas: 'Isobutylene 100 ppm' },
+      { date: '2026-03-12', gas: 'Freon 12' },
+      { date: '2026-03-12' },
+    ]) {
+      expect(tvocRow({ calibration }), JSON.stringify(calibration)).toBeUndefined()
+    }
   })
 
-  it('falls back to isobutylene when the session recorded no gas, and says so', () => {
-    const row = tvocRow({ calibration: { date: '2026-03-12' } })
-    expect(row.value).toBe('218 ppb')
-    expect(row.note).toMatch(/was not recorded/i)
+  it('still reports the TVOC series it measured', () => {
+    // Removal is not suppression. The parameter is monitored, summarised and
+    // charted; it is only never scored.
+    const m = built({ calibration: { date: '2026-03-12', gas: 'Toluene 100 ppm' } })
+    const tvoc = m.parameters.find((x: any) => x.param === 'tvoc')
+    expect(tvoc, 'the TVOC parameter should survive into the report model').toBeTruthy()
+    expect(tvoc.stats.mean).toBe(400)
+    expect(tvoc.unit).toBe('ppb')
+    // And carries no reference of any kind for the reader to judge it against.
+    expect(tvoc.reference?.limit ?? null).toBeNull()
+    expect(tvoc.reference?.band ?? null).toBeNull()
   })
 })

@@ -81,7 +81,10 @@ const STANDARD_DETECTION_PATTERNS: ReadonlyArray<readonly [string, ReadonlyArray
   ['IICRC S520', [/IICRC[\s-]*S520/i]],
   ['NIOSH Pocket Guide RELs', [/NIOSH/i, /\bREL\b/i]],
   ['EPA NAAQS', [/EPA[\s-]*NAAQS/i, /National\s*Ambient\s*Air\s*Quality\s*Standards/i]],
-  ['Molhave TVOC tiers', [/M[øo]lhave/i, /TVOC[\s-]*tiers?/i]],
+  // 'Molhave TVOC tiers' was removed in 2026-08 with every TVOC threshold.
+  // The tracker records what a report CITED; nothing cites Mølhave any more,
+  // and leaving the mapping would let a stray mention register as a tracked
+  // standard that the manifest no longer lists.
 ]
 
 /**

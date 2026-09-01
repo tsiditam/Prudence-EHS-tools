@@ -10,9 +10,11 @@
  * Surfaces:
  *   • Upload affordance (.docx, ≤ 5 MB) — drag-drop or file picker.
  *   • List of saved templates with name, upload date, and a Delete row.
- *   • Per-template "Inspect" expander showing tokens_found / unknown +
- *     a copyable "Available tokens" reference list pulled from the
- *     canonical registry.
+ *   • Per-template "Inspect" expander showing tokens_found / unknown.
+ *   • An "Available tokens" reference list pulled from the canonical
+ *     registry — flat {{tokens}} and repeating {{#sections}}. The header
+ *     comment claimed this existed before it did; a user cannot guess a
+ *     token name, and cannot guess the section syntax at all.
  *
  * No prose generation surface. Per the screening-only positioning,
  * templates fill literal data only; this panel does NOT expose any
@@ -20,7 +22,6 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import * as V3 from '../../styles/tokens'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -36,6 +37,7 @@ const DOCX_MIME =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 import { getAuthHeader, fmtDate } from './settingsHelpers'
+import { TOKEN_REGISTRY, LIST_REGISTRY } from '../../../lib/report-templates/token-registry'
 
 function fmtSize(bytes) {
   if (!bytes) return '—'
@@ -58,6 +60,76 @@ async function fileToBase64(file) {
     reader.onerror = () => reject(reader.error || new Error('read_failed'))
     reader.readAsDataURL(file)
   })
+}
+
+/**
+ * What an assessor can put in a template. Rendered from the canonical
+ * registries, so adding a token or a section shows up here with no edit.
+ */
+function TokenReference() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ borderTop: `1px solid ${BORDER}` }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: '100%', padding: '14px 16px', background: 'transparent',
+          border: 'none', textAlign: 'left', cursor: 'pointer',
+          fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>
+            Available tokens
+          </div>
+          <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>
+            {TOKEN_REGISTRY.length} fields and {LIST_REGISTRY.length} repeating sections
+          </div>
+        </div>
+        <span style={{ fontSize: 11, color: SUB, flexShrink: 0 }}>{open ? 'Hide' : 'Show'}</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 16px 16px', fontSize: 11, color: SUB }}>
+          <div style={{ color: TEXT, fontWeight: 600, margin: '4px 0 6px' }}>Fields</div>
+          {TOKEN_REGISTRY.map((t) => (
+            <div key={t.token} style={{ marginBottom: 6 }}>
+              <div style={{ fontFamily: 'monospace', color: ACCENT }}>{`{{${t.token}}}`}</div>
+              <div style={{ color: DIM }}>{t.description}</div>
+            </div>
+          ))}
+
+          <div style={{ color: TEXT, fontWeight: 600, margin: '14px 0 6px' }}>
+            Repeating sections
+          </div>
+          <div style={{ color: DIM, marginBottom: 8 }}>
+            Wrap a table row — or any block — in a section and it repeats once per
+            item. Put the opening and closing tags in their own paragraph or
+            table row; everything between them is the repeated block.
+          </div>
+          {LIST_REGISTRY.map((l) => (
+            <div key={l.section} style={{ marginBottom: 10 }}>
+              <div style={{ fontFamily: 'monospace', color: ACCENT }}>
+                {`{{#${l.section}}} … {{/${l.section}}}`}
+              </div>
+              <div style={{ color: DIM, marginBottom: 3 }}>{l.description}</div>
+              {l.fields.map((f) => (
+                <div key={f.name} style={{ paddingLeft: 10 }}>
+                  <span style={{ fontFamily: 'monospace', color: SUCCESS }}>{`{{${f.name}}}`}</span>
+                  <span style={{ color: DIM }}> — {f.description}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+
+          <div style={{ color: DIM, marginTop: 10, lineHeight: 1.5 }}>
+            Every value is literal data from the assessment. Nothing here is
+            written by the assistant, and no token makes a determination.
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function ReportTemplatesPanel() {
@@ -347,6 +419,8 @@ export default function ReportTemplatesPanel() {
           </div>
         )
       })}
+
+      <TokenReference />
     </div>
   )
 }

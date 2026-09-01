@@ -52,13 +52,15 @@ export function generateSamplingPlan(zones, bldg) {
         controls:'Outdoor control sample. Pre-renovation baseline if available.',
         standard:'EPA TO-17 · AIHA Indoor Air Quality for Low-Rise Residential Buildings' })
     }
-    if (d.tv && +d.tv > STD.c.tvoc.con && !(d.hc && +d.hc > STD.c.hcho.niosh)) {
-      plan.push({ zone:zName, type:'VOC Speciation', priority:'medium',
-        hypothesis:'Elevated TVOCs ('+d.tv+' ug/m3) by PID — speciation needed',
-        method:'TO-17 sorbent tube or SUMMA canister (TO-15) for full VOC profile',
-        controls:'Outdoor control. PID cannot identify individual compounds — lab analysis required.',
-        standard:'EPA Compendium Methods TO-15 / TO-17' })
-    }
+    // A TVOC-triggered speciation recommendation lived here, gated on the
+    // reading exceeding Mølhave's 500 µg/m³ advisory tier. It was removed in
+    // 2026-08 with every other TVOC threshold: the recommendation was sound,
+    // but the trigger described the reading as "elevated", which is a
+    // judgement against a limit that does not exist.
+    //
+    // The renovation/off-gassing TO-17 entry above is unaffected — it fires on
+    // a recorded SOURCE (recent renovation, new materials), not on a
+    // concentration, so it needs no threshold to be defensible.
     if (d.co && +d.co > 5) {
       plan.push({ zone:zName, type:'Combustion Gas', priority:+d.co > STD.c.co.niosh?'critical':'medium',
         hypothesis:'Elevated CO ('+d.co+' ppm) indicates combustion gas intrusion',

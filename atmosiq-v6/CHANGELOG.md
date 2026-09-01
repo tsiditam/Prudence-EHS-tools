@@ -1,5 +1,183 @@
 # AtmosFlow Changelog
 
+## Report templates: reachable, filled, and repeating
+
+**User-visible change**
+
+**Settings → Reports → Report Templates** now exists. Upload a `.docx` with
+`{{tokens}}` in it, and Jasper's `generate_report` fills it from the
+assessment.
+
+Templates can now contain **repeating sections**. Wrap a table row in
+`{{#findings}} … {{/findings}}` and it renders once per finding; the same works
+for `zones`, `recommendations` and `sampling_plan`. Settings carries a
+reference list of every field and section, generated from the registry.
+
+**Two defects behind this, and they compounded**
+
+*It was unreachable.* `SettingsScreen` never imported `ReportTemplatesPanel`.
+The renderer, the token registry, the upload/list/delete API, the private
+Storage bucket with its RLS, the Jasper tool and the panel itself were all
+built and tested — and nothing in the app could upload a template, so
+`generate_report` could only ever answer `no_templates_saved`. Its own failure
+message points the assessor at "Settings → Report Templates", a place that did
+not exist.
+
+*It rendered blank.* The token resolvers were authored against the flat
+`context = {...}` literal `MobileApp.jsx` used to hand Jasper — `findings`,
+`recommendations` and `sampling_plan` at the top level. Jasper was migrated
+onto `buildAssessmentContext`, where those live at `walkthrough_findings` and
+under `engine_outputs`, and the render path inherited the new shape with the
+resolvers unrepointed. **Thirteen of twenty-seven tokens went dead**, including
+every finding, recommendation, sampling and report-identity token.
+
+A missing token renders blank *by design* — that is the right behaviour for a
+field the assessor left empty, and it is why this had no symptom. A rendered
+report came out as letterhead with a client name and a zone list, and nothing
+anywhere went red.
+
+**What changed**
+
+- Every resolver now reads the canonical `AssessmentContext` path **first**,
+  with the legacy paths kept behind it as fallbacks (`buildJasperContext`
+  aliases `presurvey` and `bldg` onto the payload, and older saved records
+  still carry them).
+- Recommendations are read from the `{imm, eng, adm, mon}` buckets `genRecs`
+  actually returns. The old resolver filtered a flat array on
+  `priority === 'immediate'`; the rows carry no `priority` field at all, so it
+  needed reshaping as well as repointing.
+- The sampling plan reads `{zone, type, method, standard}` — the fields
+  `generateSamplingPlan` emits — not the `analyte` / `location` the old
+  literal used.
+- `report.date` resolves from `ps_survey_date`, the required "Date of survey"
+  intake field. It was reading `meta.assessment_date`, which does not exist;
+  `meta.generated_at` was the tempting substitute and is wrong, because it
+  would silently re-date an old assessment to today on every re-render.
+- `assessor.title` was **removed**. It read `profile.title`, and the app has no
+  job-title field anywhere, so it could never fill. A registry entry that
+  cannot resolve is worse than none — Settings advertised it and templates
+  rendered it blank. Templates still using it now report it as an unknown
+  token, which is the feedback that was missing.
+
+**The qualitative-only marking now reaches a template**
+
+CLAUDE.md's defensibility primitive says the `qualitative_only` flag
+"propagates to every rendered output of that finding". The template path
+carried it nowhere: `buildAssessmentContext` sets it on every finding and no
+token surfaced it, so a user template rendered a qualitative-only finding
+indistinguishable from an instrument-backed one. Finding rows now carry a
+`{{qualitative_note}}` field, and the flat bullet block marks it too.
+
+**Guard**
+
+The regression that closes the class is a test that renders against a **real**
+`buildJasperContext` — built from real app state, through the real engine.
+The previous fixture was hand-shaped to match the resolvers, so it agreed with
+them and with nothing else; that agreement is what let thirteen dead tokens
+sit unnoticed. Reverting the repair fails eight tests in that file. Acceptance
+criterion `REPORT-TEMPLATES` was eight `file_exists` checks and passed
+throughout both defects; it now asserts the mount, the section registry, and
+that the real-context test exists.
+
+**Not in this change**
+
+`ai_*` prose tokens. A user template has no `aiProvenanceBanner()` hook, so
+model-written text would land under the assessor's letterhead and credentials
+with nothing marking it as model-written. That needs deciding before it is
+built.
+
+
+## TVOC is no longer judged — the Mølhave advisory tiers are removed
+
+**User-visible change**
+
+A total-VOC reading is still captured, converted between units, charted,
+tabulated and reported. It is no longer compared against anything.
+
+Concretely: no TVOC finding, at any concentration. No reference line on the
+TVOC chart and no reference row in the monitoring report. No "TVOC elevated"
+chip in the field assistant, and no live advisory when a reading crosses 500
+or 3,000 µg/m³. No TVOC-triggered speciation entry in the sampling plan, and
+no TVOC term in the chemical causal chain. In the client DOCX the parameter's
+Basis column reads "No applicable threshold — reported, not judged" and its
+outcome is **Not evaluated** — a distinct token, deliberately not
+*Acceptable*.
+
+**Why**
+
+TVOC is a non-specific sum. A photoionization detector aggregates whatever it
+responds to into one mass-equivalent number and identifies none of it, and no
+regulatory or consensus health-based limit exists for that quantity.
+
+The platform's only basis for judging one was Mølhave (1991) — a chamber-study
+dose-response framework describing how symptom likelihood varied across a
+defined 22-compound mixture. It is not a limit and was never promulgated as
+one, and applying it produced a severity, a citation, a client-facing finding,
+a field advisory, a sampling recommendation and a causal-chain term as though
+it were.
+
+Every surface that carried a tier also carried a disclaimer saying it was
+advisory rather than regulatory. That is the part worth recording: **the
+disclaimer was the delivery mechanism, not the safeguard.** A figure printed
+beside a measured value reads as a limit however it is captioned, so the
+caveat let the tier travel while appearing to be careful about it. The
+platform's own anti-pattern list had it backwards — it REQUIRED the Mølhave
+disclaimer on any TVOC interpretation, which is a rule that mandates the
+comparison it means to qualify.
+
+**What went with them**
+
+The WELL v2 TVOC target (500 µg/m³) too, rather than being kept as the
+parameter's last selectable yardstick. Opt-in does not rescue a figure with no
+health basis behind it, and leaving one reference in place would have made
+"is this reading acceptable" answerable again by a different route.
+
+Also removed: the `molhave-tvoc-framework` corpus entry and the Mølhave row in
+the exposure-limit lookup table (both are what the assistant CITES from, so an
+entry there is a citable threshold whatever the note beside it says), the
+manifest entry, the parameter-prose citation, and the TVOC threshold from the
+sample report shipped in `docs/`.
+
+**What was inverted rather than deleted**
+
+Two rules had to flip, not go. The pre-review linter flagged TVOC
+interpretations that did NOT cite Mølhave; left in place it would have fired
+on every honest sentence and told the assessor to add a reference the platform
+had just deleted. It now flags TVOC described as above, below, within or
+exceeding any limit — and reads "total VOCs" as well as the acronym, because
+that is the label the report itself prints. The same inversion was applied to
+the semantic pre-review prompt and to the CLAUDE.md anti-pattern.
+
+**What deliberately stayed**
+
+- `utils/vocConversion.js`, untouched. A logger reporting ppb feeding an
+  engine field denominated in µg/m³ still has to cross bases correctly and
+  disclose the compound it crossed against. That is a factual question about
+  the air, and it stays one whether or not anything scores the result.
+- The LEED / green-building 500 µg/m³ corpus entry, whose text now states
+  outright that AtmosFlow applies no TVOC threshold. An assessor meets that
+  figure in a specification and needs to know what it is.
+- The renovation/off-gassing TO-17 sampling entry, which fires on a recorded
+  SOURCE rather than a concentration and never needed a threshold to be
+  defensible. Removing an over-reaching trigger must not leave a real one with
+  nothing to say.
+- The `equivalenceBasis` field and its projection, now with no caller. The
+  contract is kept whole so it does not silently do nothing the next time a
+  mixture threshold is added.
+
+**Guard**
+
+`tests/engine/no-molhave.test.ts`, acceptance criterion `NO-TVOC-THRESHOLD`.
+It pins the class rather than the instances: behavioural assertions through
+the real entry points at every tier boundary the removed criteria used, plus a
+sweep of `src/`, `api/` and `lib/` for a TVOC threshold in a rendered position.
+The sweep strips comments first — twenty-odd files now carry removal records
+that name the tiers and quote their figures, and a guard that could not tell a
+record from a shipped string would fail on its own documentation. It also pins
+what must remain, because an absence-only guard is satisfied by deleting too
+much.
+
+
 ## Engine v3.0.0 — the 100-point composite score is removed
 
 **User-visible change**
@@ -241,6 +419,71 @@ Guards: `monitoring-report-summary` (22), `read-monitoring-report` (17),
 `monitoring-report-persistence` (6). Verified by inversion — forcing a
 "Within Reference" over a withheld comparison fails 4, dropping the
 envelope field fails 1. Gate: `IEMR-JASPER-READABLE` (prod-ready now 74).
+
+**A report keeps one identity across every export**
+
+Both renderers have always honoured `data.id` for the Report ID — and no
+caller ever passed one. So both fell through to
+`AIQ-${Date.now().toString(36)…}` on every export, and the **same report
+regenerated after a typo fix came out bearing a different identity from the
+copy the client already held.** Two documents, one assessment, disagreeing
+about which one they are. The Report ID is what a client quotes back when
+they ring about a document and what a reviewer writes on a finding.
+
+`Date.now()` is a timestamp, not an identity: it changes on re-issue, which
+is precisely when a stable id matters most. The three `reportData` builds —
+export, share, peer-review email — now carry `id: viewRpt?.id || draftId`.
+The fallback stays for a caller with no record behind it at all (the
+marketing sample); what must not happen is a caller that HAS a record still
+landing on it.
+
+Deliberate contrast with `datasetHash`, which fingerprints the READINGS and
+is invariant across re-issue for the opposite reason: it answers *"is this
+the same data"*, where this answers *"is this the same report"*.
+
+**An assessment now has a durable identity**
+
+Record ids are not durable. `resolveFinalizeTarget` mints a fresh
+`rpt-<timestamp>` the first time a `draft-<timestamp>` session finalizes, so
+the id an assessment is known by changes exactly once — at the moment it
+becomes a deliverable. Fine for storage, which is all it was asked to do.
+Useless as a key for anything that must outlive that transition.
+
+`src/billing/assessmentUid.js` adds one that survives draft → finalize →
+re-open → re-finalize, riding alongside the record id rather than replacing
+it. `finalizeTarget.js` is untouched: record ids are load-bearing across six
+`supabaseStorage.js` call sites that split drafts from reports on the
+id/status shape, and the duplicate-reports bug already lives there.
+
+**`deriveLegacyUid` is pure, and that is the whole point.** Every existing
+assessment has no uid. If opening one MINTS instead of DERIVES, the record's
+identity changes on every open — and under per-report pricing, re-downloading
+last month's report would charge for it again, silently, because from the
+code's view it is simply a different assessment. So: existing uid, else
+derive deterministically from the record id, and mint only when there is
+neither. No clock, no randomness, no I/O. Finalize **carries** the uid across
+the id change rather than re-deriving from the new `rpt-` id — one line, and
+the reason the module exists.
+
+Migration 032 adds `assessments.assessment_uid` with `UNIQUE (user_id,
+assessment_uid)`. Nullable, no backfill — a SQL backfill would be a second
+implementation of a function whose entire job is to agree with the first.
+The column exists so the **server** can bind on it: a client-minted uid means
+nothing until a row proves this user owns it. It also rides inside `payload`,
+so the client round-trip works on a project that has not migrated yet — and
+the upsert retry now drops `assessment_uid` alongside `payload` so an
+unapplied migration cannot break all syncing.
+
+Guards: `assessmentUid` (17) pins purity, RFC-4122 shape, collision behaviour
+across consecutive `Date.now()` ids, and the crypto-less PWA fallback;
+`assessmentUid-wiring` (11) pins that finalize carries rather than re-derives,
+that both re-open paths backfill, and that a cloud row without a uid cannot
+blank a local one. Verified by inversion — making `openReport` mint fails the
+re-open guard. `report-id-stability` (8) covers the export identity, including
+a source-level check that all three build sites pass the id.
+
+Neither change is billing. Both are prerequisites for it, and both fix real
+defects on their own.
 
 ## Engine v2.8.0 — HVAC equipment-scoped recommendations
 

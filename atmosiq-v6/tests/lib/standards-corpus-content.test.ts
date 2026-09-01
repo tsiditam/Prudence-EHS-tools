@@ -16,17 +16,21 @@ import { searchCorpus } from '../../src/utils/corpus-search.js'
 
 const byId = (id: string) => STANDARDS_CORPUS.find((c: { id: string }) => c.id === id)
 
-describe('standards corpus — Mølhave tiers carry µg/m³ equivalents', () => {
-  const molhave = byId('molhave-tvoc-framework') as { text: string } | undefined
-  it('exists', () => expect(molhave).toBeDefined())
-  it('states the µg/m³ equivalents', () => {
-    expect(molhave!.text).toContain('200 µg/m³')
-    expect(molhave!.text).toContain('200–3000 µg/m³')
-    expect(molhave!.text).toContain('25000 µg/m³')
-  })
-  it('warns against ppb and against conflating the 500 target', () => {
-    expect(molhave!.text).toMatch(/not expressed in ppb/i)
-    expect(molhave!.text).toMatch(/500 µg\/m³/)
+describe('standards corpus — the TVOC dose-response entry is gone', () => {
+  // `molhave-tvoc-framework` recited the four 1991 tiers with their µg/m³
+  // equivalents, a warning against expressing them in ppb, and a warning
+  // against conflating them with the LEED 500 µg/m³ target. All of that was
+  // careful, and none of it should have been in the corpus: this is what
+  // Jasper CITES from, so an entry describing a four-tier construct is a
+  // threshold the assistant will quote whether or not the engine applies one.
+  // Removed in 2026-08 with every other TVOC threshold — see
+  // tests/engine/no-molhave.test.ts.
+  it('holds no dose-response entry for TVOC under any id', () => {
+    expect(byId('molhave-tvoc-framework')).toBeUndefined()
+    for (const c of STANDARDS_CORPUS as Array<{ id: string; citation?: string; text: string }>) {
+      expect(c.id, 'corpus id').not.toMatch(/molhave|mølhave/i)
+      expect(String(c.citation || ''), `citation on ${c.id}`).not.toMatch(/molhave|mølhave/i)
+    }
   })
 })
 
@@ -47,9 +51,19 @@ describe('standards corpus — separate LEED/general 500 µg/m³ TVOC target', (
     expect(r.length).toBeGreaterThan(0)
     expect(r[0].chunk.id).toBe('tvoc-500-green-building-target')
   })
-  it('does NOT displace the Mølhave query top-match', () => {
-    const r = searchCorpus('Mølhave TVOC framework', { k: 3 })
-    expect(r[0].chunk.id).toBe('molhave-tvoc-framework')
+  it('is now the only TVOC figure in the corpus, and says the platform applies none', () => {
+    // This used to assert the LEED entry did not displace the Mølhave one as
+    // the top match for a Mølhave query. There is no Mølhave entry to
+    // displace. What matters instead is that the surviving 500 µg/m³ figure
+    // cannot be read as AtmosFlow's own threshold, so its text says outright
+    // that the platform applies none — the entry is kept because an assessor
+    // meets that number in a green-building specification and needs to know
+    // what it is, not because anything here compares a reading to it.
+    expect(leed!.text).toMatch(/AtmosFlow itself applies NO TVOC threshold/i)
+    const r = searchCorpus('TVOC limit threshold', { k: 5 })
+    for (const hit of r) {
+      expect(hit.chunk.id, 'a TVOC threshold entry came back').not.toMatch(/molhave|mølhave/i)
+    }
   })
 })
 
