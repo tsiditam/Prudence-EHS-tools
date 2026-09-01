@@ -33,8 +33,8 @@ import {
   priorQuarter,
   isDigestEligible,
   type AuditRow,
-} from '../lib/portfolio/digest-stats'
-import { enqueuePortfolioDigest } from '../lib/email-triggers'
+} from '../lib/portfolio/digest-stats.js'
+import { enqueuePortfolioDigest } from '../lib/email-triggers.js'
 
 const BATCH_SIZE = 500
 // Cap how many audit_log rows we keep per user — a power user with

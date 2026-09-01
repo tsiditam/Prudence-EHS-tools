@@ -16,7 +16,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { getTemplate, type UserContext } from '../lib/email-sequences'
+import { getTemplate, type UserContext } from '../lib/email-sequences.js'
 
 const FROM = process.env.RESEND_FROM_ADDRESS || 'support@prudenceehs.com'
 const RESEND_API = 'https://api.resend.com/emails'

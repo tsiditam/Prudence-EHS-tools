@@ -23,11 +23,11 @@ import {
   CAL_VALIDITY_DAYS,
   CAL_WARN_DAYS,
   type CalibrationBannerState,
-} from '../lib/calibration/banner-state'
+} from '../lib/calibration/banner-state.js'
 import {
   enqueueCalibrationReminder,
   type CalibrationKind,
-} from '../lib/email-triggers'
+} from '../lib/email-triggers.js'
 
 const BATCH_SIZE = 500
 

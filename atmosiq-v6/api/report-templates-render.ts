@@ -26,7 +26,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   renderTemplate,
   TemplateRenderError,
-} from '../lib/report-templates/render'
+} from '../lib/report-templates/render.js'
 
 const MAX_FILENAME_LEN = 200
 const BUCKET = 'report-templates'

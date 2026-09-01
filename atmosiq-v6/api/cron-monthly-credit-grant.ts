@@ -8,8 +8,8 @@
  * Wired in vercel.json under "crons".
  */
 
-import { runMonthlyCreditGrant } from '../scripts/cron-monthly-credit-grant'
-import { requireCronSecret } from './_cron-auth'
+import { runMonthlyCreditGrant } from '../scripts/cron-monthly-credit-grant.js'
+import { requireCronSecret } from './_cron-auth.js'
 
 interface VercelLikeReq {
   method?: string

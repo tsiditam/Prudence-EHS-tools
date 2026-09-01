@@ -674,9 +674,20 @@ on this codebase. Watch for them.
    The crash silently passed every local gate and only surfaced on
    atmosflow.net.
 
-   **The rule:** any `.js` / `.mjs` file that's transitively
-   reachable from `api/**` must NOT import an extension-less path
-   that resolves to a `.ts` / `.tsx` file. Two ways to satisfy it:
+   **The rule (corrected 2026-09-01 — see below):** NO file transitively
+   reachable from `api/**` may use a relative import without a file
+   extension, whatever the importer is written in. Vercel TRANSPILES each
+   `api/**` entry and traces its imports rather than bundling them, so what
+   runs is Node ESM, and Node ESM requires an explicit extension on every
+   relative specifier. Append `.js`: TypeScript resolves `'./x.js'` to `x.ts`
+   at compile time and Node resolves it to the emitted `x.js` at runtime.
+   `api/field-assistant.ts` has always done this (`'../lib/sentry.js'`) and
+   has always worked.
+
+   **The narrower original rule**, which is what shipped as the guardrail:
+   any `.js` / `.mjs` file transitively reachable from `api/**` must NOT
+   import an extension-less path that resolves to a `.ts` / `.tsx` file.
+   Two ways to satisfy it:
    (a) inject the dep via a `ctx` parameter from a `.ts` entry
    point (the `analyze_photo` / `generate_report` pattern in
    `api/field-assistant.ts`), or (b) convert the importer itself
@@ -688,11 +699,40 @@ on this codebase. Watch for them.
    **The guardrail:** `scripts/check-api-js-imports.mjs` runs as
    part of `npm run lint` (wired through `lint:imports`) and as
    acceptance criterion `API-JS-IMPORT-GUARDRAIL`. It walks the
-   import graph rooted at `api/**`, collects every `.js`/`.mjs`
-   file reached, and fails if any of their extension-less imports
-   resolve only to a `.ts`/`.tsx` file. The regression test at
-   `tests/scripts/check-api-js-imports.test.ts` exercises this
-   against a fixture tree that re-encodes the PR #297 pattern.
+   import graph rooted at `api/**` and applies BOTH rules:
+   `findApiExtensionlessImports` (the broad one, checked first) and
+   `findApiJsTsLandmines` (the PR #297 shape, kept because a specific
+   diagnosis is worth more to whoever reads the failure). The regression
+   test at `tests/scripts/check-api-js-imports.test.ts` exercises both
+   against fixture trees.
+
+   **Why the rule had to be widened, and what it cost.** The original was
+   inferred from the one crash it was written from, and its
+   `if (!JS_EXT_RE.test(f)) continue` encoded that accident as the rule —
+   `.ts` importers were skipped, on the stated reasoning that "TS bundlers
+   handle that fine". Vercel is not bundling. Twenty-four extension-less
+   imports were live in the API graph and every function reached through one
+   had been returning a bare 500 since it deployed: both report-template
+   endpoints, `/api/events`, and five cron handlers — the email-queue
+   processor among them, which failed all 96 of its runs in one week.
+
+   Nothing detected it, and everything looked green: vitest resolves
+   extension-less TS transparently, the Vite build never touches the API
+   graph, typecheck is satisfied by TS's own resolution, and the guardrail
+   passed because the importers were the wrong extension to be looked at.
+   It surfaced when somebody tried to upload a report template and got
+   "Upload failed (500)".
+
+   **Two lessons worth carrying past this instance.** A guard written from a
+   single incident tends to encode the incident's accidents; state the rule
+   from the RUNTIME's constraint, not from the shape of the one failure.
+   And the checker's own `resolveSpec` returned null for a `.js` specifier
+   pointing at a `.ts` source — the correct TS convention — so once the API
+   surface was fixed the walker could no longer traverse into `lib/` or
+   `scripts/` at all and would have reported "clean" because it had stopped
+   looking. A guard that goes quiet when the code is fixed is worse than no
+   guard, because the silence reads as proof. Both are fixed; the
+   reachable-file count is asserted, not assumed.
 
 5. **No heavy DOCX deps on the Jasper hot path.** After PR #297 / #298
    landed, the Jasper handler still imported `lib/report-templates/render.ts`
