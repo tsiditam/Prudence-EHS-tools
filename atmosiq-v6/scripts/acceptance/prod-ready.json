@@ -1018,7 +1018,7 @@
     },
     {
       "id": "REPORT-TEMPLATES",
-      "label": "User-template DOCX render path exists",
+      "label": "A user template is reachable, fills from the real assessment, and repeats per finding",
       "checks": [
         {
           "type": "file_exists",
@@ -1057,8 +1057,39 @@
         {
           "type": "file_exists",
           "path": "src/components/settings/ReportTemplatesPanel.jsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "<ReportTemplatesPanel",
+          "paths": [
+            "src/components/SettingsScreen.jsx"
+          ],
+          "_comment": "The mount. Without it the panel is 352 lines of unreachable code and the feature has no entry point."
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "LIST_REGISTRY|SECTION_RESOLVERS",
+          "paths": [
+            "lib/report-templates/token-registry.ts",
+            "lib/report-templates/render.ts"
+          ],
+          "minCount": 2,
+          "_comment": "Repeating sections. paragraphLoop was always on, so docxtemplater supported loops the whole time - what was missing was array DATA, and a section tag handed the empty string renders zero times without erroring."
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/components/ReportTemplatesPanel.test.tsx"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "buildJasperContext",
+          "paths": [
+            "tests/lib/report-template-render.test.ts"
+          ],
+          "_comment": "The regression that closes the class: render against the context production actually passes, not a fixture written to match the resolvers. Verified by inversion - reverting the finding-path repair fails 8 tests in that file."
         }
-      ]
+      ],
+      "_comment": "Was 'User-template DOCX render path exists', and every check asked whether a FILE exists. It passed for the whole time the feature was unusable, twice over. (1) UNREACHABLE: SettingsScreen never imported ReportTemplatesPanel, so nothing in the app could upload a template and generate_report could only answer no_templates_saved - while its own failure text pointed the assessor at a Settings section that did not exist. (2) EMPTY: the resolvers were authored against the flat `context = {...}` literal MobileApp.jsx used to hand Jasper. Jasper migrated onto buildAssessmentContext, where findings live at walkthrough_findings and recommendations/sampling under engine_outputs, and the render path inherited the new shape unrepointed. Thirteen of twenty-seven tokens went dead, including every finding, recommendation, sampling and report-identity token, and a missing token renders blank BY DESIGN - so a rendered report came out as letterhead with nothing under it and nothing anywhere went red. A gate that cannot tell built from working is the shadow-artifact trap CLAUDE.md names. These checks assert the mount, the repeating-section registry, and the test that renders against a REAL buildJasperContext - the last is the one that matters, because the old fixture was hand-shaped to agree with the resolvers and therefore agreed with nothing else."
     },
     {
       "id": "API-JS-IMPORT-GUARDRAIL",

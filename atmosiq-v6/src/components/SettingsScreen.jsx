@@ -14,6 +14,7 @@ import { mix } from '../utils/theme'
 import * as V3 from '../styles/tokens'
 import { Group, Row, ExceptionPill } from './settings/SettingsList'
 import SiteLibraryPanel from './settings/SiteLibraryPanel'
+import ReportTemplatesPanel from './settings/ReportTemplatesPanel'
 import { isMoldModuleEnabled } from '../utils/featureFlags'
 
 // Theme tokens. These are CSS-variable references defined in
@@ -171,14 +172,32 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
           at finalize, and the re-assessment cron emails against it. Without
           this panel a user could accumulate sites and receive reminders for
           them with no way to rename, pause or delete any of it — which is
-          what shipped while this section was unmounted. Report Templates
-          (settings/ReportTemplatesPanel.jsx) is still built-but-unmounted
-          alongside it; left alone deliberately, since nothing writes a
-          template without the user asking. */}
+          what shipped while this section was unmounted. */}
       <Group title="Sites">
         <div style={{padding:'14px 16px'}}>
           <SiteLibraryPanel />
         </div>
+      </Group>
+
+      {/* ── Reports ── Report Templates was built and left unmounted beside
+          Sites, on the reasoning that nothing writes a template without the
+          user asking, so an unreachable panel harmed nobody. That reasoning
+          held for the DATA and missed the FEATURE: uploading a .docx was the
+          only way to get a template into the account, and with no surface to
+          upload from, `generate_report` could only ever answer
+          `no_templates_saved` — and its own failure message points the
+          assessor at "Settings → Report Templates", a place that did not
+          exist. The renderer, the API, the storage bucket, the token registry
+          and this panel were all complete; the feature was one import short
+          of shipping.
+
+          Worth naming how that survived: acceptance criterion
+          REPORT-TEMPLATES passed the whole time, because every one of its
+          checks asks whether a FILE exists. A gate that cannot tell built
+          from reachable is the shadow-artifact trap CLAUDE.md describes, and
+          it now asserts this mount. */}
+      <Group title="Reports">
+        <ReportTemplatesPanel />
       </Group>
 
 

@@ -17,6 +17,22 @@
  * convention. Unknown tokens render empty (NOT as a thrown error)
  * because users will accumulate templates with stale tokens over time
  * and we'd rather render blanks than fail.
+ *
+ * ── Two kinds of tag ──────────────────────────────────────────────
+ *
+ * A FLAT token (`{{client.name}}`) resolves through TOKEN_RESOLVERS to one
+ * string. A SECTION (`{{#findings}} … {{/findings}}`) resolves through
+ * SECTION_RESOLVERS to an array of all-string rows, and docxtemplater repeats
+ * the enclosed block once per row — which is the shape an IAQ report table
+ * actually is.
+ *
+ * Sections landed in 2026-09. `paragraphLoop: true` was already set, so the
+ * engine had supported them all along; what was missing was array data. A
+ * section tag went through the flat resolver map, missed, and was assigned
+ * `''` — which docxtemplater reads as a falsy section and renders ZERO times.
+ * Loops never errored, they just quietly produced nothing, and the tag was
+ * reported to the user as an unknown token with no hint that the syntax was
+ * supported.
  */
 
 import PizZip from 'pizzip'
@@ -24,7 +40,11 @@ import Docxtemplater from 'docxtemplater'
 import {
   TOKEN_NAMES,
   TOKEN_RESOLVERS,
+  SECTION_NAMES,
+  SECTION_RESOLVERS,
+  SECTION_FIELDS,
   type AssessmentContext,
+  type SectionRow,
 } from './token-registry'
 
 export class TemplateRenderError extends Error {
@@ -40,24 +60,46 @@ export class TemplateRenderError extends Error {
 
 export interface RenderResult {
   buffer: Buffer
-  /** Tokens present in the template AND in the registry, resolved to non-empty. */
+  /**
+   * Tokens resolved to something. A SECTION counts as filled when it produced
+   * at least one row — "the table has rows" is the same question for the
+   * reader as "the token has a value".
+   */
   tokens_filled: string[]
-  /** Tokens present in the template AND in the registry, but resolved to empty. */
+  /** Known tokens that resolved to empty; sections that produced zero rows. */
   tokens_empty: string[]
-  /** Tokens present in the template but NOT in the registry. */
+  /**
+   * Tags in the template that no registry knows. Includes a field used inside
+   * a section that the section does not define — reported as
+   * `section.field` so the message names where to look.
+   */
   tokens_unknown: string[]
 }
 
-/** Walk the docxtemplater getTags() output across headers/footers/document. */
-function collectTagNames(rawTags: unknown): string[] {
-  const out = new Set<string>()
-  if (!rawTags || typeof rawTags !== 'object') return []
+/**
+ * Walk the docxtemplater getTags() output across headers/footers/document.
+ *
+ * Returns a map of tag name → the child tags used INSIDE it. A flat token has
+ * no children; a section's children are the fields the template prints on each
+ * row, which is what lets an unknown field be reported against its section
+ * rather than silently rendering blank.
+ */
+function collectTagTree(rawTags: unknown): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>()
+  if (!rawTags || typeof rawTags !== 'object') return out
+  const add = (name: string, children: Iterable<string>) => {
+    const set = out.get(name) || new Set<string>()
+    for (const c of children) set.add(c)
+    out.set(name, set)
+  }
   const walk = (node: unknown) => {
     if (!node || typeof node !== 'object') return
     const obj = node as Record<string, unknown>
     if (obj.tags && typeof obj.tags === 'object') {
-      for (const k of Object.keys(obj.tags as Record<string, unknown>)) {
-        out.add(k)
+      const tags = obj.tags as Record<string, unknown>
+      for (const k of Object.keys(tags)) {
+        const v = tags[k]
+        add(k, v && typeof v === 'object' ? Object.keys(v as object) : [])
       }
     }
     // Headers/footers come back as arrays of {target, tags}.
@@ -73,7 +115,38 @@ function collectTagNames(rawTags: unknown): string[] {
     }
   }
   walk(rawTags)
-  return [...out]
+  return out
+}
+
+/**
+ * Partition a tag tree into known flat tokens, known sections, and unknown.
+ *
+ * Shared by `discoverTokens` (upload validation) and `renderTemplate` so the
+ * warning the assessor sees at upload is computed the same way as the outcome
+ * they get at render — the two drifting apart is its own defect class.
+ */
+function classifyTags(tree: Map<string, Set<string>>): {
+  flat: string[]
+  sections: string[]
+  unknown: string[]
+} {
+  const flat: string[] = []
+  const sections: string[] = []
+  const unknown: string[] = []
+  for (const [tag, children] of tree) {
+    if (SECTION_NAMES.has(tag)) {
+      sections.push(tag)
+      const valid = SECTION_FIELDS.get(tag)
+      for (const field of children) {
+        if (valid && !valid.has(field)) unknown.push(`${tag}.${field}`)
+      }
+    } else if (TOKEN_NAMES.has(tag)) {
+      flat.push(tag)
+    } else {
+      unknown.push(tag)
+    }
+  }
+  return { flat, sections, unknown }
 }
 
 /**
@@ -112,16 +185,16 @@ export function discoverTokens(templateBuffer: Buffer): {
   // getTags() is a runtime method on docxtemplater that returns the
   // discovered placeholder set across document parts. It's not in the
   // public .d.ts surface, so we cast through unknown to call it.
-  const allTags = collectTagNames(
-    (doc as unknown as { getTags: () => unknown }).getTags(),
+  const { flat, sections, unknown } = classifyTags(
+    collectTagTree((doc as unknown as { getTags: () => unknown }).getTags()),
   )
-  const found: string[] = []
-  const unknown: string[] = []
-  for (const t of allTags) {
-    if (TOKEN_NAMES.has(t)) found.push(t)
-    else unknown.push(t)
+  // Sections report as found under their `#name` form, so the Settings panel
+  // shows `{{#findings}}` rather than a bare `findings` the assessor cannot
+  // match to anything they typed.
+  return {
+    found: [...flat, ...sections.map((x) => `#${x}`)].sort(),
+    unknown: unknown.sort(),
   }
-  return { found: found.sort(), unknown: unknown.sort() }
 }
 
 /**
@@ -164,21 +237,24 @@ export function renderTemplate(
   // getTags() is a runtime method on docxtemplater that returns the
   // discovered placeholder set across document parts. It's not in the
   // public .d.ts surface, so we cast through unknown to call it.
-  const allTags = collectTagNames(
+  const tree = collectTagTree(
     (doc as unknown as { getTags: () => unknown }).getTags(),
   )
-  const data: Record<string, string> = {}
+  const { flat, sections, unknown } = classifyTags(tree)
+
+  const data: Record<string, string | SectionRow[]> = {}
   const tokens_filled: string[] = []
   const tokens_empty: string[] = []
-  const tokens_unknown: string[] = []
+  const tokens_unknown: string[] = [...unknown]
 
-  for (const tag of allTags) {
-    const resolver = TOKEN_RESOLVERS.get(tag)
-    if (!resolver) {
-      tokens_unknown.push(tag)
-      data[tag] = ''
-      continue
-    }
+  // An unknown top-level tag gets an explicit empty value so a stale template
+  // renders blanks rather than tripping the render. The `section.field`
+  // entries in `unknown` are not top-level tags — they live in the section's
+  // own scope — so the tree membership test skips them.
+  for (const tag of unknown) if (tree.has(tag)) data[tag] = ''
+
+  for (const tag of flat) {
+    const resolver = TOKEN_RESOLVERS.get(tag)!
     let value = ''
     try {
       value = resolver(context) || ''
@@ -188,6 +264,23 @@ export function renderTemplate(
     data[tag] = value
     if (value) tokens_filled.push(tag)
     else tokens_empty.push(tag)
+  }
+
+  for (const section of sections) {
+    const resolver = SECTION_RESOLVERS.get(section)!
+    let rows: SectionRow[] = []
+    try {
+      rows = resolver(context) || []
+    } catch {
+      rows = []
+    }
+    data[section] = rows
+    // Reported under `#name` to match what discoverTokens told the assessor at
+    // upload. A section with no rows is `empty`, not `unknown` — the template
+    // is correct and the assessment simply has nothing to put in that table,
+    // and those are different problems.
+    if (rows.length) tokens_filled.push(`#${section}`)
+    else tokens_empty.push(`#${section}`)
   }
 
   try {

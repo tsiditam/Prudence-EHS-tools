@@ -1,5 +1,92 @@
 # AtmosFlow Changelog
 
+## Report templates: reachable, filled, and repeating
+
+**User-visible change**
+
+**Settings → Reports → Report Templates** now exists. Upload a `.docx` with
+`{{tokens}}` in it, and Jasper's `generate_report` fills it from the
+assessment.
+
+Templates can now contain **repeating sections**. Wrap a table row in
+`{{#findings}} … {{/findings}}` and it renders once per finding; the same works
+for `zones`, `recommendations` and `sampling_plan`. Settings carries a
+reference list of every field and section, generated from the registry.
+
+**Two defects behind this, and they compounded**
+
+*It was unreachable.* `SettingsScreen` never imported `ReportTemplatesPanel`.
+The renderer, the token registry, the upload/list/delete API, the private
+Storage bucket with its RLS, the Jasper tool and the panel itself were all
+built and tested — and nothing in the app could upload a template, so
+`generate_report` could only ever answer `no_templates_saved`. Its own failure
+message points the assessor at "Settings → Report Templates", a place that did
+not exist.
+
+*It rendered blank.* The token resolvers were authored against the flat
+`context = {...}` literal `MobileApp.jsx` used to hand Jasper — `findings`,
+`recommendations` and `sampling_plan` at the top level. Jasper was migrated
+onto `buildAssessmentContext`, where those live at `walkthrough_findings` and
+under `engine_outputs`, and the render path inherited the new shape with the
+resolvers unrepointed. **Thirteen of twenty-seven tokens went dead**, including
+every finding, recommendation, sampling and report-identity token.
+
+A missing token renders blank *by design* — that is the right behaviour for a
+field the assessor left empty, and it is why this had no symptom. A rendered
+report came out as letterhead with a client name and a zone list, and nothing
+anywhere went red.
+
+**What changed**
+
+- Every resolver now reads the canonical `AssessmentContext` path **first**,
+  with the legacy paths kept behind it as fallbacks (`buildJasperContext`
+  aliases `presurvey` and `bldg` onto the payload, and older saved records
+  still carry them).
+- Recommendations are read from the `{imm, eng, adm, mon}` buckets `genRecs`
+  actually returns. The old resolver filtered a flat array on
+  `priority === 'immediate'`; the rows carry no `priority` field at all, so it
+  needed reshaping as well as repointing.
+- The sampling plan reads `{zone, type, method, standard}` — the fields
+  `generateSamplingPlan` emits — not the `analyte` / `location` the old
+  literal used.
+- `report.date` resolves from `ps_survey_date`, the required "Date of survey"
+  intake field. It was reading `meta.assessment_date`, which does not exist;
+  `meta.generated_at` was the tempting substitute and is wrong, because it
+  would silently re-date an old assessment to today on every re-render.
+- `assessor.title` was **removed**. It read `profile.title`, and the app has no
+  job-title field anywhere, so it could never fill. A registry entry that
+  cannot resolve is worse than none — Settings advertised it and templates
+  rendered it blank. Templates still using it now report it as an unknown
+  token, which is the feedback that was missing.
+
+**The qualitative-only marking now reaches a template**
+
+CLAUDE.md's defensibility primitive says the `qualitative_only` flag
+"propagates to every rendered output of that finding". The template path
+carried it nowhere: `buildAssessmentContext` sets it on every finding and no
+token surfaced it, so a user template rendered a qualitative-only finding
+indistinguishable from an instrument-backed one. Finding rows now carry a
+`{{qualitative_note}}` field, and the flat bullet block marks it too.
+
+**Guard**
+
+The regression that closes the class is a test that renders against a **real**
+`buildJasperContext` — built from real app state, through the real engine.
+The previous fixture was hand-shaped to match the resolvers, so it agreed with
+them and with nothing else; that agreement is what let thirteen dead tokens
+sit unnoticed. Reverting the repair fails eight tests in that file. Acceptance
+criterion `REPORT-TEMPLATES` was eight `file_exists` checks and passed
+throughout both defects; it now asserts the mount, the section registry, and
+that the real-context test exists.
+
+**Not in this change**
+
+`ai_*` prose tokens. A user template has no `aiProvenanceBanner()` hook, so
+model-written text would land under the assessor's letterhead and credentials
+with nothing marking it as model-written. That needs deciding before it is
+built.
+
+
 ## TVOC is no longer judged — the Mølhave advisory tiers are removed
 
 **User-visible change**
