@@ -8,5 +8,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  server: { port: 3002 }
+  server: { port: 3002 },
+  test: {
+    environment: 'node',
+    include: ['tests/**/*.test.js'],
+  },
 })

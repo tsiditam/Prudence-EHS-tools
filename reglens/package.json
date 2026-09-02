@@ -1,11 +1,16 @@
 {
   "name": "reglens",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "formidable": "^3.5.2",
@@ -14,10 +19,12 @@
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "sonner": "^2.0.7",
+    "stripe": "^17.7.0",
     "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.0",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "vitest": "^2.1.9"
   }
 }
