@@ -1,0 +1,36 @@
+name: RegLens CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'reglens/**'
+      - '.github/workflows/reglens-ci.yml'
+  pull_request:
+    paths:
+      - 'reglens/**'
+      - '.github/workflows/reglens-ci.yml'
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: reglens
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: reglens/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests (scoring engine, citation registry, HTML escaping)
+        run: npm test
+
+      - name: Production build
+        run: npm run build

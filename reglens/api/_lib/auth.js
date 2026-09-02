@@ -13,7 +13,7 @@
  * Copyright (c) 2026 All rights reserved.
  */
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function envReady() {
@@ -39,52 +39,92 @@ async function verifyUser(token) {
   return user?.id ? user : null;
 }
 
-async function callRateLimit(userId, endpoint, maxPerMinute, maxPerDay) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_rate_limit`, {
+/**
+ * Call a Postgres function through PostgREST with the service role key.
+ * Returns the parsed JSON body; throws on a non-2xx response.
+ */
+async function serviceRpc(fn, args) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      p_user_id: userId,
-      p_endpoint: endpoint,
-      p_max_per_minute: maxPerMinute,
-      p_max_per_day: maxPerDay,
-    }),
+    body: JSON.stringify(args),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`rate limit RPC failed (${res.status}): ${detail}`);
+    throw new Error(`${fn} RPC failed (${res.status}): ${detail}`);
   }
   return await res.json();
 }
 
 /**
+ * Plain REST call against a table with the service role key.
+ * method: GET | POST | PATCH | DELETE. Returns parsed JSON or null.
+ */
+async function serviceRest(pathWithQuery, method = "GET", body = null, extraHeaders = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${pathWithQuery}`, {
+    method,
+    headers: {
+      apikey: SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+      ...extraHeaders,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`${method} ${pathWithQuery} failed (${res.status}): ${detail}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function callRateLimit(userId, endpoint, maxPerMinute, maxPerDay) {
+  return serviceRpc("check_rate_limit", {
+    p_user_id: userId,
+    p_endpoint: endpoint,
+    p_max_per_minute: maxPerMinute,
+    p_max_per_day: maxPerDay,
+  });
+}
+
+/**
+ * Authenticate the request only (no rate limit). Returns the Supabase user
+ * object or writes a 401/500 to res and returns null.
+ */
+async function requireAuth(req, res) {
+  if (!envReady()) {
+    res.status(500).json({ error: "Auth not configured on server" });
+    return null;
+  }
+  const token = bearerToken(req);
+  if (!token) {
+    res.status(401).json({ error: "Missing Authorization header" });
+    return null;
+  }
+  const user = await verifyUser(token);
+  if (!user) {
+    res.status(401).json({ error: "Invalid or expired session" });
+    return null;
+  }
+  return user;
+}
+
+/**
  * Authenticate the request and enforce rate limits.
  *
- * On success, returns { ok: true, userId, verdict } and writes
+ * On success, returns { ok: true, userId, user, verdict } and writes
  * X-RateLimit-* headers to res. On failure, writes the JSON error
  * response to res itself and returns { ok: false }.
  */
 async function requireAuthAndLimit(req, res, { endpoint, maxPerMinute, maxPerDay }) {
-  if (!envReady()) {
-    res.status(500).json({ error: "Auth not configured on server" });
-    return { ok: false };
-  }
-
-  const token = bearerToken(req);
-  if (!token) {
-    res.status(401).json({ error: "Missing Authorization header" });
-    return { ok: false };
-  }
-
-  const user = await verifyUser(token);
-  if (!user) {
-    res.status(401).json({ error: "Invalid or expired session" });
-    return { ok: false };
-  }
+  const user = await requireAuth(req, res);
+  if (!user) return { ok: false };
 
   let verdict;
   try {
@@ -115,7 +155,7 @@ async function requireAuthAndLimit(req, res, { endpoint, maxPerMinute, maxPerDay
     return { ok: false };
   }
 
-  return { ok: true, userId: user.id, verdict };
+  return { ok: true, userId: user.id, user, verdict };
 }
 
-module.exports = { requireAuthAndLimit };
+module.exports = { requireAuthAndLimit, requireAuth, verifyUser, serviceRpc, serviceRest, envReady };

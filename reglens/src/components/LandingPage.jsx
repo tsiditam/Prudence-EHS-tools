@@ -60,8 +60,9 @@ function FeatureCard({ icon, title, description, delay }) {
 }
 
 /* ─── Main Landing Page ─── */
-export default function LandingPage({ isDesktop }) {
+export default function LandingPage({ isDesktop, onOpenApp }) {
   const [installable, setInstallable] = useState(false)
+  const openApp = () => { if (typeof onOpenApp === 'function') onOpenApp() }
 
   useEffect(() => {
     const check = () => setInstallable(!!window._pwaPrompt)
@@ -103,11 +104,16 @@ export default function LandingPage({ isDesktop }) {
             <div style={styles.logoMark}>RL</div>
             <span style={styles.logoText}>RegLens</span>
           </div>
-          {installable && (
-            <button onClick={handleInstall} style={styles.navInstallBtn}>
-              Install App
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {installable && (
+              <button onClick={handleInstall} style={styles.navInstallBtn}>
+                Install App
+              </button>
+            )}
+            <button onClick={openApp} style={styles.navInstallBtn} aria-label="Open the RegLens app">
+              Open RegLens
             </button>
-          )}
+          </div>
         </div>
       </nav>
 
@@ -131,12 +137,15 @@ export default function LandingPage({ isDesktop }) {
         </Reveal>
         <Reveal delay={360}>
           <div style={styles.heroCtas}>
+            <button onClick={openApp} style={styles.ctaPrimary}>
+              Get Started Free
+            </button>
             {installable ? (
-              <button onClick={handleInstall} style={styles.ctaPrimary}>
-                Get Started Free
+              <button onClick={handleInstall} style={styles.navInstallBtn}>
+                Install App
               </button>
             ) : (
-              <a href="#sample-report" style={styles.ctaPrimary}>
+              <a href="#sample-report" style={styles.navInstallBtn}>
                 See a Sample Report
               </a>
             )}

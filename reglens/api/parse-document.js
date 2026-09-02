@@ -15,8 +15,9 @@ const fs = require("fs");
 const mammoth = require("mammoth");
 const { requireAuthAndLimit } = require("./_lib/auth.js");
 
-module.exports.config = {
+const HANDLER_CONFIG = {
   api: { bodyParser: false },
+  maxDuration: 60,
 };
 
 const MAX_TOKENS = 50000;
@@ -44,6 +45,21 @@ function parseForm(req) {
   });
 }
 
+// Content sniffing: the extension is user-controlled, the first bytes are not.
+function sniffType(buffer, fileName) {
+  const isPdf = buffer.length >= 5 && buffer.subarray(0, 5).toString("latin1") === "%PDF-";
+  const isZip = buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+  if (fileName.endsWith(".pdf")) return isPdf ? "pdf" : null;
+  if (fileName.endsWith(".docx")) return isZip ? "docx" : null;
+  if (fileName.endsWith(".txt")) return isPdf || isZip ? null : "txt";
+  return null;
+}
+
+function removeTempFile(filePath) {
+  if (!filePath) return;
+  fs.unlink(filePath, () => {});
+}
+
 function classifyPdfError(err) {
   const msg = String(err?.message || err || "").toLowerCase();
   if (msg.includes("encrypted") || msg.includes("password")) {
@@ -55,7 +71,7 @@ function classifyPdfError(err) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -94,13 +110,20 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     console.error("parse-document read error:", err);
     return res.status(500).json({ error: "Could not read uploaded file from disk." });
+  } finally {
+    removeTempFile(filePath);
+  }
+
+  const kind = sniffType(buffer, fileName);
+  if (!kind) {
+    return res.status(400).json({ error: "Unsupported or mismatched file type. Upload a real PDF, DOCX, or TXT file." });
   }
 
   let rawText = "";
   let mimeType = "";
 
   try {
-    if (fileName.endsWith(".pdf")) {
+    if (kind === "pdf") {
       mimeType = "application/pdf";
       const pdf = require("pdf-parse/lib/pdf-parse.js");
       try {
@@ -112,15 +135,13 @@ module.exports = async function handler(req, res) {
         console.error("pdf-parse error:", err);
         return res.status(400).json({ error: "Could not parse this PDF. Try re-saving or exporting to .txt." });
       }
-    } else if (fileName.endsWith(".docx")) {
+    } else if (kind === "docx") {
       mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       const result = await mammoth.extractRawText({ buffer });
       rawText = result.value || "";
-    } else if (fileName.endsWith(".txt")) {
+    } else {
       mimeType = "text/plain";
       rawText = buffer.toString("utf-8");
-    } else {
-      return res.status(400).json({ error: "Unsupported file type. Upload PDF, DOCX, or TXT." });
     }
   } catch (err) {
     console.error("parse-document extract error:", err);
@@ -151,4 +172,7 @@ module.exports = async function handler(req, res) {
     mimeType,
     fileSize,
   });
-};
+}
+
+module.exports = handler;
+module.exports.config = HANDLER_CONFIG;

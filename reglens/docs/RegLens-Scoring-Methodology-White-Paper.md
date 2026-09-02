@@ -4,7 +4,9 @@
 **Prudence Safety & Environmental Consulting, LLC**
 **Germantown, Maryland**
 
-**Version 2.0 — April 2026**
+**Version 2.1 — September 2026**
+
+*Revision note (2.1): this version corrects the description of three score caps that could never trigger under the deduction schedule, updates the citation registry count, documents the readiness-check model the application actually runs, and records the document-length limit, prompt-injection defenses, and structured-output constraint added in September 2026.*
 
 ---
 
@@ -70,8 +72,17 @@ The AI receives a structured prompt that establishes its role, constraints, and 
 
 - **Role**: Certified Safety Professional (CSP) conducting a compliance review
 - **Regulatory expertise**: OSHA 29 CFR 1910 (General Industry), 1926 (Construction), EPA regulations, ANSI, NFPA, and ACGIH standards
-- **Output constraints**: 3–8 findings and 2–4 strengths per review, valid JSON only
+- **Output constraints**: 0–8 findings and 0–4 strengths per review. An empty findings array is a valid result. Earlier versions required a minimum of three findings; that floor was removed because a forced minimum induces findings that are not supported by the document and makes a score of 100 unreachable.
 - **Critical rule**: The AI is explicitly prohibited from inventing regulations and must cite specific regulatory sections
+- **Output schema**: The Messages API request carries a JSON schema (structured outputs) that constrains the response to the exact finding shape the scoring engine consumes, including the severity and requirement-type enumerations.
+
+### 3.1.1 Untrusted-document handling
+
+The instructions are sent as the system prompt. The document text is sent in the user turn inside `<document>` tags with an explicit statement that the contents are untrusted client data and that any instruction-like text inside them is to be treated as document content. This is the standard mitigation for indirect prompt injection (OWASP Top 10 for LLM Applications, LLM01), where a document could otherwise instruct the model to suppress findings and produce an unearned score of 100.
+
+### 3.1.2 Document length
+
+Up to 120,000 characters (roughly 30,000 tokens, or about 40 pages) of the document are reviewed. Longer documents are truncated and the report is labelled as a partial review on screen and in the exported file. The PDF and DOCX parser accepts files up to 10 MB.
 
 ### 3.2 Severity Classification
 
@@ -168,17 +179,24 @@ Raw score:                          59
 
 ### 4.4 Score Caps and Floors
 
-After raw deductions are applied, the engine evaluates a series of cap and floor rules to prevent edge-case scores that would misrepresent compliance posture:
+After raw deductions are applied, the engine evaluates two floor rules to prevent edge-case scores that would misrepresent compliance posture:
 
 | Rule | Condition | Effect | Rationale |
 |------|-----------|--------|-----------|
-| Critical ceiling | ≥ 3 critical findings | Score cannot exceed 80 | A program with 3+ critical gaps should not rate as "Excellent" regardless of other strengths |
-| Severe critical ceiling | ≥ 5 critical findings | Score cannot exceed 70 | Extensive critical gaps indicate fundamental non-compliance |
-| Low-severity floor | 0 critical findings and ≤ 2 major findings | Score cannot go below 80 | Minor issues alone should not push a fundamentally sound program into risk territory |
 | Best-practice floor | All findings are Best Practice (no regulatory requirements) | Score cannot go below 60 | Non-regulatory gaps alone should not trigger "High Risk" or "Critical Risk" designations |
 | Absolute floor | Always | Score cannot go below 20 | Ensures score remains on a meaningful scale |
 
-These caps and floors are applied in sequence after raw deductions. When a cap or floor is triggered, the adjustment is logged in the score breakdown shown to the user.
+When a floor is triggered, the adjustment is logged in the score breakdown shown to the user.
+
+**Properties guaranteed by the schedule itself.** Version 2.0 of this document listed three additional rules. They remain in the engine for defense in depth but are mathematically unreachable, so they are no longer presented as active safeguards:
+
+| Former rule | Why it cannot trigger |
+|-------------|-----------------------|
+| ≥ 3 critical findings capped at 80 | Three critical findings already deduct 29 points, so the score is at most 71 |
+| ≥ 5 critical findings capped at 70 | Five critical findings deduct 47 points, so the score is at most 53 |
+| 0 critical and ≤ 2 major floored at 80 | The maximum deduction in that case is 10 (major) + 10 (minor cap) = 20, so the score is already at least 80 |
+
+Because the guarantees hold by construction, a program with three or more critical findings can never rate "Excellent" or "Strong", and a program with no critical findings and at most two major findings can never rate below "Strong". These properties are asserted by the unit tests in `tests/scoring.test.js`.
 
 ### 4.5 Score Bands
 
@@ -200,17 +218,19 @@ The final numeric score maps to one of seven compliance bands:
 
 ### 5.1 Citation Registry
 
-RegLens maintains a curated registry of 83 verified regulatory citations across five regulatory bodies:
+RegLens maintains a curated registry of 90 verified regulatory citations across five regulatory bodies and two consensus-standards bodies (`src/lib/scoring.js`):
 
 | Source | Count | Examples |
 |--------|-------|---------|
-| OSHA General Industry (29 CFR 1910) | 32 | 1910.134 Respiratory Protection, 1910.147 Lockout/Tagout, 1910.1200 Hazard Communication |
+| OSHA General Industry (29 CFR 1910) | 35 | 1910.134 Respiratory Protection, 1910.147 Lockout/Tagout, 1910.1200 Hazard Communication |
 | OSHA Recordkeeping (29 CFR 1904) | 8 | 1904.7 General Recording Criteria, 1904.39 Reporting Fatalities |
 | OSHA Construction (29 CFR 1926) | 8 | 1926.501 Fall Protection Duty, 1926.1153 Silica |
-| EPA (40 CFR) | 11 | 40 CFR 112 SPCC, 40 CFR 262 Hazardous Waste Generators |
+| EPA (40 CFR) | 13 | 40 CFR 112 SPCC, 40 CFR 262 Hazardous Waste Generators |
 | NRC Radiation (10 CFR) | 5 | 10 CFR 20 Standards for Protection Against Radiation |
-| NFPA Standards | 10 | NFPA 70E Electrical Safety, NFPA 101 Life Safety Code |
-| ANSI Standards | 9 | ANSI Z87.1 Eye Protection, ANSI Z359.1 Fall Protection |
+| NFPA Standards | 14 | NFPA 70E Electrical Safety, NFPA 101 Life Safety Code |
+| ANSI Standards | 7 | ANSI Z87.1 Eye Protection, ANSI Z359.1 Fall Protection |
+
+The registry contains federal regulations and national consensus standards only. State-plan requirements are not verified by the registry; the review prompt asks the model to identify them, and such citations surface as "valid but unverified".
 
 ### 5.2 Verification Algorithm
 
@@ -224,76 +244,64 @@ When the AI returns a regulatory citation for a finding, the verification system
 
 If a citation fails all three tiers, it is flagged as **unverified** and a warning is logged. This prevents the AI from citing non-existent regulations while allowing legitimate citations that have not yet been added to the registry.
 
+### 5.3 Known limits of registry verification
+
+Tier 3 confirms only that a citation is well-formed, not that the section exists. Empirical work on legal citation generation shows why this matters: Dahl, Magesh, Suzgun and Ho (2024, *Journal of Legal Analysis*) measured hallucinated legal citations in 58–88% of responses to verifiable queries across the models they tested, and Magesh et al. (2025, *Journal of Empirical Legal Studies*) found that retrieval-backed legal research tools still produced hallucinated or mis-grounded citations in 17–33% of responses. RegLens therefore labels every Tier 3 result "Unverified" in the report, and reviewers should treat those citations as leads to confirm against eCFR rather than as established references. Expanding the registry from eCFR bulk data is the planned next step.
+
 ---
 
 ## 6. Readiness Check Scoring
 
 RegLens includes a separate EHS Readiness Check that uses a different scoring methodology optimized for facility walkthroughs rather than document reviews.
 
-### 6.1 Seven Weighted Categories
+### 6.1 Checklist Structure
 
-The Readiness Check evaluates facilities across seven categories, each with a fixed weight totaling 100 points:
+A readiness check consists of a universal checklist that applies to every employer plus an industry-specific checklist for the selected industry (12 industries; see Section 3.4). Users may add custom items. Every item carries a citation and a severity classification of **Critical**, **Major**, or **Minor**, assigned when the checklist was authored.
 
-| Category | Weight | Focus Areas |
-|----------|--------|-------------|
-| Written Programs & Policies | 20 | Safety & Health Plan, EAP, HazCom, LOTO, Respiratory Protection, Fire Prevention, BBP, annual updates |
-| Training & Communication | 20 | New employee orientation, HazCom training, high-risk task training, evacuation drills, forklift certification, refresher training, training records |
-| Inspections & Audits | 15 | Workplace inspections, fire extinguisher inspections, eyewash/shower inspections, forklift pre-shift inspections, annual audit, corrective action tracking |
-| Hazard Controls & PPE | 15 | PPE hazard assessment, appropriate PPE provision, engineering controls hierarchy, machine guards, chemical exposure controls, fall protection |
-| Incident Management | 10 | Written reporting procedure, root cause analysis, near-miss reporting, corrective action tracking, fatality/hospitalization notification |
-| Regulatory / OSHA Compliance | 10 | OSHA 300 log and 300A posting, OSHA poster display, no open citations, employee record access, multi-employer responsibility |
-| Recordkeeping & Documentation | 10 | Training records, SDS accessibility, equipment maintenance records, incident investigation reports, permit archives |
+### 6.2 Severity-Weighted Scoring Formula
 
-### 6.2 Category Scoring Formula
+Each applicable item contributes a weight determined by its severity:
 
-Within each category, the score is computed from user responses:
+| Severity | Weight |
+|----------|--------|
+| Critical | 10 |
+| Major | 5 |
+| Minor | 2 |
 
 ```
-category_score = (earned_points / applicable_points) × category_weight
+readiness_score = round( earned_weight / applicable_weight × 100 )
 ```
 
-- **"Yes"** responses earn full points for the question
-- **"Partial"** responses earn 50% of the question's points
-- **"No"** or unanswered responses earn zero points
+- **"Yes"** responses earn the item's full weight
+- **"Partial"** responses earn 50% of the item's weight
+- **"No"** responses earn zero
 - **"N/A"** responses are excluded from both numerator and denominator
 
-The overall readiness score is the sum of all category scores (0–100).
+The application does not compute a score until every item has been answered. Earlier versions treated an unanswered item as "No", which meant an abandoned walkthrough produced a low score with red flags; the completion requirement removes that failure mode.
 
-### 6.3 Red Flag Override System
+### 6.3 Readiness Bands
 
-Seven questions are designated as **red flag items** — critical compliance requirements where a "No" response triggers an immediate alert regardless of the overall score:
+| Score Range | Band |
+|-------------|------|
+| 90 – 100 | Excellent |
+| 75 – 89 | Good |
+| 60 – 74 | Moderate Risk |
+| 40 – 59 | High Risk |
+| 0 – 39 | Critical Risk |
 
-| Red Flag | Regulation | Significance |
-|----------|-----------|-------------|
-| Missing Emergency Action Plan | 29 CFR 1910.38 | Required for most employers |
-| Missing Hazard Communication Program | 29 CFR 1910.1200 | Required for all employers with hazardous chemicals |
-| Missing Lockout/Tagout Program | 29 CFR 1910.147 | Required where employees service equipment with hazardous energy |
-| Missing PPE Hazard Assessment | 29 CFR 1910.132(d) | Required before PPE selection |
-| Missing High-Risk Task Training | Various | Required for LOTO, confined space, fall protection |
-| No Incident Reporting Process | 29 CFR 1904.29 | Required for OSHA recordkeeping |
-| Open or Unresolved OSHA Citation | OSHA Act | Indicates active regulatory non-compliance |
+The readiness check uses five bands rather than the seven used for document reviews because checklist responses are coarser than reviewed findings.
 
-A single red flag "No" response sets `criticalFlag = true` for the entire assessment. This prevents a facility with a missing Emergency Action Plan (but strong scores in other areas) from receiving a misleading overall score.
+### 6.4 Red Flag Override
 
-### 6.4 Finding Priority Scoring
+Any **Critical** item answered "No" sets `criticalFlag = true` for the whole assessment and lists the item and its citation as a critical reason, regardless of the numeric score. A facility with a missing Emergency Action Plan but strong answers elsewhere is therefore never presented as simply "Good".
 
-Individual readiness check findings are prioritized using a three-factor multiplication:
+### 6.5 Findings
 
-```
-priority_score = severity × likelihood × regulatory_impact
-```
+Every item not answered "Yes" or "N/A" becomes a finding. A "Partial" answer on a Critical item is reported as Major, and a "Partial" on a Major or Minor item as Minor; a "No" keeps the item's own severity. Findings are sorted by severity. These findings feed the Corrective Action Plan generator.
 
-Where:
-- **Severity** (1–3): Red flag items = 3, high-point questions = 2, low-point questions = 1
-- **Likelihood** (2–3): "No" or "Unknown" = 3, "Partial" = 2
-- **Regulatory Impact** (1–3): Red flag or regulatory requirement = 3, regulatory requirement = 2, best practice = 1
+### 6.6 Alternate Category Model
 
-| Priority Score | Level |
-|---------------|-------|
-| 19 – 27 | Critical |
-| 10 – 18 | High |
-| 4 – 9 | Medium |
-| 1 – 3 | Low |
+The engine also contains a seven-category weighted model (Written Programs 20, Training 20, Inspections 15, Hazard Controls 15, Incident Management 10, Regulatory 10, Recordkeeping 10) with seven designated red-flag questions and a severity × likelihood × regulatory-impact priority score. It is unit tested and available for programmatic use, but the application's readiness check does not currently run it. Version 2.0 of this paper described that model as the readiness methodology; this version documents the model actually in use.
 
 ---
 
@@ -325,6 +333,8 @@ RegLens supports compliance reviews for 14 EHS program types:
 ### 8.1 Determinism
 The scoring engine is a pure function: `f(findings) → score`. There is no randomness, no model inference, and no state dependency. The same set of findings will always produce the identical score, deduction breakdown, and band classification.
 
+Determinism of the scoring function does not make the end-to-end pipeline deterministic. Finding generation is a language-model inference and can vary between runs on the same document; Zheng et al. (2023, NeurIPS) documented run-to-run inconsistency and length bias in model-as-judge settings. The structured-output schema and the removal of the forced minimum finding count reduce that variance but do not eliminate it. The planned mitigation is consensus sampling: run the finding step several times and score only findings that recur in a majority of runs (self-consistency, Wang et al., ICLR 2023). Until a test-retest study is published, users should treat the score as reproducible for a given set of findings, not for a given document.
+
 ### 8.2 Transparency
 Every point deducted is traceable to a specific finding with a specific severity. Users can view the full score breakdown including starting score, per-severity deductions, caps applied, and final score. No deductions are hidden or aggregated.
 
@@ -332,13 +342,13 @@ Every point deducted is traceable to a specific finding with a specific severity
 AI generates findings; the engine scores them. This separation means scoring methodology can be updated independently of the AI model, and scoring behavior can be validated with unit tests using fixed finding sets.
 
 ### 8.4 Regulatory Accuracy
-The citation verification registry prevents AI hallucination of non-existent regulations. Every citation is checked against 83 known-good entries spanning OSHA, EPA, NRC, NFPA, and ANSI standards.
+The citation verification registry flags citations that cannot be confirmed. Every citation is checked against 90 known-good entries spanning OSHA, EPA, NRC, NFPA, and ANSI standards; anything outside the registry is labelled "Unverified" in the report (see Section 5.3).
 
 ### 8.5 Industry Awareness
 The 12-industry × 14-program context matrix produces over 130 industry-specific review contexts, ensuring that a Respiratory Protection review for a laboratory evaluates different hazards than the same program type for a construction site.
 
 ### 8.6 Fail-Safe Design
-When the AI service is unavailable, RegLens does not generate a score. Instead, it displays an "Awaiting Review" state and queues the document for retry. This prevents misleading scores from being presented to users when actual analysis has not been performed.
+When the AI service is unavailable, RegLens does not generate a score or display any findings. It shows an "Awaiting Review" state with the error, keeps the document text locally so the user can retry without re-uploading, and records the review with a "queued" status. Earlier versions displayed sample findings for the program type in this state; that behaviour was removed because sample findings attached to a real document are easily mistaken for an analysis of it.
 
 ---
 
@@ -347,7 +357,9 @@ When the AI service is unavailable, RegLens does not generate a score. Instead, 
 - RegLens scores are **advisory only** and do not constitute a compliance certification, legal opinion, or professional audit.
 - The AI finding generation depends on the quality and completeness of the uploaded document. Incomplete or heavily redacted documents may produce incomplete findings.
 - The scoring engine evaluates only the findings returned by the AI. It does not independently verify the content of the source document.
-- Citation verification confirms that regulatory references exist — it does not confirm that they are correctly applied to the specific finding.
+- Citation verification confirms that a registry entry exists for a reference — it does not confirm that the reference is correctly applied to the specific finding, and citations outside the registry are only format-checked.
+- Only the first 120,000 characters of a document are reviewed. Partial reviews are labelled as such.
+- No test-retest reliability study has been published for the finding-generation step. Repeated reviews of the same document can differ in the findings returned and therefore in the score.
 - Scores should be reviewed by a qualified safety professional before being used for compliance decisions, regulatory submissions, or management reporting.
 
 ---
