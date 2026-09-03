@@ -655,7 +655,13 @@ export const CRITERIA = {
       averaging: 'instantaneous',
       class: 'ventilation_indicator',
       severity: 'critical',   // capped to `high` by the class — see capSeverity
-      source: 'NIOSH indoor-ventilation indicator (~1,000 ppm); Persily, ASHRAE Journal 63(2):74–75 (2021)',
+      // Its OWN label (audit M10). It used to carry the 1,000 ppm criterion's
+      // source verbatim, so a 1,500 ppm finding cited "~1,000 ppm". No
+      // published body sets 1,500 ppm as an indoor limit: it is this
+      // platform's escalation tier, 1.5× the NIOSH indicator, and the label
+      // says so rather than borrowing a figure it does not match. Listed on
+      // the corpus gap ledger in standards-reconciliation.test.ts.
+      source: 'AtmosFlow escalation tier at 1,500 ppm (1.5× the NIOSH ~1,000 ppm indoor-ventilation indicator; not a published limit); Persily, ASHRAE Journal 63(2):74–75 (2021)',
       action: 'Verify supply airflow and outdoor-air fraction at the air handler.',
     }),
     criterion({

@@ -7,7 +7,8 @@
 
 const { createClient } = require('@supabase/supabase-js')
 const crypto = require('crypto')
-const { auditLog } = require('./_audit')
+const { auditLog } = require('./_audit.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 // Timing-safe bearer compare. Length is checked first (timingSafeEqual throws
 // on unequal-length buffers); that leaks only the length, not the secret.
@@ -17,7 +18,7 @@ function safeBearer(header, secret) {
   return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   // FAIL-CLOSED: a missing CRON_SECRET is a misconfiguration, not an open door.
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) return res.status(503).json({ error: 'CRON_SECRET not configured' })
@@ -73,3 +74,5 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Reset failed' })
   }
 }
+
+module.exports = withSentry(handler, { route: 'reset-credits' })

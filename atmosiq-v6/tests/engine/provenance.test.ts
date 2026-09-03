@@ -33,6 +33,9 @@ const BUILDING: Zone = {
   fn: 'Provenance Tower', fl: '1 Test St', ft: 'Commercial Office',
   ht: 'Central AHU — VAV', sa: 'Weak / reduced', od: 'Closed / minimum',
   fc: 'Heavily loaded', ba: '1994',
+  // Pinned: with no survey date the engine states a comfort-band data gap
+  // rather than guessing a season, so a band claim needs a date (audit H5).
+  assessmentDate: '2026-07-15',
 }
 const PRESURVEY: Zone = {
   ps_assessor: 'J. Smith, CIH', ps_reason: 'Occupant complaint(s)', ps_survey_date: '2026-08-14',
@@ -268,7 +271,7 @@ describe('what counts as a quantity', () => {
   it('grounds a figure quoted from the input value itself', () => {
     // "Small (< 10 sq ft)" is the option string the assessor selected; a
     // finding repeating it is quoting its input.
-    const claim = claimsFor(FIXTURES[0].zones).find((c) => c.text.includes('Small area mold'))!
+    const claim = claimsFor(FIXTURES[0].zones).find((c) => c.text.includes('Visible mold growth (Small'))!
     expect(ungroundedQuantities(claim)).toEqual([])
   })
 

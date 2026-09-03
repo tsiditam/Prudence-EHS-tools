@@ -14,6 +14,7 @@
  */
 import { STD } from '../constants/standards'
 import { ppbToUgm3, ugm3ToPpb, convertTempValue } from './sensorParser'
+import { comfortSeason } from '../engines/scoring'
 
 const HCHO_MW = 30.03
 
@@ -26,13 +27,12 @@ export const CATEGORY = [
 const CAT_OF = { temp: 'thermal', rh: 'thermal', co2: 'air', pm25: 'air', pm10: 'air', co: 'air', tvoc: 'chemical', hcho: 'chemical' }
 export function categoryOf(param) { return CAT_OF[param] || 'air' }
 
-// Season mirrors the engine's calendar rule (May–Oct summer) so the
-// comfort band shown here agrees with thermal scoring. Display-only.
-function seasonForTs(ts) {
-  if (ts == null) return 'summer'
-  const m = new Date(ts).getMonth()
-  return (m >= 4 && m <= 9) ? 'summer' : 'winter'
-}
+// Season IS the engine's rule — the same `comfortSeason` thermal scoring
+// calls — so the band drawn here cannot disagree with the finding beside it
+// (audit H5). This file used to carry a third copy that defaulted a missing
+// timestamp to 'summer'; with no timestamp there is now no season and no
+// band, and the card says why. Display-only.
+const seasonForTs = (ts) => comfortSeason(ts)
 
 const norm = (u) => String(u || '').toLowerCase()
 const isUg = (u) => /µg|ug/.test(norm(u))
@@ -81,7 +81,13 @@ export function paramReference(param, opts = {}) {
 
   switch (param) {
     case 'temp': {
-      const s = STD.t.temp[seasonForTs(opts.ts)]
+      const ssn = seasonForTs(opts.ts)
+      if (!ssn) {
+        out.refs = [`${STD.t.ref}: seasonal comfort band not shown — no timestamp to select the season`]
+        out.note = 'The ASHRAE 55 comfort band is seasonal (clothing insulation). Without a timestamp for the logged period no season can be selected, so no band is drawn.'
+        break
+      }
+      const s = STD.t.temp[ssn]
       // Band stored in °F; project to the displayed unit.
       const lo = convertTempValue(s.min, '°F', unit === '°C' ? '°C' : '°F')
       const hi = convertTempValue(s.max, '°F', unit === '°C' ? '°C' : '°F')

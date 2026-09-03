@@ -35,7 +35,9 @@ describe('carbon monoxide', () => {
   it('WHO 2010 indoor 1-hour is ~30 ppm (35 mg/m³)', () => {
     expect(STD.c.co.who1h).toBe(30)
   })
-  it('OSHA PEL is 50 ppm and NIOSH REL 35 ppm — both 8-hr+ TWAs, not spot values', () => {
+  // Wording changed 2026-09 (AUDIT-2026-09 C6): a NIOSH REL is a TWA for up to a
+  // 10-hour workday, not an 8-hour figure. The values are unchanged.
+  it('OSHA PEL is 50 ppm (8-hr TWA) and NIOSH REL 35 ppm (10-hr TWA) — TWAs, not spot values', () => {
     expect(STD.c.co.osha).toBe(50)
     expect(STD.c.co.niosh).toBe(35)
   })

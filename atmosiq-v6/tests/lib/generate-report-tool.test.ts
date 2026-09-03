@@ -93,7 +93,7 @@ const fakeSupabase: any = {
 
 // Stub renderer — never invoke the real PizZip path here. Returns
 // a deterministic buffer + the token lists the dispatcher echoes.
-function fakeRender() {
+function _fakeRender() {
   return {
     buffer: Buffer.from('FAKE_DOCX_BYTES'),
     tokens_filled: ['client.name'],

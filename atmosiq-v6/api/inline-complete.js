@@ -37,7 +37,8 @@
 
 const { createClient } = require('@supabase/supabase-js')
 const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
-const { auditLog } = require('./_audit.js')
+const rateLimit = require('./_rate-limit.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 60
 const PER_DAY_LIMIT = 1000
@@ -81,48 +82,12 @@ function estimateCost(inputTokens, outputTokens) {
   return Math.round(usd * 100000) / 100000
 }
 
-async function countRowsSince(supabase, userId, sinceIso) {
-  const { count, error } = await supabase
-    .from('narrative_generations')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('generation_type', GENERATION_TYPE)
-    .gte('generated_at', sinceIso)
-  if (error) throw new Error(error.message)
-  return count || 0
-}
-
-async function findOldestSince(supabase, userId, sinceIso) {
-  const { data } = await supabase
-    .from('narrative_generations')
-    .select('generated_at')
-    .eq('user_id', userId)
-    .eq('generation_type', GENERATION_TYPE)
-    .gte('generated_at', sinceIso)
-    .order('generated_at', { ascending: true })
-    .limit(1)
-    .single()
-  return data && data.generated_at ? data.generated_at : null
-}
-
 async function checkRateLimits(supabase, userId, plan, now = Date.now()) {
-  const oneMinAgo = new Date(now - 60_000).toISOString()
-  const oneDayAgo = new Date(now - 24 * 60 * 60_000).toISOString()
-  const minuteCount = await countRowsSince(supabase, userId, oneMinAgo)
-  if (minuteCount >= PER_MINUTE_LIMIT) {
-    const oldest = await findOldestSince(supabase, userId, oneMinAgo)
-    const retryAt = oldest ? new Date(oldest).getTime() + 60_000 : now + 60_000
-    const retryAfter = Math.max(1, Math.ceil((retryAt - now) / 1000))
-    return { ok: false, scope: 'per_minute', retry_after: retryAfter }
-  }
-  const dayCount = await countRowsSince(supabase, userId, oneDayAgo)
-  if (plan === 'free' && dayCount >= FREE_TIER_DAILY_CAP) {
-    return { ok: false, scope: 'free_tier_daily', retry_after: 24 * 60 * 60 }
-  }
-  if (dayCount >= PER_DAY_LIMIT) {
-    return { ok: false, scope: 'per_day', retry_after: 24 * 60 * 60 }
-  }
-  return { ok: true }
+  return rateLimit.checkRateLimits(
+    supabase, userId, plan,
+    { perMinute: PER_MINUTE_LIMIT, perDay: PER_DAY_LIMIT, freeTierDaily: FREE_TIER_DAILY_CAP },
+    GENERATION_TYPE, now,
+  )
 }
 
 /**
@@ -241,6 +206,14 @@ async function handler(req, res) {
     }
   }
 
+  // Reserve the ledger row BEFORE the upstream call (api/_rate-limit.js).
+  let reservation
+  try {
+    reservation = await rateLimit.reserveGeneration(supabase, { userId: user.id, generationType: GENERATION_TYPE, tag: 'inline-complete' })
+  } catch {
+    return res.status(500).json({ error: 'ledger_reserve_failed' })
+  }
+
   let upstream
   try {
     upstream = await getFetch()('https://api.anthropic.com/v1/messages', {
@@ -258,18 +231,24 @@ async function handler(req, res) {
       }),
     })
   } catch (err) {
-    return res.status(502).json({ error: 'upstream_unreachable', detail: err && err.message })
+    console.error('[inline-complete] anthropic call threw:', err && err.message)
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'inline-complete')
+    return res.status(502).json({ error: 'upstream_unreachable' })
   }
 
   if (!upstream.ok) {
     const errText = typeof upstream.text === 'function' ? await upstream.text() : ''
-    return res.status(upstream.status).json({ error: `upstream_${upstream.status}`, detail: errText.slice(0, 200) })
+    console.error('[inline-complete] anthropic non-2xx:', upstream.status, String(errText).slice(0, 300))
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'inline-complete')
+    const status = upstream.status === 429 ? 429 : 502
+    return res.status(status).json({ error: `upstream_${upstream.status}` })
   }
 
   let data
   try {
     data = await upstream.json()
-  } catch (err) {
+  } catch {
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'inline-complete')
     return res.status(502).json({ error: 'upstream_invalid_json' })
   }
 
@@ -282,17 +261,7 @@ async function handler(req, res) {
   const outputTokens = data.usage && typeof data.usage.output_tokens === 'number' ? data.usage.output_tokens : null
   const cost = estimateCost(inputTokens, outputTokens)
 
-  try {
-    await supabase.from('narrative_generations').insert({
-      user_id: user.id,
-      generation_type: GENERATION_TYPE,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      estimated_cost_usd: cost,
-    })
-  } catch (err) {
-    console.error('[inline-complete] failed to record generation:', err && err.message)
-  }
+  await rateLimit.finalizeGeneration(supabase, reservation.id, { inputTokens, outputTokens, cost }, 'inline-complete')
 
   // No audit log row per completion — too noisy (60/min). The
   // generation_type='inline_complete' ledger row gives us
@@ -307,12 +276,14 @@ async function handler(req, res) {
   })
 }
 
-module.exports = handler
-module.exports.default = handler
+const wrapped = withSentry(handler, { route: 'inline-complete' })
+module.exports = wrapped
+module.exports.default = wrapped
 module.exports.__test = {
   setSupabase(s) { _supabase = s },
   setFetch(f) { _fetch = f },
   reset() { _supabase = null; _fetch = null },
   sanitizeCompletion,
   MAX_INPUT_TEXT_LEN,
+  GENERATION_TYPE,
 }

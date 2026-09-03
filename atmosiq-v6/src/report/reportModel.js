@@ -14,15 +14,21 @@
  * wording aside).
  *
  * Engine-sacred: this module READS engine OUTPUT (zoneScores[].cats[].r[],
- * recs, causalChains) and recognized reference values from STD — it does not
- * score, and it does not modify any engine file. Per-parameter screening
- * outcomes are threshold comparisons against STD (the single source of truth
- * for thresholds), framed as screening indicators, never compliance verdicts.
+ * recs, causalChains) — it does not score, and it does not modify any engine
+ * file. Per-parameter outcomes are DERIVED FROM THE ENGINE'S FINDINGS for
+ * the zone (severity → outcome label), never re-decided here (audit H3).
+ * Until 2026-09 `paramOutcome` was a second verdict ladder — always the
+ * summer temperature band, CO "acceptable" below 9 while the engine flagged
+ * at 6, `>=` where the engine uses `>`, RH rated high where the engine caps
+ * at medium — so the results table could contradict the finding beside it.
+ * `tests/engine/cross-layer-consistency.test.ts` holds the layers together.
  */
 
 import { STD } from '../constants/standards'
 import { parsePhotoKey, photoCaption } from '../utils/photoIndex.js'
 import { actionLine } from '../utils/recFormatting'
+import { readNumber, scoreZone } from '../engines/scoring'
+import { resolveAssessmentDate } from '../utils/assessmentDate'
 import * as NL from './narrativeLibrary'
 import {
   REPORT_PROFILES, REPORT_STATUS, DEFAULT_PROFILE, DEFAULT_STATUS,
@@ -45,14 +51,11 @@ const PARAMS = [
   { key: 'tvoc', zoneKey: 'tv', label: 'Total VOCs (TVOC)', unit: 'µg/m³', basis: 'No applicable threshold — reported, not judged' },
 ]
 
-const OUTCOME = { acceptable: 0, advisory: 1, elevated: 2 }
-const OUTCOME_LABEL = ['Acceptable', 'Advisory', 'Elevated']
-
-function num(v) {
-  if (v === null || v === undefined || v === '') return null
-  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''))
-  return Number.isFinite(n) ? n : null
-}
+// The engine's parser (audit H1): the cell the table prints and the value
+// the engine judged are the same number, or both are null. The old local
+// `parseFloat(replace(/[^0-9.\-]/g))` read '<5' as 5 and '1,180' as 1180
+// while the engine read NaN and passed.
+const num = readNumber
 
 function stats(values) {
   const v = values.filter(x => x !== null)
@@ -62,40 +65,70 @@ function stats(values) {
   return { min, max, mean, n: v.length }
 }
 
-// Threshold-based screening outcome per parameter (worst across the range).
-function paramOutcome(key, s) {
-  if (!s) return null
-  const { min, max } = s
-  switch (key) {
-    case 'co2': return max >= STD.v.co2.con ? 'elevated' : max >= 800 ? 'advisory' : 'acceptable'
-    case 'co': return max >= STD.c.co.osha ? 'elevated' : max >= STD.c.co.epa ? 'advisory' : 'acceptable'
-    case 'temperature': return (max > STD.t.temp.summer.max || min < STD.t.temp.summer.min) ? 'advisory' : 'acceptable'
-    case 'relativeHumidity': return (max > 70 || min < 20) ? 'elevated' : (max > STD.t.rh.max || min < STD.t.rh.min) ? 'advisory' : 'acceptable'
-    case 'pm25': return max >= STD.c.pm25.epa ? 'elevated' : max >= STD.c.pm25.who ? 'advisory' : 'acceptable'
-    // TVOC has no band. It was `>= act ? 'elevated' : >= con ? 'advisory'`
-    // against Mølhave's tiers until 2026-08. With no threshold behind it the
-    // parameter cannot be called elevated, advisory OR acceptable — the last
-    // is the one worth naming, because calling an unjudgeable reading
-    // "acceptable" is the more dangerous of the two errors.
-    case 'tvoc': return 'not_evaluated'
-    default: return 'acceptable'
-  }
+// ── Outcomes derive from the engine ────────────────────────────────────
+//
+// Model parameter key → the `p` the engine stamps on that parameter's
+// findings. TVOC has none: it is measured and reported, never judged.
+const ENGINE_PARAM = { co2: 'co2', co: 'co', temperature: 'temperature', relativeHumidity: 'rh', pm25: 'pm25', tvoc: null }
+// Engine severity → results-table outcome. `low`, `pass` and `info` are the
+// engine's "evaluated, nothing to act on".
+const SEV_TO_OUTCOME = { critical: 'priority', high: 'elevated', medium: 'advisory', low: 'acceptable', pass: 'acceptable', info: 'acceptable' }
+const OUTCOME_RANK = { not_evaluated: -1, acceptable: 0, advisory: 1, elevated: 2, priority: 3 }
+const worseOutcome = (a, b) => ((OUTCOME_RANK[b] ?? -1) > (OUTCOME_RANK[a] ?? -1) ? b : a)
+
+/**
+ * The engine result for zone `i`. Callers pass `zoneScores` aligned with
+ * `zones` (the app always does). A caller with no scores at all — the
+ * marketing sample, a preview — gets the zone scored on the spot with an
+ * empty building, so the table still reads off the engine rather than off a
+ * ladder of its own; a profile- or date-dependent outcome then reports the
+ * gap (temperature needs a survey date) instead of guessing.
+ */
+function engineResult(zoneScores, zones, i) {
+  if (zoneScores[i]) return zoneScores[i]
+  const z = zones[i]
+  return z ? scoreZone(z, {}) : null
+}
+
+/**
+ * One parameter's outcome in one zone, from that zone's engine findings:
+ * the worst severity among findings stamped with the parameter's `p`. No
+ * finding means the engine evaluated the reading and raised nothing —
+ * 'acceptable'. A `dataGap` finding (entered but unreadable, or a comfort
+ * band with no date) is 'not_evaluated', as is a parameter with no engine
+ * result at all.
+ */
+export function zoneParamOutcome(zs, key) {
+  const p = ENGINE_PARAM[key]
+  if (!p) return 'not_evaluated'
+  if (!zs || !Array.isArray(zs.cats)) return 'not_evaluated'
+  const findings = zs.cats.flatMap(c => (c.r || []).filter(r => r && r.p === p))
+  if (findings.some(r => r.dataGap)) return 'not_evaluated'
+  return findings.reduce((worst, r) => worseOutcome(worst, SEV_TO_OUTCOME[r.sev] || 'acceptable'), 'acceptable')
 }
 
 const zoneName = (zoneScores, zones, i) =>
   (zoneScores[i] && zoneScores[i].zoneName) || (zones[i] && zones[i].zn) || `Zone ${i + 1}`
 
 /** Per-parameter summary: { range, mean, unit, basis, outcome } for measured params. */
-export function summarizeParameters(zones = []) {
+export function summarizeParameters(zones = [], zoneScores = []) {
   const out = {}
   for (const p of PARAMS) {
-    const s = stats(zones.map(z => num(z && z[p.zoneKey])))
+    const values = zones.map(z => num(z && z[p.zoneKey]))
+    const s = stats(values)
     if (!s) continue
+    // Worst outcome across the zones that carry a reading for this parameter.
+    let outcome = null
+    zones.forEach((z, i) => {
+      if (values[i] === null) return
+      const o = zoneParamOutcome(engineResult(zoneScores, zones, i), p.key)
+      outcome = outcome === null ? o : worseOutcome(outcome, o)
+    })
     out[p.key] = {
       label: p.label, unit: p.unit, basis: p.basis,
       min: s.min, max: s.max, mean: s.mean, n: s.n,
       range: s.min === s.max ? `${s.min}` : `${s.min}–${s.max}`,
-      outcome: paramOutcome(p.key, s),
+      outcome: outcome ?? 'not_evaluated',
     }
   }
   return out
@@ -104,21 +137,24 @@ export function summarizeParameters(zones = []) {
 /** Per-zone measurement rows with a governing (worst-parameter) outcome. */
 export function zoneRows(zones = [], zoneScores = []) {
   return zones.map((z, i) => {
-    let worst = -1
+    const zs = engineResult(zoneScores, zones, i)
+    let worst = null
     const cells = {}
     for (const p of PARAMS) {
       const val = num(z && z[p.zoneKey])
       cells[p.key] = val
-      if (val !== null) {
-        const oc = paramOutcome(p.key, { min: val, max: val })
-        if (OUTCOME[oc] > worst) worst = OUTCOME[oc]
+      if (val !== null && p.key !== 'tvoc') {
+        const oc = zoneParamOutcome(zs, p.key)
+        worst = worst === null ? oc : worseOutcome(worst, oc)
       }
     }
     return {
       id: zoneName(zoneScores, zones, i),
       use: (z && (z.zt || z.zuse)) || '',
       ...cells,
-      outcome: worst >= 0 ? OUTCOME_LABEL[worst].toLowerCase() : 'acceptable',
+      // A zone with no judged reading is not "acceptable"; it was not
+      // evaluated, and the row says so.
+      outcome: worst ?? 'not_evaluated',
     }
   })
 }
@@ -127,8 +163,25 @@ export function zoneRows(zones = [], zoneScores = []) {
 export function peakCo2ByZone(zones = [], zoneScores = []) {
   return zones.map((z, i) => {
     const value = num(z && z.co2)
-    return value === null ? null : { zone: zoneName(zoneScores, zones, i), value, outcome: paramOutcome('co2', { min: value, max: value }) }
+    return value === null ? null : { zone: zoneName(zoneScores, zones, i), value, outcome: zoneParamOutcome(engineResult(zoneScores, zones, i), 'co2') }
   }).filter(Boolean)
+}
+
+/**
+ * Every data-gap finding the engine raised, as a limitation line. A reading
+ * that was entered but could not be read, or a comfort band that could not
+ * be selected, is stated here rather than silently rendered as "—".
+ */
+export function collectDataGaps(zoneScores = []) {
+  const lines = []
+  for (const zs of zoneScores) {
+    for (const cat of ((zs && zs.cats) || [])) {
+      for (const r of (cat.r || [])) {
+        if (r && r.dataGap) lines.push(`${zs.zoneName || 'Zone'}: ${r.t}.`)
+      }
+    }
+  }
+  return lines
 }
 
 /** Flagged findings (critical/high/medium) from engine zone scores. */

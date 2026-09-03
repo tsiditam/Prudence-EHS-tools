@@ -24,7 +24,6 @@ import {
   isUndefinedColumnError,
   isUniqueViolationError,
 } from '../../src/utils/supabaseStorage'
-import { deriveLegacyUid } from '../../src/billing/assessmentUid'
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8')
 

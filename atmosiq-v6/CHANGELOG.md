@@ -1,5 +1,83 @@
 # AtmosFlow Changelog
 
+## Audit remediation (September 2026)
+
+The engineering audit (`docs/AUDIT-2026-09.md`) found that nothing gated a
+deploy, 85% of production code had no static analysis, the acceptance
+gates were grep, the container path could not boot and the docs
+described scripts that did not exist. This entry covers the process,
+delivery and dependency changes; the other audit areas are recorded
+below it.
+
+<!-- coordinator: append other areas here -->
+
+**Process and delivery**
+
+- **CI.** `.github/workflows/atmosflow-ci.yml` runs typecheck → lint →
+  test → build, `accept:api-boot` + `bundle:api`, and `accept:prod-ready`
+  on every pull request and push to `main` touching `atmosiq-v6/` (Node
+  20, npm cache keyed on the lockfile). Require `test` and `api-boot` in
+  branch protection.
+- **`api_boot` acceptance check.** `scripts/api-boot-check.mjs` bundles
+  every `api/**` entry with esbuild the way Vercel's runtime sees it,
+  refuses extension-less relative ESM imports at resolve time, and
+  imports the output under plain Node asserting a function default export
+  — the exact runtime shape of the "every API function was returning
+  500" incident below. Criterion `API-BOOT` in `prod-ready.json`,
+  `go-live.json` and the new `api-boot.json`; `npm run accept:api-boot`.
+- **`prod-ready.json` runs the test suite once.** Seven feature criteria
+  each carried their own `npm_script_passes: test`; the suite ran eight
+  times and the gate timed out. `BUILD-02` is the single run. 76 criteria.
+- **Static analysis reaches `src/`.** `eslint.config.mjs` has real rules
+  (`no-undef`, `no-dupe-keys`, `no-unreachable`, `no-debugger`,
+  `no-unused-vars`, `eqeqeq`) plus `eslint-plugin-react-hooks` on
+  `src/**` under a warning ratchet (`lint:src`, `--max-warnings=<N>`);
+  errors fail outright. Infra paths keep `--max-warnings=0` with
+  `@typescript-eslint/no-unused-vars`. `tsconfig.check.json` now covers
+  `src/**/*.ts(x)` (clean).
+- **Coverage.** `npm run test:coverage` (`@vitest/coverage-v8`) with
+  thresholds just under the measured baseline (lines 65, branches 50,
+  functions 55, statements 60).
+- **Bundle.** `manualChunks` splits docx, jspdf, recharts, supabase,
+  sentry, markdown and lucide into vendor chunks: main chunk 3,104 KB /
+  930 KB gzip → 1,524 KB / 448 KB gzip; the vendor chunks survive deploys
+  in the PWA cache.
+- **Container path is real.** `scripts/bundle-api.mjs` bundles every
+  `api/**` entry and `lib/sentry.ts` to `server/handlers/**/*.mjs`;
+  `server/index.js` mounts every handler by walking that tree (nested
+  routes included), forwards all methods, sets `trust proxy`, serves
+  `GET /healthz` `{ ok, sha }`, initialises Sentry and logs missing env;
+  the Dockerfile runs the bundling step and carries a `HEALTHCHECK`.
+  `docs/CONTAINER.md` now describes what exists.
+- **Environment.** `.env.example` lists every variable read by `api/`,
+  `lib/`, `scripts/`, `server/` and `vite.config.js` (was 3 of 39),
+  grouped and commented; `docs/ENVIRONMENT.md` maps each to its readers;
+  `scripts/check-env.mjs` (`npm run check:env`) lists missing required
+  server variables and runs at container boot.
+- **Smoke test** probes every `api/**` route unauthenticated (GET and
+  POST, non-5xx required) and also runs on every successful production
+  `deployment_status`, not only at 06:00 UTC.
+- **Docs drift.** README engine line reads from `src/version.js`
+  (`atmosflow-engine-3.0.0`) and its test section matches
+  `package.json`; `docs/ACCEPTANCE.md` describes the current configs and
+  check types; `docs/REPORT_ARCHITECTURE.md` no longer points at
+  `v2.3.json` / `accept:v2.6`; CLAUDE.md counts (35 migrations, 76
+  criteria) and a CI paragraph. The runner's default config is
+  `prod-ready.json`.
+- **Dependencies.** Removed the six unused packages (`@mui/material`,
+  `@mui/x-date-pickers`, `@emotion/react`, `@emotion/styled`, `vaul`,
+  `@testing-library/jest-dom`); declared `html2canvas` and `esbuild`,
+  which were imported but undeclared; `cheerio` → devDependencies;
+  `@types/react` / `@types/react-dom` pinned to `^18` to match React 18.
+  Security upgrades are listed in the dependency notes below.
+- **Repo hygiene.** `.nvmrc` (20); `.gitignore` gains `coverage/`,
+  `*.log`, `.DS_Store`, `server/handlers/`; `generate-icons.cjs` and
+  `generate-whitepaper.cjs` moved into `scripts/`; the 13.6 MB demo video
+  and 2.1 MB GIF removed from `public/` (host them on Supabase Storage or
+  a CDN — the landing page carries the note); the stale root-level
+  `atmosflow-landing.html` (still showed the removed 100-point score) and
+  its `test_landing.py` deleted in favour of `public/atmosflow-landing.html`.
+
 ## Fix: mold mode could not be exited on a notched iPhone
 
 **User-visible change**

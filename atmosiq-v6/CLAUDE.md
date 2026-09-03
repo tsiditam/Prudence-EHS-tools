@@ -113,16 +113,22 @@ Read these directories first when investigating any task:
 - `pages/index.tsx` — public marketing landing page. Self-contained
   TSX; not yet wired into the SPA's actual route shell (the live root
   currently renders `src/components/LandingPage.jsx`).
-- `supabase/migrations/` — 011 migrations covering analytics, billing,
-  teams/orgs, enterprise phase 1, early-access, webhook-idempotency,
-  deletion-audit, narrative-generations, pricing rollout, onboarding,
-  email queue.
+- `supabase/migrations/` — 35 numbered migrations (`000`–`034`; count
+  with `ls supabase/migrations/[0-9]*.sql | wc -l`) covering the base
+  schema, analytics, billing, teams/orgs, enterprise phase 1,
+  early-access, webhook-idempotency, deletion-audit,
+  narrative-generations, pricing rollout, onboarding, email queue, field
+  assistant, report templates, sites, peer review, knowledge graph,
+  security hardening, report lifecycle / immutability. Applied by
+  `scripts/db-migrate.mjs` (docs/DATABASE_MIGRATIONS.md).
 - `scripts/` — acceptance runner (`acceptance-check.mjs`), engine merge
   readiness diagnostic, smoke test, password-reset verification, Stripe
   setup, cron implementations, sample-report PDF generator.
 - `scripts/acceptance/` — JSON acceptance configs:
-  `prod-ready.json` (71 criteria), `pricing-rollout.json` (19),
-  `go-live.json` (21), and the legacy v2.X engine configs.
+  `prod-ready.json` (76 criteria), `pricing-rollout.json` (19),
+  `go-live.json` (22), `api-boot.json` (the `API-BOOT` criterion alone,
+  for CI), plus `kg.json` and `mold.json`. The legacy v2.X engine
+  configs no longer exist.
 - `tests/` — Vitest:
   - `tests/engine/` — engine logic + report rendering tests (.ts)
   - `tests/api/` — API handler tests (.ts)
@@ -588,9 +594,10 @@ Three feature-level acceptance configs gate completion claims:
 
 | Gate | Script | Criteria |
 |---|---|---|
-| Production readiness (Group A) | `npm run accept:prod-ready` | 71 |
+| Production readiness (Group A) | `npm run accept:prod-ready` | 76 |
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
-| Go-live experience (Group C) | `npm run accept:go-live` | 21 |
+| Go-live experience (Group C) | `npm run accept:go-live` | 22 |
+| API boot (CI job, also inside A and C) | `npm run accept:api-boot` | 1 |
 
 **Tasks are not complete until the relevant acceptance group passes.**
 Run `npm run accept:prod-ready` (or `accept:pricing-rollout` /
@@ -600,6 +607,26 @@ non-zero, the task is not done — investigate before declaring success.
 Do not self-grade against prose; the runner exits 0 only when every
 criterion passes. The runner itself lives at
 `scripts/acceptance-check.mjs`.
+
+**CI.** `.github/workflows/atmosflow-ci.yml` (monorepo root) runs on every
+pull request and push to `main` that touches `atmosiq-v6/`: job `test`
+(`npm ci` → `typecheck` → `lint` → `test` → `build`, Node 20, npm cache
+keyed on `atmosiq-v6/package-lock.json`), job `api-boot`
+(`npm run accept:api-boot` + `npm run bundle:api`), and job
+`accept-prod-ready` (`npm run accept:prod-ready`, needs `test`). Require
+`test` and `api-boot` in branch protection. Until 2026-09 nothing gated a
+deploy — Vercel ran `vite build` only — which is how the extension-less
+import incident (pitfall #4) shipped.
+
+**The `api_boot` check** (`scripts/api-boot-check.mjs`, criterion
+`API-BOOT` in `prod-ready.json`, `go-live.json` and `api-boot.json`) is
+the one acceptance check that executes the runtime rather than grepping
+for it: every `api/**` entry is bundled with esbuild the way Vercel's Node
+runtime sees it (`platform: node`, `format: esm`, `packages: external`),
+any relative ESM import without a file extension is refused at resolve
+time, and the output is imported under plain Node with the default export
+asserted to be a function. `prod-ready.json` now runs the full Vitest
+suite once (`BUILD-02`) instead of eight times.
 
 ## Session-learned pitfalls
 
@@ -890,11 +917,31 @@ report's record is the only evidence of what it said.
 ## Test commands
 
 - `npm run test` — Vitest unit + integration tests (default)
+- `npm run test:coverage` — same, with v8 coverage (`text-summary` +
+  `lcov`; thresholds in `vite.config.js` `test.coverage`: lines 65,
+  branches 50, functions 55, statements 60 — just under the September
+  2026 baseline; raise them, never lower them)
 - `npm run typecheck` — TypeScript noEmit check
-  (`tsc --noEmit -p tsconfig.check.json`, scoped to new infra paths;
-  src/engine type errors are a separate engine-scope follow-up)
-- `npm run lint` — ESLint flat config, scoped to new infra paths
-- `npm run build` — Vite SPA production build
+  (`tsc --noEmit -p tsconfig.check.json`: api/, lib/, scripts/,
+  components/, pages/, the typed tests, and `src/**/*.ts(x)`; `strict`
+  is still off and `src/**/*.js(x)` is not type-checked)
+- `npm run lint` — three parts, all must pass:
+  - `lint:eslint` — infra paths (scripts/, server/, lib/, api/*.ts,
+    components/, pages/, tests/{api,scripts,lib,components,pages}) with
+    real rules at `--max-warnings=0`
+  - `lint:src` — `src/**` under the same core rules plus
+    `eslint-plugin-react-hooks` (`rules-of-hooks` error,
+    `exhaustive-deps` warn), with a **warning ratchet**:
+    `--max-warnings=<N>` in `package.json`. N was set to the measured
+    count when src/ was first linted (2026-09); lower it as warnings
+    are paid down and never raise it. Errors (`no-undef`,
+    `no-dupe-keys`, `no-unreachable`, `no-debugger`, `rules-of-hooks`)
+    fail regardless of N.
+  - `lint:imports` — `scripts/check-api-js-imports.mjs` (pitfall #4)
+- `npm run build` — Vite SPA production build (vendor chunks split by
+  `build.rollupOptions.output.manualChunks` in `vite.config.js`)
+- `npm run accept:api-boot` — bundle + import every `api/**` entry under
+  plain Node (see "Acceptance gates")
 
 Run tests after any change to `src/engine/`, `src/engines/`, `src/components/docx/`,
 `api/`, or `lib/`.

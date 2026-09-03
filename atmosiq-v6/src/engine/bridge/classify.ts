@@ -13,6 +13,15 @@ export interface LegacyFinding {
   t: string
   sev: 'critical' | 'high' | 'medium' | 'low' | 'pass' | 'info'
   std?: string
+  // Structured fields the engine sets on a criterion-backed finding
+  // (scoring.js `criterionFields`). Contaminant routing reads THESE, never
+  // the prose — CLAUDE.md rule 2.
+  p?: string
+  cid?: string | null
+  criterionClass?: string
+  averaging?: string
+  determinative?: boolean
+  evidenceBasis?: string
 }
 
 export interface ZoneContext {
@@ -56,7 +65,7 @@ export function classifyCondition(
     case 'Ventilation':
       return classifyVentilation(text, std, zone, finding.sev)
     case 'Contaminants':
-      return classifyContaminants(text, std, zone)
+      return classifyContaminants(text, std, zone, finding)
     case 'HVAC':
       return classifyHVAC(text, std, zone)
     case 'Complaints':
@@ -111,25 +120,40 @@ function classifyVentilation(
   return 'ventilation_observational_only'
 }
 
+/**
+ * A "documented PEL" condition type asserts an 8-hour TWA exceedance. It is
+ * reachable ONLY when the finding's criterion IS an 8-hour TWA occupational
+ * limit AND the measurement basis can settle that comparison (audit H2).
+ * Routing used to key on the string "osha" appearing in `std`, so a grab
+ * reading compared to the OSHA PEL — which the registry marks
+ * non-determinative — still rendered "documented … exceed the OSHA 8-hour
+ * permissible exposure limit". The engine's structured fields decide now;
+ * a walkthrough grab reading never reaches this template.
+ */
+function isDocumentedPel(f: LegacyFinding): boolean {
+  return f.criterionClass === 'regulatory_oel' && f.averaging === 'hour8' && f.determinative === true
+}
+
 function classifyContaminants(
   text: string,
-  std: string,
+  _std: string,
   zone: ZoneContext,
+  finding: LegacyFinding,
 ): ConditionType {
-  if (matches(text, ['multiple contaminant exceedance'])) return 'co_above_pel_documented'
+  // Structured routing first (CLAUDE.md rule 2). `p` is the parameter the
+  // engine evaluated; a finding without it is a legacy or observational one
+  // and falls through to the prose heuristics below, which can no longer
+  // reach a documented-PEL type.
+  if (finding.p === 'multi_oel' || finding.p === 'co') {
+    return isDocumentedPel(finding) ? 'co_above_pel_documented' : 'co_screening_elevated'
+  }
+  if (finding.p === 'hcho') {
+    return isDocumentedPel(finding) ? 'hcho_above_pel_documented' : 'hcho_screening_elevated'
+  }
 
-  if (matches(text, ['co ']) && (matches(text, ['osha pel', 'exceeds osha']) || std.includes('osha'))) {
-    return 'co_above_pel_documented'
-  }
-  if (matches(text, ['co ']) && (matches(text, ['niosh rel', 'exceeds niosh']) || std.includes('niosh'))) {
-    return 'co_screening_elevated'
-  }
+  if (matches(text, ['multiple contaminant exceedance'])) return 'co_screening_elevated'
   if (text.toLowerCase().startsWith('co ') || matches(text, ['carbon monoxide'])) {
     return 'co_screening_elevated'
-  }
-
-  if (matches(text, ['formaldehyde']) && matches(text, ['osha pel', 'exceeds osha'])) {
-    return 'hcho_above_pel_documented'
   }
   if (matches(text, ['formaldehyde'])) return 'hcho_screening_elevated'
 
@@ -137,7 +161,7 @@ function classifyContaminants(
 
   if (matches(text, ['pm2.5', 'pm 2.5', 'pm₂.₅'])) {
     if (matches(text, ['indoor/outdoor', 'i/o ratio'])) return 'pm_indoor_amplification_screening'
-    if (matches(text, ['epa naaqs', 'naaqs']) || std.includes('naaqs')) return 'pm_above_naaqs_documented'
+    if (matches(text, ['epa naaqs', 'naaqs']) || _std.includes('naaqs')) return 'pm_above_naaqs_documented'
     return 'pm_screening_elevated'
   }
 

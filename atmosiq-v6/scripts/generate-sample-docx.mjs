@@ -3,7 +3,7 @@
  * Usage: node --experimental-vm-modules scripts/generate-sample-docx.mjs
  */
 
-import { Document, Packer, SectionType, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType } from 'docx'
+import { Document, Packer, SectionType, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
 import { writeFileSync } from 'fs'
 
 // Inline design tokens (matches styles.js after spec update)

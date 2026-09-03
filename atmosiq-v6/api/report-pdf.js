@@ -21,6 +21,8 @@
 const { renderReportPdf } = require('../lib/report/render-pdf.js')
 const { scan } = require('./_banned-language.js')
 const { createClient } = require('@supabase/supabase-js')
+const { hasDeliverableEntitlement } = require('../lib/unlimited-usage.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 // Cap the raw request body (self-hosted Express path; Vercel already enforces
 // its own ~4.5 MB limit). Report models can embed photos, so this is generous.
@@ -103,10 +105,44 @@ function json(res, code, obj) {
   res.end(JSON.stringify(obj))
 }
 
-module.exports = async function handler(req, res) {
+// Server-side credit gate (audit 2026-09 H3). Nothing on the server used
+// to read credits_remaining — deduction was a separate client POST — so a
+// client that omitted it got every PDF free. This GATES only; the debit
+// stays where it is (/api/credits, consume_credits RPC). A missing profile
+// row is treated as no entitlement; a lookup ERROR fails closed too.
+async function requireEntitlement(user, res) {
+  const supabase = getSupabase()
+  if (!supabase) { json(res, 500, { error: 'server_not_configured' }); return false }
+  let profile = null
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('plan, credits_remaining')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (error) {
+      console.error('[report-pdf] entitlement lookup failed:', error.message)
+      json(res, 500, { error: 'entitlement_lookup_failed' })
+      return false
+    }
+    profile = data || null
+  } catch (e) {
+    console.error('[report-pdf] entitlement lookup threw:', e && e.message)
+    json(res, 500, { error: 'entitlement_lookup_failed' })
+    return false
+  }
+  if (!hasDeliverableEntitlement(profile, user.email)) {
+    json(res, 402, { error: 'insufficient_credits' })
+    return false
+  }
+  return true
+}
+
+async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' })
   const user = await requireUser(req, res)
   if (!user) return
+  if (!(await requireEntitlement(user, res))) return
   let body
   try {
     body = await readBody(req)
@@ -130,12 +166,15 @@ module.exports = async function handler(req, res) {
     res.setHeader('content-length', String(buffer.length))
     res.end(buffer)
   } catch (e) {
-    json(res, 500, { error: 'render_failed', message: String((e && e.message) || e) })
+    console.error('[report-pdf] render failed:', e && (e.stack || e.message) ? e.stack || e.message : e)
+    json(res, 500, { error: 'render_failed' })
   }
 }
 
+module.exports = withSentry(handler, { route: 'report-pdf' })
 module.exports.__test = {
   collectProse,
+  requireEntitlement,
   setSupabase(mock) { _supabase = mock },
   reset() { _supabase = null },
 }

@@ -40,7 +40,6 @@
 import type { InvestigationState } from '../../src/engine/investigation'
 import type { LoggerContextSummary } from '../jasper/logger-context-summary'
 import type { MonitoringReportProjection } from '../jasper/monitoring-report-summary'
-import type { KGContext } from '../../src/types/knowledgeGraph'
 
 /** A single finalization / defensibility blocker or gap detail. */
 export interface ReadinessBlockerDetail {

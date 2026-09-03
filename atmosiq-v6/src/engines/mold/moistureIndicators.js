@@ -39,6 +39,18 @@ export function evaluateMoisture(reading) {
       source: null,
     }
   }
+  // A material with no published numeric threshold (gypsum — audit H7) is
+  // evaluated qualitatively whatever number the meter showed: the reading is
+  // recorded, never compared, and only the meter's own "elevated/wet" flag
+  // counts as the screening indicator. Same semantics as a missing reading.
+  if (indicator.qualitativeOnly || indicator.elevatedAtOrAbovePct == null) {
+    return {
+      elevated: false, material, value,
+      threshold: null, unit: indicator.unit,
+      note: indicator.note,
+      source: indicator.source,
+    }
+  }
   if (value == null) {
     return {
       elevated: false, material, value: null,

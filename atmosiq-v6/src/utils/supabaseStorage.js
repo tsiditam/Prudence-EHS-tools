@@ -196,15 +196,17 @@ function errorSummary(err) {
 export function engineMajor(record) {
   if (!record || typeof record !== 'object') return null
   const payload = (record.payload && typeof record.payload === 'object') ? record.payload : record
-  const candidates = [
-    payload.engineVersion,
-    payload.standardsManifest && payload.standardsManifest.engineVersion,
-    payload.ver,
-    payload.version,
-  ]
-  for (const c of candidates) {
+  // Bare engine semver first…
+  for (const c of [payload.engineVersion, payload.standardsManifest && payload.standardsManifest.engineVersion]) {
     if (typeof c !== 'string') continue
-    const m = /(?:engine\s*v)?(\d+)\.\d+/i.exec(c)
+    const m = /^\s*v?(\d+)\.\d+/i.exec(c)
+    if (m) return Number(m[1])
+  }
+  // …then the display label "6.0.0-beta (Engine v3.0.0)". The leading
+  // number there is the APP version, so only the "Engine vX" form counts.
+  for (const c of [payload.ver, payload.version]) {
+    if (typeof c !== 'string') continue
+    const m = /engine\s*v(\d+)\./i.exec(c)
     if (m) return Number(m[1])
   }
   return null
@@ -212,9 +214,9 @@ export function engineMajor(record) {
 
 /** True for the v3 finding census shape (and not the legacy score). */
 export function isCensus(c) {
-  return !!c && typeof c === 'object' && !Array.isArray(c)
+  return !!(c && typeof c === 'object' && !Array.isArray(c)
     && c.findings && typeof c.findings === 'object'
-    && !('tot' in c)
+    && !('tot' in c))
 }
 
 /** The `composite` column may be read only for pre-v3 (or unknown) engines. */
@@ -234,7 +236,7 @@ function legacyComposite(a) {
 // slot — so the shape is self-describing on the way back down.
 export function toPayload(assessment) {
   if (!assessment || typeof assessment !== 'object') return assessment
-  const { photos, cloudUpdatedAt, _photosPending, ...rest } = assessment // eslint-disable-line no-unused-vars
+  const { photos, cloudUpdatedAt, _photosPending, ...rest } = assessment
   const comp = rest.comp ?? rest.composite
   if (isCensus(comp)) rest.census = comp
   return rest
@@ -777,7 +779,7 @@ const SupaStorage = {
         const cloudPhotos = await this._fetchCloudPhotos(id)
         if (cloudPhotos) {
           const compacted = await compactPhotos(cloudPhotos, id)
-          const { _photosPending, ...rest } = local // eslint-disable-line no-unused-vars
+          const { _photosPending, ...rest } = local
           local = { ...rest, photos: compacted.photos }
           const ok = await STO.set(id, local)
           if (ok === false) await noteStorageQuota()

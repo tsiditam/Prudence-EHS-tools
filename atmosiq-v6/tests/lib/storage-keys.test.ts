@@ -31,6 +31,7 @@ describe('storageKeys', () => {
     expect(KEYS.projects).toBe('atmosflow:projects')
     expect(KEYS.instruments).toBe('atmosflow:instruments')
     expect(KEYS.labCsvTemplates).toBe('atmosflow:lab_csv_templates')
+    expect(KEYS.syncConflicts).toBe('atmosflow:sync-conflicts')
   })
 
   it('builds the building-scoped complaints key', () => {

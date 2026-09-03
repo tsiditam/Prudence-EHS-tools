@@ -13,6 +13,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { withSentry } from '../_with-sentry.js'
 
 interface VercelLikeReq {
   method?: string
@@ -56,7 +57,7 @@ export async function handler(req: VercelLikeReq, res: VercelLikeRes) {
   } else if (action === 'dismissed') {
     patch = { onboarding_dismissed_at: new Date().toISOString() }
   } else {
-    return res.status(400).json({ error: `unknown action: ${action}` })
+    return res.status(400).json({ error: 'unknown_action' })
   }
 
   const { error: updateErr } = await supabase
@@ -64,12 +65,15 @@ export async function handler(req: VercelLikeReq, res: VercelLikeRes) {
     .update(patch)
     .eq('id', userData.user.id)
 
-  if (updateErr) return res.status(500).json({ error: 'Update failed', detail: updateErr.message })
+  if (updateErr) {
+    console.error('[mark-onboarded] update failed:', updateErr.message)
+    return res.status(500).json({ error: 'update_failed' })
+  }
 
   return res.status(200).json({ ok: true, action })
 }
 
-export default handler
+export default withSentry(handler, { route: 'profile/mark-onboarded' })
 
 export const __test = {
   setSupabase(mock: unknown) { _supabase = mock as SupabaseClient },

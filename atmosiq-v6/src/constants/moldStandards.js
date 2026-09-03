@@ -35,6 +35,10 @@ export const MOLD_SOURCES = {
   epaMold: 'EPA — Mold Remediation in Schools and Commercial Buildings (2008)',
   iom: 'IOM — Damp Indoor Spaces and Health (2004)',
   acmt: 'ACMT Position Statement — Mold (2025)',
+  // Moisture references (audit M8). Neither figure below is stated in EPA
+  // (2008), which was cited for all three materials until 2026-09.
+  s500: 'IICRC S500-2021 — Standard for Professional Water Damage Restoration (drying goal / dry standard for wood-based materials)',
+  astmF2170: 'ASTM F2170 — Standard Test Method for Determining Relative Humidity in Concrete Floor Slabs Using in situ Probes (75% RH flooring-installation reference)',
 }
 
 // The standing framing that must ride on EVERY mold output. Screening-only
@@ -140,41 +144,51 @@ export const REMEDIATION_CONDITIONS = {
  * final call. `%MC` = percent moisture content (gravimetric-equivalent scale).
  */
 export const MOISTURE_INDICATORS = {
-  // Wood / wood-based materials. ~16% MC is the commonly-cited screening line
-  // above which sustained fungal growth is supported; species and meter
-  // correction factors apply.
+  // Wood / wood-based materials. 16% MC is the IICRC S500 dry-standard
+  // screening line — the ONE wood figure in this codebase (sampling.js reads
+  // it from here; it used to carry its own 19%). 19% is the fibre-saturation
+  // / decay rule of thumb, a different question from "can growth be
+  // supported", and is deliberately not the screening line.
   wood: {
     material: 'wood / wood-based',
     elevatedAtOrAbovePct: 16,
     unit: '%MC',
     note:
-      'Generic screening figure; correct for species and meter. Elevated ' +
-      'moisture indicates growth POTENTIAL, not the presence of mold.',
-    source: MOLD_SOURCES.epaMold,
+      'IICRC S500 dry-standard screening figure; correct for species and ' +
+      'meter. Elevated moisture indicates growth POTENTIAL, not the presence ' +
+      'of mold.',
+    source: MOLD_SOURCES.s500,
   },
-  // Gypsum board / drywall. Paper facing supports growth at lower moisture;
-  // most pin/pinless meters report a relative "elevated/wet" scale rather than
-  // a true %MC, so the screening line is directional.
+  // Gypsum board / drywall — QUALITATIVE ONLY (audit H7). Pin/pinless meters
+  // report gypsum on a relative 0–100 scale, not a %MC, and no published
+  // document states a numeric threshold on that scale. The previous entry
+  // flagged any reading ≥ 1, i.e. every reading. `elevatedAtOrAbovePct` is
+  // null: evaluateMoisture records the reading and treats only the meter's
+  // own "elevated/wet" flag as the screening indicator.
   drywall: {
     material: 'gypsum board / drywall',
-    elevatedAtOrAbovePct: 1, // relative-scale "elevated" per meter; see note
+    elevatedAtOrAbovePct: null,
+    qualitativeOnly: true,
     unit: 'meter-relative',
     note:
-      'Gypsum readings are meter-relative, not true %MC. Treat any reading ' +
-      'the meter flags as "elevated/wet" as a screening indicator; the paper ' +
-      'facing supports growth at comparatively low moisture.',
-    source: MOLD_SOURCES.epaMold,
+      'No published numeric threshold; qualitative. Gypsum readings are ' +
+      'meter-relative, not true %MC. A reading the meter itself flags as ' +
+      '"elevated/wet" is a screening indicator; the paper facing supports ' +
+      'growth at comparatively low moisture.',
+    source: null,
   },
-  // Concrete / masonry. Moisture is reported by RH-in-slab or relative meter;
-  // elevated moisture supports growth on any organic dust/finish present.
+  // Concrete / masonry. 75% in-slab RH is the ASTM F2170 flooring-
+  // installation reference, not an EPA (2008) figure; elevated moisture
+  // supports growth on any organic dust/finish present.
   concrete: {
     material: 'concrete / masonry',
-    elevatedAtOrAbovePct: 75, // in-slab %RH screening reference
+    elevatedAtOrAbovePct: 75, // in-slab %RH, ASTM F2170 reference
     unit: '%RH-in-slab',
     note:
-      'In-slab RH screening reference; masonry itself does not feed fungi, ' +
-      'but elevated moisture supports growth on finishes, adhesives and dust.',
-    source: MOLD_SOURCES.epaMold,
+      'In-slab RH screening reference (ASTM F2170 in situ probe method); ' +
+      'masonry itself does not feed fungi, but elevated moisture supports ' +
+      'growth on finishes, adhesives and dust.',
+    source: MOLD_SOURCES.astmF2170,
   },
 }
 

@@ -12,6 +12,7 @@
   ],
   "functions": {
     "api/report-pdf.js": { "maxDuration": 60, "memory": 2048 },
+    "api/report-templates-render.ts": { "maxDuration": 60, "memory": 1024 },
     "api/cron-portfolio-digest.ts": { "maxDuration": 300 },
     "api/cron-calibration-expiry.ts": { "maxDuration": 120 },
     "api/cron-email-queue-processor.ts": { "maxDuration": 120 },

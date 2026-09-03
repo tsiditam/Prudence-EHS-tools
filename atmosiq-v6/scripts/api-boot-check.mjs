@@ -93,6 +93,9 @@ function firstErrorText(err) {
  * Run the check. Returns { ok, results: [{ entry, ok, detail }] }.
  * `entries` overrides discovery (used by tests); `outDir` overrides the
  * scratch location.
+ *
+ * @param {{ rootDir?: string, entries?: string[], outDir?: string }} [opts]
+ * @returns {Promise<{ ok: boolean, results: Array<{ entry: string, ok: boolean, detail: string }> }>}
  */
 export async function checkApiBoot({ rootDir = process.cwd(), entries, outDir } = {}) {
   const root = path.resolve(rootDir)

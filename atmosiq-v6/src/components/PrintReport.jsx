@@ -608,7 +608,7 @@ export function generateLegacyPrintHTML(data) {
             ${z.rh ? `<tr><td>Relative Humidity</td><td style="text-align:center;font-family:Cambria,serif;">${z.rh}%</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.rho || '—'}%</td><td style="font-size:10px;color:#64748B;">${STD.t.rh.min}–${STD.t.rh.max}% (US EPA moisture control)</td></tr>` : ''}
             ${z.pm ? `<tr><td>PM2.5</td><td style="text-align:center;font-family:Cambria,serif;">${z.pm} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.pmo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><35 µg/m³ (EPA 24-hr)</td></tr>` : ''}
             ${z.co ? `<tr><td>Carbon Monoxide</td><td style="text-align:center;font-family:Cambria,serif;">${z.co} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><35 ppm (NIOSH REL)</td></tr>` : ''}
-            ${z.tv ? `<tr><td>Total VOCs</td><td style="text-align:center;font-family:Cambria,serif;">${z.tv} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.tvo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;">No consensus threshold; reported for trend and comparison</td></tr>` : ''}
+            ${z.tv ? `<tr><td>Total VOCs</td><td style="text-align:center;font-family:Cambria,serif;">${z.tv} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.tvo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;">No consensus limit; reported for trend and comparison</td></tr>` : ''}
             ${z.hc ? `<tr><td>Formaldehyde</td><td style="text-align:center;font-family:Cambria,serif;">${z.hc} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><0.016 ppm (NIOSH REL)</td></tr>` : ''}
           </tbody></table>` : ''
       })()}
@@ -833,7 +833,7 @@ export function generateLegacyPrintHTML(data) {
     </tbody>
   </table>
   <div style="margin-top:8px;font-size:9px;color:#94A3B8;">
-    <strong>Reference thresholds:</strong> CO₂ differential >${STD.v.co2.diff} ppm above outdoor (ventilation indicator; earlier ASHRAE 62.1 informative appendix, since removed) · Temp ${STD.t.temp.winter.min}–${STD.t.temp.winter.max}°F winter / ${STD.t.temp.summer.min}–${STD.t.temp.summer.max}°F summer (ASHRAE 55) · RH ${STD.t.rh.min}–${STD.t.rh.max}% (US EPA moisture control) · PM2.5 &lt;${STD.c.pm25.epa} µg/m³ (EPA 24-hr) · CO &lt;${STD.c.co.niosh} ppm (NIOSH REL, 10-hour TWA) · TVOCs: no consensus threshold · HCHO &lt;${STD.c.hcho.niosh} ppm (NIOSH REL, 10-hour TWA)
+    <strong>Reference thresholds:</strong> CO₂ differential >${STD.v.co2.diff} ppm above outdoor (ventilation indicator; earlier ASHRAE 62.1 informative appendix, since removed) · Temp ${STD.t.temp.winter.min}–${STD.t.temp.winter.max}°F winter / ${STD.t.temp.summer.min}–${STD.t.temp.summer.max}°F summer (ASHRAE 55) · RH ${STD.t.rh.min}–${STD.t.rh.max}% (US EPA moisture control) · PM2.5 &lt;${STD.c.pm25.epa} µg/m³ (EPA 24-hr) · CO &lt;${STD.c.co.niosh} ppm (NIOSH REL, 10-hour TWA) · TVOCs: no consensus limit · HCHO &lt;${STD.c.hcho.niosh} ppm (NIOSH REL, 10-hour TWA)
   </div>
 
   <!-- ═══ APPENDIX B — HOW FINDINGS ARE CLASSIFIED ═══ -->

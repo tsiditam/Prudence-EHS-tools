@@ -40,6 +40,7 @@ import {
   cancelSamplingResultsReminder,
 } from '../lib/email-triggers.js'
 import { computeNextDueAt } from './sites.js'
+import { withSentry } from './_with-sentry.js'
 
 /** Lab-results follow-up window: enqueue reminder for finalize + N days. */
 const SAMPLING_RESULTS_REMINDER_DAYS = 14
@@ -311,7 +312,7 @@ async function dispatchLabResultsAttached(
   }
 }
 
-export default handler
+export default withSentry(handler, { route: 'events' })
 
 // Test injection points — same convention as
 // api/field-assistant-feedback.ts.

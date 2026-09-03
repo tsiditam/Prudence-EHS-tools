@@ -103,6 +103,9 @@ export async function bundleEntry(rootDir, entry, outFile) {
 /**
  * Bundle every api/** entry plus the Sentry initialiser into outDir.
  * Returns { entries: [{ entry, route, outFile }], sentry: outFile|null }.
+ *
+ * @param {{ rootDir?: string, outDir?: string }} [opts]
+ * @returns {Promise<{ outDir: string, entries: Array<{ entry: string, route: string, outFile: string }>, sentry: string | null }>}
  */
 export async function bundleApi({ rootDir = process.cwd(), outDir } = {}) {
   const resolvedOut = outDir ? path.resolve(rootDir, outDir) : path.join(rootDir, 'server', 'handlers')

@@ -311,7 +311,7 @@ export const SENSOR_FIELDS = [
   { id:'pm',   label:'PM2.5 (Indoor)',       u:'ug/m3',  ref:'EPA: 35 · WHO: 15' },
   { id:'pmo',  label:'PM2.5 (Outdoor)',      u:'ug/m3',  ref:'Outdoor control sample', outdoor:1 },
   { id:'co',   label:'CO',                   u:'ppm',    ref:'OSHA: 50 · NIOSH: 35' },
-  { id:'tv',   label:'TVOCs (PID)',          u:'ug/m3',  ref:'TVOC: no consensus threshold; trend and compare' },
+  { id:'tv',   label:'TVOCs (PID)',          u:'ug/m3',  ref:'TVOC: no consensus limit; trend and compare' },
   { id:'tvo',  label:'TVOCs (Outdoor)',      u:'ug/m3',  ref:'Outdoor control baseline', outdoor:1 },
   { id:'hc',   label:'HCHO',                 u:'ppm',    ref:'OSHA: 0.75 · NIOSH: 0.016' },
 ]

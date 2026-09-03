@@ -26,7 +26,8 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Site, SiteInput } from '../lib/sites/types'
+import type { Site, SiteInput } from '../lib/sites/types.js'
+import { withSentry } from './_with-sentry.js'
 
 const MAX_NAME_LEN = 200
 const MAX_ADDRESS_LEN = 500
@@ -145,7 +146,8 @@ async function handleList(
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
   if (error) {
-    res.status(500).json({ error: 'query_failed', message: error.message })
+    console.error('[sites] list query failed:', error.message)
+    res.status(500).json({ error: 'query_failed' })
     return
   }
   res.status(200).json({ sites: (data || []) as Site[] })
@@ -210,7 +212,8 @@ async function handleSave(
       .select('*')
       .maybeSingle()
     if (error) {
-      res.status(500).json({ error: 'update_failed', message: error.message })
+      console.error('[sites] update failed:', error.message)
+    res.status(500).json({ error: 'update_failed' })
       return
     }
     if (!data) {
@@ -225,7 +228,8 @@ async function handleSave(
       .select('*')
       .single()
     if (error) {
-      res.status(500).json({ error: 'insert_failed', message: error.message })
+      console.error('[sites] insert failed:', error.message)
+    res.status(500).json({ error: 'insert_failed' })
       return
     }
     saved = data as Site
@@ -251,13 +255,14 @@ async function handleDelete(
     .eq('id', id)
     .eq('user_id', userId)
   if (error) {
-    res.status(500).json({ error: 'delete_failed', message: error.message })
+    console.error('[sites] delete failed:', error.message)
+    res.status(500).json({ error: 'delete_failed' })
     return
   }
   res.status(200).json({ ok: true })
 }
 
-export default handler
+export default withSentry(handler, { route: 'sites' })
 
 // Test injection points — same convention as
 // api/field-assistant-feedback.ts.
