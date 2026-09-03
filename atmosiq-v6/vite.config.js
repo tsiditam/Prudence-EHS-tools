@@ -68,8 +68,8 @@ const VENDOR_CHUNKS = [
   ['vendor-docx', ['docx']],
   ['vendor-jspdf', ['jspdf', 'jspdf-autotable']],
   ['vendor-recharts', ['recharts']],
-  ['vendor-supabase', ['@supabase/supabase-js']],
-  ['vendor-sentry', ['@sentry/react']],
+  ['vendor-supabase', ['@supabase/']],
+  ['vendor-sentry', ['@sentry/']],
   ['vendor-markdown', ['react-markdown', 'remark-', 'micromark', 'mdast']],
   ['vendor-lucide', ['lucide-react']],
 ]

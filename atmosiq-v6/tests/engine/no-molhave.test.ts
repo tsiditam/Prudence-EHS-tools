@@ -539,7 +539,10 @@ describe('no TVOC threshold survives in shipped text', () => {
       const code = stripComments(readFileSync(f, 'utf8'))
       const span = leedSpan(code)
       for (const m of code.matchAll(WINDOW)) {
-        const hit = m[0].replace(/\s+/g, ' ')
+        // The window plus a little of what precedes it, so a sentence that
+        // OPENS with the instruction ("Do not state a TVOC threshold ...")
+        // is judged with its verb attached.
+        const hit = code.slice(Math.max(0, m.index! - 40), m.index! + m[0].length).replace(/\s+/g, ' ')
         if (span && m.index! >= span[0] && m.index! <= span[1]) continue
         // The same allowances as above: a sentence denying that a limit
         // exists, an instruction NOT to state one, and the named prohibitions.

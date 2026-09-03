@@ -72,55 +72,77 @@ describe('Outdoor CO2 baseline reminder', () => {
   })
 })
 
-describe('CO checks', () => {
-  it('flags critical at OSHA PEL (50 ppm)', () => {
-    const out = evaluateLive({ co: STD.c.co.osha })
+describe('CO checks — through the criterion registry (audit H2 / M7)', () => {
+  // The advisor used to compare with `>=` against bare STD numbers and say
+  // "at or above OSHA PEL" of a grab reading. It now takes the criterion,
+  // the sentence and the comparison from evaluateCriteria: strictly `>`,
+  // like the registry and the engine, and the statement carries the
+  // averaging-period limitation.
+  it('flags critical ABOVE the OSHA PEL value (50 ppm), not at it', () => {
+    const at = evaluateLive({ co: STD.c.co.osha })
+    expect(at.find(x => x.id === 'co-pel')).toBeUndefined()
+    expect(at.find(x => x.id === 'co-niosh')?.severity).toBe('warn')   // the tier below
+    const out = evaluateLive({ co: STD.c.co.osha + 1 })
     const a = out.find(x => x.id === 'co-pel')
     expect(a).toBeDefined()
     expect(a!.severity).toBe('critical')
     expect(a!.reference).toMatch(/OSHA/i)
+    expect(a!.criterionId).toBe('co_osha_pel')
+    expect(a!.determinative).toBe(false)
+    expect(a!.observation).not.toMatch(/at or above OSHA PEL/)
+    expect(a!.observation).toMatch(/8-hour time-weighted average/)
+    expect(a!.observation).toMatch(/cannot establish compliance/)
   })
 
-  it('flags warn at NIOSH REL (35 ppm)', () => {
-    const out = evaluateLive({ co: STD.c.co.niosh })
+  it('flags warn above the NIOSH REL (35 ppm)', () => {
+    expect(evaluateLive({ co: STD.c.co.niosh }).find(x => x.id === 'co-niosh')).toBeUndefined()
+    const out = evaluateLive({ co: STD.c.co.niosh + 1 })
     const a = out.find(x => x.id === 'co-niosh')
     expect(a).toBeDefined()
     expect(a!.severity).toBe('warn')
   })
 
-  it('flags info at half NIOSH REL (~17.5 ppm)', () => {
+  it('flags info above the EPA 8-hour NAAQS (9 ppm) — the tier "half of NIOSH" used to hide', () => {
     const out = evaluateLive({ co: 20 })
-    const a = out.find(x => x.id === 'co-rising')
+    const a = out.find(x => x.id === 'co-naaqs-8h')
     expect(a).toBeDefined()
     expect(a!.severity).toBe('info')
+    expect(out.find(x => x.id === 'co-rising')).toBeUndefined()
   })
 
-  it('does not flag CO well below half NIOSH', () => {
+  it('does not flag CO at indoor background', () => {
     const out = evaluateLive({ co: 5 })
     expect(out.find(x => x.parameter === 'co')).toBeUndefined()
   })
 })
 
-describe('Formaldehyde checks', () => {
-  it('flags critical at OSHA PEL (0.75 ppm)', () => {
-    const out = evaluateLive({ hc: STD.c.hcho.osha })
+describe('Formaldehyde checks — through the criterion registry', () => {
+  it('flags critical above the OSHA PEL (0.75 ppm), not at it', () => {
+    expect(evaluateLive({ hc: STD.c.hcho.osha }).find(x => x.id === 'hcho-pel')).toBeUndefined()
+    const out = evaluateLive({ hc: 0.8 })
     const a = out.find(x => x.id === 'hcho-pel')
     expect(a).toBeDefined()
     expect(a!.severity).toBe('critical')
+    expect(a!.observation).toMatch(/8-hour time-weighted average/)
   })
 
-  it('flags warn at Action Level (0.5 ppm)', () => {
-    const out = evaluateLive({ hc: STD.c.hcho.al })
+  it('flags warn above the Action Level (0.5 ppm)', () => {
+    const out = evaluateLive({ hc: 0.6 })
     const a = out.find(x => x.id === 'hcho-action')
     expect(a).toBeDefined()
     expect(a!.severity).toBe('warn')
   })
 
-  it('flags info above NIOSH REL ceiling (0.016 ppm)', () => {
+  it('flags info above the NIOSH REL (0.016 ppm) and calls it a REL, not a ceiling', () => {
+    // The REL is a 10-hour TWA; the NIOSH ceiling for formaldehyde is
+    // 0.1 ppm. The advisory used to label 0.016 the "NIOSH REL ceiling".
     const out = evaluateLive({ hc: 0.05 })
     const a = out.find(x => x.id === 'hcho-niosh')
     expect(a).toBeDefined()
     expect(a!.severity).toBe('info')
+    expect(a!.observation).not.toMatch(/ceiling/i)
+    expect(a!.observation).toMatch(/NIOSH REL of 0.016 ppm/)
+    expect(a!.observation).toMatch(/10-hour time-weighted average/)
   })
 
   it('does not flag HCHO at or below NIOSH REL', () => {

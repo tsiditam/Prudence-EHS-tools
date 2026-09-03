@@ -9,15 +9,30 @@ import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
 const handler = require('../../api/report-pdf.js')
 
-// The endpoint now verifies the Supabase JWT. Inject a mock that accepts
-// 'good-token' and rejects everything else.
+// The endpoint verifies the Supabase JWT and then gates on the caller's
+// credit entitlement. Inject a mock that accepts 'good-token' and rejects
+// everything else; `profile` is what the entitlement lookup returns.
+let profile = { plan: 'solo', credits_remaining: 3 }
+let profileError = null
 beforeEach(() => {
+  profile = { plan: 'solo', credits_remaining: 3 }
+  profileError = null
+  delete process.env.UNLIMITED_USAGE_EMAILS
   handler.__test.setSupabase({
     auth: {
       getUser: async (token) =>
         token === 'good-token'
-          ? { data: { user: { id: 'u1' } }, error: null }
+          ? { data: { user: { id: 'u1', email: 'u1@example.com' } }, error: null }
           : { data: { user: null }, error: { message: 'invalid token' } },
+    },
+    from: (table) => {
+      if (table !== 'profiles') throw new Error('unexpected table ' + table)
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        maybeSingle: async () => ({ data: profileError ? null : profile, error: profileError }),
+      }
+      return chain
     },
   })
 })
@@ -75,6 +90,39 @@ describe('POST /api/report-pdf', () => {
     const j = JSON.parse(res.body)
     expect(j.error).toBe('banned_language')
     expect(j.hits.length).toBeGreaterThan(0)
+  })
+
+  it('402 insufficient_credits when the caller has no credits (server-side gate, no debit)', async () => {
+    profile = { plan: 'free', credits_remaining: 0 }
+    const res = await run(authed({ method: 'POST', body: { model: goodModel } }))
+    expect(res.statusCode).toBe(402)
+    expect(JSON.parse(res.body)).toEqual({ error: 'insufficient_credits' })
+  })
+
+  it('402 when the profile row is missing', async () => {
+    profile = null
+    const res = await run(authed({ method: 'POST', body: { model: goodModel } }))
+    expect(res.statusCode).toBe(402)
+  })
+
+  it('fails closed (500) when the entitlement lookup errors', async () => {
+    profileError = { message: 'db unavailable' }
+    const res = await run(authed({ method: 'POST', body: { model: goodModel } }))
+    expect(res.statusCode).toBe(500)
+    expect(JSON.parse(res.body)).toEqual({ error: 'entitlement_lookup_failed' })
+  })
+
+  it('lets a practice-plan user render with zero credits (unmetered tier)', async () => {
+    profile = { plan: 'practice', credits_remaining: 0 }
+    const res = await run(authed({ method: 'POST', body: { model: goodModel } }))
+    expect(res.statusCode).toBe(200)
+  })
+
+  it('lets an UNLIMITED_USAGE_EMAILS account render with zero credits', async () => {
+    process.env.UNLIMITED_USAGE_EMAILS = 'u1@example.com'
+    profile = { plan: 'free', credits_remaining: 0 }
+    const res = await run(authed({ method: 'POST', body: { model: goodModel } }))
+    expect(res.statusCode).toBe(200)
   })
 
   it('does NOT block engine-authored finding/recommendation text (e.g. "elevated risk", "violation")', async () => {

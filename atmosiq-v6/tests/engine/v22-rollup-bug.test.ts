@@ -101,7 +101,9 @@ describe('v2.2 §1a — observational severity cap', () => {
     const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })
     const findings = score.zones[0].categories.flatMap(c => c.findings)
-    const co = findings.find(f => f.conditionType === 'co_above_pel_documented')
+    // A walkthrough grab reading classifies to the screening type (audit
+    // H2); the severity — the condition's significance — is unchanged.
+    const co = findings.find(f => f.conditionType === 'co_screening_elevated')
     expect(co).toBeDefined()
     expect(co!.severityInternal).toBe('critical')
     expect(score.zones[0].professionalOpinion).toBe('conditions_warrant_corrective_action')

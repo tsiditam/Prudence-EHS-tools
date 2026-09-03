@@ -77,14 +77,18 @@ describe('averaging time is stated honestly', () => {
   })
 })
 
-describe('bridge classification is preserved', () => {
-  // classify.ts routes CO findings by matching 'osha'/'niosh' in std or text,
-  // falling through to co_screening_elevated. New tiers must land there.
-  // classifyCondition(finding, category, zone) — it lowercases std itself.
+describe('bridge classification routes on the criterion, not the prose', () => {
+  // classify.ts reads the structured fields the engine stamps on a finding
+  // (criterionClass / averaging / determinative). A grab reading against an
+  // 8-hour TWA is never determinative, so the documented-PEL type is
+  // unreachable from a walkthrough (audit H2).
   const classify = (f: any) => classifyCondition(f, 'Contaminants', {} as never)
 
-  it('keeps the occupational tiers on their existing condition types', () => {
-    expect(classify(coFindings('60')[0])).toBe('co_above_pel_documented')
+  it('keeps every occupational tier on the screening type for a grab reading', () => {
+    const pel = coFindings('60')[0]
+    expect(pel.averaging).toBe('hour8')
+    expect(pel.determinative).toBe(false)
+    expect(classify(pel)).toBe('co_screening_elevated')
     expect(classify(coFindings('40')[0])).toBe('co_screening_elevated')
   })
 

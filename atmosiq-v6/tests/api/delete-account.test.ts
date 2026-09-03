@@ -18,7 +18,12 @@ vi.mock('../../api/_audit', () => ({ auditLog: vi.fn(async () => undefined) }))
 
 // ─── Test state ─────────────────────────────────────────────────────
 const deletes = new Map<string, Array<Record<string, unknown>>>() // table → filter list
+const updates: Array<{ table: string; patch: Record<string, unknown>; filters: Record<string, unknown> }> = []
 const auditInserts: Array<Record<string, unknown>> = []
+const storageLists: Array<{ bucket: string; prefix: string }> = []
+const storageRemoves: Array<{ bucket: string; paths: string[] }> = []
+// Objects each bucket holds under the user's prefix, per test.
+let storageObjects: Record<string, string[]> = {}
 let stripeSubscriptionsListed: string[] = []
 let stripeSubscriptionsCanceled: string[] = []
 let stripeCustomersDeleted: string[] = []
@@ -26,7 +31,11 @@ let authDeleteUserCalls: string[] = []
 
 function resetState() {
   deletes.clear()
+  updates.length = 0
   auditInserts.length = 0
+  storageLists.length = 0
+  storageRemoves.length = 0
+  storageObjects = { 'report-templates': ['t1.docx', 't2.docx'], 'peer-review-attachments': ['r1.docx'] }
   stripeSubscriptionsListed = []
   stripeSubscriptionsCanceled = []
   stripeCustomersDeleted = []
@@ -49,8 +58,13 @@ function makeChain(table: string): any {
         deletes.get(table)!.push({ ...ctx._filters })
         return Promise.resolve({ data: null, error: null })
       }
+      if (ctx._patch !== undefined) {
+        updates.push({ table, patch: ctx._patch, filters: { ...ctx._filters } })
+        return Promise.resolve({ data: null, error: null })
+      }
       return chain
     },
+    update: (patch: Record<string, unknown>) => { ctx._patch = patch; return chain },
     single: async () => {
       if (table === 'profiles') return { data: profileRow, error: null }
       return { data: null, error: null }
@@ -79,6 +93,20 @@ function makeSupabaseMock() {
       },
     },
     from: (table: string) => makeChain(table),
+    storage: {
+      from: (bucket: string) => ({
+        list: async (prefix: string) => {
+          storageLists.push({ bucket, prefix })
+          const names = storageObjects[bucket] || []
+          return { data: names.map((name) => ({ name })), error: null }
+        },
+        remove: async (paths: string[]) => {
+          storageRemoves.push({ bucket, paths })
+          storageObjects[bucket] = []
+          return { data: null, error: null }
+        },
+      }),
+    },
   }
 }
 
@@ -225,8 +253,50 @@ describe('POST /api/delete-account', () => {
     expect(r._status).toBe(405)
   })
 
-  it('records initiated_by as admin when specified', async () => {
+  it('ignores a body that claims initiated_by=admin — self-service is always user', async () => {
     await handler(makeReq({ body: { initiated_by: 'admin' } }), makeRes())
-    expect(auditInserts[0].initiated_by).toBe('admin')
+    expect(auditInserts[0].initiated_by).toBe('user')
+  })
+
+  it('purges marketing_agent_leads by email', async () => {
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(deletes.get('marketing_agent_leads')![0]).toEqual({ email: 'user1@example.com' })
+    expect(r._body.entities_purged).toContain('marketing_agent_leads')
+  })
+
+  it('nulls actor_email + ip_address on the user\'s audit_log rows (by actor_id AND by email)', async () => {
+    const r = makeRes()
+    await handler(makeReq(), r)
+    const auditUpdates = updates.filter((u) => u.table === 'audit_log')
+    expect(auditUpdates).toHaveLength(2)
+    for (const u of auditUpdates) expect(u.patch).toEqual({ actor_email: null, ip_address: null })
+    expect(auditUpdates.map((u) => u.filters)).toEqual([
+      { actor_id: 'user-uuid-1' },
+      { actor_email: 'user1@example.com' },
+    ])
+    expect(r._body.entities_purged).toContain('audit_log_pii')
+  })
+
+  it('removes every storage object under report-templates/{uid}/ and peer-review-attachments/{uid}/', async () => {
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(storageLists.map((l) => `${l.bucket}/${l.prefix}`)).toEqual([
+      'report-templates/user-uuid-1',
+      'peer-review-attachments/user-uuid-1',
+    ])
+    expect(storageRemoves).toEqual([
+      { bucket: 'report-templates', paths: ['user-uuid-1/t1.docx', 'user-uuid-1/t2.docx'] },
+      { bucket: 'peer-review-attachments', paths: ['user-uuid-1/r1.docx'] },
+    ])
+    expect(r._body.entities_purged).toEqual(expect.arrayContaining(['storage:report-templates', 'storage:peer-review-attachments']))
+  })
+
+  it('does not fail the deletion when a storage prefix is empty', async () => {
+    storageObjects = { 'report-templates': [], 'peer-review-attachments': [] }
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(r._status).toBe(200)
+    expect(storageRemoves).toHaveLength(0)
   })
 })

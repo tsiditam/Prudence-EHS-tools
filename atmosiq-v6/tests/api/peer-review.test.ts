@@ -67,8 +67,13 @@ function makeMockSupabase(opts: {
   initialReviews?: PeerReviewRow[]
   storageDownloadError?: { message: string } | null
   storageDownloadBytes?: number
+  // Cloud assessment rows; ownership is checked against these before a
+  // review is created. Defaults to the caller owning rpt-1.
+  assessments?: Array<{ id: string; user_id: string; report_status?: string }>
 } = {}) {
   const reviews: PeerReviewRow[] = [...(opts.initialReviews || [])]
+  const assessments = opts.assessments ?? [{ id: 'rpt-1', user_id: 'user-1' }]
+  const assessmentUpdates: Array<{ patch: Record<string, unknown>; filters: Record<string, unknown> }> = []
   const inserts: PeerReviewRow[] = []
   const updates: Array<{ id?: string; patch: Partial<PeerReviewRow>; filters: Record<string, unknown> }> = []
   const downloads: string[] = []
@@ -118,7 +123,6 @@ function makeMockSupabase(opts: {
         if (resolved) return
         resolved = true
         if (ctx.patch) {
-          const before = reviews.length
           let count = 0
           for (const r of reviews) {
             if (Object.entries(ctx.filters).every(([k, v]) => (r as unknown as Record<string, unknown>)[k] === v)) {
@@ -127,12 +131,34 @@ function makeMockSupabase(opts: {
               count++
             }
           }
-          resolve_({ data: null, error: null, count: before })
+          resolve_({ data: null, error: null, count })
           return
         }
         // list path
         const matches = reviews.filter(r => Object.entries(ctx.filters).every(([k, v]) => (r as unknown as Record<string, unknown>)[k] === v))
         resolve_({ data: matches, error: null })
+      },
+    }
+    return chain
+  }
+
+  function assessmentsChain() {
+    const ctx: { filters: Record<string, unknown>; patch?: Record<string, unknown> } = { filters: {} }
+    let resolved = false
+    const chain: Record<string, unknown> = {
+      select() { return chain },
+      eq(col: string, val: unknown) { ctx.filters[col] = val; return chain },
+      maybeSingle() {
+        resolved = true
+        const match = assessments.find(a => Object.entries(ctx.filters).every(([k, v]) => (a as unknown as Record<string, unknown>)[k] === v))
+        return Promise.resolve({ data: match ?? null, error: null })
+      },
+      update(patch: Record<string, unknown>) { ctx.patch = patch; return chain },
+      then(resolve_: (v: unknown) => void) {
+        if (resolved) return
+        resolved = true
+        if (ctx.patch) assessmentUpdates.push({ patch: { ...ctx.patch }, filters: { ...ctx.filters } })
+        resolve_({ data: null, error: null })
       },
     }
     return chain
@@ -149,13 +175,14 @@ function makeMockSupabase(opts: {
   }
 
   return {
-    state: { reviews, inserts, updates, downloads, removed },
+    state: { reviews, inserts, updates, downloads, removed, assessmentUpdates },
     auth: {
       getUser: async () => ({ data: { user: user as unknown }, error: opts.authError ?? null }),
     },
     from(table: string) {
       if (table === 'peer_reviews') return reviewsChain()
       if (table === 'profiles')     return profilesChain()
+      if (table === 'assessments')  return assessmentsChain()
       throw new Error('unexpected table: ' + table)
     },
     storage: {
@@ -283,6 +310,43 @@ describe('/api/peer-review — send', () => {
     await handler(makeReq({ auth: 'Bearer t', body: { ...noBase64, docx_path: 'user-1/x.docx' } }), res as never)
     expect(res._statusCode).toBe(500)
     expect((res._body as { error: string }).error).toBe('storage_download_failed')
+  })
+
+  it('404s a report the caller does not own and inserts nothing (cross-tenant guard)', async () => {
+    // rpt-1 belongs to user-2 here; the caller (user-1) must not be able
+    // to send it for review — an approval would otherwise stamp
+    // "reviewed" on another user's report.
+    const sb = makeMockSupabase({ assessments: [{ id: 'rpt-1', user_id: 'user-2' }] })
+    __test.setSupabase(sb as never)
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => '' })
+    __test.setFetch(fetchMock as unknown as typeof fetch)
+    const res = makeRes()
+    await handler(makeReq({ auth: 'Bearer t', body: validBody }), res as never)
+    expect(res._statusCode).toBe(404)
+    expect(res._body).toEqual({ error: 'report_not_found' })
+    expect(sb.state.inserts).toHaveLength(0)
+    expect(sb.state.assessmentUpdates).toHaveLength(0)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('404s an unknown report id (a report that was never synced cannot be sent)', async () => {
+    const sb = makeMockSupabase({ assessments: [] })
+    __test.setSupabase(sb as never)
+    const res = makeRes()
+    await handler(makeReq({ auth: 'Bearer t', body: validBody }), res as never)
+    expect(res._statusCode).toBe(404)
+    expect(sb.state.inserts).toHaveLength(0)
+  })
+
+  it('scopes the draft → in_review transition to the caller\'s own row', async () => {
+    const sb = makeMockSupabase({ assessments: [{ id: 'rpt-1', user_id: 'user-1', report_status: 'draft' }] })
+    __test.setSupabase(sb as never)
+    const res = makeRes()
+    await handler(makeReq({ auth: 'Bearer t', body: validBody }), res as never)
+    expect(res._statusCode).toBe(200)
+    expect(sb.state.assessmentUpdates).toHaveLength(1)
+    expect(sb.state.assessmentUpdates[0].patch).toEqual({ report_status: 'in_review' })
+    expect(sb.state.assessmentUpdates[0].filters).toEqual({ id: 'rpt-1', user_id: 'user-1' })
   })
 
   it('happy path: inserts a row, calls Resend with attachment, returns id', async () => {

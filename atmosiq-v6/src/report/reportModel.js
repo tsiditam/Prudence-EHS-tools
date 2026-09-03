@@ -242,17 +242,31 @@ export function buildLimitations(data) {
   const hasLogger = !!(data.sensorData && data.sensorData.graphs && Object.values(data.sensorData.graphs).some(g => g && g.include))
   if (!hasLogger) extra.push('No continuous logger data was collected; values reflect grab readings during the site visit.')
   if (!(data.zones || []).some(z => num(z && z.co2) !== null)) extra.push('Limited quantitative measurements were available for this assessment.')
-  return [...base, ...extra]
+  return [...base, ...extra, ...collectDataGaps(data.zoneScores || [])]
 }
 
+/**
+ * @param {object} data
+ * @param {object} [opts]
+ * @param {Date}   [opts.now]  The clock for the generated-at stamp
+ *   (`reportDate`), the undated-record fallback for `assessmentDate`, and
+ *   the no-id Report ID fallback. Injected so the same input renders the
+ *   same document (audit H6); `tests/engine/render-determinism.test.ts`
+ *   pins it. It defaults to the real clock HERE and only here — this is the
+ *   outermost model builder; DocxReport / downloadReportPdf call in without
+ *   `now` and get today, which is the one caller for which today is right.
+ */
 export function buildReportModel(data = {}, opts = {}) {
   const bldg = data.building || {}
   const ps = data.presurvey || {}
   const zones = data.zones || []
   const zoneScores = data.zoneScores || []
   const profile = data.profile || {}
-  const now = new Date()
+  const now = opts.now instanceof Date && !Number.isNaN(opts.now.getTime()) ? opts.now : new Date()
   const fmt = (d) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  // The survey date the assessor entered, then the finalize timestamp —
+  // the same resolution scoring and the print path use.
+  const surveyIso = resolveAssessmentDate(data)
   const findings = collectFindings(zoneScores)
   // Lifecycle: explicit opts win, then whatever the stored record
   // carries, then the legacy `status` column, then screening/draft.
@@ -288,7 +302,7 @@ export function buildReportModel(data = {}, opts = {}) {
       facilityName: bldg.fn || 'Facility',
       address: bldg.fl || '',
       scope: (zones.length ? `${zones.length} area${zones.length === 1 ? '' : 's'}` : ''),
-      assessmentDate: data.ts ? fmt(new Date(data.ts)) : fmt(now),
+      assessmentDate: surveyIso ? fmt(new Date(`${surveyIso}T12:00:00`)) : fmt(now),
       reportDate: fmt(now),
       assessorName: profile.name || ps.ps_assessor || 'Assessor',
       assessorCredentials: (profile.certs || []).join(', '),
@@ -303,7 +317,7 @@ export function buildReportModel(data = {}, opts = {}) {
       // that disagree about which one they are. `Date.now()` is a timestamp,
       // not an identity: it changes on re-issue, which is precisely when a
       // stable id matters most.
-      reportId: data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`,
+      reportId: data.id || `AIQ-${now.getTime().toString(36).toUpperCase().slice(-6)}`,
       mode: opts.mode || 'draft', // 'draft' | 'final' | 'sample'
       // Report lifecycle. `mode` above is the legacy switch and is kept
       // because 'sample' has no lifecycle equivalent (it is a marketing
@@ -321,7 +335,7 @@ export function buildReportModel(data = {}, opts = {}) {
       hvacDescription: bldg.ht || '',
       numberOfZones: zones.length,
     },
-    parameters: summarizeParameters(zones),
+    parameters: summarizeParameters(zones, zoneScores),
     zones: zoneRows(zones, zoneScores),
     findings,
     recommendations: recommendationsByTimeframe(data.recs || {}),
@@ -503,16 +517,22 @@ export function assembleRenderModel(data = {}, opts = {}) {
   }
 
   // Per-parameter interpretation (what it is + observed), thermal combined.
+  // The narrative library's OBSERVED templates branch on the outcome; a
+  // parameter the engine did NOT evaluate (a data gap) gets a plain
+  // statement of the reading and the gap instead of either verdict branch.
+  const observed = (key, s) => s.outcome === 'not_evaluated'
+    ? `Observed: ${s.label.toLowerCase()} ranged ${s.range} ${s.unit} (site mean ${s.mean} ${s.unit}). The reading was recorded but not evaluated — see Limitations.`
+    : NL.OBSERVED[key](s, s.outcome)
   const interp = []
-  if (params.co2) interp.push({ title: 'Carbon dioxide (CO2) — ventilation indicator', body: [`What it is and why we measure it: ${NL.WHAT_IS.co2}`, NL.OBSERVED.co2(params.co2, params.co2.outcome)] })
-  if (params.co) interp.push({ title: 'Carbon monoxide (CO)', body: [`What it is and why we measure it: ${NL.WHAT_IS.co}`, NL.OBSERVED.co(params.co, params.co.outcome)] })
+  if (params.co2) interp.push({ title: 'Carbon dioxide (CO2) — ventilation indicator', body: [`What it is and why we measure it: ${NL.WHAT_IS.co2}`, observed('co2', params.co2)] })
+  if (params.co) interp.push({ title: 'Carbon monoxide (CO)', body: [`What it is and why we measure it: ${NL.WHAT_IS.co}`, observed('co', params.co)] })
   if (params.temperature || params.relativeHumidity) {
     const body = [`What it is and why we measure it: ${NL.WHAT_IS.tempRh}`]
-    if (params.temperature) body.push(NL.OBSERVED.temperature(params.temperature, params.temperature.outcome))
-    if (params.relativeHumidity) body.push(NL.OBSERVED.relativeHumidity(params.relativeHumidity, params.relativeHumidity.outcome))
+    if (params.temperature) body.push(observed('temperature', params.temperature))
+    if (params.relativeHumidity) body.push(observed('relativeHumidity', params.relativeHumidity))
     interp.push({ title: 'Thermal comfort — temperature & relative humidity', body })
   }
-  if (params.pm25) interp.push({ title: 'Fine particulate (PM2.5)', body: [`What it is and why we measure it: ${NL.WHAT_IS.pm25}`, NL.OBSERVED.pm25(params.pm25, params.pm25.outcome)] })
+  if (params.pm25) interp.push({ title: 'Fine particulate (PM2.5)', body: [`What it is and why we measure it: ${NL.WHAT_IS.pm25}`, observed('pm25', params.pm25)] })
   if (params.tvoc) interp.push({ title: 'Total volatile organic compounds (TVOC)', body: [`What it is and why we measure it: ${NL.WHAT_IS.tvoc}`, NL.OBSERVED.tvoc(params.tvoc, params.tvoc.outcome)] })
 
   // Logger Studio chart images (real assessments embed the PNGs).

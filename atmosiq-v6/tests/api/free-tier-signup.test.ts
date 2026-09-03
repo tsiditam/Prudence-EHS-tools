@@ -143,14 +143,19 @@ describe('free-tier credit consumption — /api/credits 402 path', () => {
   })
 
   it('returns 402 when a free-tier user with 0 credits attempts to consume', async () => {
-    // The api/credits.js handler builds its own Supabase clients via createClient.
-    // We can't dependency-inject (no __test hook) — but the contract is documented
-    // in the source: when current < amount, returns 402 with { error: 'Insufficient credits' }.
-    const src = await import('node:fs').then(fs => fs.readFileSync(
-      new URL('../../api/credits.js', import.meta.url), 'utf8'
-    ))
-    expect(src).toMatch(/return res\.status\(402\)/)
-    expect(src).toMatch(/Insufficient credits/)
+    // consume_credits (migration 033) raises insufficient_credits when the
+    // conditional UPDATE matches no row; the handler maps that to 402 and
+    // reports the current balance so the SPA can open the pricing sheet.
+    const supabase = makeMockSupabase({ profiles: [{ id: 'user-1', plan: 'free', credits_remaining: 0 }] })
+    supabase.auth = { getUser: async () => ({ data: { user: { id: 'user-1', email: 'f@example.com' } }, error: null }) }
+    supabase.rpc = async () => ({ data: null, error: { message: 'insufficient_credits' } })
+    handler.__test.setSupabase(supabase)
+    const res: any = { _status: 0, _body: null }
+    res.status = (c: number) => { res._status = c; return res }
+    res.json = (b: unknown) => { res._body = b; return res }
+    await handler({ method: 'POST', headers: { authorization: 'Bearer jwt' }, body: { amount: 1, reason: 'report' } }, res)
+    expect(res._status).toBe(402)
+    expect(res._body).toEqual({ error: 'Insufficient credits', credits: 0 })
   })
 })
 
