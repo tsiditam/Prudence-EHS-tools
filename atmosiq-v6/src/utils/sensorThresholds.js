@@ -91,7 +91,7 @@ export function paramReference(param, opts = {}) {
     }
     case 'rh':
       out.band = { min: STD.t.rh.min, max: STD.t.rh.max }
-      out.refs = [`${STD.v.ref}: ${STD.t.rh.min}–${STD.t.rh.max}% RH`]
+      out.refs = [`${STD.t.rh.ref}: ${STD.t.rh.min}–${STD.t.rh.max}% RH`]
       break
     case 'co2':
       out.limit = STD.v.co2.con
@@ -129,7 +129,7 @@ export function paramReference(param, opts = {}) {
     case 'hcho': {
       out.limit = round(hchoToUnit(STD.c.hcho.niosh, unit), isPpm(unit) ? 3 : (isMg(unit) ? 3 : 1))
       out.limitLabel = 'NIOSH REL'
-      out.refs = ['NIOSH REL: 16 ppb', 'EPA RfC: ~8 ppb', 'WHO 30-min: 81 ppb']
+      out.refs = [`NIOSH REL: ${round(hchoToUnit(STD.c.hcho.niosh, 'ppb'), 0)} ppb`, `EPA RfC: ${round(hchoToUnit(STD.c.hcho.epaRfc, 'ppb'), 1)} ppb`, `WHO 30-min: ${round(hchoToUnit(STD.c.hcho.who, 'ppb'), 0)} ppb`]
       break
     }
     default:

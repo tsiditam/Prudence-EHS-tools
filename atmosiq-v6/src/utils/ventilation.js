@@ -8,7 +8,8 @@
  * + citation drives both the single-point helper and Logger Studio's
  * indoor/outdoor differential view (no method drift).
  *
- * Method: ASHRAE 62.1-2019 Appendix C / Persily 2017 — for an adult at
+ * Method: the CO₂ mass-balance approach carried in an informative appendix
+ * of earlier ASHRAE 62.1 editions (since removed) / Persily 2017 — for an adult at
  * sedentary metabolic activity (~1.2 met), the per-person CO₂ generation
  * rate G ≈ 0.0084 cfm. Under steady-state conditions the outdoor-air
  * ventilation rate per person is:
@@ -20,8 +21,12 @@
  * a balometer reading at the OA diffuser. Screening-only positioning holds.
  */
 
-// ASHRAE 62.1-2019 Appendix C: G ≈ 0.0084 cfm/person at 1.2 met (sedentary
-// adult). Persily 2017 confirms this within ~10% for typical office demographics.
+// G ≈ 0.0084 cfm/person at 1.2 met (sedentary adult), the figure used by the
+// ASHRAE 62.1 informative CO₂ appendix (earlier editions; since removed).
+// Persily 2017 confirms this within ~10% for typical office demographics.
+// The edition that last carried the appendix is not asserted here — see
+// AUDIT-2026-09 M3; the earlier "62.1-2019 Appendix C" citation was not
+// verified and has been withdrawn.
 export const G_CFM_PER_PERSON = 0.0084
 
 // Below this indoor−outdoor differential the mass-balance estimate is
@@ -30,7 +35,7 @@ export const MIN_DIFFERENTIAL_PPM = 50
 
 // One-line provenance string for captions / footnotes.
 export const VENTILATION_CITATION =
-  'Steady-state mass-balance with G = 0.0084 cfm/person (sedentary adult, 1.2 met). Per ASHRAE 62.1-2019 Appendix C; Persily 2017. Estimate only — verify with a balometer measurement at the OA diffuser for compliance documentation.'
+  'Steady-state mass-balance with G = 0.0084 cfm/person (sedentary adult, 1.2 met). Per the ASHRAE 62.1 informative CO₂ appendix (earlier editions; since removed); Persily 2017. Estimate only — verify with a balometer measurement at the OA diffuser for compliance documentation.'
 
 /**
  * Estimate outdoor-air delivery (cfm/person) from indoor & outdoor CO₂.

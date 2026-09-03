@@ -5,6 +5,11 @@ const { createCanvas } = (() => {
 })();
 
 const fs = require('fs');
+const path = require('path');
+
+// Paths are relative to the package root, not the cwd — the script moved
+// from the package root into scripts/ in the 2026-09 audit remediation.
+const ROOT = path.join(__dirname, '..');
 
 // Generate SVG icons and save as SVG (browsers handle SVG icons well)
 function generateIcon(size, path) {
@@ -36,17 +41,17 @@ function generateIcon(size, path) {
   console.log(`Generated: ${path}`);
 }
 
-generateIcon(192, 'public/icons/icon-192.svg');
-generateIcon(512, 'public/icons/icon-512.svg');
+generateIcon(192, path.join(ROOT, 'public/icons/icon-192.svg'));
+generateIcon(512, path.join(ROOT, 'public/icons/icon-512.svg'));
 
 // Also create PNG placeholders using a simple approach
 // For proper PWA we need actual PNGs - let's use the SVG approach in manifest
 // and update manifest to reference SVGs
 
-const manifest = JSON.parse(fs.readFileSync('public/manifest.json', 'utf8'));
+const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'public/manifest.json'), 'utf8'));
 manifest.icons = [
   { src: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
   { src: '/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
 ];
-fs.writeFileSync('public/manifest.json', JSON.stringify(manifest, null, 2));
+fs.writeFileSync(path.join(ROOT, 'public/manifest.json'), JSON.stringify(manifest, null, 2));
 console.log('Updated manifest.json with SVG icons');

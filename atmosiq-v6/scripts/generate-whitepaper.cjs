@@ -1,5 +1,10 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
+const path = require('path');
+
+// Paths are relative to the package root, not the cwd — the script moved
+// from the package root into scripts/ in the 2026-09 audit remediation.
+const ROOT = path.join(__dirname, '..');
 
 const doc = new PDFDocument({
   size: 'letter',
@@ -11,7 +16,7 @@ const doc = new PDFDocument({
   }
 });
 
-const stream = fs.createWriteStream('public/AtmosIQ-Technical-White-Paper.pdf');
+const stream = fs.createWriteStream(path.join(ROOT, 'public/AtmosIQ-Technical-White-Paper.pdf'));
 doc.pipe(stream);
 
 const W = 468; // usable width (letter - margins)

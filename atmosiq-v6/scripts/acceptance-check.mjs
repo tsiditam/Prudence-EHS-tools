@@ -2,13 +2,18 @@
 /**
  * AtmosFlow acceptance checker — executable acceptance criteria runner.
  * Exit 0 = all criteria passed. Exit 1 = at least one failed. Exit 2 = runner errored.
- * Usage: node scripts/acceptance-check.mjs --config scripts/acceptance/v2.4.json
+ * Usage: node scripts/acceptance-check.mjs --config scripts/acceptance/prod-ready.json
+ *
+ * Check types: file_exists, file_min_size, grep_matches, grep_excludes,
+ * npm_script_passes, rendered_contains, rendered_excludes,
+ * rendered_regex_count, constant_equals, api_boot. See docs/ACCEPTANCE.md.
  */
 
 import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
 import { argv, exit } from "node:process";
+import { checkApiBoot } from "./api-boot-check.mjs";
 
 // Resolve a path relative to REPO_ROOT unless already absolute. Without
 // this, path.join('/repo', '/tmp/x') returns '/repo/tmp/x' which breaks
@@ -17,7 +22,7 @@ const resolvePath = (p) => isAbsolute(p) ? p : join(REPO_ROOT, p);
 
 const REPO_ROOT = resolve(process.cwd());
 const ARG_CONFIG_INDEX = argv.indexOf("--config");
-const CONFIG_PATH = ARG_CONFIG_INDEX > -1 ? argv[ARG_CONFIG_INDEX + 1] : "scripts/acceptance/v2.4.json";
+const CONFIG_PATH = ARG_CONFIG_INDEX > -1 ? argv[ARG_CONFIG_INDEX + 1] : "scripts/acceptance/prod-ready.json";
 const VERBOSE = argv.includes("--verbose") || argv.includes("-v");
 
 const ANSI = { green: "\x1b[32m", red: "\x1b[31m", yellow: "\x1b[33m", dim: "\x1b[2m", bold: "\x1b[1m", reset: "\x1b[0m" };
@@ -43,9 +48,14 @@ const npmScriptPasses = (scriptName) => { const proc = spawnSync("npm", ["run", 
 const renderedReportContains = (reportPath, needle) => { const p = resolvePath(reportPath); if (!existsSync(p)) return { ok: false, detail: `rendered report not found at ${reportPath}` }; const content = readFileSync(p, "utf8"); if (!content.includes(needle)) return { ok: false, detail: `rendered report missing required string: "${needle.slice(0, 80)}"` }; return { ok: true, detail: `found "${needle.slice(0, 60)}..."` }; };
 const renderedReportExcludes = (reportPath, needle) => { const p = resolvePath(reportPath); if (!existsSync(p)) return { ok: false, detail: `rendered report not found at ${reportPath}` }; const content = readFileSync(p, "utf8"); if (content.includes(needle)) return { ok: false, detail: `rendered report contains forbidden string: "${needle.slice(0, 80)}"` }; return { ok: true, detail: `excludes forbidden string` }; };
 const renderedReportRegexCount = (reportPath, regex, { min, max }) => { const p = resolvePath(reportPath); if (!existsSync(p)) return { ok: false, detail: `rendered report not found at ${reportPath}` }; const content = readFileSync(p, "utf8"); const matches = content.match(new RegExp(regex, "g")) || []; if (min !== undefined && matches.length < min) return { ok: false, detail: `regex ${regex} matched ${matches.length}; need >= ${min}` }; if (max !== undefined && matches.length > max) return { ok: false, detail: `regex ${regex} matched ${matches.length}; need <= ${max}` }; return { ok: true, detail: `${matches.length} matches` }; };
+// api_boot — bundle every api/** entry with esbuild (node, esm, packages
+// external) and import the output under plain Node; the default export must
+// be a function. `entries` (optional) narrows the set; `dir` (optional,
+// default "api") is informational only — discovery is scripts/bundle-api.mjs's.
+const apiBoot = async (check) => { const { ok, results } = await checkApiBoot({ rootDir: REPO_ROOT, entries: check.entries }); const failed = results.filter((r) => !r.ok); if (!ok) return { ok: false, detail: `${failed.length} of ${results.length} api entries failed to boot under plain Node:\n${failed.slice(0, 8).map((r) => `  ${r.entry}: ${r.detail}`).join("\n")}` }; return { ok: true, detail: `${results.length} api entries bundled and imported; every default export is a function` }; };
 const constantEquals = (filePath, constName, expectedValue) => { const full = join(REPO_ROOT, filePath); if (!existsSync(full)) return { ok: false, detail: `file not found: ${filePath}` }; const content = readFileSync(full, "utf8"); const re = new RegExp(`export\\s+const\\s+${constName}(?:\\s*:[^=]+)?\\s*=\\s*['"\`]([^'"\`]+)['"\`]`); const m = content.match(re); if (!m) return { ok: false, detail: `${constName} not found as exported string constant in ${filePath}` }; if (m[1] !== expectedValue) return { ok: false, detail: `${constName} = "${m[1]}"; expected "${expectedValue}"` }; return { ok: true, detail: `${constName} = "${expectedValue}"` }; };
 
-const dispatch = (check) => {
+const dispatch = async (check) => {
   switch (check.type) {
     case "file_exists": return fileExists(check.path);
     case "file_min_size": return fileMinSize(check.path, check.minBytes);
@@ -56,11 +66,12 @@ const dispatch = (check) => {
     case "rendered_excludes": return renderedReportExcludes(check.reportPath, check.needle);
     case "rendered_regex_count": return renderedReportRegexCount(check.reportPath, check.regex, { min: check.min, max: check.max });
     case "constant_equals": return constantEquals(check.path, check.name, check.value);
+    case "api_boot": return apiBoot(check);
     default: throw new Error(`unknown check type: ${check.type}`);
   }
 };
 
-const main = () => {
+const main = async () => {
   log(`${ANSI.bold}AtmosFlow Acceptance Check${ANSI.reset}`);
   log(`${ANSI.dim}Config: ${CONFIG_PATH}${ANSI.reset}\n`);
   const configFull = join(REPO_ROOT, CONFIG_PATH);
@@ -73,7 +84,7 @@ const main = () => {
     if (criterion.skip) { logSkip(criterion.id, criterion.label, criterion.skipReason ?? "marked skip"); continue; }
     let allOk = true; let detail = ""; let firstFailReason = null;
     for (const check of criterion.checks) {
-      try { const result = dispatch(check); if (!result.ok) { allOk = false; if (firstFailReason === null) firstFailReason = result.detail; } else if (VERBOSE) { detail += result.detail + "; "; } }
+      try { const result = await dispatch(check); if (!result.ok) { allOk = false; if (firstFailReason === null) firstFailReason = result.detail; } else if (VERBOSE) { detail += result.detail + "; "; } }
       catch (err) { allOk = false; if (firstFailReason === null) firstFailReason = `runner error: ${err.message}`; }
     }
     if (allOk) logPass(criterion.id, criterion.label, detail); else logFail(criterion.id, criterion.label, firstFailReason);
@@ -91,4 +102,4 @@ const main = () => {
   exit(0);
 };
 
-main();
+main().catch((err) => { log(`${ANSI.red}runner crashed: ${err && err.stack ? err.stack : err}${ANSI.reset}`); exit(2); });

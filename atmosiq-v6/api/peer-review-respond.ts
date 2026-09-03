@@ -34,8 +34,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getTemplate, type UserContext } from '../lib/email-sequences.js'
 import { canTransition, resolveLifecycle } from '../src/constants/reportLifecycle.js'
+import { withSentry } from './_with-sentry.js'
 
-const APP_URL = 'atmosflow.net'
 const FROM = process.env.RESEND_FROM_ADDRESS || 'support@prudenceehs.com'
 const RESEND_API = 'https://api.resend.com/emails'
 
@@ -232,10 +232,16 @@ async function handlePost(req: Req, res: Res) {
   // record of truth either way.
   if (status === 'approved' && row.report_id) {
     try {
+      // Scoped to the assessor who requested the review: report ids are
+      // client-minted strings, and the service-role client bypasses RLS,
+      // so without the user_id filter an approval could stamp "reviewed"
+      // on another user's report that happens to share the id (audit
+      // 2026-09 C2).
       const { data: asmt } = await supabase
         .from('assessments')
         .select('report_profile, report_status, status')
         .eq('id', row.report_id)
+        .eq('user_id', row.assessor_id)
         .maybeSingle()
       const current = resolveLifecycle((asmt || {}) as Record<string, unknown>)
       // Only advance a report the lifecycle actually permits to advance.
@@ -256,6 +262,7 @@ async function handlePost(req: Req, res: Res) {
             approval_notes: notes,
           })
           .eq('id', row.report_id)
+          .eq('user_id', row.assessor_id)
       }
     } catch {
       // Non-fatal — see above.
@@ -325,11 +332,10 @@ async function handlePost(req: Req, res: Res) {
     // best-effort
   }
 
-  void APP_URL  // keep import-side-effect parity with /api/peer-review
   res.status(200).json({ ok: true, status })
 }
 
-export default handler
+export default withSentry(handler, { route: 'peer-review-respond' })
 
 export const __test = {
   ALLOWED_RESPONSE_STATUSES,

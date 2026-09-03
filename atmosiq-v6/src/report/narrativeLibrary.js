@@ -21,6 +21,8 @@
  * office limit.
  */
 
+import { STD } from '../constants/standards.js'
+
 // ── Static "what it is and why we measure it" explainers ───────────
 export const WHAT_IS = {
   co2: 'Carbon dioxide is produced by people as they breathe and builds up indoors when the supply of outdoor air does not keep pace with the number of occupants. At the concentrations typical of offices it is not itself a health hazard, but it is the most practical real-time indicator of ventilation adequacy — elevated levels usually accompany "stuffiness" complaints and signal that a space is receiving too little fresh air for its occupant load.',
@@ -56,8 +58,8 @@ export const OBSERVED = {
   relativeHumidity(s, outcome) {
     const base = `Observed: relative humidity ranged ${r2(s)} (site mean ${s.mean} ${s.unit}).`
     return outcome === 'acceptable'
-      ? base + ' Values fell within the ASHRAE 55 comfort range (30–60%).'
-      : base + ' One or more zones fell outside the 30–60% comfort range; sustained excursions may warrant moisture-control or humidification review.'
+      ? base + ` Values fell within the ${STD.t.rh.min}–${STD.t.rh.max}% EPA moisture-control range (${STD.t.rh.ref}).`
+      : base + ` One or more zones fell outside the ${STD.t.rh.min}–${STD.t.rh.max}% EPA moisture-control range (${STD.t.rh.ref}); sustained excursions may warrant moisture-control or humidification review.`
   },
   pm25(s, outcome) {
     const base = `Observed: PM2.5 ranged ${r2(s)} (site mean ${s.mean} ${s.unit}). For scale only, the US EPA 24-hour NAAQS is 35 µg/m³; NAAQS are outdoor, population-level standards, not office or occupational screening limits, and are cited here for context rather than as a pass/fail threshold.`

@@ -1,4 +1,8 @@
 node_modules
 dist
+coverage/
+*.log
+.DS_Store
+server/handlers/
 .env
 .env.local

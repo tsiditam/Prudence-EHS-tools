@@ -229,7 +229,7 @@ export function listAnalytes() {
 const EXPOSURE_LIMITS = {
   'carbon monoxide': {
     osha: { value: 50, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-1' },
-    niosh: { value: 35, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide (2005-149)', note: 'Ceiling 200 ppm also applies' },
+    niosh: { value: 35, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide (2005-149)', note: 'Ceiling 200 ppm also applies' },
     acgih: { value: 25, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025' },
     epa: null,
     other: [],
@@ -238,17 +238,17 @@ const EXPOSURE_LIMITS = {
   },
   'carbon dioxide': {
     osha: { value: 5000, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-1' },
-    niosh: { value: 5000, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 30000 ppm' },
+    niosh: { value: 5000, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 30000 ppm' },
     acgih: { value: 5000, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'STEL 30000 ppm' },
     epa: null,
     other: [
       {
-        agency: 'ASHRAE 62.1-2025',
+        agency: 'ASHRAE (earlier 62.1 editions, informative appendix)',
         value: 700,
         units: 'ppm',
         type: 'differential',
         duration: 'indoor minus outdoor',
-        citation: 'ASHRAE 62.1-2025 §6 (proxy for under-ventilation when occupants are CO₂ source)',
+        citation: 'Informative appendix of earlier ASHRAE 62.1 editions, since removed; see ASHRAE Position Document on Indoor Carbon Dioxide (2022). Current 62.1 states no CO₂ value.',
         note: 'CO₂ is NOT a toxic indicator at typical IAQ concentrations — it is a ventilation-adequacy proxy',
       },
     ],
@@ -257,11 +257,11 @@ const EXPOSURE_LIMITS = {
   },
   formaldehyde: {
     osha: { value: 0.75, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1048(c)', note: 'STEL 2 ppm; Action Level 0.5 ppm 8-hr TWA' },
-    niosh: { value: 0.016, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'Ceiling 0.1 ppm (15-min); NIOSH-Ca' },
-    acgih: { value: 0.1, units: 'ppm', type: 'Ceiling', duration: 'instantaneous', citation: 'ACGIH TLVs and BEIs 2025', note: 'A2 — Suspected human carcinogen' },
+    niosh: { value: 0.016, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'Ceiling 0.1 ppm (15-min); NIOSH-Ca' },
+    acgih: { value: 0.1, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs, current edition', note: 'STEL 0.3 ppm; A1 — confirmed human carcinogen (TLV-TWA/STEL and A1 adopted 2017)' },
     epa: null,
     other: [
-      { agency: 'NIOSH Action Level', value: 0.5, units: 'ppm', type: 'AL', duration: '8-hour', citation: '29 CFR 1910.1048(d)(2)' },
+      { agency: 'OSHA action level', value: 0.5, units: 'ppm', type: 'AL', duration: '8-hour', citation: '29 CFR 1910.1048(b)' },
     ],
     idlh: { value: 20, units: 'ppm', citation: 'NIOSH IDLH (1994)' },
     carcinogen: 'OSHA-regulated',
@@ -277,7 +277,7 @@ const EXPOSURE_LIMITS = {
   },
   'sulfur dioxide': {
     osha: { value: 5, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-1' },
-    niosh: { value: 2, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 5 ppm' },
+    niosh: { value: 2, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 5 ppm' },
     acgih: { value: 0.25, units: 'ppm', type: 'STEL', duration: '15-minute', citation: 'ACGIH TLVs and BEIs 2025' },
     epa: { value: 75, units: 'ppb', type: 'NAAQS 1-hour', duration: '99th percentile of daily max', citation: 'EPA NAAQS 40 CFR 50.17' },
     other: [],
@@ -337,7 +337,7 @@ const EXPOSURE_LIMITS = {
   },
   benzene: {
     osha: { value: 1, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1028(c)(1)', note: 'STEL 5 ppm; Action Level 0.5 ppm 8-hr TWA' },
-    niosh: { value: 0.1, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 1 ppm; NIOSH-Ca' },
+    niosh: { value: 0.1, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 1 ppm; NIOSH-Ca' },
     acgih: { value: 0.5, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'STEL 2.5 ppm; A1 — Confirmed human carcinogen' },
     epa: null,
     other: [],
@@ -346,7 +346,7 @@ const EXPOSURE_LIMITS = {
   },
   toluene: {
     osha: { value: 200, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-2', note: 'Ceiling 300 ppm; Peak 500 ppm (10-min)' },
-    niosh: { value: 100, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 150 ppm' },
+    niosh: { value: 100, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 150 ppm' },
     acgih: { value: 20, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025' },
     epa: null,
     other: [],
@@ -355,7 +355,7 @@ const EXPOSURE_LIMITS = {
   },
   xylenes: {
     osha: { value: 100, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-1' },
-    niosh: { value: 100, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 150 ppm' },
+    niosh: { value: 100, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 150 ppm' },
     acgih: { value: 100, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'STEL 150 ppm' },
     epa: null,
     other: [],
@@ -364,7 +364,7 @@ const EXPOSURE_LIMITS = {
   },
   ethylbenzene: {
     osha: { value: 100, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-1' },
-    niosh: { value: 100, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 125 ppm' },
+    niosh: { value: 100, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 125 ppm' },
     acgih: { value: 20, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025' },
     epa: null,
     other: [],
@@ -373,7 +373,7 @@ const EXPOSURE_LIMITS = {
   },
   styrene: {
     osha: { value: 100, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-2', note: 'Ceiling 200 ppm; Peak 600 ppm (5-min)' },
-    niosh: { value: 50, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 100 ppm' },
+    niosh: { value: 50, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 100 ppm' },
     acgih: { value: 10, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'STEL 20 ppm' },
     epa: null,
     other: [],
@@ -391,7 +391,7 @@ const EXPOSURE_LIMITS = {
   },
   trichloroethylene: {
     osha: { value: 100, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-2', note: 'Ceiling 200 ppm; Peak 300 ppm (5-min)' },
-    niosh: { value: 25, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'NIOSH-Ca' },
+    niosh: { value: 25, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'NIOSH-Ca' },
     acgih: { value: 10, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'STEL 25 ppm; A2 carcinogen' },
     epa: null,
     other: [],
@@ -409,7 +409,7 @@ const EXPOSURE_LIMITS = {
   },
   asbestos: {
     osha: { value: 0.1, units: 'f/cc', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1001(c)(1)', note: 'Excursion limit 1.0 f/cc (30-min)' },
-    niosh: { value: 0.1, units: 'f/cc', type: 'TWA', duration: '8-hour (≥5 µm)', citation: 'NIOSH Pocket Guide', note: 'NIOSH-Ca' },
+    niosh: { value: 0.1, units: 'f/cc', type: 'TWA', duration: '10-hour (≥5 µm)', citation: 'NIOSH Pocket Guide', note: 'NIOSH-Ca' },
     acgih: { value: 0.1, units: 'f/cc', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'A1 — Confirmed human carcinogen' },
     epa: null,
     other: [],
@@ -418,7 +418,7 @@ const EXPOSURE_LIMITS = {
   },
   'lead (inorganic)': {
     osha: { value: 0.05, units: 'mg/m³', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1025(c)', note: 'Action Level 0.03 mg/m³' },
-    niosh: { value: 0.05, units: 'mg/m³', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'Air-lead 0.050 mg/m³ goal; NIOSH calls for lower in light of revised BLL targets' },
+    niosh: { value: 0.05, units: 'mg/m³', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'Air-lead 0.050 mg/m³ goal; NIOSH calls for lower in light of revised BLL targets' },
     acgih: { value: 0.05, units: 'mg/m³', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'BEI: blood lead 20 µg/dL' },
     epa: { value: 0.15, units: 'µg/m³', type: 'NAAQS rolling 3-month', duration: '3-month average', citation: 'EPA NAAQS 40 CFR 50.16 (2008 revision)' },
     other: [],
@@ -427,7 +427,7 @@ const EXPOSURE_LIMITS = {
   },
   'mercury vapor': {
     osha: { value: 0.1, units: 'mg/m³', type: 'Ceiling', duration: 'instantaneous', citation: '29 CFR 1910.1000 Table Z-2' },
-    niosh: { value: 0.05, units: 'mg/m³', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'Skin notation' },
+    niosh: { value: 0.05, units: 'mg/m³', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'Skin notation' },
     acgih: { value: 0.025, units: 'mg/m³', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'Skin notation; BEI: urine mercury 20 µg/g creatinine' },
     epa: null,
     other: [],
@@ -457,7 +457,7 @@ const EXPOSURE_LIMITS = {
   },
   ammonia: {
     osha: { value: 50, units: 'ppm', type: 'TWA', duration: '8-hour', citation: '29 CFR 1910.1000 Table Z-1' },
-    niosh: { value: 25, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 35 ppm' },
+    niosh: { value: 25, units: 'ppm', type: 'TWA', duration: '10-hour', citation: 'NIOSH Pocket Guide', note: 'STEL 35 ppm' },
     acgih: { value: 25, units: 'ppm', type: 'TWA', duration: '8-hour', citation: 'ACGIH TLVs and BEIs 2025', note: 'STEL 35 ppm' },
     epa: null,
     other: [],
@@ -479,7 +479,7 @@ const EXPOSURE_LIMITS = {
 // Schema: { method, agency, matrix, technique, range, notes? }[]
 const SAMPLING_METHODS = {
   'carbon monoxide': [
-    { method: 'Direct-read (electrochemical sensor)', agency: 'Field', matrix: 'air', technique: 'Electrochemical cell', range: '0–500 ppm typical', notes: 'Most common in IAQ screening. Verify cal gas record + 270-day calibration.' },
+    { method: 'Direct-read (electrochemical sensor)', agency: 'Field', matrix: 'air', technique: 'Electrochemical cell', range: '0–500 ppm typical', notes: 'Most common in IAQ screening. Verify cal gas record and a current calibration (AtmosFlow treats a calibration as current for 365 days).' },
     { method: 'NIOSH 6604', agency: 'NIOSH', matrix: 'air', technique: 'Portable GC', range: '1–500 ppm', notes: 'Confirmatory if direct-read result is contested.' },
   ],
   'carbon dioxide': [
@@ -619,7 +619,7 @@ const HEALTH_EFFECTS = {
     chronic: [{ effect: 'No demonstrated chronic toxicity at IAQ-relevant levels — CO₂ is a ventilation-adequacy indicator, not a contaminant of concern at typical building levels' }],
     targetOrgans: ['Central nervous system (asphyxiant at very high levels)'],
     biomarkers: [],
-    sources: ['ASHRAE 62.1-2025 §6', 'ATSDR ToxProfile CO₂'],
+    sources: ['ASHRAE Position Document on Indoor Carbon Dioxide (2022)', 'ATSDR ToxProfile CO₂'],
   },
   formaldehyde: {
     acute: [

@@ -41,6 +41,12 @@ export const KEYS = {
   activeProfile: 'atmosiq-active-profile',
   syncQueue: 'atmosiq-sync-queue',   // pending Supabase writes
   syncState: 'atmosiq-sync-state',
+  // Assessments whose cloud push was refused because another device wrote
+  // the row first (migration 034 base_updated_at check) or because the
+  // issued report is immutable. Kept OUT of the sync queue: retrying is
+  // futile until a person decides which copy wins. See
+  // supabaseStorage.getConflicts / resolveConflict.
+  syncConflicts: 'atmosflow:sync-conflicts',
 
   // ── Feature data ('atmosflow:*') ──
   incidents: 'atmosflow:incidents',

@@ -4,10 +4,20 @@ on:
   schedule:
     # 06:00 UTC daily — well outside any plausible business deploy window.
     - cron: '0 6 * * *'
+  # Post-deploy: Vercel reports each deployment through the GitHub
+  # Deployments API. Run the probe the moment a PRODUCTION deploy lands, so
+  # a route that 500s at cold start is caught in minutes, not at 06:00.
+  deployment_status: {}
   workflow_dispatch: {}
 
 jobs:
   smoke:
+    # For deployment_status events only the successful production deploy
+    # qualifies; schedule and manual runs always proceed.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

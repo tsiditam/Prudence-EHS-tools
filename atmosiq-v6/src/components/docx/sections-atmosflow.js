@@ -394,6 +394,20 @@ function buildCover(meta) {
  * @param {object} model  the render model (meta, execSummary, findingsAtGlance, …)
  * @returns {Array} paragraphs and tables for the section `children`
  */
+
+/**
+ * Appendix A row text. Prefers the model's per-reference usage statement
+ * (which finding or parameter cited the reference); otherwise the basis the
+ * model supplied, with the legacy "screening interpretation" boilerplate
+ * replaced — that label was stripped platform-wide and must not reappear.
+ */
+export function referenceBasisText(basis, usage) {
+  if (usage && String(usage).trim()) return String(usage).trim()
+  const b = basis == null ? '' : String(basis)
+  if (!b.trim() || /screening interpretation/i.test(b)) return 'Cited by a finding in Section 4 of this report.'
+  return b.replace(/\bscreening\b/gi, 'assessment')
+}
+
 export function atmosFlowReportChildren(model) {
   if (!model) return []
   const M = model
@@ -631,10 +645,21 @@ export function atmosFlowReportChildren(model) {
   }
 
   // ═══ Appendix A — Standards & References ═══
+  //
+  // Renders ONLY what the model hands it, and never the word "screening"
+  // (AUDIT-2026-09 M2). Each row is [reference, basis] and may carry a third
+  // element, `usage` — which finding or measured parameter cited it — that
+  // `reportModel.collectReferences` is asked to supply (see the handoff
+  // note). When usage is present it is the row text. When it is absent the
+  // basis is rendered as given, except that the legacy boilerplate
+  // "Referenced in screening interpretation." is replaced by a statement of
+  // fact about the report. The reference list itself is the model's; the
+  // renderer adds nothing. There is no table of contents in this document,
+  // so there is no contents entry to keep in step.
   if (M.references && M.references.length) {
     c.push(h1('Appendix A — Standards & References', { pbb: true }))
     c.push(
-      table(['Reference', 'Basis of use'], M.references.map(([ref, basis]) => [fmt(ref), fmt(basis)]), [3129, 6231], {
+      table(['Reference', 'Basis of use'], M.references.map(([ref, basis, usage]) => [fmt(ref), fmt(referenceBasisText(basis, usage))]), [3129, 6231], {
         cellSpec: (r, ci) => ({ bold: ci === 0 }),
       }),
     )

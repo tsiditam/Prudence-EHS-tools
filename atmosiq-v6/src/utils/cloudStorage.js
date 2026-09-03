@@ -22,17 +22,32 @@
  *
  *   Profile:
  *     getProfile()                  → profile | null
- *     saveProfile(profile)          → { ok } | { error }
+ *     saveProfile(profile)          → { ok: true } | { ok: false, error, queued }
  *
  *   Assessment:
  *     listAssessments(status?)      → assessment[]
  *     getAssessment(id)             → assessment | null
- *     saveAssessment(assessment)    → { ok } | { error }
- *     deleteAssessment(id)          → { ok } | { error }
+ *     getRemoteAssessment(id)       → assessment | null  (cloud, heals local)
+ *     saveAssessment(assessment)    → { ok: true, assessment }
+ *                                   | { ok: false, error, queued: true }
+ *                                   | { ok: false, error, conflict: true }
+ *                                   | { ok: false, error, immutable: true }
+ *     deleteAssessment(id)          → { ok: true } | { ok: false, error, queued }
+ *     reopenAssessment(id)          → { ok } | { ok: false, error }
+ *                                     (issued report → draft so it may change)
  *
  *   Sync:
  *     processSyncQueue()            → void  (drain pending offline ops)
  *     fullSync()                    → void  (pull-down + push-up everything)
+ *     getSyncState()                → { queueDepth, inFlight, lastAttempt,
+ *                                       lastSuccess, lastError, conflicts,
+ *                                       conflictCount, online }
+ *     getConflicts()                → conflict[]
+ *     resolveConflict(id, 'keep_local' | 'keep_cloud') → { ok } | { ok: false, error }
+ *
+ *   `ok: false` always means the CLOUD write did not land. `queued` means
+ *   it will be retried on the next drain; `conflict` / `immutable` mean
+ *   retrying is futile until a person decides (see getConflicts).
  *
  * Caveats for a future swap:
  *   • onAuthChange currently uses Supabase's realtime subscription model.

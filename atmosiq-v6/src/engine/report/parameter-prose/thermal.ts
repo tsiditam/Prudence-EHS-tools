@@ -59,8 +59,12 @@ export const TEMPERATURE_PROSE: ParameterProse = {
 export const RH_PROSE: ParameterProse = {
   parameter: 'Relative Humidity',
   standardsBackground: RH_BACKGROUND,
+  // ASHRAE 55 is NOT listed here (2026-09). It is the applicable standard
+  // for temperature, and the background prose above names it only to say
+  // it is not the source of the humidity band. Listing it as an applicable
+  // standard for RH re-made the attribution the prose disclaims.
   applicableStandards: [
-    { source: 'ASHRAE Standard 55-2023 — Thermal Environmental Conditions for Human Occupancy', authority: 'consensus', edition: '2023' },
+    { source: 'US EPA — Mold, Moisture and Your Home (keep indoor RH below 60%, ideally 30–50%)', authority: 'advisory', edition: 'current' },
   ],
   summaryTemplate(range) {
     if (range.count === 0) return 'Relative humidity was not measured during this assessment.'

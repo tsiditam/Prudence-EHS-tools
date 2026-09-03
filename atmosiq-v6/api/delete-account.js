@@ -5,18 +5,30 @@
  * and CCPA §1798.105.
  *
  * Order matters because of foreign key constraints:
- *   1. assessments         (user_id FK)
- *   2. credits_ledger      (user_id FK)
- *   3. purchases           (user_id FK)
- *   4. analytics_events    (user_id FK)
+ *   1. assessments            (user_id FK)
+ *   2. credits_ledger         (user_id FK)
+ *   3. purchases              (user_id FK)
+ *   4. analytics_events       (user_id FK)
  *   5. narrative_generations
- *   6. early_access_signups (matched by email — not FK, but PII)
- *   7. profiles
- *   8. Stripe customer
- *   9. auth.users
+ *   6. early_access_signups   (matched by email — not FK, but PII)
+ *   7. marketing_agent_leads  (matched by email — not FK, but PII)
+ *   8. audit_log              (actor_id / actor_email / ip_address — the
+ *                              rows stay for the forensic trail, the PII
+ *                              columns are nulled)
+ *   9. Storage objects under report-templates/{uid}/ and
+ *      peer-review-attachments/{uid}/
+ *  10. profiles
+ *  11. Stripe customer
+ *  12. auth.users
+ *
+ * Steps 7–9 were added for audit 2026-09 §3 Medium ("GDPR erasure
+ * incomplete"): audit_log kept actor_email and IP forever, marketing leads
+ * were untouched, and the two storage prefixes were orphaned.
  *
  * After deletion, an immutable row is written to deletion_audit with a
- * SHA-256 hash of the user_id. No PII is retained.
+ * SHA-256 hash of the user_id. No PII is retained. `initiated_by` is
+ * resolved server-side: a self-service call is always 'user' — the body
+ * cannot claim 'admin' or 'gdpr_request' (those are set by the admin path).
  *
  * Response:
  *   200 { status: "deleted", entities_purged: [...] }
@@ -26,14 +38,21 @@
 
 const crypto = require('crypto')
 const { createClient } = require('@supabase/supabase-js')
-const { auditLog } = require('./_audit')
+const { auditLog } = require('./_audit.js')
+const { createStripeClient } = require('./_stripe.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
+
+// Only these values ever reach deletion_audit.initiated_by (the column has
+// a matching CHECK). The self-service endpoint can only produce 'user';
+// the other two exist for a future admin-initiated path.
+const INITIATED_BY_ALLOWED = new Set(['user', 'admin', 'gdpr_request'])
+const STORAGE_PREFIXES = ['report-templates', 'peer-review-attachments']
+const STORAGE_PAGE = 1000
 
 let _stripeClient = null
 function getStripe() {
   if (_stripeClient) return _stripeClient
-  if (!process.env.STRIPE_SECRET_KEY) return null
-  const stripeLib = require('stripe')
-  _stripeClient = stripeLib(process.env.STRIPE_SECRET_KEY)
+  _stripeClient = createStripeClient()
   return _stripeClient
 }
 
@@ -72,6 +91,40 @@ async function cancelStripeCustomer(stripeCustomerId) {
   return { canceled, deleted }
 }
 
+/**
+ * Remove every object under `{bucket}/{userId}/`. Lists the folder (paged),
+ * then removes in one call per page. Never throws — a storage failure must
+ * not abort the table purge; it is reported in the result and logged.
+ */
+async function purgeStoragePrefix(supabase, bucket, userId) {
+  if (!supabase.storage || typeof supabase.storage.from !== 'function') return { ok: false, removed: 0 }
+  let removed = 0
+  try {
+    const store = supabase.storage.from(bucket)
+    for (let offset = 0; ; offset += STORAGE_PAGE) {
+      const { data: objects, error: listErr } = await store.list(userId, { limit: STORAGE_PAGE, offset })
+      if (listErr) {
+        console.error(`[delete-account] storage list failed (${bucket}):`, listErr.message)
+        return { ok: false, removed }
+      }
+      const names = (objects || []).map((o) => o && o.name).filter(Boolean)
+      if (names.length === 0) break
+      const paths = names.map((n) => `${userId}/${n}`)
+      const { error: rmErr } = await store.remove(paths)
+      if (rmErr) {
+        console.error(`[delete-account] storage remove failed (${bucket}):`, rmErr.message)
+        return { ok: false, removed }
+      }
+      removed += paths.length
+      if (names.length < STORAGE_PAGE) break
+    }
+    return { ok: true, removed }
+  } catch (err) {
+    console.error(`[delete-account] storage purge threw (${bucket}):`, err && err.message)
+    return { ok: false, removed }
+  }
+}
+
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
@@ -90,7 +143,9 @@ async function handler(req, res) {
   if (requestedId && requestedId !== user.id) {
     return res.status(403).json({ error: 'Cannot delete another user' })
   }
-  const initiatedBy = (req.body && req.body.initiated_by) || 'user'
+  // Self-service is always 'user'. The body used to be able to label its
+  // own deletion 'admin' / 'gdpr_request' in the immutable audit table.
+  const initiatedBy = 'user'
 
   await auditLog({
     action: 'user.terminate',
@@ -98,7 +153,7 @@ async function handler(req, res) {
     actor_email: user.email,
     target_type: 'user',
     target_id: user.id,
-    details: { self_initiated: initiatedBy === 'user', initiated_by: initiatedBy },
+    details: { self_initiated: true, initiated_by: initiatedBy },
     req,
   })
 
@@ -134,6 +189,30 @@ async function handler(req, res) {
     if (user.email) {
       await supabase.from('early_access_signups').delete().eq('email', user.email)
       purged.push('early_access_signups')
+
+      await supabase.from('marketing_agent_leads').delete().eq('email', user.email)
+      purged.push('marketing_agent_leads')
+    }
+
+    // audit_log is append-only forensic history: keep the rows (what
+    // happened, when) but strip the identity columns. Matched by actor_id
+    // and, separately, by actor_email — rows written with only an email
+    // (admin-side actions, peer-review completions) have no actor_id.
+    await supabase
+      .from('audit_log')
+      .update({ actor_email: null, ip_address: null })
+      .eq('actor_id', user.id)
+    if (user.email) {
+      await supabase
+        .from('audit_log')
+        .update({ actor_email: null, ip_address: null })
+        .eq('actor_email', user.email)
+    }
+    purged.push('audit_log_pii')
+
+    for (const bucket of STORAGE_PREFIXES) {
+      const result = await purgeStoragePrefix(supabase, bucket, user.id)
+      if (result.ok) purged.push(`storage:${bucket}`)
     }
 
     await supabase.from('profiles').delete().eq('id', user.id)
@@ -154,7 +233,7 @@ async function handler(req, res) {
     await supabase.from('deletion_audit').insert({
       user_id_hash: sha256(user.id),
       entities_purged: purged,
-      initiated_by: initiatedBy === 'admin' || initiatedBy === 'gdpr_request' ? initiatedBy : 'user',
+      initiated_by: initiatedBy,
     })
     purged.push('deletion_audit_recorded')
   } catch (err) {
@@ -164,10 +243,13 @@ async function handler(req, res) {
   return res.status(200).json({ status: 'deleted', entities_purged: purged })
 }
 
-module.exports = handler
+module.exports = withSentry(handler, { route: 'delete-account' })
 module.exports.__test = {
   sha256,
   cancelStripeCustomer,
+  purgeStoragePrefix,
+  INITIATED_BY_ALLOWED,
+  STORAGE_PREFIXES,
   setStripe(mock) { _stripeClient = mock },
   setSupabase(mock) { _supabaseClient = mock },
   resetStripe() { _stripeClient = null },

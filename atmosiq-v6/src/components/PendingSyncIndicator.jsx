@@ -13,6 +13,12 @@
  *                force a drain immediately.
  *   - Error    — red pill: "Sync had errors". Last drain left items in
  *                the queue and recorded an error. Tap "Sync now" to retry.
+ *                'storage_quota' renders as "Device storage full".
+ *   - Conflict — red pill: "N conflicts". A push was refused because
+ *                another device changed the report first (migration 034)
+ *                or the issued report is immutable. Retrying cannot help;
+ *                the count stays until the conflict is resolved
+ *                (Storage.resolveConflict / reopenAssessment).
  *
  * Placement: top-right corner, just below the safe-area inset, so it
  * sits beside the existing connection toast in MobileApp.jsx without
@@ -41,26 +47,38 @@ export default function PendingSyncIndicator() {
 
   if (!state) return null
 
-  const hasError = !!state.lastError && state.queueDepth > 0
+  const conflictCount = state.conflictCount ?? (Array.isArray(state.conflicts) ? state.conflicts.length : 0)
+  const quotaError = state.lastError === 'storage_quota'
+  const hasError = !!state.lastError && (state.queueDepth > 0 || quotaError)
   const isSyncing = state.inFlight
   const hasPending = state.queueDepth > 0
+  const hasConflict = conflictCount > 0
 
   // Nothing to surface — stay out of the way.
-  if (!hasError && !isSyncing && !hasPending) return null
+  if (!hasError && !isSyncing && !hasPending && !hasConflict) return null
 
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
   let bg, fg, label
   if (isSyncing) {
     bg = '#3B82F6'   // blue-500
     fg = '#FFFFFF'
-    label = `Syncing ${state.queueDepth} item${state.queueDepth === 1 ? '' : 's'}…`
+    label = `Syncing ${plural(state.queueDepth, 'item')}…`
+  } else if (hasConflict) {
+    bg = '#EF4444'   // red-500
+    fg = '#FFFFFF'
+    label = hasPending
+      ? `${plural(conflictCount, 'conflict')}, ${state.queueDepth} pending`
+      : plural(conflictCount, 'conflict')
   } else if (hasError) {
     bg = '#EF4444'   // red-500
     fg = '#FFFFFF'
-    label = `Sync had errors: ${state.queueDepth} pending`
+    label = quotaError
+      ? `Device storage full${hasPending ? `: ${state.queueDepth} pending` : ''}`
+      : `Sync had errors: ${state.queueDepth} pending`
   } else {
     bg = '#F59E0B'   // amber-500
     fg = '#000000'
-    label = `${state.queueDepth} item${state.queueDepth === 1 ? '' : 's'} pending sync`
+    label = `${plural(state.queueDepth, 'item')} pending sync`
   }
 
   const onSyncNow = (e) => {
@@ -108,7 +126,7 @@ export default function PendingSyncIndicator() {
         }}
       />
       <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-      {!isSyncing && state.online && (
+      {!isSyncing && state.online && hasPending && (
         <button
           type="button"
           onClick={onSyncNow}

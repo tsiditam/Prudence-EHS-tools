@@ -431,10 +431,18 @@ footer{background:var(--ink);color:#fff}
           <div class="frame">
             <div class="screen">
               <span class="island" aria-hidden="true"></span>
-              <video class="demo-vid" autoplay muted loop playsinline preload="metadata" aria-label="Screen recording of AtmosFlow, from project setup through a draft report">
-                <source src="/atmosflow-demo.mp4" type="video/mp4">
-                <a href="/atmosflow-demo.mp4">Watch the AtmosFlow demo</a>
-              </video>
+              <!--
+                Demo video removed from the repo (2026-09 audit: 13.6 MB
+                public/atmosflow-demo.mp4 was copied into every deploy).
+                Host the recording on Supabase Storage or a CDN and point
+                the <source> at that URL, e.g.
+                  <video class="demo-vid" autoplay muted loop playsinline preload="metadata"
+                         aria-label="Screen recording of AtmosFlow, from project setup through a draft report">
+                    <source src="https://<cdn>/atmosflow-demo.mp4" type="video/mp4">
+                  </video>
+                Until then the device frame shows the first product screenshot.
+              -->
+              <img class="demo-vid" src="/ss-guided-assessment.png" alt="AtmosFlow guided assessment screen, from project setup through a draft report" loading="lazy">
             </div>
           </div>
         </div>

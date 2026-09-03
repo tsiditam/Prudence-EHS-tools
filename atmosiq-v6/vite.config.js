@@ -58,8 +58,52 @@ function resolveBuildSha() {
   }
 }
 
+// Vendor chunking. The main chunk was 3.1 MB minified / 930 KB gzip with
+// every report, PDF, chart and markdown dependency inlined, and every
+// deploy invalidated all of it. Grouping the heavy, rarely-changing
+// packages into their own chunks lets the PWA cache them across deploys
+// and keeps the app chunk to the code that actually changed. Lazy
+// loading of the screens that use them is the frontend's follow-up.
+const VENDOR_CHUNKS = [
+  ['vendor-docx', ['docx']],
+  ['vendor-jspdf', ['jspdf', 'jspdf-autotable']],
+  ['vendor-recharts', ['recharts']],
+  ['vendor-supabase', ['@supabase/supabase-js']],
+  ['vendor-sentry', ['@sentry/react']],
+  ['vendor-markdown', ['react-markdown', 'remark-', 'micromark', 'mdast']],
+  ['vendor-lucide', ['lucide-react']],
+]
+
+function manualChunks(id) {
+  if (!id.includes('node_modules')) return undefined
+  const after = id.slice(id.lastIndexOf('node_modules/') + 'node_modules/'.length)
+  for (const [chunk, prefixes] of VENDOR_CHUNKS) {
+    if (prefixes.some(p => after.startsWith(p))) return chunk
+  }
+  return undefined
+}
+
 export default defineConfig({
   plugins: [react(), precacheManifestPlugin()],
   define: { __BUILD_SHA__: JSON.stringify(resolveBuildSha()) },
-  server: { port: 3000 }
+  server: { port: 3000 },
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: { manualChunks },
+    },
+  },
+  test: {
+    // No global environment: node by default, and the component / page
+    // tests opt into jsdom per file with `// @vitest-environment jsdom`.
+    coverage: {
+      provider: 'v8',
+      reporter: ['text-summary', 'lcov'],
+      include: ['src/**', 'api/**', 'lib/**'],
+      // Thresholds sit just under the September 2026 baseline
+      // (66.97% lines, 53.3% branches, 57.5% functions) so they hold the
+      // line without blocking the next PR. Raise them as coverage grows.
+      thresholds: { lines: 65, branches: 50, functions: 55, statements: 60 },
+    },
+  },
 })

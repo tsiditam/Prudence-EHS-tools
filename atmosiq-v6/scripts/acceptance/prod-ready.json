@@ -32,6 +32,17 @@
       ]
     },
     {
+      "id": "API-BOOT",
+      "label": "Every api/** entry bundles with esbuild and imports under plain Node with a function default export",
+      "_comment": "The runtime shape that failed in the CHANGELOG incident: vitest, lint, typecheck and the grep gates were all green while 24 extension-less imports took every affected route to 500 at cold start. Bundles each api/** entry (node, esm, packages external), refuses extension-less relative ESM imports at resolve time, then imports the output under plain Node. Also run stand-alone as `npm run accept:api-boot`.",
+      "checks": [
+        {
+          "type": "api_boot",
+          "dir": "api"
+        }
+      ]
+    },
+    {
       "id": "WEBHOOK-IDEMPOTENCY-TABLE",
       "label": "stripe_webhook_events table migration exists",
       "checks": [
@@ -2445,16 +2456,9 @@
         {
           "type": "file_exists",
           "path": "tests/engine/pm25-criteria.test.ts"
-        },
-        {
-          "type": "npm_script_passes",
-          "script": "test",
-          "args": [
-            "--",
-            "tests/engine/pm25-criteria.test.ts"
-          ]
         }
-      ]
+      ],
+      "_comment": "Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks."
     },
     {
       "id": "EVIDENCE-BASIS-FROM-MEASUREMENT",
@@ -2495,17 +2499,9 @@
           "paths": [
             "tests/engine/evidence-basis.test.ts"
           ]
-        },
-        {
-          "type": "npm_script_passes",
-          "script": "test",
-          "args": [
-            "--",
-            "tests/engine/evidence-basis.test.ts",
-            "tests/engine/phrase-evidence-claims.test.ts"
-          ]
         }
-      ]
+      ],
+      "_comment": "Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks."
     },
     {
       "id": "CITATION-DISCIPLINE",
@@ -2549,17 +2545,9 @@
           "paths": [
             "src/constants/standards.js"
           ]
-        },
-        {
-          "type": "npm_script_passes",
-          "script": "test",
-          "args": [
-            "--",
-            "tests/engine/citation-discipline.test.ts",
-            "tests/engine/v22-parameter-prose.test.ts"
-          ]
         }
-      ]
+      ],
+      "_comment": "Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks."
     },
     {
       "id": "STANDARDS-DOUBLE-ENTRY",
@@ -2669,7 +2657,7 @@
     {
       "id": "NO-COMPOSITE-SCORE",
       "label": "The 100-point composite, its category weights and every risk band are absent from every layer they reached",
-      "_comment": "Modelled on MOLD-UI-NO-HEALTH-VERDICT: an exclusion pair plus the positive assertion of what replaced it. The patterns match CODE SHAPES (an export declaration, a constant assignment, an object key) because every file involved carries a comment recording what was removed from it, and that record must not be what fails the gate. Band-ladder detection needs comment stripping and so lives in tests/engine/no-scoring.test.ts, which this criterion runs.",
+      "_comment": "Modelled on MOLD-UI-NO-HEALTH-VERDICT: an exclusion pair plus the positive assertion of what replaced it. The patterns match CODE SHAPES (an export declaration, a constant assignment, an object key) because every file involved carries a comment recording what was removed from it, and that record must not be what fails the gate. Band-ladder detection needs comment stripping and so lives in tests/engine/no-scoring.test.ts, which this criterion runs. Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks.",
       "checks": [
         {
           "type": "file_exists",
@@ -2752,22 +2740,13 @@
           "name": "ENGINE_VERSION",
           "value": "3.0.0",
           "_comment": "A MAJOR bump: the same inputs no longer produce the same conclusions."
-        },
-        {
-          "type": "npm_script_passes",
-          "script": "test",
-          "args": [
-            "--",
-            "tests/engine/no-scoring.test.ts",
-            "tests/components/assessment-verdict.test.ts"
-          ]
         }
       ]
     },
     {
       "id": "NO-DATA-CENTER-MODULE",
       "label": "The data-center specialty module and its five standards are absent from every layer they used to reach",
-      "_comment": "This criterion once had a hole: grep_excludes returned ok when NONE of its paths existed, so deleting a watched file made its own removal-guard silently pass. Fixed in the runner (see the note above grepMatches in acceptance-check.mjs) rather than here, because every exclusion criterion had it.",
+      "_comment": "This criterion once had a hole: grep_excludes returned ok when NONE of its paths existed, so deleting a watched file made its own removal-guard silently pass. Fixed in the runner (see the note above grepMatches in acceptance-check.mjs) rather than here, because every exclusion criterion had it. Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks.",
       "checks": [
         {
           "type": "file_exists",
@@ -2817,14 +2796,6 @@
             "src/components/MobileApp.jsx",
             "src/utils/storageKeys.js"
           ]
-        },
-        {
-          "type": "npm_script_passes",
-          "script": "test",
-          "args": [
-            "--",
-            "tests/engine/no-data-center-module.test.ts"
-          ]
         }
       ]
     },
@@ -2858,16 +2829,9 @@
           "paths": [
             "src/components/MobileApp.jsx"
           ]
-        },
-        {
-          "type": "npm_script_passes",
-          "script": "test",
-          "args": [
-            "--",
-            "tests/engine/no-consultant-report.test.ts"
-          ]
         }
-      ]
+      ],
+      "_comment": "Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks."
     },
     {
       "id": "ASSESSOR-RECORD-LEGIBLE",
@@ -2941,18 +2905,9 @@
           "paths": [
             "src/engine/investigation.ts"
           ]
-        },
-        {
-          "type": "npm_script_passes",
-          "script": "test",
-          "args": [
-            "--",
-            "tests/engine/photo-index.test.ts",
-            "tests/lib/assessment-context-narrative.test.ts",
-            "tests/lib/buildAssessmentContext.test.ts"
-          ]
         }
-      ]
+      ],
+      "_comment": "Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks."
     }
   ]
 }

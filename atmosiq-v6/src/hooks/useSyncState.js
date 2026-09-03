@@ -17,7 +17,9 @@
  *     inFlight: boolean,
  *     lastAttempt: string | null,   // ISO timestamp
  *     lastSuccess: string | null,   // ISO timestamp
- *     lastError: string | null,
+ *     lastError: string | null,     // 'storage_quota' when localStorage refused a write
+ *     conflicts: Array<{ id, facility, reason, detectedAt, message }>,
+ *     conflictCount: number,        // assessments parked by the 034 guards
  *     online: boolean,
  *   }
  */
