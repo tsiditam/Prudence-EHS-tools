@@ -210,13 +210,61 @@ export function recommendationsByTimeframe(recs = {}) {
   }
 }
 
-/** Distinct references cited in findings + causal chains, plus the base set. */
-export function collectReferences(findings = [], causalChains = []) {
-  const set = new Set()
-  findings.forEach(f => { if (f.std) set.add(f.std) })
-  ;(causalChains || []).forEach(c => { const s = c.std || c.citation; if (s) set.add(s) })
-  ;['ASHRAE 62.1-2025', 'ASHRAE 55-2023', 'US EPA NAAQS', 'OSHA PELs (29 CFR 1910.1000)'].forEach(s => set.add(s))
-  return [...set]
+// Reader-facing names for the engine's parameter keys, for the Appendix A
+// usage column.
+const PARAM_LABEL = { co2: 'CO₂', co: 'CO', hcho: 'formaldehyde', pm25: 'PM2.5', temperature: 'temperature', rh: 'relative humidity', multi_oel: 'multiple contaminants' }
+const FLAGGED = new Set(['critical', 'high', 'medium'])
+// The first clause of a finding sentence — "CO 55 ppm", "Visible mold growth
+// (Small (< 10 sq ft))" — for the usage column.
+const headline = (t) => String(t || '').split(' — ')[0].split('. ')[0].trim().slice(0, 90)
+
+/**
+ * The references this report actually cites, with what cited each one.
+ *
+ * Appendix A used to be an unguarded standards register: four references
+ * were appended whatever the report measured, and every row read
+ * "Referenced in screening interpretation." A reference now enters ONLY
+ * when a flagged finding cites it (`f.std`), a causal chain cites it, or a
+ * measured parameter was evaluated against a registry criterion carrying it
+ * (a non-flagged engine finding with `std` and `p`). The citation comes off
+ * the finding — i.e. off the criterion that evaluated the reading — never
+ * from a fixed per-parameter default (citations handoff §1; CLAUDE.md).
+ *
+ * @returns {{ refs: string[], usage: Record<string,string> }}
+ */
+export function collectReferenceUsage(findings = [], causalChains = [], zoneScores = []) {
+  const usage = new Map()
+  const add = (ref, line) => {
+    if (!ref) return
+    if (!usage.has(ref)) usage.set(ref, { cited: new Set(), applied: new Set() })
+    if (line) usage.get(ref)[line.kind].add(line.text)
+  }
+  findings.forEach(f => add(f.std, { kind: 'cited', text: `${f.zone} — ${headline(f.text)}` }))
+  ;(causalChains || []).forEach(c => {
+    const s = c.std || c.citation
+    if (s) add(s, { kind: 'cited', text: `causal chain — ${c.type || c.name || 'primary finding'}` })
+  })
+  for (const zs of zoneScores) {
+    for (const cat of ((zs && zs.cats) || [])) {
+      for (const r of (cat.r || [])) {
+        if (!r || !r.std || FLAGGED.has(r.sev) || r.dataGap) continue
+        add(r.std, { kind: 'applied', text: `${PARAM_LABEL[r.p] || headline(r.t)} (${zs.zoneName || 'Zone'})` })
+      }
+    }
+  }
+  const out = {}
+  for (const [ref, u] of usage) {
+    const parts = []
+    if (u.cited.size) parts.push(`Cited by: ${[...u.cited].join('; ')}`)
+    if (u.applied.size) parts.push(`Applied to measured parameter: ${[...u.applied].join('; ')}`)
+    out[ref] = parts.join('. ') + '.'
+  }
+  return { refs: [...usage.keys()], usage: out }
+}
+
+/** Distinct references actually cited by findings, causal chains or evaluated parameters. */
+export function collectReferences(findings = [], causalChains = [], zoneScores = []) {
+  return collectReferenceUsage(findings, causalChains, zoneScores).refs
 }
 
 /** QA/QC manifest from presurvey instrument fields; missing → disclosed. */
@@ -268,6 +316,7 @@ export function buildReportModel(data = {}, opts = {}) {
   // the same resolution scoring and the print path use.
   const surveyIso = resolveAssessmentDate(data)
   const findings = collectFindings(zoneScores)
+  const referenceUsage = collectReferenceUsage(findings, data.causalChains || [], zoneScores)
   // Lifecycle: explicit opts win, then whatever the stored record
   // carries, then the legacy `status` column, then screening/draft.
   //
@@ -343,7 +392,8 @@ export function buildReportModel(data = {}, opts = {}) {
     photos: data.photos || {},
     qaQc: buildQaQc(ps),
     limitations: buildLimitations(data),
-    references: collectReferences(findings, data.causalChains || []),
+    references: referenceUsage.refs,
+    referenceUsage: referenceUsage.usage,
     composite: data.comp || null,
   }
 }
@@ -579,8 +629,11 @@ export function assembleRenderModel(data = {}, opts = {}) {
   // QA/QC as bullet strings; limitations already paragraph strings.
   const qaQc = rd.qaQc.map(q => `${q.label}: ${q.value}`)
 
-  // References as [ref, basis] pairs.
-  const references = rd.references.map(ref => [ref, REF_BASIS[ref] || 'Referenced in screening interpretation.'])
+  // References as [ref, basis, usage] tuples. `usage` says what in this
+  // report cited the reference (the renderer prefers it); `basis` is the
+  // standing description where one exists. Nothing here adds a row on its
+  // own — see collectReferenceUsage.
+  const references = rd.references.map(ref => [ref, REF_BASIS[ref] || 'Cited by a finding or an evaluated measurement in this report.', rd.referenceUsage[ref]])
 
   // Photos.
   let photos = null

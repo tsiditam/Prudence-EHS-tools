@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "lint": "npm run lint:eslint && npm run lint:src && npm run lint:imports",
     "lint:eslint": "eslint --max-warnings=0 \"scripts/**/*.{js,mjs,ts}\" \"tests/api/**/*.ts\" \"tests/scripts/**/*.ts\" \"tests/components/**/*.{ts,tsx}\" \"tests/lib/**/*.ts\" \"tests/pages/**/*.{ts,tsx}\" \"lib/**/*.ts\" \"components/**/*.{ts,tsx}\" \"pages/**/*.{ts,tsx}\"",
-    "lint:src": "eslint --max-warnings=__RATCHET__ \"src/**/*.{js,jsx,ts,tsx}\"",
+    "lint:src": "eslint --max-warnings=440 \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:imports": "node scripts/check-api-js-imports.mjs",
     "accept:api-boot": "node scripts/acceptance-check.mjs --config scripts/acceptance/api-boot.json",
     "accept:prod-ready": "node scripts/acceptance-check.mjs --config scripts/acceptance/prod-ready.json",
@@ -35,8 +35,8 @@
     "db:migrate:status": "node scripts/db-migrate.mjs --dry-run"
   },
   "dependencies": {
-    "@sentry/node": "^8.55.0",
-    "@sentry/react": "^8.55.0",
+    "@sentry/node": "^10.73.0",
+    "@sentry/react": "^10.73.0",
     "@supabase/supabase-js": "^2.101.1",
     "dayjs": "^1.11.20",
     "docx": "^9.6.1",
@@ -71,7 +71,7 @@
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/coverage-v8": "^4.1.11",
     "cheerio": "^1.2.0",
     "esbuild": "^0.27.7",
     "eslint": "^9.18.0",
@@ -81,7 +81,7 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vite": "^7.3.6",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "vite": "$vite"

@@ -193,7 +193,16 @@ function assessVent(d, achOverride) {
   if (cfm == null && isEntered(d.cfm_person)) r.push(dataGapFinding('OA delivery (cfm/person)', 'cfm_person'))
   if (ach == null && isEntered(d.ach)) r.push(dataGapFinding('ACH', 'ach'))
   if (v == null && isEntered(d.co2)) r.push(dataGapFinding('CO₂', 'co2'))
-  const hasAirflow = cfm != null || ach != null
+  // An ACH reading is EVALUABLE only against a design requirement the
+  // record actually carries — a building-profile override with a table
+  // citation. The generic fallback that stood here (6 ACH for healthcare /
+  // lab, 4 for everything else, cited "CDC/ASHRAE 170") was an unsourced
+  // figure: 170's Table 7.1 ranges 2–20 by room type and states no generic
+  // rate, and nothing publishes 4 ACH for an office. Without an override the
+  // reading is reported, not judged (citations handoff §3; gap ledger in
+  // tests/engine/citations-gap-ledger.ts).
+  const achEvaluable = ach != null && achOverride != null && Number.isFinite(achOverride.min)
+  const hasAirflow = cfm != null || achEvaluable
   if (cfm != null) {
     // `??`, not `||`: enclosed parking carries pp = 0 (62.1 gives it an area
     // rate only), and `|| 5` turned that genuine zero into an office rate.
@@ -207,13 +216,15 @@ function assessVent(d, achOverride) {
     else if (cfm === req)     { r.push({ t: `OA delivery ${cfm} cfm/person — meets the ASHRAE 62.1 minimum (${req}) with no margin above it. Area component (Ra×Az) not captured — ventilation calc incomplete.`, std: 'ASHRAE 62.1-2025', sev: 'pass' }) }
     else if (cfm < req * 1.2) { r.push({ t: `OA delivery ${cfm} cfm/person — marginally above minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'medium' }) }
     else                      { r.push({ t: `OA delivery ${cfm} cfm/person — exceeds ASHRAE 62.1 minimum (${req})`, std: 'ASHRAE 62.1-2025', sev: 'pass' }) }
-  } else if (ach != null) {
-    const achMin = achOverride?.min || ((d.su === 'healthcare' || d.su === 'lab') ? 6 : 4)
-    const achStd = achOverride?.label || 'CDC/ASHRAE 170'
+  } else if (achEvaluable) {
+    const achMin = achOverride.min
+    const achStd = achOverride.label
     if (ach < achMin * 0.5) { r.push({ t: `ACH ${ach} — critically below minimum (${achMin})`, std: achStd, sev: 'critical' }) }
     else if (ach < achMin)  { r.push({ t: `ACH ${ach} — below minimum (${achMin})`, std: achStd, sev: 'high' }) }
     else if (ach === achMin){ r.push({ t: `ACH ${ach} — meets the minimum (${achMin}) with no margin above it`, std: achStd, sev: 'pass' }) }
     else                    { r.push({ t: `ACH ${ach} — meets or exceeds minimum (${achMin})`, std: achStd, sev: 'pass' }) }
+  } else if (ach != null) {
+    r.push({ t: `ACH ${ach} recorded — no design air-change requirement is recorded for this space type, so the reading is reported, not evaluated (Data Gap)`, sev: 'info', dataGap: true, p: 'ach' })
   }
   // CO₂ is evaluated against its criteria WHETHER OR NOT airflow was measured
   // (audit H4). It used to be demoted to an info-only "confirmatory" line the

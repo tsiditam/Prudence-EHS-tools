@@ -33,7 +33,7 @@ Working principles.)
 
 ## Stack
 
-- **Vite 5 + React 18 SPA** (not Next.js — atmosiq-v6/ is the canonical
+- **Vite 7 + React 18 SPA** (not Next.js — atmosiq-v6/ is the canonical
   AtmosFlow codebase). PWA-shipped to iOS Safari, Chrome, Edge.
 - **Inline styles, no Tailwind, no shadcn/ui.** A limited token surface
   exists at `src/styles/tokens.js` but the codebase predominantly uses

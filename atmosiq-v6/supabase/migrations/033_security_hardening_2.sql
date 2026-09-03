@@ -202,6 +202,17 @@ BEGIN
     ALTER TABLE public.profiles ALTER COLUMN billing_period SET DEFAULT 'monthly';
   END IF;
 
+  -- The 003/000 row-level policy is re-asserted here with an explicit
+  -- WITH CHECK (schema.sql's original had none). An RLS policy cannot
+  -- restrict COLUMNS — that is what the privilege grants below do — but
+  -- 000_base_schema.sql re-creates this policy idempotently for fresh
+  -- databases, so 033 drops and re-installs it to own its final shape.
+  DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+  CREATE POLICY "Users can update own profile"
+    ON public.profiles FOR UPDATE
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id);
+
   -- Sensitive columns that actually exist on this database.
   SELECT string_agg(quote_ident(column_name), ', ' ORDER BY column_name)
     INTO present_sensitive

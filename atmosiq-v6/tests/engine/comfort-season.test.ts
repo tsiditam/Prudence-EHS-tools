@@ -63,7 +63,10 @@ describe('a zone with no survey date states the gap instead of guessing a band',
   })
 
   it('caps confidence, the same way any other gap in the record does', () => {
-    const full = { zn: 'Z', su: 'office', tf: '74', rh: '45', pm: '5', co: '2', co2: '600', cfm_person: '20', cx: 'No complaints' }
+    // A record complete enough to reach High — every required and optional
+    // input of every category — so the only thing between the two calls is
+    // the survey date.
+    const full = { zn: 'Z', su: 'office', tf: '74', rh: '45', pm: '5', co: '2', tv: '100', hc: '0.01', vd: 'None', co2: '600', cfm_person: '20', ach: '6', sa: 'Normal', cx: 'No complaints' }
     const bldg = { hm: 'Within 6 months', fc: 'Clean' }
     expect(scoreZone(full, { ...bldg, assessmentDate: '2026-07-15' }).confidence).toBe('High')
     expect(scoreZone(full, bldg).confidence).toBe('Medium')
