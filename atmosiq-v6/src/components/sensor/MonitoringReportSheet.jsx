@@ -47,7 +47,7 @@ const LBL = {
 }
 const INPUT = {
   width: '100%', padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border)',
-  borderRadius: 8, color: 'var(--text)', fontSize: 14, fontFamily: 'inherit', outline: 'none',
+  borderRadius: 8, color: 'var(--text)', fontSize: 14, fontFamily: 'inherit',
   boxSizing: 'border-box',
 }
 const SEL = { width: '100%', fontSize: 14, padding: '10px 12px' }

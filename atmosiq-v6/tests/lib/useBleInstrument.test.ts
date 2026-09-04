@@ -203,6 +203,30 @@ describe('useBleInstrument — pair flow', () => {
   })
 })
 
+describe('useBleInstrument — unmount cleanup', () => {
+  it('disconnects GATT and removes the disconnect listener on unmount', async () => {
+    stub!.requestDevice.mockResolvedValueOnce(makeFakeDevice())
+    const { result, unmount } = renderHook(() => useBleInstrument(ARANET4_DRIVER))
+    await act(async () => { await result.current.pair() })
+    await waitFor(() => expect(result.current.state).toBe('connected'))
+    const dev = lastDevice!
+    expect(dev.gatt.connected).toBe(true)
+    expect(dev._listeners.gattserverdisconnected?.size).toBe(1)
+
+    // Before the deviceRef fix the unmount cleanup captured the first-render
+    // closure (device === null) and never reached the radio.
+    unmount()
+
+    expect(dev.gatt.connected).toBe(false)
+    expect(dev._listeners.gattserverdisconnected?.size ?? 0).toBe(0)
+  })
+
+  it('unmount before any pairing is a no-op', () => {
+    const { unmount } = renderHook(() => useBleInstrument(ARANET4_DRIVER))
+    expect(() => unmount()).not.toThrow()
+  })
+})
+
 describe('integration: driver parse called against the read DataView', () => {
   it('uses the driver-supplied parse function (Aranet4)', () => {
     const dv = buildPayload()

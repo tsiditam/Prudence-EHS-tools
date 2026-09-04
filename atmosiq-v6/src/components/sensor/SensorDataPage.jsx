@@ -988,7 +988,7 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
       {mode !== 'analysis' && (
         <div style={{ padding: '0 18px 16px' }}>
           <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"
-            rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
+            rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <GhostButton onClick={exportPng} disabled={busy}>
               <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
@@ -1076,7 +1076,7 @@ function OccupancyEditor({ windows, range, onChange }) {
   }
   const remove = (id) => onChange(list.filter((w) => w.id !== id))
 
-  const inStyle = { padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+  const inStyle = { padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }
   const summary = list.length ? `${list.length} period${list.length > 1 ? 's' : ''}` : 'None yet. Mark occupied / unoccupied windows'
   return (
     <CollapsibleCard title="Occupancy periods" summary={summary} defaultOpen={list.length > 0}>
@@ -1151,7 +1151,7 @@ function DatasetManager({ datasets, onPickFor, onPickProjectFor, onRemove, busy 
         </Select>
         {role === 'zone' && (
           <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Zone label (e.g. Conference Room A)"
-            style={{ flex: '1 1 200px', minWidth: 0, padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+            style={{ flex: '1 1 200px', minWidth: 0, padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }} />
         )}
         <TactileButton variant="secondary" size="sm" disabled={busy} onClick={add} icon={<I n="upload" s={13} c={ACCENT} w={2} />}>
           {busy ? 'Reading…' : 'Add file'}

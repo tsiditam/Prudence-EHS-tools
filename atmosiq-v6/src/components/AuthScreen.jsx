@@ -27,6 +27,7 @@
  */
 
 import { useState } from 'react'
+import { FULL_VH } from '../styles/tokens'
 import Storage from '../utils/cloudStorage'
 import { trackEvent } from '../utils/supabaseClient'
 import * as V3 from '../styles/tokens'
@@ -200,6 +201,9 @@ const LockIcon = () => (
 // component on every keystroke and steal focus from the active input.
 function Field({ name, label, type, value, onChange, autoComplete, placeholder, focusedField, setFocusedField, clearError, trailing, onKeyDown, style }) {
   const focused = focusedField === name
+  // Real <label htmlFor> → <input id> pairing so the field has an
+  // accessible name (audit 2026-09 §6: 1 htmlFor for 30 labels).
+  const inputId = `auth-${name}`
   return (
     <div style={{ position: 'relative', ...style }}>
       <div
@@ -218,15 +222,17 @@ function Field({ name, label, type, value, onChange, autoComplete, placeholder, 
           boxSizing: 'border-box',
         }}
       >
-        <div
+        <label
+          htmlFor={inputId}
           style={{
             fontSize: 10, fontWeight: 600, letterSpacing: '0.14em',
             color: focused ? ACCENT : SUB,
             textTransform: 'uppercase',
             transition: 'color 150ms ease',
           }}
-        >{label}</div>
+        >{label}</label>
         <input
+          id={inputId}
           type={type}
           value={value}
           onChange={e => { onChange(e.target.value); clearError() }}
@@ -236,7 +242,7 @@ function Field({ name, label, type, value, onChange, autoComplete, placeholder, 
           placeholder={placeholder}
           autoComplete={autoComplete}
           style={{
-            border: 'none', background: 'transparent', outline: 'none',
+            border: 'none', background: 'transparent',
             color: TEXT, fontSize: 16, fontFamily: 'inherit', fontWeight: 500,
             padding: 0, width: '100%', boxSizing: 'border-box',
             paddingRight: trailing ? 36 : 0,
@@ -358,7 +364,7 @@ export default function AuthScreen({ onAuth }) {
 
   return (
     <div data-auth-version="phase2-redesign" style={{
-      minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'inherit',
+      minHeight: FULL_VH, background: BG, color: TEXT, fontFamily: 'inherit',
       position: 'relative', overflowX: 'hidden',
       paddingTop: 'env(safe-area-inset-top, 20px)',
       paddingBottom: 'env(safe-area-inset-bottom, 20px)',

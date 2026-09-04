@@ -72,7 +72,7 @@ const ACTIONS = [
 const inp = {
   width: '100%', padding: '12px 14px', background: BG,
   border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT,
-  fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+  fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle = { fontSize: 11, fontWeight: 600, color: SUB, marginBottom: 6, display: 'block', letterSpacing: '0.2px' }
 const sectionHeader = {
@@ -286,7 +286,10 @@ export default function IncidentForm({ onCancel, onSaved }) {
       <div style={{ ...labelStyle, marginTop: 12 }}>Photos (up to 4)</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         {(form.photo_ids || []).map((src, i) => (
-          <div key={i} style={{ position: 'relative', width: 72, height: 72 }}>
+          // Keyed by content, not index: removing a middle photo with index
+          // keys re-associated the remaining thumbnails' DOM with the wrong
+          // entries (audit 2026-09 §6).
+          <div key={`${src.length}:${src.slice(-24)}`} style={{ position: 'relative', width: 72, height: 72 }}>
             <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, border: `1px solid ${BORDER}` }} />
             <button onClick={() => f('photo_ids', form.photo_ids.filter((_, j) => j !== i))} style={{ position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, background: DANGER, border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }}>×</button>
           </div>

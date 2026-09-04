@@ -88,6 +88,39 @@ below it.
 - Portable HEPA is recommended only with a particulate finding; gypsum
   moisture is qualitative; one wood-moisture constant (16% MC, IICRC S500).
 
+**Frontend and PWA (audit §6)**
+
+- The main bundle drops from 930 KB to 312 KB gzipped: `React.lazy` for
+  the report, print, sensor, assistant, admin, forms, evidence-map, mold
+  and lab-import screens, vendor chunks for docx, jspdf, recharts, Supabase,
+  Sentry and markdown, and a stale-chunk guard that prompts a reload
+  instead of failing.
+- Three components defined inside render (`TrashView`, `Radio`, the graph
+  row) are hoisted; the 30-second shell re-render is gone.
+- Navigation is history-backed: back gestures return to the previous
+  screen and a refresh restores the last view.
+- `AssessmentContext` is split into data and results contexts so typing in
+  a zone field no longer re-renders every consumer; `setZF` no longer
+  closes over a stale zone.
+- Photos live in IndexedDB as ids; state and autosave carry references,
+  finalize re-keys blobs under the report id, and a full device store
+  surfaces as a toast instead of a silent failure.
+- Bluetooth: unmounting the sensor screen now disconnects GATT.
+- Service worker caches by allow-list only, and an "Update available"
+  toast replaces running old code against a new cache.
+- Accessibility: pinch-zoom re-enabled, the two documented contrast
+  failures fixed (9.26:1 and 5.78:1), theme-aware secondary text, visible
+  focus rings, clickable divs converted to buttons, labelled inputs, focus
+  traps in the bottom sheet and dialogs; `alert`/`confirm` replaced by
+  toasts and an accessible confirm dialog.
+- `ErrorBoundary` reports to Sentry; credit analytics use the live
+  balance; four `no-undef` runtime bugs fixed; dead landing-page
+  components deleted; seven date formatters consolidated.
+- Client follow-ups from the API changes: checkout sends the Bearer token,
+  the narrative client no longer sends a system prompt, 402 and
+  not-yet-synced errors have user-facing copy, analytics events are
+  attributed to the signed-in user.
+
 <!-- coordinator: append other areas here -->
 
 **Process and delivery**

@@ -24,6 +24,7 @@
  * mass rather than a state change.
  */
 
+import { forwardRef } from 'react'
 import { tapResetStyle, tapTransition, pressInTransition, pressOutTransition, PRESS_SCALE, prefersReducedMotion } from '../../styles/soft-glass'
 import { R, TEXT_PRIMARY, TEXT_SECONDARY } from '../../styles/tokens'
 
@@ -77,7 +78,9 @@ const VARIANT = {
   },
 }
 
-export default function TactileButton({
+// forwardRef so a dialog can move initial focus onto its action button
+// (ConfirmDialog, BottomSheet focus management).
+const TactileButton = forwardRef(function TactileButton({
   variant = 'secondary',
   size = 'md',
   // Pill shape — fully-rounded ends (R.pill) instead of the default
@@ -105,7 +108,7 @@ export default function TactileButton({
   style,
   children,
   ...rest
-}) {
+}, ref) {
   const v = VARIANT[variant] || VARIANT.secondary
   const padY = size === 'lg' ? 16 : size === 'sm' ? 10 : 14
   const padX = size === 'lg' ? 22 : size === 'sm' ? 14 : 18
@@ -176,13 +179,15 @@ export default function TactileButton({
   const cls = [bubble ? 'bubble-btn' : '', className].filter(Boolean).join(' ') || undefined
 
   return (
-    <button type={type} disabled={disabled} className={cls} style={composed} {...handlers} {...rest}>
+    <button ref={ref} type={type} disabled={disabled} className={cls} style={composed} {...handlers} {...rest}>
       {icon}
       <span>{children}</span>
       {iconRight}
     </button>
   )
-}
+})
+
+export default TactileButton
 
 // Per-variant bubble tint (custom properties consumed by .bubble-btn).
 const BUBBLE_TINT = {

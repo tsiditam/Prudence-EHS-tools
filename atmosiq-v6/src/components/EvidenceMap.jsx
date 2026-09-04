@@ -16,11 +16,14 @@
  * is not touched; confidence stays categorical, and standards framed
  * is_health_limit=false are labeled as screening references, never limits.
  */
-import { useMemo } from 'react'
+import { useMemo, Suspense } from 'react'
 import { I } from './Icons'
 import { t } from '../constants/terminology'
 import { buildGraphContext } from '../../lib/context/graphContext'
-import KnowledgeGraphView from './KnowledgeGraphView'
+// Lazy: the graph renderer is desktop-only and behind the KG flag, so it
+// has no business in the main chunk (audit 2026-09 §6 Performance).
+import { lazySafe } from './ui/lazySafe'
+const KnowledgeGraphView = lazySafe(() => import('./KnowledgeGraphView'))
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -101,7 +104,7 @@ export default function EvidenceMap({ zones, zoneScores, causalChains, recs, ass
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <KnowledgeGraphView zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={assessmentId} />
+      <Suspense fallback={<div style={{ padding: 24, color: 'var(--sub)', fontSize: 13 }}>Loading evidence map…</div>}><KnowledgeGraphView zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={assessmentId} /></Suspense>
       <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5, marginBottom: 4 }}>
         The graph above shows each finding with the measurements, observations, and occupant reports that support or conflict with it, plus the standards, pathways, and recommendations it links to. The cards below list the same relationships. Everything is derived from deterministic scoring — it supports, but does not confirm, interpretation. Every finding requires IH review.
       </div>

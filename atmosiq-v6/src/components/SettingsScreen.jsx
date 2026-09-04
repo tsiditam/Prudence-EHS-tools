@@ -253,8 +253,9 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
               onChange={e=>setAdminCode(e.target.value)}
               onKeyDown={e=>{ if (e.key === 'Enter' && adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }}
               placeholder="Enter admin secret"
+              aria-label="Admin secret"
               type="password"
-              style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',outline:'none',marginBottom:10,boxSizing:'border-box'}}
+              style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',marginBottom:10,boxSizing:'border-box'}}
             />
             <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{width:'100%',padding:'12px 16px',background:mix('warn', 8),border:`1px solid ${mix('warn', 19)}`,borderRadius:8,color:WARN,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Activate</button>
           </div>

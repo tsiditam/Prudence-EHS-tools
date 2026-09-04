@@ -37,6 +37,7 @@ const DOCX_MIME =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 import { getAuthHeader, fmtDate } from './settingsHelpers'
+import { useConfirm } from '../ui/ConfirmDialog'
 import { TOKEN_REGISTRY, LIST_REGISTRY } from '../../../lib/report-templates/token-registry'
 
 function fmtSize(bytes) {
@@ -133,6 +134,7 @@ function TokenReference() {
 }
 
 export default function ReportTemplatesPanel() {
+  const [confirm, confirmDialog] = useConfirm()
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -208,7 +210,7 @@ export default function ReportTemplatesPanel() {
 
   const handleDelete = async (id) => {
     if (!id) return
-    if (!window.confirm('Delete this template? This cannot be undone.')) return
+    if (!(await confirm({ title: 'Delete this template?', message: 'This cannot be undone.', confirmLabel: 'Delete', destructive: true }))) return
     setBusy(true)
     setError('')
     try {
@@ -234,6 +236,7 @@ export default function ReportTemplatesPanel() {
 
   return (
     <div>
+      {confirmDialog}
       {/* Upload affordance */}
       <div
         style={{

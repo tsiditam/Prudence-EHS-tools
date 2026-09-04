@@ -17,10 +17,11 @@ import ErrorBoundary from './components/ErrorBoundary'
 import EarlyAccessPage from './components/EarlyAccessPage'
 import DevPreviewButton from './components/dev/DevPreviewButton'
 import MoldPreviewButton from './components/dev/MoldPreviewButton'
-import { Toaster } from 'sonner'
+import { Toaster, toast } from 'sonner'
 import { initSentryClient } from '../lib/sentry-client'
 import { bootTheme, getTheme } from './utils/theme'
 import { isKnowledgeGraphEnabled, isDesktopViewport, isMoldModuleEnabled } from './utils/featureFlags'
+import { isStaleChunkError, evictServiceWorkerCaches, offerReload, UPDATE_AVAILABLE_COPY } from './components/ui/lazySafe'
 
 initSentryClient()
 bootTheme()
@@ -54,19 +55,35 @@ const root = isEarlyAccess
       ? <React.Suspense fallback={null}><DevMoldPreview /></React.Suspense>
       : <App />
 
+// The Toaster sits OUTSIDE the error boundary so the "Update available —
+// Reload" and quota toasts survive a render crash in the app tree.
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       {root}
       {kgEnabled && !isDevEvidenceMap && <DevPreviewButton />}
-      <Toaster theme={getTheme()} richColors closeButton position="top-center" />
     </ErrorBoundary>
+    <Toaster theme={getTheme()} richColors closeButton position="top-center" />
   </React.StrictMode>
 )
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+  // A new service worker took over this tab (sw.js calls skipWaiting +
+  // clients.claim on activate). From here on the tab runs the OLD app
+  // chunks against the NEW cache — any not-yet-loaded lazy chunk may 404.
+  // Tell the user rather than let them find out from a dead button. The
+  // first controller on a cold load is not an update, so skip that one.
+  let hadController = !!navigator.serviceWorker.controller
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) { hadController = true; return }
+    toast.info(UPDATE_AVAILABLE_COPY, {
+      id: 'af-update-available',
+      duration: Infinity,
+      action: { label: 'Reload', onClick: () => window.location.reload() },
+    })
   })
 }
 
@@ -86,35 +103,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
 // production failure mode.
 //
 // We listen for unhandled rejections, detect the chunk-load error
-// signature, evict the service-worker cache, and prompt the user
-// to reload — a single click recovers them. Without this handler
-// the user sees "Please try again" and the same failure repeats.
-let _staleChunkPromptShown = false
-function isStaleChunkError(reason) {
-  if (!reason) return false
-  const message = (reason && reason.message) || String(reason)
-  return /is not a valid JavaScript MIME type|Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk \d+ failed/i
-    .test(message)
-}
-async function evictServiceWorkerCaches() {
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys()
-      await Promise.all(keys.map((k) => caches.delete(k)))
-    }
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations()
-      await Promise.all(regs.map((r) => r.unregister()))
-    }
-  } catch {}
-}
+// signature, evict the service-worker cache, and offer a reload —
+// a single tap recovers them. Without this handler the user sees
+// "Please try again" and the same failure repeats.
+//
+// This handler is what makes lazy loading safe: every `import()` and
+// `React.lazy` in the app (see src/components/ui/lazySafe.jsx, which
+// covers the React.lazy path — those failures go to the ErrorBoundary,
+// not here) can fail on a stale deploy and still recover with one tap.
+// Keep it even if the SW strategy changes.
 window.addEventListener('unhandledrejection', async (event) => {
   if (!isStaleChunkError(event.reason)) return
-  if (_staleChunkPromptShown) return
-  _staleChunkPromptShown = true
   await evictServiceWorkerCaches()
-  const reload = window.confirm(
-    'AtmosFlow has been updated. Reload to load the latest version?'
-  )
-  if (reload) window.location.reload()
+  offerReload()
 })

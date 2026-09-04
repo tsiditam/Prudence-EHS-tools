@@ -40,6 +40,7 @@ const ACCENT = 'var(--accent)'
 const DANGER = 'var(--danger)'
 
 import { getAuthHeader, fmtDate } from './settingsHelpers'
+import { useConfirm } from '../ui/ConfirmDialog'
 
 function nextDueLabel(site) {
   if (site.disabled_at) return 'Reminders paused'
@@ -54,6 +55,7 @@ function nextDueLabel(site) {
 }
 
 export default function SiteLibraryPanel() {
+  const [confirmDelete, confirmDialog] = useConfirm()
   const { sites: cachedSites, refreshSites } = useStorage()
   const [sites, setSites] = useState(cachedSites || [])
   const [loading, setLoading] = useState(false)
@@ -127,7 +129,7 @@ export default function SiteLibraryPanel() {
   }
 
   const remove = async (site) => {
-    if (!confirm(`Delete "${site.name}" from your sites?\n\nReminders for this site will be canceled. Past assessments are unaffected.`)) return
+    if (!(await confirmDelete({ title: `Delete "${site.name}" from your sites?`, message: 'Reminders for this site will be canceled. Past assessments are unaffected.', confirmLabel: 'Delete', destructive: true }))) return
     setBusy(true)
     setError('')
     try {
@@ -148,6 +150,7 @@ export default function SiteLibraryPanel() {
 
   return (
     <div style={{maxWidth: 620, margin: '0 auto'}}>
+      {confirmDialog}
       {/* No "Sites" heading here — the Settings Group wrapper already
           renders the section's "SITES" label, so an in-panel <h2>Sites</h2>
           duplicated it. */}

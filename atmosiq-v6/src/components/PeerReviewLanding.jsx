@@ -19,6 +19,7 @@
  * Supabase client is loaded here.
  */
 
+import { FULL_VH } from '../styles/tokens'
 import { useEffect, useState } from 'react'
 
 const BG = '#080A0E'
@@ -85,7 +86,7 @@ export default function PeerReviewLanding({ token }) {
 
   return (
     <div style={{
-      minHeight: '100vh', background: BG, color: TEXT,
+      minHeight: FULL_VH, background: BG, color: TEXT,
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', sans-serif",
       padding: '24px 16px', display: 'flex', justifyContent: 'center',
     }}>

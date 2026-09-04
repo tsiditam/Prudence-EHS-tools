@@ -244,7 +244,7 @@
     },
     {
       "id": "KG-JASPER-CONTEXT",
-      "label": "Scoped graph context is derived and attached to the Jasper context (§16)",
+      "label": "Scoped graph context is built for the Evidence tab and deliberately detached from the Jasper payload (\u00a716; commit 40ac426)",
       "checks": [
         {
           "type": "file_exists",
@@ -266,6 +266,13 @@
         },
         {
           "type": "grep_matches",
+          "pattern": "Removed from the Jasper context",
+          "paths": [
+            "lib/context/buildJasperContext.ts"
+          ]
+        },
+        {
+          "type": "grep_excludes",
           "pattern": "knowledge_graph: buildGraphContext",
           "paths": [
             "lib/context/buildJasperContext.ts"
@@ -275,7 +282,7 @@
     },
     {
       "id": "KG-EVIDENCE-MAP-UI",
-      "label": "Read-only Evidence Map tab renders findings, framed standards, and IH review (§13)",
+      "label": "Read-only Evidence Map tab renders findings, framed standards, and IH review (\u00a713)",
       "checks": [
         {
           "type": "file_exists",
@@ -379,7 +386,7 @@
     },
     {
       "id": "KG-NETWORK-VIEW",
-      "label": "Node-link knowledge-graph visualization renders nodes and edges (§14)",
+      "label": "Node-link knowledge-graph visualization renders nodes and edges (\u00a714)",
       "checks": [
         {
           "type": "file_exists",
@@ -471,7 +478,7 @@
     },
     {
       "id": "KG-TESTS-PASS",
-      "label": "Builder + service + graph-context unit tests pass (§19 tests 1-7, §16)",
+      "label": "Builder + service + graph-context unit tests pass (\u00a719 tests 1-7, \u00a716)",
       "checks": [
         {
           "type": "file_exists",

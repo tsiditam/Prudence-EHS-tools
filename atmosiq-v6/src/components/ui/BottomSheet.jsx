@@ -19,6 +19,7 @@
  *   - Respects iOS safe-area-inset at the bottom (home indicator)
  *   - Caps at 90vh; content scrolls inside if it overflows
  *   - Backdrop uses a backdrop-filter blur for the soft-glass system
+ *   - Focus is trapped inside while open and restored to the opener on close
  *
  * Props:
  *   open       boolean — visibility (consumer controls mount/unmount
@@ -30,10 +31,11 @@
  *   ariaLabel? string
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { FLOATING_BAR_SHADOW, GLASS, RADII, SPRING } from '../../styles/soft-glass'
 import { BORDER_DEFAULT, TEXT_PRIMARY } from '../../styles/tokens'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 export default function BottomSheet({
   open = true,
@@ -56,6 +58,14 @@ export default function BottomSheet({
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
   }, [open])
+
+  // Focus management (audit 2026-09 §6: aria-modal with no focus trap).
+  // Focus moves onto the sheet when it opens, Tab / Shift+Tab cycle inside
+  // it, and focus returns to the opener on close. Initial focus lands on the
+  // panel itself rather than its first control so a sheet that opens with a
+  // text field does not pop the phone keyboard uninvited.
+  const panelRef = useRef(null)
+  useFocusTrap(panelRef, open, { initialFocus: 'container' })
 
   // Esc to dismiss — desktop courtesy, no cost on touch.
   useEffect(() => {
@@ -91,6 +101,8 @@ export default function BottomSheet({
       }}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         style={{
           ...GLASS.elevated,
           ...(tone === 'deep' ? { background: 'var(--surface-deep)' } : null),

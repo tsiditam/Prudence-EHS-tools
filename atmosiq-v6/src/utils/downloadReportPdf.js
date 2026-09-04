@@ -33,10 +33,15 @@ export async function downloadReportPdf(reportData, opts = {}) {
     body: JSON.stringify({ model }),
   })
   if (!res.ok) {
-    let msg = res.status === 401 ? 'Please sign in again to generate the report.' : `Report generation failed (${res.status})`
+    let msg = res.status === 401
+      ? 'Please sign in again to generate the report.'
+      : res.status === 402
+        ? 'No credits remaining. Add credits or upgrade your plan to generate this report.'
+        : `Report generation failed (${res.status})`
     try {
       const j = await res.json()
-      if (j.error === 'banned_language') msg = `Report blocked: unsupported language detected${j.hits && j.hits[0] ? ` ("${j.hits[0].term}")` : ''}. Edit the narrative and retry.`
+      if (j.error === 'insufficient_credits') msg = 'No credits remaining. Add credits or upgrade your plan to generate this report.'
+      else if (j.error === 'banned_language') msg = `Report blocked: unsupported language detected${j.hits && j.hits[0] ? ` ("${j.hits[0].term}")` : ''}. Edit the narrative and retry.`
       else if (j.message) msg = j.message
     } catch { /* non-JSON error body */ }
     throw new Error(msg)

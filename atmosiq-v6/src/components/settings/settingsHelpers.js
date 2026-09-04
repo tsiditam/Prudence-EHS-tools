@@ -4,6 +4,8 @@
  * these.
  */
 
+import { formatDate } from '../../utils/formatDate'
+
 export async function getAuthHeader() {
   try {
     const session = await (await import('../../utils/cloudStorage')).default.getSession()
@@ -13,9 +15,5 @@ export async function getAuthHeader() {
   }
 }
 
-export function fmtDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
+// Single definition lives in src/utils/formatDate.js.
+export const fmtDate = (iso) => formatDate(iso)

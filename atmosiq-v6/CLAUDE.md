@@ -62,7 +62,7 @@ Working principles.)
 Read these directories first when investigating any task:
 - `src/components/` — UI components, mostly inline-styled JSX. Hot files:
   `MobileApp.jsx` (main app shell + dashboard + result tabs + bottom nav),
-  `LandingPage.jsx`, `AuthScreen.jsx`, `SettingsScreen.jsx`,
+  `AuthScreen.jsx`, `SettingsScreen.jsx`,
   `AdminDashboard.jsx`, `DocxReport.js`.
 - `src/components/docx/` — DOCX section builders
   (sections-core, sections-atmosflow, sections-recommendations, etc.).
@@ -112,7 +112,8 @@ Read these directories first when investigating any task:
   `src/components/pricing/`, not here.
 - `pages/index.tsx` — public marketing landing page. Self-contained
   TSX; not yet wired into the SPA's actual route shell (the live root
-  currently renders `src/components/LandingPage.jsx`).
+  redirects desktop first visits to `public/atmosflow-landing.html`; the
+  old `src/components/LandingPage.jsx` was dead and is deleted).
 - `supabase/migrations/` — 35 numbered migrations (`000`–`034`; count
   with `ls supabase/migrations/[0-9]*.sql | wc -l`) covering the base
   schema, analytics, billing, teams/orgs, enterprise phase 1,

@@ -13,12 +13,15 @@
  * array. No additional plumbing required.
  */
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { I } from './Icons'
 import { generateMoldCoCBlob, MOLD_COC_FILENAME_PREFIX } from './forms/MoldCoCForm'
 import { generateTvocCoCBlob, TVOC_COC_FILENAME_PREFIX } from './forms/TvocCoCForm'
 import { deliverFile } from './forms/deliverFile'
-import LabResultsImport from './LabResultsImport'
+import { lazySafe } from './ui/lazySafe'
+import Loading from './Loading'
+// Lazy: the CSV importer (parser + templates) only loads when opened.
+const LabResultsImport = lazySafe(() => import('./LabResultsImport'))
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -71,7 +74,7 @@ export default function SamplingFormsView({ profile, onBack }) {
   const [subView, setSubView] = useState('picker') // 'picker' | 'lab-import'
 
   if (subView === 'lab-import') {
-    return <LabResultsImport onBack={() => setSubView('picker')} />
+    return <Suspense fallback={<Loading fast onDone={() => {}} />}><LabResultsImport onBack={() => setSubView('picker')} /></Suspense>
   }
 
   const handleGenerate = async (form) => {

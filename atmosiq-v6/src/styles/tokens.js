@@ -30,6 +30,11 @@ export const CSS = {
   shadow3: '0 10px 30px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.25)',
 }
 
+// Named alias for the danger token. SensorDataPage imports it via the
+// namespace (`V3.DANGER`); before this export existed Rollup warned on
+// every build and the four call sites resolved to `undefined`.
+export const DANGER = CSS.danger
+
 export const SP = { xxs: 2, xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, xxxl: 64 }
 
 // ── Font families ──
@@ -68,6 +73,13 @@ export const FONT_MOBILE = FONT_SYSTEM
 // sit on SURFACE; cards sit on CARD; hovered/pressed/selected items
 // lift to RAISED. Three steps of contrast at ≤6% lightness apart so
 // hierarchy reads without needing borders to carry the weight.
+// Full-viewport height. `100dvh` tracks the iOS Safari toolbar as it
+// collapses (100vh is the LARGEST viewport, so a bottom-anchored control
+// can sit under the toolbar); older engines get the vh fallback. Inline
+// styles cannot carry two values for one property, so the check is done
+// once here.
+export const FULL_VH = (typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('height', '100dvh')) ? '100dvh' : '100vh'
+
 export const BG_BASE = 'var(--bg)'
 export const SURFACE = 'var(--surface)'
 export const CARD = 'var(--card)'
@@ -91,7 +103,9 @@ export const BORDER_ACCENT  = 'rgba(34,211,238,0.35)'
 // labels; tertiary for metadata; muted for legal-fine-print and
 // the "not the focus" tone used in field cards.
 export const TEXT_PRIMARY   = 'var(--text)'
-export const TEXT_SECONDARY = '#A8B0BD'
+// Theme-aware (index.html --text-secondary: #A8B0BD dark / #334155 light).
+// Was a hard-coded dark hex in 17 places, invisible-ish on white.
+export const TEXT_SECONDARY = 'var(--text-secondary)'
 export const TEXT_TERTIARY  = 'var(--sub)'
 export const TEXT_MUTED     = 'var(--dim)'
 
@@ -110,6 +124,17 @@ export const SEVERITY = {
   low:      '#38BDF8',
   pass:     '#22C55E',
   info:     '#94A3B8',
+}
+
+// `{ c, bg, l }` tone for a severity — colour, an ~9% tinted background
+// and the pill label. This is what MobileApp's `sv()` returns; it lives
+// here so LabResultsImport / InstrumentLogImport read the same table
+// instead of carrying their own hex copies.
+const SEVERITY_LABEL = { critical: 'CRITICAL', high: 'HIGH', medium: 'MEDIUM', low: 'LOW', pass: 'PASS', info: 'INFO' }
+export function severityTone(sev) {
+  const c = SEVERITY[sev] || SEVERITY.info
+  const known = Object.prototype.hasOwnProperty.call(SEVERITY, sev)
+  return { c, bg: c + (sev === 'critical' || sev === 'high' || sev === 'medium' ? '18' : '15'), l: known ? SEVERITY_LABEL[sev] : '' }
 }
 
 // Confidence. Distinct semantic axis from severity — a Critical
@@ -448,7 +473,7 @@ export const cardHoverHandlers = (dk) => dk ? {
 export const inputStyle = {
   width: '100%', padding: '12px 14px', background: CSS.bg,
   border: `1px solid ${CSS.border}`, borderRadius: 8, color: CSS.text,
-  fontSize: 15, outline: 'none', boxSizing: 'border-box',
+  fontSize: 15, boxSizing: 'border-box',
 }
 
 export const inputFocusHandlers = {}

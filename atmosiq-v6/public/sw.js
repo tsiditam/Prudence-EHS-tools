@@ -17,19 +17,30 @@
  *     with every entry. Fall back to a small static set if the
  *     manifest is missing.
  *   - activate: delete every cache whose key doesn't match the new
- *     version, then claim all clients so the new SW takes over.
+ *     version, then claim all clients so the new SW takes over. The
+ *     page listens for `controllerchange` (src/main.jsx) and offers a
+ *     reload, so a tab is never silently left running old JS against
+ *     the new cache.
  *   - fetch:
  *       /api/* + non-GET + cross-origin → pass through to network
  *       navigation (mode === 'navigate') → network-first, fall back
  *         to cached app shell (so cold-offline still serves the UI)
- *       /assets/* or other immutable hashed assets → cache-first,
- *         repopulate on network success
- *       everything else same-origin → stale-while-revalidate
+ *       /assets/* (content-hashed) → cache-first, repopulate on success
+ *       the static allow-list below (/icons/, /manifest.json, /fonts/,
+ *         /precache-manifest.json) → stale-while-revalidate
+ *       everything else → network only, never cached.
+ *
+ *     The last rule is the audit fix (2026-09 §6 Service worker): the
+ *     previous default cached ANY other same-origin GET, so a future
+ *     authenticated non-/api route, a signed download, or a per-user
+ *     HTML fragment would have been served from cache on a shared
+ *     device. Caching is now allow-by-list, not allow-by-default.
+ *     /sw.js itself is served no-store (vercel.json) and is never in
+ *     the allow-list, so the browser's own update check is not
+ *     answered from cache.
  *
  * Per CLAUDE.md "no functional regressions" — the version bump means
- * old caches get cleaned on activate. Clients staying open across a
- * deploy keep their old SW until refresh; that's standard PWA
- * behavior and matches the prior SW's contract.
+ * old caches get cleaned on activate.
  */
 
 const STATIC_PRECACHE = [
@@ -39,13 +50,19 @@ const STATIC_PRECACHE = [
   '/icons/icon-512.svg',
 ]
 
+// Same-origin GET paths (besides /assets/ and navigations) the worker is
+// allowed to cache. Exact files and directory prefixes only; anything
+// not listed goes straight to the network.
+const CACHEABLE_PREFIXES = ['/icons/', '/fonts/', '/assets/']
+const CACHEABLE_FILES = ['/manifest.json', '/precache-manifest.json']
+
 // CACHE_VERSION bumps on every deploy via the activate fallback —
 // build pipelines that want explicit versioning can substitute
 // __ATMOSFLOW_SW_VERSION__ at deploy time. Today the install handler
 // reads the version from the runtime precache manifest, so this
 // constant is only used as a deterministic fallback when the
 // manifest fetch fails.
-const FALLBACK_VERSION = 'fallback-v7'
+const FALLBACK_VERSION = 'fallback-v8'
 const CACHE_PREFIX = 'atmosflow-cache-'
 let currentCacheName = `${CACHE_PREFIX}${FALLBACK_VERSION}`
 
@@ -104,6 +121,18 @@ function isImmutableAsset(url) {
   // safe to cache-first indefinitely; the hash changes when the
   // content changes.
   return url.pathname.startsWith('/assets/')
+}
+
+/**
+ * Allow-list decision for a same-origin GET. Exported for the unit test
+ * (tests/components/sw-allowlist.test.js evaluates this file with a stub
+ * `self`) — this is the one function that decides what may be cached.
+ */
+function isCacheable(url) {
+  if (isApiRequest(url)) return false
+  if (url.pathname === '/sw.js') return false
+  if (CACHEABLE_FILES.includes(url.pathname)) return true
+  return CACHEABLE_PREFIXES.some((p) => url.pathname.startsWith(p))
 }
 
 async function cacheFirst(request) {
@@ -166,5 +195,14 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(cacheFirst(e.request))
     return
   }
-  e.respondWith(staleWhileRevalidate(e.request))
+  if (isCacheable(url)) {
+    e.respondWith(staleWhileRevalidate(e.request))
+    return
+  }
+  // Not on the allow-list: network only. Returning without respondWith
+  // lets the browser handle the request as if no worker were installed.
 })
+
+// Test seam — a plain browser ignores this; the unit test reads it off
+// the stub `self` it evaluates the file with.
+if (typeof self !== 'undefined') self.__atmosflowSw = { isCacheable, isApiRequest, isImmutableAsset, CACHEABLE_PREFIXES, CACHEABLE_FILES }

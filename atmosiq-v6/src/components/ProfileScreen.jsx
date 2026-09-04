@@ -6,6 +6,7 @@
  * ProfileScreen — assessor profile and instrument configuration
  */
 
+import { FULL_VH } from '../styles/tokens'
 import { useState, useEffect } from 'react'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import Profiles from '../utils/profiles'
@@ -35,7 +36,7 @@ export const PID_OPTS = ['RAE Systems MiniRAE 3000','RAE Systems ppbRAE 3000','I
 export const CAL_OPTS = ['Calibrated within manufacturer spec','Calibrated, overdue for recertification','Field-zeroed only','Not calibrated','Unknown']
 export const PID_CAL_OPTS = ['Bump-tested and calibrated','Bump-tested only','Not calibrated','N/A']
 
-const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box',transition:'border-color 0.15s' }
+const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box',transition:'border-color 0.15s' }
 const label = { fontSize:13,fontWeight:600,color:SUB,marginBottom:6,display:'block',letterSpacing:'0.1px' }
 
 function SectionLabel({ children }) {
@@ -244,7 +245,7 @@ export default function ProfileScreen({ onLogin }) {
   // ── Profile Select ──
   if (mode === 'select' && profiles.length > 0) {
     return (
-      <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
+      <div style={{minHeight:FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
         <div style={{maxWidth:maxW,margin:'0 auto',paddingTop:48,paddingBottom:100}}>
           <div style={{marginBottom:32}}>
             <div style={{fontSize:22,fontWeight:700,letterSpacing:'-0.3px',marginBottom:4}}>AtmosFlow</div>
@@ -278,7 +279,7 @@ export default function ProfileScreen({ onLogin }) {
 
   // ── Create / Edit ──
   return (
-    <div style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
+    <div style={{minHeight:FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui",padding:'0 20px',paddingTop:'env(safe-area-inset-top, 20px)'}}>
       <div style={{maxWidth:maxW,margin:'0 auto',paddingTop:32,paddingBottom:100}}>
 
         {/* Header */}
@@ -335,8 +336,8 @@ export default function ProfileScreen({ onLogin }) {
           </div>
 
           <div style={{marginBottom:20}}>
-            <span style={label}>Full name and credentials <span style={{color:ACCENT}}>*</span></span>
-            <input type="text" value={form.name||''} onChange={e=>setF('name',e.target.value)} placeholder="J. Smith, CIH, CSP" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <label htmlFor="pf-name" style={label}>Full name and credentials <span style={{color:ACCENT}}>*</span></label>
+            <input id="pf-name" type="text" value={form.name||''} onChange={e=>setF('name',e.target.value)} placeholder="J. Smith, CIH, CSP" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
             <div style={{fontSize:10,color:DIM,marginTop:4}}>Appears on all generated reports</div>
           </div>
 
@@ -358,21 +359,21 @@ export default function ProfileScreen({ onLogin }) {
 
           <SectionLabel>Organization</SectionLabel>
           <div style={{marginBottom:12}}>
-            <span style={label}>Firm / company <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
-            <input type="text" value={form.firm||''} onChange={e=>setF('firm',e.target.value)} placeholder="e.g. Prudence EHS, or Independent" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <label htmlFor="pf-firm" style={label}>Firm / company <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></label>
+            <input id="pf-firm" type="text" value={form.firm||''} onChange={e=>setF('firm',e.target.value)} placeholder="e.g. Prudence EHS, or Independent" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
           </div>
           <div style={{marginBottom:12}}>
-            <span style={label}>Firm address <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on reports)</span></span>
-            <input type="text" value={form.firm_address||''} onChange={e=>setF('firm_address',e.target.value)} placeholder="e.g. Germantown, Maryland" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <label htmlFor="pf-firm_address" style={label}>Firm address <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on reports)</span></label>
+            <input id="pf-firm_address" type="text" value={form.firm_address||''} onChange={e=>setF('firm_address',e.target.value)} placeholder="e.g. Germantown, Maryland" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
           </div>
           <div style={{marginBottom:20}}>
-            <span style={label}>Firm phone <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on reports)</span></span>
-            <input type="text" value={form.firm_phone||''} onChange={e=>setF('firm_phone',e.target.value)} placeholder="e.g. (301) 541-8362" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <label htmlFor="pf-firm_phone" style={label}>Firm phone <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on reports)</span></label>
+            <input id="pf-firm_phone" type="text" value={form.firm_phone||''} onChange={e=>setF('firm_phone',e.target.value)} placeholder="e.g. (301) 541-8362" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
           </div>
 
           <div style={{marginBottom:20}}>
-            <span style={label}>Firm license / certifications <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on report cover)</span></span>
-            <input type="text" value={form.firm_license||''} onChange={e=>setF('firm_license',e.target.value)} placeholder="e.g. WV IH Lic #12345 · MD IAQ #6789" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <label htmlFor="pf-firm_license" style={label}>Firm license / certifications <span style={{color:DIM,fontWeight:400,fontSize:11}}>(appears on report cover)</span></label>
+            <input id="pf-firm_license" type="text" value={form.firm_license||''} onChange={e=>setF('firm_license',e.target.value)} placeholder="e.g. WV IH Lic #12345 · MD IAQ #6789" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
           </div>
 
           {/* Branding assets — firm logo + PE / CIH seal. Both are
@@ -473,8 +474,8 @@ export default function ProfileScreen({ onLogin }) {
         {step === 1 && <div style={{animation:'fadeUp .25s ease'}}>
 
           <div style={{marginBottom:20}}>
-            <span style={label}>Primary IAQ meter</span>
-            <select value={form.iaq_meter||''} onChange={e=>setF('iaq_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
+            <label htmlFor="pf-iaq_meter" style={label}>Primary IAQ meter</label>
+            <select id="pf-iaq_meter" value={form.iaq_meter||''} onChange={e=>setF('iaq_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
               <option value="">Select or skip</option>
               {IAQ_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -485,13 +486,13 @@ export default function ProfileScreen({ onLogin }) {
               <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:12}}>{form.iaq_meter}</div>
 
               <div style={{marginBottom:14}}>
-                <span style={label}>Serial number <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
-                <input type="text" value={form.iaq_serial||''} onChange={e=>setF('iaq_serial',e.target.value)} placeholder="S/N" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+                <label htmlFor="pf-iaq_serial" style={label}>Serial number <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></label>
+                <input id="pf-iaq_serial" type="text" value={form.iaq_serial||''} onChange={e=>setF('iaq_serial',e.target.value)} placeholder="S/N" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
               </div>
 
               <div style={{marginBottom:14}}>
-                <span style={label}>Last calibration</span>
-                <input type="date" value={form.iaq_cal_date||''} onChange={e=>setF('iaq_cal_date',e.target.value)} style={{...inp,colorScheme:'dark'}} />
+                <label htmlFor="pf-iaq_cal_date" style={label}>Last calibration</label>
+                <input id="pf-iaq_cal_date" type="date" value={form.iaq_cal_date||''} onChange={e=>setF('iaq_cal_date',e.target.value)} style={{...inp,colorScheme:'dark'}} />
               </div>
 
               <div>
@@ -502,8 +503,8 @@ export default function ProfileScreen({ onLogin }) {
           </>}
 
           <div style={{marginBottom:20}}>
-            <span style={label}>PID / VOC meter <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
-            <select value={form.pid_meter||''} onChange={e=>setF('pid_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
+            <label htmlFor="pf-pid_meter" style={label}>PID / VOC meter <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></label>
+            <select id="pf-pid_meter" value={form.pid_meter||''} onChange={e=>setF('pid_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
               <option value="">None</option>
               {PID_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -516,8 +517,8 @@ export default function ProfileScreen({ onLogin }) {
           </div>}
 
           <div style={{marginBottom:24}}>
-            <span style={label}>Additional instruments <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
-            <textarea value={form.other_instruments||''} onChange={e=>setF('other_instruments',e.target.value)} placeholder="Moisture meter, thermal camera, smoke pencil..." rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}} />
+            <label htmlFor="pf-other_instruments" style={label}>Additional instruments <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></label>
+            <textarea id="pf-other_instruments" value={form.other_instruments||''} onChange={e=>setF('other_instruments',e.target.value)} placeholder="Moisture meter, thermal camera, smoke pencil..." rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}} />
           </div>
 
           {/* Actions */}

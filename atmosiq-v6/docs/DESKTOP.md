@@ -25,7 +25,7 @@ desktop PWA window ≥1024 also gets the desktop layout.
 `App.jsx` is the top router:
 
 1. Peer-review magic link → `PeerReviewLanding`.
-2. **Desktop browser, first visit** → the marketing `LandingPage`; its CTAs
+2. **Desktop browser, first visit** → the marketing page (`public/atmosflow-landing.html`); its CTAs
    call `goToApp()`, which sets a sticky `localStorage['af_desktop_entered']`
    and enters the app. Returning desktop visitors skip straight in. An
    installed desktop PWA (standalone) always skips straight in.

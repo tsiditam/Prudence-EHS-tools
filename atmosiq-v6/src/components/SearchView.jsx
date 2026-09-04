@@ -191,7 +191,7 @@ export default function SearchView({ index, onOpenReport, onResumeDraft, onOpenI
               border: `1px solid ${focused ? ACCENT : BORDER}`,
               boxShadow: focused ? `0 0 0 4px ${mix('accent', 12)}` : 'none',
               borderRadius: 10, color: TEXT, fontSize: 15,
-              fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', minHeight: 46,
+              fontFamily: 'inherit', boxSizing: 'border-box', minHeight: 46,
               transition: 'border-color 0.15s ease, box-shadow 0.15s ease, padding-right 0.18s ease',
             }}
           />

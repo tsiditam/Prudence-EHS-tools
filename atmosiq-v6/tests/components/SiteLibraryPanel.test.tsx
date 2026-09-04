@@ -10,8 +10,8 @@
  * management surface at all — these tests pin both the panel's behaviour
  * and the fact that Settings actually renders it.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react'
 import SiteLibraryPanel from '../../src/components/settings/SiteLibraryPanel'
 import SettingsScreen from '../../src/components/SettingsScreen'
 import { StorageProvider } from '../../src/contexts/StorageContext'
@@ -38,9 +38,13 @@ function mockFetch(handler: (body: any) => { ok?: boolean; json: any }) {
 
 const withProvider = (ui: React.ReactElement) => render(<StorageProvider>{ui}</StorageProvider>)
 
-beforeEach(() => {
-  vi.stubGlobal('confirm', () => true)
-})
+// Deletion now goes through the accessible ConfirmDialog (role=alertdialog)
+// rather than window.confirm; tests answer it by clicking its Delete button.
+async function acceptConfirm() {
+  const dialog = await screen.findByRole('alertdialog')
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+}
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -86,6 +90,7 @@ describe('SiteLibraryPanel', () => {
     await screen.findByText('Lakeside Medical')
 
     fireEvent.click(screen.getAllByText('Delete')[0])
+    await acceptConfirm()
     await waitFor(() => {
       const del = spy.mock.calls.map((c) => JSON.parse((c[1] as any).body)).find((b) => b.action === 'delete')
       expect(del).toEqual({ action: 'delete', id: 's1' })

@@ -9,6 +9,7 @@
  */
 
 import * as V3 from '../../styles/tokens'
+import { formatDate, formatDateTime } from '../../utils/formatDate'
 
 export const STATUS_TONE = {
   draft: V3.STATUS.draft,
@@ -56,19 +57,10 @@ export function fmtBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-export function fmtDate(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-export function fmtDateTime(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-}
+// Thin wrappers over src/utils/formatDate.js (the single definition);
+// kept as named exports so the project screens' imports are unchanged.
+export const fmtDate = (iso) => formatDate(iso, { fallback: '—' })
+export const fmtDateTime = (iso) => formatDateTime(iso, { fallback: '—' })
 
 // Read a File into a data URL for inline (offline-first) storage.
 export function fileToDataUrl(file) {

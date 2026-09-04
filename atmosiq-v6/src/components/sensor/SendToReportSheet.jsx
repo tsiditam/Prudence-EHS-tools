@@ -155,7 +155,7 @@ export default function SendToReportSheet({ sensorData, reports = [], currentRep
                   <input
                     type="text" value={newZoneName} onChange={(e) => setNewZoneName(e.target.value)}
                     placeholder="New zone name (optional)"
-                    style={{ width: '100%', marginTop: 8, padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+                    style={{ width: '100%', marginTop: 8, padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
                   />
                 )}
               </div>
