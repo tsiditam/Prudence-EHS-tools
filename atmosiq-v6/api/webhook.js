@@ -308,6 +308,9 @@ async function processSubscriptionDeleted(supabase, event, req) {
 
   const profile = await findProfileByCustomer(supabase, customerId)
   const suspended = isSuspended(profile)
+  // Captured before the update so the ledger delta reflects what was
+  // actually forfeited.
+  const previous = profile && typeof profile.credits_remaining === 'number' ? profile.credits_remaining : 0
 
   const patch = {
     plan: 'free',
@@ -321,7 +324,6 @@ async function processSubscriptionDeleted(supabase, event, req) {
 
   // The reset is a credit movement like any other — it gets a ledger row.
   if (profile && profile.id) {
-    const previous = typeof profile.credits_remaining === 'number' ? profile.credits_remaining : 0
     const { error: ledgerErr } = await supabase.from('credits_ledger').insert({
       user_id: profile.id,
       amount: FREE_TIER_CREDITS - previous,

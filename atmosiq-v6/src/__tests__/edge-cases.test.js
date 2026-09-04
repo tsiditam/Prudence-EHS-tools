@@ -57,41 +57,76 @@ describe('All categories empty or insufficient', () => {
 // ── 2. Non-numeric / malformed measurement values ─────────────────────────
 
 describe('Malformed input data', () => {
-  it('non-numeric CO2 does not crash', () => {
-    const result = scoreZone({ co2: 'abc', tf: '72', rh: '45' }, { hm: 'Within 6 months' })
-    expect(result).toBeDefined()
-    const vent = result.cats.find(c => c.l === 'Ventilation')
-    // A garbage reading must not become a finding that states it.
-    expect(vent.r.every(r => !String(r.t).includes('abc'))).toBe(true)
+  // Every reading goes through one parser (audit 2026-09, H1). A field that
+  // was ENTERED but cannot be read is a Data Gap the engine states; it is
+  // never a `pass`, and the garbage text never reaches a finding.
+  const D = { hm: 'Within 6 months', assessmentDate: '2026-07-15' }
+  const findingsOf = (result, cat) => result.cats.find(c => c.l === cat).r
+
+  it('non-numeric CO2 is a data gap, not a pass, and does not echo the text', () => {
+    const result = scoreZone({ co2: 'abc', tf: '72', rh: '45' }, D)
+    const vent = findingsOf(result, 'Ventilation')
+    const gap = vent.filter(r => r.dataGap && r.p === 'co2')
+    expect(gap).toHaveLength(1)
+    expect(gap[0].sev).toBe('info')
+    expect(vent.some(r => r.sev === 'pass')).toBe(false)
+    expect(vent.every(r => !String(r.t).includes('abc'))).toBe(true)
+    expect(result.confidence).not.toBe('High')
   })
 
-  it('empty string measurements', () => {
+  it('empty string measurements are "not captured": no data-gap finding, categories INSUFFICIENT', () => {
     const result = scoreZone({ co2: '', tf: '', rh: '', pm: '', co: '' }, { hm: '' })
-    expect(result).toBeDefined()
     expect(result.cats).toHaveLength(5)
+    expect(result.cats.every(c => !c.r.some(r => r.dataGap))).toBe(true)
+    expect(findingsOf(result, 'Environment').length === 0 || result.cats.find(c => c.l === 'Environment').status).toBeTruthy()
+    for (const cat of ['Ventilation', 'Contaminants', 'Environment']) {
+      expect(result.cats.find(c => c.l === cat).status).toBe('INSUFFICIENT')
+    }
   })
 
-  it('negative measurement values', () => {
-    const result = scoreZone({ co2: '-100', tf: '-10', rh: '-5', pm: '-1', co: '-1' }, { hm: 'Within 6 months' })
-    expect(result).toBeDefined()
-    // Every finding still carries a severity the rest of the engine can read.
-    result.cats.forEach(c => c.r.forEach(r => {
-      expect(['critical', 'high', 'medium', 'low', 'pass', 'info']).toContain(r.sev)
-    }))
+  it('negative measurement values are evaluated as numbers: below-range RH and temperature are medium, the rest raise nothing', () => {
+    const result = scoreZone({ co2: '-100', tf: '-10', rh: '-5', pm: '-1', co: '-1' }, D)
+    const env = findingsOf(result, 'Environment')
+    expect(env.find(r => r.p === 'temperature').sev).toBe('medium')
+    expect(env.find(r => r.p === 'temperature').t).toMatch(/outside the 73–79°F summer comfort range/)
+    expect(env.find(r => r.p === 'rh').sev).toBe('medium')
+    expect(findingsOf(result, 'Ventilation').find(r => r.p === 'co2').sev).toBe('pass')
+    expect(findingsOf(result, 'Contaminants').some(r => r.p === 'co' || r.p === 'pm25')).toBe(false)
   })
 
-  it('extremely large measurement values', () => {
-    const result = scoreZone({ co2: '99999', tf: '999', rh: '999', pm: '9999', co: '9999' }, { hm: 'Within 6 months' })
-    expect(result).toBeDefined()
-    result.cats.forEach(c => c.r.forEach(r => {
-      expect(['critical', 'high', 'medium', 'low', 'pass', 'info']).toContain(r.sev)
-    }))
+  it('extremely large measurement values reach the worst tier of every ladder', () => {
+    const result = scoreZone({ co2: '99999', tf: '999', rh: '999', pm: '9999', co: '9999' }, D)
+    expect(findingsOf(result, 'Ventilation').find(r => r.p === 'co2').sev).toBe('high')   // capped by the class
+    expect(findingsOf(result, 'Contaminants').find(r => r.p === 'co').sev).toBe('critical')
+    expect(findingsOf(result, 'Contaminants').find(r => r.p === 'co').cid).toBe('co_niosh_ceiling')
+    expect(findingsOf(result, 'Contaminants').find(r => r.p === 'pm25').sev).toBe('high')
+    expect(findingsOf(result, 'Environment').find(r => r.p === 'temperature').sev).toBe('medium')
+    expect(findingsOf(result, 'Environment').find(r => r.p === 'rh').sev).toBe('medium')
   })
 
-  it('zero values for all measurements', () => {
-    const result = scoreZone({ co2: '0', tf: '0', rh: '0', pm: '0', co: '0' }, { hm: 'Within 6 months' })
-    expect(result).toBeDefined()
+  it('zero values are readings, not missing values', () => {
+    const result = scoreZone({ co2: '0', tf: '0', rh: '0', pm: '0', co: '0' }, D)
     expect(result.cats).toHaveLength(5)
+    expect(result.cats.every(c => !c.r.some(r => r.dataGap))).toBe(true)
+    expect(findingsOf(result, 'Ventilation').find(r => r.p === 'co2').sev).toBe('pass')
+    expect(findingsOf(result, 'Environment').find(r => r.p === 'temperature').sev).toBe('medium')
+    expect(findingsOf(result, 'Environment').find(r => r.p === 'rh').sev).toBe('medium')
+    expect(findingsOf(result, 'Contaminants').some(r => r.p === 'co' || r.p === 'pm25')).toBe(false)
+  })
+
+  it('a thousands separator reads as the number it prints', () => {
+    const result = scoreZone({ co2: '1,600' }, D)
+    const co2 = findingsOf(result, 'Ventilation').find(r => r.p === 'co2')
+    expect(co2.sev).toBe('high')
+    expect(co2.cid).toBe('co2_action')
+  })
+
+  it('"<5", ">x" and "n/a" are data gaps for the field they were entered in', () => {
+    const result = scoreZone({ co: '<5', pm: '>x', hc: 'n/a', tf: 'warm', rh: '45' }, D)
+    const cont = findingsOf(result, 'Contaminants')
+    expect(cont.filter(r => r.dataGap).map(r => r.p).sort()).toEqual(['co', 'hcho', 'pm25'])
+    expect(cont.some(r => r.sev === 'pass')).toBe(false)
+    expect(findingsOf(result, 'Environment').find(r => r.p === 'temperature').dataGap).toBe(true)
   })
 })
 

@@ -128,11 +128,31 @@ describe('M7 — meeting the ASHRAE 62.1 minimum exactly is compliant', () => {
     expect(findings({ cfm_person: String(req - 1) }, 'Ventilation').find((f) => /OA delivery/.test(f.t)).sev).toBe('high')
     expect(findings({ cfm_person: String(req / 2 - 0.1) }, 'Ventilation').find((f) => /OA delivery/.test(f.t)).sev).toBe('critical')
   })
-  it('ACH equal to the minimum is a pass', () => {
-    const at = findings({ ach: '4' }, 'Ventilation').find((f) => /^ACH/.test(f.t))
+  it('ACH equal to a profile-cited minimum is a pass; below it is high', () => {
+    // The requirement comes from a building-profile override with a table
+    // citation (healthcare exam room, ASHRAE 170-2021 Table 7.1: 6 ACH).
+    const hc = { ...D, ft: 'Healthcare' }
+    const at = findings({ ach: '6', zone_subtype: 'exam_room' }, 'Ventilation', hc).find((f) => /^ACH/.test(f.t))
     expect(at.sev).toBe('pass')
-    expect(findings({ ach: '3.9' }, 'Ventilation').find((f) => /^ACH/.test(f.t)).sev).toBe('high')
-    expect(findings({ ach: '6' }, 'Ventilation', { ...D, su: 'healthcare' }).find((f) => /^ACH/.test(f.t)).sev).toBe('pass')
+    expect(at.t).toMatch(/meets the minimum \(6\)/)
+    expect(at.std).toMatch(/ASHRAE 170-2021 Table 7\.1/)
+    expect(findings({ ach: '5.9', zone_subtype: 'exam_room' }, 'Ventilation', hc).find((f) => /^ACH/.test(f.t)).sev).toBe('high')
+    expect(findings({ ach: '2', zone_subtype: 'exam_room' }, 'Ventilation', hc).find((f) => /^ACH/.test(f.t)).sev).toBe('critical')
+  })
+  it('ACH with no recorded design requirement is reported, not judged (citations handoff §3)', () => {
+    // The generic "6 for healthcare/lab, 4 otherwise — CDC/ASHRAE 170" default
+    // was an unsourced figure; 170 states no generic rate and nothing
+    // publishes 4 ACH for an office.
+    for (const [zone, bldg] of [[{ ach: '2' }, D], [{ ach: '4' }, D], [{ ach: '3', su: 'healthcare' }, D]] as Array<[Record<string, unknown>, Record<string, unknown>]>) {
+      const r = findings(zone, 'Ventilation', bldg)
+      const achF = r.filter((f) => /^ACH/.test(f.t))
+      expect(achF).toHaveLength(1)
+      expect(achF[0].sev).toBe('info')
+      expect(achF[0].dataGap).toBe(true)
+      expect(achF[0].t).toMatch(/no design air-change requirement is recorded/)
+      expect(achF[0].std).toBeUndefined()
+      expect(r.some((f) => /CDC\/ASHRAE 170/.test(String(f.std)))).toBe(false)
+    }
   })
 })
 
