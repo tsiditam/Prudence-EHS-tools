@@ -9,6 +9,85 @@ described scripts that did not exist. This entry covers the process,
 delivery and dependency changes; the other audit areas are recorded
 below it.
 
+**Security and API (audit §2–3)**
+
+- `/api/credits` rejects non-integer or non-positive amounts and debits
+  through the atomic `consume_credits` RPC (migration 033); a negative
+  amount no longer grows a balance.
+- Migration 033: column-level `REVOKE UPDATE` on the entitlement columns of
+  `profiles` (plan, credits, Stripe and status fields), server-side defaults
+  for the values the client used to write, widened `generation_type` CHECK
+  so `inline_ai`, `inline_complete`, `pre_review_semantic` and
+  `photo_analysis` ledger rows land (their rate limits had never fired), RLS
+  on `schema_migrations`, non-recursive org policies via `is_org_admin`,
+  `analytics_events` inserts require `auth.uid()`, user INSERT on
+  `credits_ledger` dropped, `invitations.invited_by` `ON DELETE SET NULL`,
+  and nine missing indexes.
+- Peer review: both `assessments` updates are scoped to the report owner;
+  the public respond endpoint throttles invalid-token attempts per IP.
+- `/api/checkout` requires the Bearer JWT and allow-lists the return
+  origin; the customer portal return URL is allow-listed the same way.
+- `/api/narrative` owns its system prompt server-side and caps the payload
+  at 60 KB; report PDF and template render return 402 without credits.
+- Stripe webhook handles `invoice.paid` subscription cycles idempotently,
+  maps price changes to plan and credits, writes a ledger row on
+  cancellation, never overwrites an admin `suspended` status; all balance
+  changes go through `grant_credits` / `consume_credits`, including the
+  monthly cron and the reset endpoint.
+- Every AI endpoint reserves its ledger row before the upstream call
+  (`api/_rate-limit.js`) and reads `{ error }`; inline-AI rewrites pass
+  through the banned-language scan; the field assistant scopes
+  `conversation_id` to the caller and frames client context as data.
+- Account deletion nulls PII in `audit_log`, purges marketing leads,
+  analytics events and both storage prefixes.
+- Internal error text no longer reaches clients; every handler is wrapped
+  by `withSentry`, so server-side Sentry initialises on Vercel.
+
+**Database and sync (audit §4)**
+
+- The offline sync queue keeps items that fail to save (they were being
+  discarded), is keyed by id, stores compacted copies, surfaces quota
+  exhaustion, and no longer wedges on a persisted in-flight flag.
+- Column-drop retry happens only on `42703`; a `23505` uid collision
+  deletes the stale draft row instead of dropping `payload`.
+- Migration 034: `base_updated_at` conflict detection (multi-device edits
+  no longer silently overwrite), immutability trigger for reviewed/final
+  reports, `finalized_at` as the report date; the v3 census is written to
+  `payload.census`, not `composite`.
+- `fullSync` selects explicit columns without photos and pages by 500.
+- Migration 000 lets a fresh database be built by the runner; the runner
+  enables RLS on its ledger, rejects duplicate versions and requires
+  `--baseline-through`.
+
+**Engine and standards (audit §5)**
+
+- Non-numeric readings (`1,180`, `<5`, `abc`) produce a data-gap finding
+  instead of a pass; the report table shares the engine's parser.
+- The report table's own outcome ladder is gone; outcomes derive from
+  engine findings, and `cross-layer-consistency.test.ts` renders a fixture
+  matrix and checks table, findings and Appendix A agree with `scoreZone`.
+- CO₂ is evaluated even when airflow was measured; the no-outdoor tier is
+  reachable; meeting the 62.1 minimum exactly is a pass.
+- No survey date means a comfort-band data gap, never today's season;
+  report ids and stamps derive from the assessment date; `now` is injected.
+- Grab readings are never stated to exceed an 8-hour PEL; the live advisor
+  and `classify.ts` route on criterion class, not on the word "OSHA".
+- Visible mold growth is IICRC S520 Condition 3 with EPA (2008) extent
+  bands; the NYC "Level" ladder is no longer attributed to EPA.
+- RH 30–60% is cited to EPA moisture-control guidance everywhere (nine
+  building profiles, the DOCX narrative, the Logger card); NIOSH RELs are
+  10-hour TWAs; ACGIH formaldehyde is the 2017 TWA/STEL; the OSHA action
+  level is OSHA's; Δ700 ppm is attributed to the removed appendix;
+  calibration validity reads 365 days.
+- Unverified healthcare and laboratory ACH figures were withdrawn to the
+  gap ledger rather than replaced by guesses; procedure rooms are 15 ACH
+  per ASHRAE 170-2021 Table 7.1; isolation text depends on the recorded
+  kind (AII negative, PE positive).
+- Appendix A lists only references a finding or measurement cited, with
+  the basis and usage for each.
+- Portable HEPA is recommended only with a particulate finding; gypsum
+  moisture is qualitative; one wood-moisture constant (16% MC, IICRC S500).
+
 <!-- coordinator: append other areas here -->
 
 **Process and delivery**
