@@ -151,7 +151,7 @@ describe('air-change rates', () => {
 describe('isolation rooms: direction depends on which kind was recorded', () => {
   const finding = (z: Record<string, string>) =>
     getProfileContextFindings(BUILDING_PROFILES.HEALTHCARE, { zone_subtype: 'isolation', ...z })
-      .find((f: any) => /isolation/i.test(f.t))!
+      .find((f: any) => /isolation|\((AII|PE)\) room/i.test(f.t))!
 
   it('an unrecorded kind asserts no direction and names both', () => {
     const f = finding({})

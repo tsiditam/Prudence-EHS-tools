@@ -75,7 +75,7 @@ function formatThresholds() {
 
   // CO₂ indicators — their own heading and their own attributions.
   if (STD.v && STD.v.co2) {
-    lines.push('CO₂ indicators — NOT ASHRAE 62.1 values (ventilation indicator, not a contaminant limit):')
+    lines.push('CO₂ indicators (ventilation indicator, not a contaminant limit; no current ASHRAE standard sets an indoor CO₂ limit):')
     lines.push(`  Indoor-outdoor differential ${STD.v.co2.diff} ppm above outdoor (base ~${STD.v.co2.base}) indicates under-ventilation — from an informative appendix of earlier ASHRAE 62.1 editions, since removed; see ASHRAE Position Document on Indoor Carbon Dioxide (2022).`)
     lines.push(`  Absolute indicators ${STD.v.co2.con} ppm (concern) and ${STD.v.co2.act} ppm (action) — NIOSH indoor-ventilation indicator; Persily, ASHRAE Journal 63(2):74–75 (2021).`)
     lines.push('')

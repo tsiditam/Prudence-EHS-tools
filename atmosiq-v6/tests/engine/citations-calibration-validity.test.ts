@@ -42,7 +42,7 @@ describe('calibration validity text agrees with the enforced constant', () => {
   })
 
   it("Jasper's CO sampling note states the constant", () => {
-    const direct = lookupSamplingMethod('carbon monoxide').find((m: any) => /Direct-read/.test(m.method))
+    const direct = lookupSamplingMethod('carbon monoxide')!.methods.find((m: any) => /Direct-read/.test(m.method))
     expect(direct.notes).toContain(`${CAL_VALIDITY_DAYS} days`)
   })
 
