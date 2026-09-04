@@ -1,9 +1,8 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Tab, TabStopType, TabStopPosition } from 'docx'
+import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx'
 import { writeFileSync } from 'fs'
 
 const FONT = 'Times New Roman'
 const SIZE = 24 // 12pt
-const SMALL = 22 // 11pt
 
 const p = (text, opts = {}) => new Paragraph({
   children: [new TextRun({ text, font: FONT, size: opts.size || SIZE, bold: opts.bold, italics: opts.italics })],
@@ -15,13 +14,7 @@ const p = (text, opts = {}) => new Paragraph({
 
 const bold = (text, size) => new TextRun({ text, font: FONT, size: size || SIZE, bold: true })
 const normal = (text, size) => new TextRun({ text, font: FONT, size: size || SIZE })
-const italic = (text, size) => new TextRun({ text, font: FONT, size: size || SIZE, italics: true })
 const caps = (text, size) => new TextRun({ text, font: FONT, size: size || SIZE, bold: true, allCaps: true })
-
-const section = (title, children) => [
-  new Paragraph({ children: [bold(title)], spacing: { before: 400, after: 200 } }),
-  ...children,
-]
 
 const bullet = (text) => new Paragraph({
   children: [normal(text)],

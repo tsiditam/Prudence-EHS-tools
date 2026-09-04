@@ -16,14 +16,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('../../api/_audit', () => ({ auditLog: vi.fn(async () => undefined) }))
 
-type Generation = { user_id: string; generated_at: string; generation_type: string }
+type Generation = { id: number; user_id: string; generated_at: string; generation_type: string; input_tokens?: number | null; output_tokens?: number | null }
 const generations: Generation[] = []
+let nextGenerationId = 1
 let nextUser: { id: string; email: string } | null = null
 let nextProfile: { plan: string } | null = null
 let nextAuthError: Error | null = null
 
 function resetState() {
   generations.length = 0
+  nextGenerationId = 1
   nextUser = { id: 'user-1', email: 'tester@example.com' }
   nextProfile = { plan: 'pro' }
   nextAuthError = null
@@ -38,8 +40,8 @@ function makeSupabaseMock() {
       }),
     },
     from: (table: string) => {
-      const ctx: { isCount: boolean; filters: Record<string, unknown>; gte: { col: string; val: string } | null } = {
-        isCount: false, filters: {}, gte: null,
+      const ctx: { isCount: boolean; filters: Record<string, unknown>; gte: { col: string; val: string } | null; insertedId: number | null; patch: Record<string, unknown> | null; isDelete: boolean } = {
+        isCount: false, filters: {}, gte: null, insertedId: null, patch: null, isDelete: false,
       }
       const chain: Record<string, unknown> = {}
       const chainable: Record<string, (...args: unknown[]) => unknown> = {
@@ -52,17 +54,37 @@ function makeSupabaseMock() {
         order: () => chain, limit: () => chain,
         single: async () => {
           if (table === 'profiles') return { data: nextProfile, error: null }
+          if (ctx.insertedId != null) return { data: { id: ctx.insertedId }, error: null }
           return { data: null, error: null }
         },
-        insert: async (row: Record<string, unknown>) => {
+        // Reservation pattern (api/_rate-limit.js): insert().select('id').single()
+        // reserves; update().eq('id') finalizes; delete().eq('id') releases.
+        insert: (row: Record<string, unknown>) => {
+          const id = nextGenerationId++
           generations.push({
+            id,
             user_id: String(row.user_id || ''),
             generated_at: new Date().toISOString(),
             generation_type: String(row.generation_type || ''),
+            input_tokens: (row.input_tokens as number) ?? null,
+            output_tokens: (row.output_tokens as number) ?? null,
           })
-          return { data: null, error: null }
+          ctx.insertedId = id
+          return chain
         },
+        update: (patch: Record<string, unknown>) => { ctx.patch = patch; return chain },
+        delete: () => { ctx.isDelete = true; return chain },
         then: (resolve: (v: unknown) => void) => {
+          if (ctx.patch && table === 'narrative_generations') {
+            const g = generations.find((x) => x.id === ctx.filters.id)
+            if (g) Object.assign(g, ctx.patch)
+            return resolve({ data: null, error: null })
+          }
+          if (ctx.isDelete && table === 'narrative_generations') {
+            const i = generations.findIndex((x) => x.id === ctx.filters.id)
+            if (i >= 0) generations.splice(i, 1)
+            return resolve({ data: null, error: null })
+          }
           if (ctx.isCount && table === 'narrative_generations') {
             const sinceMs = ctx.gte ? Date.parse(ctx.gte.val) : 0
             const count = generations.filter((g) =>
@@ -198,6 +220,39 @@ describe('/api/inline-complete', () => {
     )
     expect(res.statusCode).toBe(200)
     expect((res.jsonBody as { completion?: string })?.completion).toBe(' levels in the conference room.')
+  })
+})
+
+describe('/api/inline-complete — ledger reservation', () => {
+  beforeEach(() => {
+    resetState()
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+  })
+
+  it('finalizes the reserved row with the real token counts', async () => {
+    const handler = await loadHandler()
+    handler.__test.setSupabase(makeSupabaseMock())
+    handler.__test.setFetch(vi.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({ content: [{ type: 'text', text: ' more' }], usage: { input_tokens: 180, output_tokens: 12 } }),
+    })) as unknown as typeof fetch)
+    await handler({ method: 'POST', headers: { authorization: 'Bearer ok' }, body: { text: 'CO2 measured at elevated' } }, makeRes())
+    expect(generations).toHaveLength(1)
+    expect(generations[0].generation_type).toBe('inline_complete')
+    expect(generations[0].input_tokens).toBe(180)
+    expect(generations[0].output_tokens).toBe(12)
+  })
+
+  it('releases the reservation and returns a stable code (no upstream body) on failure', async () => {
+    const handler = await loadHandler()
+    handler.__test.setSupabase(makeSupabaseMock())
+    handler.__test.setFetch(vi.fn(async () => ({ ok: false, status: 503, text: async () => 'overloaded internal detail' })) as unknown as typeof fetch)
+    const res = makeRes()
+    await handler({ method: 'POST', headers: { authorization: 'Bearer ok' }, body: { text: 'CO2 measured at elevated' } }, res)
+    expect(res.statusCode).toBe(502)
+    expect((res.jsonBody as { error?: string })?.error).toBe('upstream_503')
+    expect(JSON.stringify(res.jsonBody)).not.toContain('internal detail')
+    expect(generations).toHaveLength(0)
   })
 })
 

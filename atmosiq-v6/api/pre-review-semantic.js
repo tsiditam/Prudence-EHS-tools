@@ -44,6 +44,8 @@
 const { createClient } = require('@supabase/supabase-js')
 const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const { auditLog } = require('./_audit.js')
+const rateLimit = require('./_rate-limit.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 10
 const PER_DAY_LIMIT = 60
@@ -114,46 +116,12 @@ function estimateCost(inputTokens, outputTokens) {
   return Math.round(usd * 10000) / 10000
 }
 
-async function countRowsSince(supabase, userId, sinceIso) {
-  const { count, error } = await supabase
-    .from('narrative_generations')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('generation_type', GENERATION_TYPE)
-    .gte('generated_at', sinceIso)
-  if (error) throw new Error(error.message)
-  return count || 0
-}
-async function findOldestSince(supabase, userId, sinceIso) {
-  const { data } = await supabase
-    .from('narrative_generations')
-    .select('generated_at')
-    .eq('user_id', userId)
-    .eq('generation_type', GENERATION_TYPE)
-    .gte('generated_at', sinceIso)
-    .order('generated_at', { ascending: true })
-    .limit(1)
-    .single()
-  return data && data.generated_at ? data.generated_at : null
-}
 async function checkRateLimits(supabase, userId, plan, now = Date.now()) {
-  const oneMinAgo = new Date(now - 60_000).toISOString()
-  const oneDayAgo = new Date(now - 24 * 60 * 60_000).toISOString()
-  const minuteCount = await countRowsSince(supabase, userId, oneMinAgo)
-  if (minuteCount >= PER_MINUTE_LIMIT) {
-    const oldest = await findOldestSince(supabase, userId, oneMinAgo)
-    const retryAt = oldest ? new Date(oldest).getTime() + 60_000 : now + 60_000
-    const retryAfter = Math.max(1, Math.ceil((retryAt - now) / 1000))
-    return { ok: false, scope: 'per_minute', retry_after: retryAfter }
-  }
-  const dayCount = await countRowsSince(supabase, userId, oneDayAgo)
-  if (plan === 'free' && dayCount >= FREE_TIER_DAILY_CAP) {
-    return { ok: false, scope: 'free_tier_daily', retry_after: 24 * 60 * 60 }
-  }
-  if (dayCount >= PER_DAY_LIMIT) {
-    return { ok: false, scope: 'per_day', retry_after: 24 * 60 * 60 }
-  }
-  return { ok: true }
+  return rateLimit.checkRateLimits(
+    supabase, userId, plan,
+    { perMinute: PER_MINUTE_LIMIT, perDay: PER_DAY_LIMIT, freeTierDaily: FREE_TIER_DAILY_CAP },
+    GENERATION_TYPE, now,
+  )
 }
 
 function writeSse(res, event, data) {
@@ -304,6 +272,15 @@ async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
 
+  // Reserve the ledger row BEFORE the upstream call (api/_rate-limit.js).
+  let reservation
+  try {
+    reservation = await rateLimit.reserveGeneration(supabase, { userId: user.id, generationType: GENERATION_TYPE, tag: 'pre-review-semantic' })
+  } catch {
+    writeSse(res, 'error', { error: 'ledger_reserve_failed' })
+    return res.end()
+  }
+
   let upstream
   try {
     upstream = await getFetch()('https://api.anthropic.com/v1/messages', {
@@ -324,13 +301,17 @@ async function handler(req, res) {
       }),
     })
   } catch (err) {
-    writeSse(res, 'error', { error: (err && err.message) || 'upstream_unreachable' })
+    console.error('[pre-review-semantic] anthropic call threw:', err && err.message)
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'pre-review-semantic')
+    writeSse(res, 'error', { error: 'upstream_unreachable' })
     return res.end()
   }
 
   if (!upstream.ok || !upstream.body) {
     const errText = typeof upstream.text === 'function' ? await upstream.text() : ''
-    writeSse(res, 'error', { error: `upstream_${upstream.status}_${errText.slice(0, 200)}` })
+    console.error('[pre-review-semantic] anthropic non-2xx:', upstream.status, String(errText).slice(0, 300))
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'pre-review-semantic')
+    writeSse(res, 'error', { error: `upstream_${upstream.status}` })
     return res.end()
   }
 
@@ -355,17 +336,7 @@ async function handler(req, res) {
   const outputTokens = data?.usage?.output_tokens || 0
   const cost = estimateCost(inputTokens, outputTokens)
 
-  try {
-    await supabase.from('narrative_generations').insert({
-      user_id: user.id,
-      generation_type: GENERATION_TYPE,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      estimated_cost_usd: cost,
-    })
-  } catch (err) {
-    console.error('[pre-review-semantic] ledger insert failed:', err && err.message)
-  }
+  await rateLimit.finalizeGeneration(supabase, reservation.id, { inputTokens, outputTokens, cost }, 'pre-review-semantic')
 
   try {
     await auditLog({
@@ -398,8 +369,9 @@ async function handler(req, res) {
   res.end()
 }
 
-module.exports = handler
-module.exports.default = handler
+const wrapped = withSentry(handler, { route: 'pre-review-semantic' })
+module.exports = wrapped
+module.exports.default = wrapped
 module.exports.__test = {
   setSupabase(s) { _supabase = s },
   setFetch(f) { _fetch = f },
@@ -408,4 +380,5 @@ module.exports.__test = {
   tryParseIssues,
   SYSTEM_PROMPT,
   MAX_INPUT_BYTES,
+  GENERATION_TYPE,
 }

@@ -53,10 +53,10 @@ function makeStripeMock() {
   }
 }
 
-function makeReq(opts: { method?: string; auth?: string; returnUrl?: string } = {}) {
+function makeReq(opts: { method?: string; auth?: string; returnUrl?: string; origin?: string } = {}) {
   return {
     method: opts.method ?? 'POST',
-    headers: { authorization: opts.auth ?? 'Bearer test-jwt' },
+    headers: { authorization: opts.auth ?? 'Bearer test-jwt', ...(opts.origin ? { origin: opts.origin } : {}) },
     body: opts.returnUrl ? { return_url: opts.returnUrl } : {},
   } as any
 }
@@ -99,11 +99,30 @@ describe('POST /api/customer-portal', () => {
     expect(stripePortalCreateCalls[0].customer).toBe('cus_x')
   })
 
-  it('honors a custom return_url from the body', async () => {
+  it('falls back to the default return_url for an origin that is not allow-listed (open-redirect guard)', async () => {
     const r = makeRes()
     await handler(makeReq({ returnUrl: 'https://app.example/account' }), r)
     expect(r._status).toBe(200)
-    expect(stripePortalCreateCalls[0].return_url).toBe('https://app.example/account')
+    expect(stripePortalCreateCalls[0].return_url).toBe('https://atmosflow.net/account')
+  })
+
+  it('honors a return_url on the production origin', async () => {
+    const r = makeRes()
+    await handler(makeReq({ returnUrl: 'https://atmosflow.net/settings/billing' }), r)
+    expect(stripePortalCreateCalls[0].return_url).toBe('https://atmosflow.net/settings/billing')
+  })
+
+  it('honors a return_url on the request\'s own origin (preview deployments)', async () => {
+    const r = makeRes()
+    await handler(makeReq({ returnUrl: 'https://preview-abc.vercel.app/account', origin: 'https://preview-abc.vercel.app' }), r)
+    expect(stripePortalCreateCalls[0].return_url).toBe('https://preview-abc.vercel.app/account')
+  })
+
+  it('rejects non-https and unparseable return_urls', async () => {
+    await handler(makeReq({ returnUrl: 'http://atmosflow.net/account' }), makeRes())
+    await handler(makeReq({ returnUrl: 'javascript:alert(1)' }), makeRes())
+    await handler(makeReq({ returnUrl: '//evil.example' }), makeRes())
+    for (const c of stripePortalCreateCalls) expect(c.return_url).toBe('https://atmosflow.net/account')
   })
 
   it('returns 404 when the user has no stripe_customer_id (free tier)', async () => {

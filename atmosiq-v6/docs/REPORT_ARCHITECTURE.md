@@ -228,15 +228,16 @@ Within a single zone, when the same limitation string appears on multiple findin
 
 ### Acceptance runner
 
-`npm run accept:v2.3` mechanically enforces every requirement above. Internally it:
-
-1. Runs `vitest run scripts/acceptance/render-acceptance-fixture.test.ts` with `VITEST_RENDER_FIXTURES=1` to produce two `.docx` fixtures and their extracted `.txt` representations:
-   - `/tmp/acceptance-report.docx` — canonical multi-zone fixture with HVAC findings + an empty zone
-   - `/tmp/acceptance-report-no-building.docx` — fixture with zone findings but ZERO building-scoped findings
-2. Reads `scripts/acceptance/v2.3.json` and runs each criterion's checks (`rendered_contains` / `rendered_excludes` / `engine_version_equals` / `vitest_passes`).
-3. Exits 0 iff every criterion passes; 1 with detailed reasons otherwise.
-
-The runner is the canonical gate for v2.3 completion — any change that breaks one of the eight criteria fails the build.
+The v2.3 requirements above were originally enforced by a per-release
+config (`scripts/acceptance/v2.3.json`, run as `npm run accept:v2.3`)
+that rendered two `.docx` fixtures to `/tmp` and checked them with
+`rendered_contains` / `rendered_excludes`. Those per-release configs and
+scripts no longer exist. The requirements are now pinned by the test
+suite (`tests/engine/`), which `npm run accept:prod-ready` runs once via
+its `BUILD-02` criterion. The runner and its current check types
+(`file_exists`, `grep_matches`, `grep_excludes`, `npm_script_passes`,
+`constant_equals`, `rendered_*`, `api_boot`) are documented in
+`docs/ACCEPTANCE.md`.
 
 ## v2.4 — Consolidated Completion
 
@@ -352,8 +353,9 @@ chops).
 
 Engine version: `atmosflow-engine-2.5.0`. v2.5 closes six small but
 defensibility-relevant defects that survived the v2.4 acceptance gate.
-The acceptance runner gains nine new criteria; total criteria = 49.
-Run `npm run accept:v2.5` to enforce.
+The acceptance runner gained nine criteria in its v2.5 config (retired
+since; the assertions live in `tests/engine/` and are run by
+`npm run accept:prod-ready`).
 
 ### §1 "Not Specified" vs. em-dash for required recipient fields
 
@@ -538,8 +540,9 @@ qualitative-only consequence:
 | `RENDER-INSTRUMENT-FILTERING` | Zero-reading instruments filtered |
 | `RENDER-APPENDIX-C-DETERMINISTIC` | Hedging both-ways language gone; "Photo N:" pattern emitted |
 
-The runner is the gate. `npm run accept:v2.5` exits 0 only when
-every criterion passes.
+These `RENDER-*` criteria were part of the retired v2.5 config; the
+same assertions are now tests under `tests/engine/`, run by
+`npm run accept:prod-ready`.
 
 ## v2.6 — Hypothesis and causal chain engines restored
 
@@ -549,7 +552,10 @@ left as stub fields (`AssessmentScore.causalChains` and
 `AssessmentScore.hypotheses` populated as `[]`). Both engines are
 now first-class TypeScript modules under `src/engine/`, wired into
 the bridge AND the new public `score()` entry point in
-`src/engine/index.ts`. Run `npm run accept:v2.6` to enforce.
+`src/engine/index.ts`. Enforced by `tests/engine/causal-chains.test.ts`,
+`tests/engine/hypotheses.test.ts` and the engine acceptance tests, all
+run by `npm run accept:prod-ready` (the per-release `accept:v2.6`
+config was retired).
 
 ### What each engine produces
 
@@ -684,4 +690,4 @@ report is for operator dashboards; it is never shown to clients.
    confidence tier boundary (hypotheses).
 4. If the rule introduces new condition types or new walkthrough
    fields, document them and update the integration test fixture.
-5. Run `npm run accept:v2.6` to confirm no regression.
+5. Run `npm test` and `npm run accept:prod-ready` to confirm no regression.

@@ -31,6 +31,7 @@
  */
 
 import { useSimilarAssessments } from '../hooks/useSimilarAssessments'
+import { formatDate } from '../utils/formatDate'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -43,12 +44,6 @@ const SURFACE = 'var(--surface)'
 // `scoreColor` lived here — an eighth band ladder (70/50) over the
 // composite. It went with the score.
 
-function formatDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 
 export default function SimilarAssessmentsPanel({ currentAssessment, onOpenPastAssessment }) {

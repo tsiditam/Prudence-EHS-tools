@@ -14,15 +14,21 @@
  * wording aside).
  *
  * Engine-sacred: this module READS engine OUTPUT (zoneScores[].cats[].r[],
- * recs, causalChains) and recognized reference values from STD — it does not
- * score, and it does not modify any engine file. Per-parameter screening
- * outcomes are threshold comparisons against STD (the single source of truth
- * for thresholds), framed as screening indicators, never compliance verdicts.
+ * recs, causalChains) — it does not score, and it does not modify any engine
+ * file. Per-parameter outcomes are DERIVED FROM THE ENGINE'S FINDINGS for
+ * the zone (severity → outcome label), never re-decided here (audit H3).
+ * Until 2026-09 `paramOutcome` was a second verdict ladder — always the
+ * summer temperature band, CO "acceptable" below 9 while the engine flagged
+ * at 6, `>=` where the engine uses `>`, RH rated high where the engine caps
+ * at medium — so the results table could contradict the finding beside it.
+ * `tests/engine/cross-layer-consistency.test.ts` holds the layers together.
  */
 
 import { STD } from '../constants/standards'
 import { parsePhotoKey, photoCaption } from '../utils/photoIndex.js'
 import { actionLine } from '../utils/recFormatting'
+import { readNumber, scoreZone } from '../engines/scoring'
+import { resolveAssessmentDate } from '../utils/assessmentDate'
 import * as NL from './narrativeLibrary'
 import {
   REPORT_PROFILES, REPORT_STATUS, DEFAULT_PROFILE, DEFAULT_STATUS,
@@ -45,14 +51,11 @@ const PARAMS = [
   { key: 'tvoc', zoneKey: 'tv', label: 'Total VOCs (TVOC)', unit: 'µg/m³', basis: 'No applicable threshold — reported, not judged' },
 ]
 
-const OUTCOME = { acceptable: 0, advisory: 1, elevated: 2 }
-const OUTCOME_LABEL = ['Acceptable', 'Advisory', 'Elevated']
-
-function num(v) {
-  if (v === null || v === undefined || v === '') return null
-  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''))
-  return Number.isFinite(n) ? n : null
-}
+// The engine's parser (audit H1): the cell the table prints and the value
+// the engine judged are the same number, or both are null. The old local
+// `parseFloat(replace(/[^0-9.\-]/g))` read '<5' as 5 and '1,180' as 1180
+// while the engine read NaN and passed.
+const num = readNumber
 
 function stats(values) {
   const v = values.filter(x => x !== null)
@@ -62,40 +65,70 @@ function stats(values) {
   return { min, max, mean, n: v.length }
 }
 
-// Threshold-based screening outcome per parameter (worst across the range).
-function paramOutcome(key, s) {
-  if (!s) return null
-  const { min, max } = s
-  switch (key) {
-    case 'co2': return max >= STD.v.co2.con ? 'elevated' : max >= 800 ? 'advisory' : 'acceptable'
-    case 'co': return max >= STD.c.co.osha ? 'elevated' : max >= STD.c.co.epa ? 'advisory' : 'acceptable'
-    case 'temperature': return (max > STD.t.temp.summer.max || min < STD.t.temp.summer.min) ? 'advisory' : 'acceptable'
-    case 'relativeHumidity': return (max > 70 || min < 20) ? 'elevated' : (max > STD.t.rh.max || min < STD.t.rh.min) ? 'advisory' : 'acceptable'
-    case 'pm25': return max >= STD.c.pm25.epa ? 'elevated' : max >= STD.c.pm25.who ? 'advisory' : 'acceptable'
-    // TVOC has no band. It was `>= act ? 'elevated' : >= con ? 'advisory'`
-    // against Mølhave's tiers until 2026-08. With no threshold behind it the
-    // parameter cannot be called elevated, advisory OR acceptable — the last
-    // is the one worth naming, because calling an unjudgeable reading
-    // "acceptable" is the more dangerous of the two errors.
-    case 'tvoc': return 'not_evaluated'
-    default: return 'acceptable'
-  }
+// ── Outcomes derive from the engine ────────────────────────────────────
+//
+// Model parameter key → the `p` the engine stamps on that parameter's
+// findings. TVOC has none: it is measured and reported, never judged.
+const ENGINE_PARAM = { co2: 'co2', co: 'co', temperature: 'temperature', relativeHumidity: 'rh', pm25: 'pm25', tvoc: null }
+// Engine severity → results-table outcome. `low`, `pass` and `info` are the
+// engine's "evaluated, nothing to act on".
+const SEV_TO_OUTCOME = { critical: 'priority', high: 'elevated', medium: 'advisory', low: 'acceptable', pass: 'acceptable', info: 'acceptable' }
+const OUTCOME_RANK = { not_evaluated: -1, acceptable: 0, advisory: 1, elevated: 2, priority: 3 }
+const worseOutcome = (a, b) => ((OUTCOME_RANK[b] ?? -1) > (OUTCOME_RANK[a] ?? -1) ? b : a)
+
+/**
+ * The engine result for zone `i`. Callers pass `zoneScores` aligned with
+ * `zones` (the app always does). A caller with no scores at all — the
+ * marketing sample, a preview — gets the zone scored on the spot with an
+ * empty building, so the table still reads off the engine rather than off a
+ * ladder of its own; a profile- or date-dependent outcome then reports the
+ * gap (temperature needs a survey date) instead of guessing.
+ */
+function engineResult(zoneScores, zones, i) {
+  if (zoneScores[i]) return zoneScores[i]
+  const z = zones[i]
+  return z ? scoreZone(z, {}) : null
+}
+
+/**
+ * One parameter's outcome in one zone, from that zone's engine findings:
+ * the worst severity among findings stamped with the parameter's `p`. No
+ * finding means the engine evaluated the reading and raised nothing —
+ * 'acceptable'. A `dataGap` finding (entered but unreadable, or a comfort
+ * band with no date) is 'not_evaluated', as is a parameter with no engine
+ * result at all.
+ */
+export function zoneParamOutcome(zs, key) {
+  const p = ENGINE_PARAM[key]
+  if (!p) return 'not_evaluated'
+  if (!zs || !Array.isArray(zs.cats)) return 'not_evaluated'
+  const findings = zs.cats.flatMap(c => (c.r || []).filter(r => r && r.p === p))
+  if (findings.some(r => r.dataGap)) return 'not_evaluated'
+  return findings.reduce((worst, r) => worseOutcome(worst, SEV_TO_OUTCOME[r.sev] || 'acceptable'), 'acceptable')
 }
 
 const zoneName = (zoneScores, zones, i) =>
   (zoneScores[i] && zoneScores[i].zoneName) || (zones[i] && zones[i].zn) || `Zone ${i + 1}`
 
 /** Per-parameter summary: { range, mean, unit, basis, outcome } for measured params. */
-export function summarizeParameters(zones = []) {
+export function summarizeParameters(zones = [], zoneScores = []) {
   const out = {}
   for (const p of PARAMS) {
-    const s = stats(zones.map(z => num(z && z[p.zoneKey])))
+    const values = zones.map(z => num(z && z[p.zoneKey]))
+    const s = stats(values)
     if (!s) continue
+    // Worst outcome across the zones that carry a reading for this parameter.
+    let outcome = null
+    zones.forEach((z, i) => {
+      if (values[i] === null) return
+      const o = zoneParamOutcome(engineResult(zoneScores, zones, i), p.key)
+      outcome = outcome === null ? o : worseOutcome(outcome, o)
+    })
     out[p.key] = {
       label: p.label, unit: p.unit, basis: p.basis,
       min: s.min, max: s.max, mean: s.mean, n: s.n,
       range: s.min === s.max ? `${s.min}` : `${s.min}–${s.max}`,
-      outcome: paramOutcome(p.key, s),
+      outcome: outcome ?? 'not_evaluated',
     }
   }
   return out
@@ -104,21 +137,24 @@ export function summarizeParameters(zones = []) {
 /** Per-zone measurement rows with a governing (worst-parameter) outcome. */
 export function zoneRows(zones = [], zoneScores = []) {
   return zones.map((z, i) => {
-    let worst = -1
+    const zs = engineResult(zoneScores, zones, i)
+    let worst = null
     const cells = {}
     for (const p of PARAMS) {
       const val = num(z && z[p.zoneKey])
       cells[p.key] = val
-      if (val !== null) {
-        const oc = paramOutcome(p.key, { min: val, max: val })
-        if (OUTCOME[oc] > worst) worst = OUTCOME[oc]
+      if (val !== null && p.key !== 'tvoc') {
+        const oc = zoneParamOutcome(zs, p.key)
+        worst = worst === null ? oc : worseOutcome(worst, oc)
       }
     }
     return {
       id: zoneName(zoneScores, zones, i),
       use: (z && (z.zt || z.zuse)) || '',
       ...cells,
-      outcome: worst >= 0 ? OUTCOME_LABEL[worst].toLowerCase() : 'acceptable',
+      // A zone with no judged reading is not "acceptable"; it was not
+      // evaluated, and the row says so.
+      outcome: worst ?? 'not_evaluated',
     }
   })
 }
@@ -127,8 +163,25 @@ export function zoneRows(zones = [], zoneScores = []) {
 export function peakCo2ByZone(zones = [], zoneScores = []) {
   return zones.map((z, i) => {
     const value = num(z && z.co2)
-    return value === null ? null : { zone: zoneName(zoneScores, zones, i), value, outcome: paramOutcome('co2', { min: value, max: value }) }
+    return value === null ? null : { zone: zoneName(zoneScores, zones, i), value, outcome: zoneParamOutcome(engineResult(zoneScores, zones, i), 'co2') }
   }).filter(Boolean)
+}
+
+/**
+ * Every data-gap finding the engine raised, as a limitation line. A reading
+ * that was entered but could not be read, or a comfort band that could not
+ * be selected, is stated here rather than silently rendered as "—".
+ */
+export function collectDataGaps(zoneScores = []) {
+  const lines = []
+  for (const zs of zoneScores) {
+    for (const cat of ((zs && zs.cats) || [])) {
+      for (const r of (cat.r || [])) {
+        if (r && r.dataGap) lines.push(`${zs.zoneName || 'Zone'}: ${r.t}.`)
+      }
+    }
+  }
+  return lines
 }
 
 /** Flagged findings (critical/high/medium) from engine zone scores. */
@@ -157,13 +210,61 @@ export function recommendationsByTimeframe(recs = {}) {
   }
 }
 
-/** Distinct references cited in findings + causal chains, plus the base set. */
-export function collectReferences(findings = [], causalChains = []) {
-  const set = new Set()
-  findings.forEach(f => { if (f.std) set.add(f.std) })
-  ;(causalChains || []).forEach(c => { const s = c.std || c.citation; if (s) set.add(s) })
-  ;['ASHRAE 62.1-2025', 'ASHRAE 55-2023', 'US EPA NAAQS', 'OSHA PELs (29 CFR 1910.1000)'].forEach(s => set.add(s))
-  return [...set]
+// Reader-facing names for the engine's parameter keys, for the Appendix A
+// usage column.
+const PARAM_LABEL = { co2: 'CO₂', co: 'CO', hcho: 'formaldehyde', pm25: 'PM2.5', temperature: 'temperature', rh: 'relative humidity', multi_oel: 'multiple contaminants' }
+const FLAGGED = new Set(['critical', 'high', 'medium'])
+// The first clause of a finding sentence — "CO 55 ppm", "Visible mold growth
+// (Small (< 10 sq ft))" — for the usage column.
+const headline = (t) => String(t || '').split(' — ')[0].split('. ')[0].trim().slice(0, 90)
+
+/**
+ * The references this report actually cites, with what cited each one.
+ *
+ * Appendix A used to be an unguarded standards register: four references
+ * were appended whatever the report measured, and every row read
+ * "Referenced in screening interpretation." A reference now enters ONLY
+ * when a flagged finding cites it (`f.std`), a causal chain cites it, or a
+ * measured parameter was evaluated against a registry criterion carrying it
+ * (a non-flagged engine finding with `std` and `p`). The citation comes off
+ * the finding — i.e. off the criterion that evaluated the reading — never
+ * from a fixed per-parameter default (citations handoff §1; CLAUDE.md).
+ *
+ * @returns {{ refs: string[], usage: Record<string,string> }}
+ */
+export function collectReferenceUsage(findings = [], causalChains = [], zoneScores = []) {
+  const usage = new Map()
+  const add = (ref, line) => {
+    if (!ref) return
+    if (!usage.has(ref)) usage.set(ref, { cited: new Set(), applied: new Set() })
+    if (line) usage.get(ref)[line.kind].add(line.text)
+  }
+  findings.forEach(f => add(f.std, { kind: 'cited', text: `${f.zone} — ${headline(f.text)}` }))
+  ;(causalChains || []).forEach(c => {
+    const s = c.std || c.citation
+    if (s) add(s, { kind: 'cited', text: `causal chain — ${c.type || c.name || 'primary finding'}` })
+  })
+  for (const zs of zoneScores) {
+    for (const cat of ((zs && zs.cats) || [])) {
+      for (const r of (cat.r || [])) {
+        if (!r || !r.std || FLAGGED.has(r.sev) || r.dataGap) continue
+        add(r.std, { kind: 'applied', text: `${PARAM_LABEL[r.p] || headline(r.t)} (${zs.zoneName || 'Zone'})` })
+      }
+    }
+  }
+  const out = {}
+  for (const [ref, u] of usage) {
+    const parts = []
+    if (u.cited.size) parts.push(`Cited by: ${[...u.cited].join('; ')}`)
+    if (u.applied.size) parts.push(`Applied to measured parameter: ${[...u.applied].join('; ')}`)
+    out[ref] = parts.join('. ') + '.'
+  }
+  return { refs: [...usage.keys()], usage: out }
+}
+
+/** Distinct references actually cited by findings, causal chains or evaluated parameters. */
+export function collectReferences(findings = [], causalChains = [], zoneScores = []) {
+  return collectReferenceUsage(findings, causalChains, zoneScores).refs
 }
 
 /** QA/QC manifest from presurvey instrument fields; missing → disclosed. */
@@ -189,18 +290,33 @@ export function buildLimitations(data) {
   const hasLogger = !!(data.sensorData && data.sensorData.graphs && Object.values(data.sensorData.graphs).some(g => g && g.include))
   if (!hasLogger) extra.push('No continuous logger data was collected; values reflect grab readings during the site visit.')
   if (!(data.zones || []).some(z => num(z && z.co2) !== null)) extra.push('Limited quantitative measurements were available for this assessment.')
-  return [...base, ...extra]
+  return [...base, ...extra, ...collectDataGaps(data.zoneScores || [])]
 }
 
+/**
+ * @param {object} data
+ * @param {object} [opts]
+ * @param {Date}   [opts.now]  The clock for the generated-at stamp
+ *   (`reportDate`), the undated-record fallback for `assessmentDate`, and
+ *   the no-id Report ID fallback. Injected so the same input renders the
+ *   same document (audit H6); `tests/engine/render-determinism.test.ts`
+ *   pins it. It defaults to the real clock HERE and only here — this is the
+ *   outermost model builder; DocxReport / downloadReportPdf call in without
+ *   `now` and get today, which is the one caller for which today is right.
+ */
 export function buildReportModel(data = {}, opts = {}) {
   const bldg = data.building || {}
   const ps = data.presurvey || {}
   const zones = data.zones || []
   const zoneScores = data.zoneScores || []
   const profile = data.profile || {}
-  const now = new Date()
+  const now = opts.now instanceof Date && !Number.isNaN(opts.now.getTime()) ? opts.now : new Date()
   const fmt = (d) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  // The survey date the assessor entered, then the finalize timestamp —
+  // the same resolution scoring and the print path use.
+  const surveyIso = resolveAssessmentDate(data)
   const findings = collectFindings(zoneScores)
+  const referenceUsage = collectReferenceUsage(findings, data.causalChains || [], zoneScores)
   // Lifecycle: explicit opts win, then whatever the stored record
   // carries, then the legacy `status` column, then screening/draft.
   //
@@ -235,7 +351,7 @@ export function buildReportModel(data = {}, opts = {}) {
       facilityName: bldg.fn || 'Facility',
       address: bldg.fl || '',
       scope: (zones.length ? `${zones.length} area${zones.length === 1 ? '' : 's'}` : ''),
-      assessmentDate: data.ts ? fmt(new Date(data.ts)) : fmt(now),
+      assessmentDate: surveyIso ? fmt(new Date(`${surveyIso}T12:00:00`)) : fmt(now),
       reportDate: fmt(now),
       assessorName: profile.name || ps.ps_assessor || 'Assessor',
       assessorCredentials: (profile.certs || []).join(', '),
@@ -250,7 +366,7 @@ export function buildReportModel(data = {}, opts = {}) {
       // that disagree about which one they are. `Date.now()` is a timestamp,
       // not an identity: it changes on re-issue, which is precisely when a
       // stable id matters most.
-      reportId: data.id || `AIQ-${Date.now().toString(36).toUpperCase().slice(-6)}`,
+      reportId: data.id || `AIQ-${now.getTime().toString(36).toUpperCase().slice(-6)}`,
       mode: opts.mode || 'draft', // 'draft' | 'final' | 'sample'
       // Report lifecycle. `mode` above is the legacy switch and is kept
       // because 'sample' has no lifecycle equivalent (it is a marketing
@@ -268,7 +384,7 @@ export function buildReportModel(data = {}, opts = {}) {
       hvacDescription: bldg.ht || '',
       numberOfZones: zones.length,
     },
-    parameters: summarizeParameters(zones),
+    parameters: summarizeParameters(zones, zoneScores),
     zones: zoneRows(zones, zoneScores),
     findings,
     recommendations: recommendationsByTimeframe(data.recs || {}),
@@ -276,7 +392,8 @@ export function buildReportModel(data = {}, opts = {}) {
     photos: data.photos || {},
     qaQc: buildQaQc(ps),
     limitations: buildLimitations(data),
-    references: collectReferences(findings, data.causalChains || []),
+    references: referenceUsage.refs,
+    referenceUsage: referenceUsage.usage,
     composite: data.comp || null,
   }
 }
@@ -450,16 +567,22 @@ export function assembleRenderModel(data = {}, opts = {}) {
   }
 
   // Per-parameter interpretation (what it is + observed), thermal combined.
+  // The narrative library's OBSERVED templates branch on the outcome; a
+  // parameter the engine did NOT evaluate (a data gap) gets a plain
+  // statement of the reading and the gap instead of either verdict branch.
+  const observed = (key, s) => s.outcome === 'not_evaluated'
+    ? `Observed: ${s.label.toLowerCase()} ranged ${s.range} ${s.unit} (site mean ${s.mean} ${s.unit}). The reading was recorded but not evaluated — see Limitations.`
+    : NL.OBSERVED[key](s, s.outcome)
   const interp = []
-  if (params.co2) interp.push({ title: 'Carbon dioxide (CO2) — ventilation indicator', body: [`What it is and why we measure it: ${NL.WHAT_IS.co2}`, NL.OBSERVED.co2(params.co2, params.co2.outcome)] })
-  if (params.co) interp.push({ title: 'Carbon monoxide (CO)', body: [`What it is and why we measure it: ${NL.WHAT_IS.co}`, NL.OBSERVED.co(params.co, params.co.outcome)] })
+  if (params.co2) interp.push({ title: 'Carbon dioxide (CO2) — ventilation indicator', body: [`What it is and why we measure it: ${NL.WHAT_IS.co2}`, observed('co2', params.co2)] })
+  if (params.co) interp.push({ title: 'Carbon monoxide (CO)', body: [`What it is and why we measure it: ${NL.WHAT_IS.co}`, observed('co', params.co)] })
   if (params.temperature || params.relativeHumidity) {
     const body = [`What it is and why we measure it: ${NL.WHAT_IS.tempRh}`]
-    if (params.temperature) body.push(NL.OBSERVED.temperature(params.temperature, params.temperature.outcome))
-    if (params.relativeHumidity) body.push(NL.OBSERVED.relativeHumidity(params.relativeHumidity, params.relativeHumidity.outcome))
+    if (params.temperature) body.push(observed('temperature', params.temperature))
+    if (params.relativeHumidity) body.push(observed('relativeHumidity', params.relativeHumidity))
     interp.push({ title: 'Thermal comfort — temperature & relative humidity', body })
   }
-  if (params.pm25) interp.push({ title: 'Fine particulate (PM2.5)', body: [`What it is and why we measure it: ${NL.WHAT_IS.pm25}`, NL.OBSERVED.pm25(params.pm25, params.pm25.outcome)] })
+  if (params.pm25) interp.push({ title: 'Fine particulate (PM2.5)', body: [`What it is and why we measure it: ${NL.WHAT_IS.pm25}`, observed('pm25', params.pm25)] })
   if (params.tvoc) interp.push({ title: 'Total volatile organic compounds (TVOC)', body: [`What it is and why we measure it: ${NL.WHAT_IS.tvoc}`, NL.OBSERVED.tvoc(params.tvoc, params.tvoc.outcome)] })
 
   // Logger Studio chart images (real assessments embed the PNGs).
@@ -506,8 +629,11 @@ export function assembleRenderModel(data = {}, opts = {}) {
   // QA/QC as bullet strings; limitations already paragraph strings.
   const qaQc = rd.qaQc.map(q => `${q.label}: ${q.value}`)
 
-  // References as [ref, basis] pairs.
-  const references = rd.references.map(ref => [ref, REF_BASIS[ref] || 'Referenced in screening interpretation.'])
+  // References as [ref, basis, usage] tuples. `usage` says what in this
+  // report cited the reference (the renderer prefers it); `basis` is the
+  // standing description where one exists. Nothing here adds a row on its
+  // own — see collectReferenceUsage.
+  const references = rd.references.map(ref => [ref, REF_BASIS[ref] || 'Cited by a finding or an evaluated measurement in this report.', rd.referenceUsage[ref]])
 
   // Photos.
   let photos = null

@@ -31,6 +31,8 @@ const creditsLedger: Array<{ user_id: string; amount: number; reason: string }> 
 const purchases: Array<Record<string, unknown>> = []
 const profileUpdates: Array<{ id?: string; customer?: string; patch: Record<string, unknown> }> = []
 let releaseDeleteHits = 0
+// Balance per user id, mutated by the grant_credits RPC simulation.
+const balances = new Map<string, number>()
 
 function resetState() {
   claims.clear()
@@ -38,6 +40,7 @@ function resetState() {
   purchases.length = 0
   profileUpdates.length = 0
   releaseDeleteHits = 0
+  balances.clear()
 }
 
 // ─── stripe + signature controls ────────────────────────────────────
@@ -112,6 +115,14 @@ function makeSupabaseMock() {
         if (claims.has(id)) return { data: false, error: null }
         claims.set(id, { event_id: id, event_type: params.p_event_type, result: { status: 'claimed' } })
         return { data: true, error: null }
+      }
+      if (name === 'grant_credits') {
+        // Mirrors migration 033: balance + ledger row in one call.
+        const before = balances.get(params.p_user_id) ?? 0
+        const after = Math.max(0, before + params.p_amount)
+        balances.set(params.p_user_id, after)
+        creditsLedger.push({ user_id: params.p_user_id, amount: after - before, reason: params.p_reason })
+        return { data: after, error: null }
       }
       return { data: null, error: null }
     },
@@ -238,5 +249,25 @@ describe('POST /api/webhook idempotency', () => {
     const r = makeRes()
     await handler(req, r)
     expect(r._status).toBe(405)
+  })
+
+  it('releases the idempotency claim when processing throws, so Stripe\'s retry can re-process', async () => {
+    const sb: any = makeSupabaseMock()
+    const realRpc = sb.rpc
+    sb.rpc = async (name: string, params: any) => {
+      if (name === 'grant_credits') return { data: null, error: { message: 'db down' } }
+      return realRpc(name, params)
+    }
+    handler.__test.setSupabase(sb)
+    nextEvent = {
+      id: 'evt_fail_1',
+      type: 'checkout.session.completed',
+      data: { object: { metadata: { user_id: 'u_f', plan: 'solo' }, customer: 'cus_f', id: 'cs_f', amount_total: 12900 } },
+    }
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(r._status).toBe(500)
+    expect(releaseDeleteHits).toBe(1)
+    expect(claims.has('evt_fail_1')).toBe(false)
   })
 })

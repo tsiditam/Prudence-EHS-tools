@@ -28,7 +28,19 @@ function makeMockSupabase(initial: { profiles?: any[]; ledger?: any[] } = {}) {
   }
   const client: any = {
     state,
-    rpc: async (_name: string, _args: any) => ({ data: true, error: null }),
+    rpc: async (name: string, args: any) => {
+      if (name === 'grant_credits') {
+        // Mirrors migration 033's grant_credits: balance + ledger row together.
+        const profile = state.profiles.find((p: any) => p.id === args.p_user_id)
+        if (!profile) return { data: null, error: { message: 'profile_not_found' } }
+        const before = profile.credits_remaining || 0
+        const after = Math.max(0, before + args.p_amount)
+        profile.credits_remaining = after
+        state.credits_ledger.push({ user_id: args.p_user_id, amount: after - before, reason: args.p_reason, reference_id: args.p_reference_id, balance_after: after })
+        return { data: after, error: null }
+      }
+      return { data: true, error: null }
+    },
     from: (table: string) => {
       const ctx: any = { _filters: {}, _patch: undefined, _isCount: false }
       const chain: any = {
@@ -128,8 +140,11 @@ describe('/api/checkout — price lookup', () => {
     handler.__test.setStripe({
       checkout: { sessions: { create: async (params: any) => { captured = params; return { id: 'cs_1', url: 'https://stripe/cs_1' } } } },
     })
+    handler.__test.setSupabase({
+      auth: { getUser: async () => ({ data: { user: { id: 'u_1', email: 'a@b.c' } }, error: null }) },
+    })
 
-    const req: any = { method: 'POST', headers: {}, body: { plan: 'pro', billing_period: 'annual', userId: 'u_1', userEmail: 'a@b.c' } }
+    const req: any = { method: 'POST', headers: { authorization: 'Bearer jwt' }, body: { plan: 'pro', billing_period: 'annual' } }
     const res: any = { _status: 200, _body: null }
     res.status = (c: number) => { res._status = c; return res }
     res.json = (b: any) => { res._body = b; return res }

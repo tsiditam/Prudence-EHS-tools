@@ -13,7 +13,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- No maximum-scale / user-scalable=no: pinch-zoom must stay available
+         (WCAG 2.1 SC 1.4.4 Resize text). iOS auto-zoom on focus is prevented
+         by the 16px input floor below, not by locking the viewport. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1C1B19" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -30,10 +33,11 @@
         /* Lock the mobile viewport: no rubber-band bounce when the
            user scrolls past the top/bottom edge, no horizontal
            overflow that lets the page slide sideways, and no
-           double-tap zoom. Combined with the maximum-scale=1
-           viewport meta above and the 16px input font rule below,
-           the page never "expands" on phone — it only scrolls
-           vertically within its own content. */
+           double-tap zoom. Combined with the 16px input font rule
+           below, the page never "expands" on phone by accident — it
+           only scrolls vertically within its own content. Deliberate
+           pinch-zoom is still allowed (the viewport meta no longer
+           locks scale — WCAG 2.1 SC 1.4.4). */
         overscroll-behavior:none;
         overflow-x:hidden;
         touch-action:pan-y;
@@ -107,6 +111,10 @@
         --accent:#2EA7BF;
         --accent-dim:#1A8FA0;
         --text:#ECEEF2;
+        /* Supporting-label tier between --text and --sub (tokens.js
+           TEXT_SECONDARY). Was a hard-coded #A8B0BD in 17 call sites, so
+           it never flipped for light mode. 7.88:1 on --bg, 6.66:1 on --card. */
+        --text-secondary:#A8B0BD;
         --sub:#8B93A5;
         --dim:#6B7380;
         --warn:#FBBF24;
@@ -117,14 +125,15 @@
         /* Brighter cyan reserved for emphasis — filled primary CTAs and
            active/selected highlights. Toned down from the old #22D3EE
            aqua but kept a step brighter than --accent so filled buttons
-           still pop. The fill itself is invariant across modes; the
-           paired foreground --on-accent-fill diverges: WHITE in dark
-           mode (per product direction — the inscription on the cyan CTA
-           reads white on dark surfaces) and dark in light mode below.
-           Note: white on #39C0D9 is ~1.9:1, under WCAG AA — accepted
-           intentionally for the dark-mode look; flag for any a11y audit. */
+           still pop. The fill itself is invariant across modes and so
+           is its foreground now: near-black #07080C on #39C0D9 is
+           9.26:1 (WCAG AA needs 4.5:1). The earlier white inscription
+           (product direction for the dark-mode look) measured 2.16:1
+           and was the audit's documented SC 1.4.3 failure; dark-on-cyan
+           is also what light mode already used, so the CTA reads the
+           same in both themes. */
         --accent-fill:#39C0D9;
-        --on-accent-fill:#FFFFFF;
+        --on-accent-fill:#07080C;
         /* ── Liquid-glass "bubble" controls (iOS-26-style tactile buttons) ──
            Shared surface/press tokens consumed by the global .bubble-btn
            class. --bubble-bg is the fill (a control overrides it for a tint,
@@ -145,11 +154,12 @@
            surface is a cool-grey tier for grouped / selected areas, and
            cards stay white, lifting off the page via the neutral border +
            soft shadow rather than a bg/card tint gap. The restrained cyan
-           (#2EA7BF) is reserved for text, icons, and active states, and
-           the brighter #39C0D9 fills emphasis CTAs. NOTE: the darker
-           accent on white is ~2.6:1, below WCAG AA 4.5:1 for body text —
-           accepted intentionally for brand consistency; flag for any
-           future accessibility audit. */
+           is reserved for text, icons, and active states, and the
+           brighter #39C0D9 fills emphasis CTAs. The light-mode --accent
+           is a deeper cyan-700 than dark mode's #2EA7BF (which measured
+           2.84:1 on white — the audit's SC 1.4.3 failure): #0C6F86 is
+           5.78:1 on --bg, 4.69:1 on --surface and 5.17:1 on --raised,
+           so accent text passes AA on every light surface it sits on. */
         --bg:#FFFFFF;
         --surface:#E4E8EC;
         --card:#FFFFFF;
@@ -166,9 +176,11 @@
            cyan-outlined. Cyan still carries active/selected states via
            --accent and the pale --raised tint. */
         --border:#D6DBE1;
-        --accent:#2EA7BF;
+        --accent:#0C6F86;
         --accent-dim:#155E75;
         --text:#0F172A;
+        /* slate-700 — 10.35:1 on white, 8.41:1 on --surface. */
+        --text-secondary:#334155;
         --sub:#475569;
         --dim:#5B6675;
         --on-accent:#07080C;
@@ -219,6 +231,13 @@
          the inline display set on each <img>. */
       [data-theme="light"] .af-wordmark-dark{display:none!important;}
       [data-theme="light"] .af-wordmark-light{display:block!important;}
+      /* Focus visibility (WCAG 2.1 SC 2.4.7). Components used to set
+         outline:'none' inline — which also hid keyboard focus. Those are
+         gone; instead pointer focus is quiet and keyboard focus draws a
+         2px accent ring. Inline styles cannot override :focus-visible
+         from here, so do not reintroduce outline:'none' in components. */
+      :focus:not(:focus-visible){outline:none;}
+      :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Single:wght@400;700&family=Inter:wght@300;400;500;600;700;800;900&family=Lora:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>

@@ -14,14 +14,21 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 let anthropicText = 'A clean screening narrative consistent with insufficient outdoor air delivery.'
 
 function makeChain(table: string): any {
+  let inserted = false
   const chain: any = {
     select: () => chain,
     eq: () => chain,
     gte: () => chain,
     order: () => chain,
     limit: () => chain,
-    single: async () => table === 'profiles' ? { data: { plan: 'pro' }, error: null } : { data: null, error: null },
-    insert: async () => ({ data: null, error: null }),
+    single: async () => {
+      if (table === 'profiles') return { data: { plan: 'pro' }, error: null }
+      if (inserted) return { data: { id: 1 }, error: null }
+      return { data: null, error: null }
+    },
+    insert: () => { inserted = true; return chain },
+    update: () => chain,
+    delete: () => chain,
   }
   // Awaitable count query → 0 (under all rate limits).
   chain.then = (resolve: (r: any) => void) => resolve({ data: null, error: null, count: 0 })
@@ -48,7 +55,7 @@ function makeReq() {
   return {
     method: 'POST',
     headers: { authorization: 'Bearer test-jwt' },
-    body: { system: 'sys', payload: { foo: 'bar' } },
+    body: { payload: { foo: 'bar' } },
     socket: { remoteAddress: '127.0.0.1' },
   } as any
 }

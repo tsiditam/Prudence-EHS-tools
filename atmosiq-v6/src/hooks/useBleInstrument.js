@@ -52,26 +52,32 @@ export function useBleInstrument(driver) {
   const [error, setError] = useState(null)
   const characteristicRef = useRef(null)
   const disconnectHandlerRef = useRef(null)
-
-  // Tear down GATT cleanly on unmount so a navigated-away page
-  // doesn't keep the radio active.
-  useEffect(() => {
-    return () => { cleanup() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // The paired device also lives in a ref. The unmount effect below runs
+  // its cleanup with whatever closure it captured on FIRST render — where
+  // `device` state was null — so a cleanup that read state never
+  // disconnected GATT and the radio stayed active after navigating away
+  // (audit 2026-09 §6 Navigation and state). The ref is always current.
+  const deviceRef = useRef(null)
 
   const cleanup = useCallback(() => {
+    const dev = deviceRef.current
     try {
-      if (device && device.gatt && device.gatt.connected) {
-        device.gatt.disconnect()
+      if (dev && dev.gatt && dev.gatt.connected) {
+        dev.gatt.disconnect()
       }
     } catch { /* swallow — disconnect during teardown is best-effort */ }
-    if (device && disconnectHandlerRef.current) {
-      try { device.removeEventListener('gattserverdisconnected', disconnectHandlerRef.current) } catch { /* */ }
+    if (dev && disconnectHandlerRef.current) {
+      try { dev.removeEventListener('gattserverdisconnected', disconnectHandlerRef.current) } catch { /* */ }
     }
     characteristicRef.current = null
     disconnectHandlerRef.current = null
-  }, [device])
+    deviceRef.current = null
+  }, [])
+
+  // Tear down GATT cleanly on unmount so a navigated-away page
+  // doesn't keep the radio active. `cleanup` is stable (no deps), so
+  // the closure captured here is never stale.
+  useEffect(() => cleanup, [cleanup])
 
   /**
    * One-shot read of the driver's current-values characteristic
@@ -155,6 +161,7 @@ export function useBleInstrument(driver) {
     }
     disconnectHandlerRef.current = onDisc
     nextDevice.addEventListener('gattserverdisconnected', onDisc)
+    deviceRef.current = nextDevice
     setDevice(nextDevice)
 
     let server, service, characteristic

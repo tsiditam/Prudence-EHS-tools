@@ -11,6 +11,7 @@
  * storage / DOCX / report layers do not change.
  */
 
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useState, useMemo, useRef, useEffect } from 'react'
 
 const BG = 'var(--bg)'
@@ -157,6 +158,7 @@ function WheelColumn({ items, value, onChange, width }) {
 export default function TimePickerInput({ value, onChange, placeholder = 'Select time…' }) {
   const ampm = useMemo(localePrefers12h, [])
   const [open, setOpen] = useState(false)
+  const sheetRef = useRef(null)
   const [hour, setHour] = useState('')
   const [minute, setMinute] = useState('')
   const [period, setPeriod] = useState('')
@@ -174,11 +176,17 @@ export default function TimePickerInput({ value, onChange, placeholder = 'Select
 
   const display = value || ''
   const hourItems = ampm ? HOURS_12 : HOURS_24
+  // Keyboard focus stays inside the sheet while it is open and returns to
+  // the trigger when it closes.
+  useFocusTrap(sheetRef, open, { initialFocus: 'container' })
 
   return (
     <>
       <button
+        type="button"
         onClick={openSheet}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         style={{
           width: '100%',
           padding: '14px 16px',
@@ -201,14 +209,18 @@ export default function TimePickerInput({ value, onChange, placeholder = 'Select
         <>
           <div
             onClick={() => setOpen(false)}
+            aria-hidden="true"
             style={{
               position: 'fixed', inset: 0, zIndex: 300,
               background: 'rgba(0,0,0,0.6)',
               animation: 'atmosflowFadeIn 0.15s ease',
             }} />
           <div
+            ref={sheetRef}
             role="dialog"
+            aria-modal="true"
             aria-label="Select time"
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }}
             style={{
               position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 301,
               background: CARD,

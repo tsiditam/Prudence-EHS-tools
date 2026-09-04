@@ -7,7 +7,7 @@
  * Flow: Profile → Dashboard → Quick Start → Zone Walkthrough → Details (optional) → Results
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef, Component } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Component, Suspense } from 'react'
 import * as Sentry from '@sentry/react'
 import { createPortal } from 'react-dom'
 import { useMediaQuery } from '../hooks/useMediaQuery'
@@ -45,6 +45,7 @@ import * as V3 from '../styles/tokens'
 import Markdown from './Markdown'
 import { GLASS, RADII, RHYTHM, stack as sgStack } from '../styles/soft-glass'
 import GlassCard from './ui/GlassCard'
+import { clickable } from './ui/a11y'
 import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
 import AtmosFlowFloatingDock from './ui/AtmosFlowFloatingDock'
 import JasperFloatingButton from './JasperFloatingButton'
@@ -55,7 +56,11 @@ import StatusPill from './ui/StatusPill'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import Loading from './Loading'
-import PhotoCapture from './PhotoCapture'
+import PhotoCapture, { PhotoThumb } from './PhotoCapture'
+import { expandPhotos, rekeyPhotos } from '../utils/photoCompaction'
+import { reportStorageWrite } from './ui/storageToast'
+import { useViewHistory, readInitialNav } from '../hooks/useViewHistory'
+import { ROUTES } from '../constants/routes'
 import CollaboratorsBar from './CollaboratorsBar'
 import SensorScreen from './SensorScreen'
 import InstrumentLogImport from './InstrumentLogImport'
@@ -68,10 +73,7 @@ import BleSensorButton from './BleSensorButton'
 import ProfileScreen, { IAQ_OPTS, PID_OPTS, CAL_OPTS, PID_CAL_OPTS } from './ProfileScreen'
 import AuthScreen from './AuthScreen'
 import { TermsOfService, PrivacyPolicy } from './LegalScreens'
-import AdminDashboard from './AdminDashboard'
 import WelcomeScreen from './WelcomeScreen'
-import SensorDataPage from './sensor/SensorDataPage'
-import LoggerGraphsTab from './sensor/LoggerGraphsTab'
 import ProjectsScreen from './projects/ProjectsScreen'
 import ProjectDetail from './projects/ProjectDetail'
 import { getOrCreateProjectByName } from '../utils/projectStore'
@@ -80,16 +82,34 @@ import SettingsScreen from './SettingsScreen'
 import AccountScreen from './AccountScreen'
 import { getInitials } from './ProfileAvatar'
 import FeatureTour from './FeatureTour'
-import { printReport, generatePrintHTML } from './PrintReport'
 import { downloadReportPdf } from '../utils/downloadReportPdf'
-import { ensureLoggerChartImages } from '../utils/loggerChartImages'
-// v2.6.1 — DocxReport is a static import. Earlier `await import('./DocxReport')`
-// triggered "'text/html' is not a valid JavaScript MIME type" errors when a
-// user's cached index.html referenced a chunk hash that no longer existed
-// after redeploy (the missing-chunk request returned the SPA HTML fallback).
-// Bundling the docx renderer into the main chunk eliminates that failure
-// mode for the most common user action — exporting a report.
-import { generateTechnicalOnly, generateAtmosFlowOnly, getAtmosFlowDocxBlob, getNarrativeDocxBlob } from './DocxReport'
+// Code-splitting (audit 2026-09 §6 Performance). The report renderers
+// (DocxReport → `docx`, PrintReport, the logger chart rasteriser →
+// recharts + html2canvas) and the heavy screens below are loaded on
+// demand. v2.6.1 had made DocxReport a STATIC import because a stale
+// cached index.html could reference a chunk hash the server no longer
+// had ("'text/html' is not a valid JavaScript MIME type"). That failure
+// mode is now handled — the global unhandledrejection handler in
+// main.jsx plus `importSafe` / `lazySafe` (src/components/ui/lazySafe.jsx)
+// evict the service-worker caches and offer a one-tap reload — which is
+// what makes lazy loading safe. See the comment in lazySafe.jsx.
+import { lazySafe, importSafe, isStaleChunkError } from './ui/lazySafe'
+import { toast } from 'sonner'
+const loadDocxReport = () => importSafe(() => import('./DocxReport'))
+const loadPrintReport = () => importSafe(() => import('./PrintReport'))
+const loadLoggerChartImages = () => importSafe(() => import('../utils/loggerChartImages'))
+const AdminDashboard = lazySafe(() => import('./AdminDashboard'))
+const SensorDataPage = lazySafe(() => import('./sensor/SensorDataPage'))
+const LoggerGraphsTab = lazySafe(() => import('./sensor/LoggerGraphsTab'))
+const SpatialMap = lazySafe(() => import('./SpatialMap'))
+const FieldAssistant = lazySafe(() => import('./FieldAssistant'))
+const EvidenceMap = lazySafe(() => import('./EvidenceMap'))
+const MoldModeScreen = lazySafe(() => import('./MoldModeScreen'))
+const SamplingFormsView = lazySafe(() => import('./SamplingFormsView'))
+// Suspense fallback for the lazy screens — the brand splash in its fast
+// (400 ms) form. `onDone` is a no-op: Suspense unmounts it when the chunk
+// lands.
+const LAZY_FALLBACK = <Loading fast onDone={() => {}} />
 import { DEMO_CLEAN_PRESURVEY, DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES, DEMO_CLEAN_EQUIPMENT } from '../constants/demoDataClean'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_FINDINGS_PRESURVEY, DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT } from '../constants/demoDataFindings'
@@ -101,11 +121,9 @@ import IncidentForm from './IncidentForm'
 import IncidentLog from './IncidentLog'
 import IncidentDetail from './IncidentDetail'
 import PropertyDashboard from './PropertyDashboard'
-import SpatialMap from './SpatialMap'
 import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
-import FieldAssistant from './FieldAssistant'
 import SimilarAssessmentsPanel from './SimilarAssessmentsPanel'
 import VoiceCommandModal from './VoiceCommandModal'
 import JasperBrainIcon from './JasperBrainIcon'
@@ -113,10 +131,8 @@ import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
-import EvidenceMap from './EvidenceMap'
 import DesktopSidebar, { SIDEBAR_W } from './desktop/DesktopSidebar'
 import { isKnowledgeGraphEnabled, isMoldModuleEnabled } from '../utils/featureFlags'
-import MoldModeScreen from './MoldModeScreen'
 
 // Knowledge Graph Evidence tab is staged behind a flag — on for preview/
 // localhost, off on the production host until merged (?kg=1 to demo). Resolved
@@ -132,11 +148,11 @@ import { emitEvent } from '../../lib/events/emit'
 import SaveSitePrompt from './SaveSitePrompt'
 import PeerReviewModal from './PeerReviewModal'
 import { parseSiteLink, clearSiteLink, findMostRecentReportForSite } from '../utils/siteLink'
-import SamplingFormsView from './SamplingFormsView'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
 import { mix } from '../utils/theme'
+import { formatDate } from '../utils/formatDate'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
 
@@ -172,9 +188,11 @@ pressFeedback.style = {
   touchAction: 'manipulation',
   transition: 'transform 120ms cubic-bezier(0.34,1.4,0.64,1), opacity 120ms ease-out',
 }
-const BETA_MODE = true // Set to false when ready to go live — re-enables all premium gates
-const fD = ts => ts ? new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''
-const sv = sev => ({critical:{c:'#EF4444',bg:'#EF444418',l:'CRITICAL'},high:{c:'#FB923C',bg:'#FB923C18',l:'HIGH'},medium:{c:'#FBBF24',bg:'#FBBF2418',l:'MEDIUM'},low:{c:'#38BDF8',bg:'#38BDF815',l:'LOW'},pass:{c:'#22C55E',bg:'#22C55E15',l:'PASS'},info:{c:'#94A3B8',bg:'#94A3B815',l:'INFO'}}[sev]||{c:'#94A3B8',bg:'#94A3B815',l:''})
+const fD = ts => formatDate(ts)
+// Severity colour helper. The hexes live in tokens.js SEVERITY (the
+// single source — v3 primitives read the same table); this only adds the
+// tinted background and the pill label.
+const sv = sev => V3.severityTone(sev)
 const badge = (risk,rc) => <span style={{padding:'6px 16px',background:`${rc}18`,border:`1px solid ${rc}35`,borderRadius:20,fontSize:13,fontWeight:700,color:rc}}>{risk}</span>
 
 // Top-of-funnel CTAs (New Assessment / Continue Assessment) use the
@@ -294,6 +312,51 @@ function HelpView({ onBack }) {
   )
 }
 
+// Radio-style option row for the instrument editor. Module scope on
+// purpose: defined inside InstrumentEditView it was a new component type
+// on every render, so React unmounted and remounted every option (and
+// dropped focus) on each keystroke in the form.
+const Radio = ({ selected, label, onClick }) => (
+  <button type="button" role="radio" aria-checked={!!selected} onClick={onClick} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:selected?`${mix('accent', 3)}`:'transparent',border:`1px solid ${selected?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,color:selected?TEXT:SUB,fontSize:13,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:38,transition:'all 0.15s',marginBottom:4}}>{label}</button>
+)
+
+// ── Trash view ──
+// Hoisted out of MobileApp's render (audit §6 Structure): as an inline
+// component it was remounted — and its `items` refetched — on every shell
+// re-render, which the 30-second clock interval used to trigger while the
+// user sat on this screen. Exported for tests/components/TrashView.test.tsx.
+export const TrashView = ({ onRecover, onDelete }) => {
+  const [items, setItems] = useState([])
+  useEffect(() => { Backup.listTrash().then(setItems) }, [])
+  return (
+    <div style={{paddingTop:28,paddingBottom:100}}>
+      <h2 style={{fontSize:22,fontWeight:700,marginBottom:8,color:TEXT}}>Trash</h2>
+      <div style={{fontSize:13,color:SUB,marginBottom:20,lineHeight:1.6}}>Deleted items are kept for 30 days, then permanently removed.</div>
+      {items.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>Trash is empty</div>
+      :items.map(t=>(
+        <div key={t.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:600,color:TEXT}}>{t.name||'Untitled'}</div>
+            <div style={{fontSize:12,color:DIM,fontFamily:"var(--font-mono)",marginTop:4}}>Deleted {fD(t.deletedAt)} · Expires {fD(t.expiresAt)}</div>
+          </div>
+          <button onClick={async()=>{await onRecover(t.id);setItems(await Backup.listTrash())}} style={{padding:'10px 16px',background:`${mix('accent', 8)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Recover</button>
+          <button onClick={async()=>{await onDelete(t.id);setItems(await Backup.listTrash())}} aria-label={`Permanently delete ${t.name||'Untitled'}`} style={{padding:'10px 14px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>✕</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Row in the "Send graphs to a report" picker. Module scope for the same
+// reason as TrashView — an inline definition remounted every row on each
+// parent render.
+const GraphTargetRow = ({ item, kind, onSend }) => (
+  <GlassCard dense onClick={()=>onSend(item.id)} style={{padding:'14px 16px'}}>
+    <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>{item.facility || 'Untitled'}</div>
+    <div style={{fontSize:12,color:SUB}}>{kind}</div>
+  </GlassCard>
+)
+
 // Standalone instrument editor — edits ONLY the profile-embedded primary
 // IAQ + PID fields (iaq_meter, iaq_serial, iaq_cal_date, iaq_cal_status,
 // pid_meter, pid_cal_status, other_instruments). Reachable from each
@@ -306,12 +369,8 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
   const [saving, setSaving] = useState(false)
   const setF = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box',transition:'border-color 0.15s' }
+  const inp = { width:'100%',padding:'14px 16px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:15,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box',transition:'border-color 0.15s' }
   const lbl = { fontSize:13,fontWeight:600,color:SUB,marginBottom:6,display:'block',letterSpacing:'0.1px' }
-
-  const Radio = ({ selected, label, onClick }) => (
-    <button onClick={onClick} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:selected?`${mix('accent', 3)}`:'transparent',border:`1px solid ${selected?`${mix('accent', 19)}`:BORDER}`,borderRadius:8,color:selected?TEXT:SUB,fontSize:13,fontWeight:selected?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:38,transition:'all 0.15s',marginBottom:4}}>{label}</button>
-  )
 
   const handleSave = async () => {
     if (saving) return
@@ -349,8 +408,8 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
       <div style={{fontSize:12,color:DIM,marginBottom:24,lineHeight:1.55}}>Primary IAQ meter, PID, and calibration records used in your reports.</div>
 
       <div style={{marginBottom:20}}>
-        <span style={lbl}>Primary IAQ meter</span>
-        <select value={form.iaq_meter||''} onChange={e=>setF('iaq_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
+        <label htmlFor="ie-iaq_meter" style={lbl}>Primary IAQ meter</label>
+        <select id="ie-iaq_meter" value={form.iaq_meter||''} onChange={e=>setF('iaq_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
           <option value="">Select or skip</option>
           {IAQ_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -360,12 +419,12 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
         <div style={{padding:'16px',background:SURFACE,borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:20}}>
           <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:12}}>{form.iaq_meter}</div>
           <div style={{marginBottom:14}}>
-            <span style={lbl}>Serial number <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
-            <input type="text" value={form.iaq_serial||''} onChange={e=>setF('iaq_serial',e.target.value)} placeholder="S/N" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+            <label htmlFor="ie-iaq_serial" style={lbl}>Serial number <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></label>
+            <input id="ie-iaq_serial" type="text" value={form.iaq_serial||''} onChange={e=>setF('iaq_serial',e.target.value)} placeholder="S/N" style={inp} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
           </div>
           <div style={{marginBottom:14}}>
-            <span style={lbl}>Last calibration</span>
-            <input type="date" value={form.iaq_cal_date||''} onChange={e=>setF('iaq_cal_date',e.target.value)} style={{...inp,colorScheme:'dark'}} />
+            <label htmlFor="ie-iaq_cal_date" style={lbl}>Last calibration</label>
+            <input id="ie-iaq_cal_date" type="date" value={form.iaq_cal_date||''} onChange={e=>setF('iaq_cal_date',e.target.value)} style={{...inp,colorScheme:'dark'}} />
           </div>
           <div>
             <span style={lbl}>Calibration status</span>
@@ -375,8 +434,8 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
       )}
 
       <div style={{marginBottom:20}}>
-        <span style={lbl}>PID / VOC meter <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
-        <select value={form.pid_meter||''} onChange={e=>setF('pid_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
+        <label htmlFor="ie-pid_meter" style={lbl}>PID / VOC meter <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></label>
+        <select id="ie-pid_meter" value={form.pid_meter||''} onChange={e=>setF('pid_meter',e.target.value)} style={{...inp,appearance:'auto'}}>
           <option value="">None</option>
           {PID_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -391,8 +450,8 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
       )}
 
       <div style={{marginBottom:24}}>
-        <span style={lbl}>Additional instruments <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></span>
-        <textarea value={form.other_instruments||''} onChange={e=>setF('other_instruments',e.target.value)} placeholder="Moisture meter, thermal camera, smoke pencil..." rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}} />
+        <label htmlFor="ie-other_instruments" style={lbl}>Additional instruments <span style={{color:DIM,fontWeight:400,fontSize:11}}>(optional)</span></label>
+        <textarea id="ie-other_instruments" value={form.other_instruments||''} onChange={e=>setF('other_instruments',e.target.value)} placeholder="Moisture meter, thermal camera, smoke pencil..." rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}} />
       </div>
 
       <div style={{display:'flex',gap:8}}>
@@ -441,7 +500,7 @@ function PhotoNotFeasible({ existing, onSave, onClear }) {
         onChange={e=>setReason(e.target.value)}
         rows={2}
         placeholder="Why can't a photo be captured for this zone? (required, e.g. tenant denied access, energized equipment)"
-        style={{width:'100%', padding:'12px 14px', background:'var(--card)', border:'1.5px solid var(--border)', borderRadius:12, color:'var(--text)', fontSize:14, fontFamily:'inherit', outline:'none', boxSizing:'border-box', resize:'vertical'}}
+        style={{width:'100%', padding:'12px 14px', background:'var(--card)', border:'1.5px solid var(--border)', borderRadius:12, color:'var(--text)', fontSize:14, fontFamily:'inherit', boxSizing:'border-box', resize:'vertical'}}
       />
       <div style={{display:'flex', gap:8, marginTop:8}}>
         <button type="button" disabled={!reason.trim()} onClick={()=>{ onSave(reason.trim()); setOpen(false) }}
@@ -642,7 +701,11 @@ export default function MobileApp() {
   // Projects is the default landing (projects-centric nav redesign); the
   // legacy dashboard remains reachable from the side menu's Home-less
   // deep links until it's fully retired.
-  const [view, setView] = useState('projects')
+  // First view comes from the browser history / URL hash when the route
+  // can be restored without in-memory draft state (see routes.js
+  // `restore`); id-bearing routes are hydrated once storage is ready.
+  const initialNav = useRef(readInitialNav('projects')).current
+  const [view, setView] = useState(initialNav.view)
   // ── Notion-style page-transition direction tracker ──
   // Classifies each view change so AnimatedPageTransition can pick the
   // right enter animation: top-level dock destinations are "tab" (soft
@@ -698,7 +761,6 @@ export default function MobileApp() {
   // watches it and opens its edit sheet (the sheet state lives in the child).
   const [projectEditNonce, setProjectEditNonce] = useState(0)
   const [milestone, setMilestone] = useState(null)
-  const [clock, setClock] = useState(new Date())
   const [showPricing, setShowPricing] = useState(false)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   // When a new assessment is launched from a Project workspace, seed the
@@ -754,11 +816,12 @@ export default function MobileApp() {
   useEffect(() => {
     if (!profile || profile.isNew) return
     if (view !== 'dash') return
-    try { if (localStorage.getItem('aiq_feature_tour_seen')) return } catch { return }
-    setShowTour(true)
+    let cancelled = false
+    STO.get('aiq_feature_tour_seen').then(seen => { if (!cancelled && !seen) setShowTour(true) })
+    return () => { cancelled = true }
   }, [profile, view])
   const closeTour = () => {
-    try { localStorage.setItem('aiq_feature_tour_seen', '1') } catch { /* private mode */ }
+    STO.set('aiq_feature_tour_seen', '1')
     setShowTour(false)
   }
   const [selectedPhotos, setSelectedPhotos] = useState({})
@@ -775,6 +838,19 @@ export default function MobileApp() {
   // and reset when the viewed report changes.
   const [reportOpenError, setReportOpenError] = useState(null)
   const [currentIncident, setCurrentIncident] = useState(null)
+  // Mirror `view` (+ the ids a screen needs) into history.pushState so the
+  // platform back gesture goes to the previous screen instead of leaving
+  // the PWA, and a refresh reopens the last view. `restoreNav` (below,
+  // next to openReport) rebuilds the screen from a popped entry.
+  useViewHistory({
+    view,
+    extra: {
+      rptId: view === 'report' ? (viewRpt?.id || null) : null,
+      projectId: view === 'project-detail' ? (activeProjectId || null) : null,
+      incidentId: view === 'incident-detail' ? (currentIncident?.id || null) : null,
+    },
+    onPop: (st) => restoreNav(st),
+  })
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
   const [calWarning, setCalWarning] = useState(null)
@@ -932,7 +1008,9 @@ export default function MobileApp() {
   // model entirely; replace with subscription tiers + Single
   // Assessment License). The state declaration is intentionally kept
   // *gone* — there's no in-product surface that opens this sheet.
-  useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t) }, [])
+  // (A 30-second `setClock` interval used to live here. Nothing read the
+  // clock; its only effect was re-rendering the whole shell twice a minute
+  // while idle, which remounted the then-inline TrashView. Removed.)
 
   // Check for existing auth on load
   useEffect(() => {
@@ -1017,7 +1095,7 @@ export default function MobileApp() {
         setCurrentSiteId(site.id)
         setZones([{}]); setCurZone(0); setQsqi(0); setDqi(0); setZqi(0)
         setPhotos({}); setPhotoOverrides({}); setSensorData(null); setFloorPlan(null)
-        setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setEditorialCuts(null)
+        setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
         setNarrative(null); setSamplingPlan(null); setCausalChains([])
         trackEvent('site_link_hydrated', { site_id: site.id, prior_report: !!prior })
         setView('quickstart')
@@ -1046,7 +1124,7 @@ export default function MobileApp() {
   // "Go home" — the consultant home is the Projects landing; FM home stays
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
-  const goHome = () => { setView(homeView(userMode)); setViewRpt(null); setEditorialCuts(null) }
+  const goHome = () => { setView(homeView(userMode)); setViewRpt(null) }
 
   // Sustained "liquid-glass" press for the header glass controls (hamburger,
   // kebab, back pill). While held, the control grows and a cyan glow blooms;
@@ -1096,7 +1174,7 @@ export default function MobileApp() {
     // once. The flag lives in localStorage, so clearing the cache replays
     // it; returning users with a cached session are auto-resolved in the
     // bootstrap effect (never reaching handleLogin), so they never see it.
-    try { if (!localStorage.getItem('aiq_intro_seen')) setWelcomeAnim(true) } catch { /* private mode */ }
+    if (!(await STO.get('aiq_intro_seen'))) setWelcomeAnim(true)
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
       const p = await Storage.getProfile()
@@ -1145,7 +1223,7 @@ export default function MobileApp() {
       // so anything that has to outlive the draft→report transition keys on
       // this instead. See src/billing/assessmentUid.js.
       const draft = { ...prev, id:draftId, assessmentUid: ensureAssessmentUid({ ...prev, id: draftId }), presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, site_id: currentSiteId || null, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
-      await STO.set(draftId, draft)
+      reportStorageWrite(await STO.set(draftId, draft), 'draft')
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
       trackEvent('draft_saved', { draft_id: draftId, phase: view, zones: (zones||[]).length })
@@ -1378,7 +1456,7 @@ export default function MobileApp() {
     // Pre-bind to the originating Project when launched from its workspace.
     setPresurvey(psFill); setBldg(assessmentSeed ? { name: assessmentSeed.name, address: assessmentSeed.address } : {}); setAssessmentSeed(null); setQsqi(0); setDqi(0); setSensorData(null)
     setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
-    setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([]); setEditorialCuts(null)
+    setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
     setView('quickstart')
   }
 
@@ -1674,11 +1752,21 @@ export default function MobileApp() {
     const priorBody = (draftId ? await STO.get(draftId) : null) || {}
     const assessmentUid =
       viewRpt?.assessmentUid || priorBody.assessmentUid || ensureAssessmentUid({ id: draftId || rid })
-    const report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
-    await STO.set(rid, report)
+    // Photo blobs live in IndexedDB under the DRAFT id; deleteAssessment
+    // below purges that namespace, so copy them under the report id first.
+    const { photos: reportPhotos } = await rekeyPhotos(photos, rid)
+    if (reportPhotos !== photos) setPhotos(reportPhotos)
+    const report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
+    reportStorageWrite(await STO.set(rid, report), 'report')
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
-    if (draftId && draftId !== rid) { await STO.del(draftId); await STO.removeFromIndex(draftId, 'dft') }
+    // Storage.deleteAssessment, not STO.del: the draft row in the cloud
+    // still carries this assessment_uid, and the new rpt- row would hit
+    // the 032 unique index on first finalize (audit H3). deleteAssessment
+    // removes local + index + IDB photos AND the cloud row, queueing the
+    // cloud delete when offline. (supabaseStorage also self-heals a
+    // 23505 by deleting the stale draft- row, so this is belt and braces.)
+    if (draftId && draftId !== rid) { await Storage.deleteAssessment(draftId) }
     // Advance the session pointer to the finalized report. Without this,
     // draftId kept pointing at the now-retired draft id, so a follow-up
     // finalize in the SAME session — e.g. right after fixing a readiness
@@ -1690,8 +1778,11 @@ export default function MobileApp() {
     await refreshIndex()
     // Sync to cloud
     if (supabase) {
-      try { await Storage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn }) }
-      catch (e) { console.warn('Cloud sync deferred:', e.message) }
+      // saveAssessment never throws on a cloud failure any more; it reports
+      // { ok, queued, conflict } (sync handoff §4).
+      const r = await Storage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn })
+      if (r && !r.ok && r.conflict) console.warn('Cloud sync conflict — resolve from the sync indicator:', r.error?.message)
+      else if (r && !r.ok && !r.queued) console.warn('Cloud sync failed:', r.error?.message)
     }
 
     // Habit-loop PR 1 — close the investment → trigger arc.
@@ -1783,6 +1874,9 @@ export default function MobileApp() {
   }
 
   const executeExport = async (format, filteredPhotos, docxType) => {
+    // Photo records are `{ idbId, ts }` in state; the renderers need the
+    // image. Resolve every selected record from IndexedDB here, once.
+    filteredPhotos = (await expandPhotos(filteredPhotos || {})).photos
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
     const assessmentContext = buildAssessmentContext({
       view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
@@ -1795,6 +1889,7 @@ export default function MobileApp() {
     // Safari (and the results-tab toggle never captured at all), so re-render
     // the included charts from their data points here — a self-contained-SVG
     // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
+    const { ensureLoggerChartImages } = await loadLoggerChartImages()
     const sensorDataForReport = await ensureLoggerChartImages(sensorData)
     // `id` is the record this export is OF. Without it every export of the
     // same report mints a fresh Report ID downstream — see the fallback in
@@ -1814,6 +1909,7 @@ export default function MobileApp() {
         const label = docxType === 'technical' ? 'Writing your technical report' : 'Writing your report'
         setGenWriting({ label, durationMs: ms })
         await new Promise(res => setTimeout(res, ms))
+        const { generateTechnicalOnly, generateAtmosFlowOnly } = await loadDocxReport()
         if (docxType === 'technical') await generateTechnicalOnly(reportData)
         else await generateAtmosFlowOnly(reportData)
       } else if (format === 'pdf') {
@@ -1830,6 +1926,7 @@ export default function MobileApp() {
         // layout, anything else = classic.
         const style = docxType === 'modern_summary' ? 'modern_summary' : docxType === 'modern' ? 'modern' : 'classic'
         setGenWriting({ label: 'Writing your consultant report', durationMs: 15000 })
+        const { printReport } = await loadPrintReport()
         await new Promise(res => setTimeout(res, 15000))
         printReport(reportData, { style })
       }
@@ -1845,14 +1942,12 @@ export default function MobileApp() {
       // The error fires when index.html references a chunk hash the
       // server no longer has (post-redeploy without cache bust).
       const msg = (e && e.message) || ''
-      if (/is not a valid JavaScript MIME type|Failed to fetch dynamically imported module|Importing a module script failed/i.test(msg)) {
-        const reload = window.confirm(
-          'This page is out of date and the export cannot run with the cached version. Reload to update?'
-        )
-        if (reload) window.location.reload()
+      if (isStaleChunkError(e)) {
+        // importSafe has already evicted the SW caches and raised the
+        // persistent "Reload" toast; nothing more to say here.
         return
       }
-      alert('Report export failed: ' + (msg || 'Unknown error') + '. Please try again.')
+      toast.error('Report export failed: ' + (msg || 'Unknown error') + '. Please try again.')
     } finally {
       setGenWriting(null)
     }
@@ -1881,6 +1976,7 @@ export default function MobileApp() {
       })
       return out
     })()
+    const expandedPhotos = (await expandPhotos(filteredPhotos)).photos
     const assessmentContext = buildAssessmentContext({
       view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
@@ -1888,15 +1984,16 @@ export default function MobileApp() {
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
+      const { getAtmosFlowDocxBlob } = await loadDocxReport()
       const built = await getAtmosFlowDocxBlob(reportData)
       blob = built.blob
       fileName = built.fileName
     } catch (e) {
       console.error('Share DOCX build failed:', e)
-      alert('Could not prepare report for sharing: ' + ((e && e.message) || 'Unknown error'))
+      toast.error('Could not prepare report for sharing: ' + ((e && e.message) || 'Unknown error'))
       return
     }
     trackEvent('report_shared', { facility: bldg.fn || '', findings: comp?.findings?.total, format: 'docx' })
@@ -1933,6 +2030,7 @@ export default function MobileApp() {
       })
       return out
     })()
+    const expandedPhotos = (await expandPhotos(filteredPhotos)).photos
     const assessmentContext = buildAssessmentContext({
       view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
@@ -1940,7 +2038,8 @@ export default function MobileApp() {
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const { getAtmosFlowDocxBlob } = await loadDocxReport()
     const built = await getAtmosFlowDocxBlob(reportData)
     // Size pre-check. The DOCX is uploaded to Storage and attached to the
     // review email by the server; keep it under a cap that leaves the
@@ -1985,7 +2084,9 @@ export default function MobileApp() {
       // Prefer the handler's own error code; otherwise the failure came from
       // the platform (413 body-too-large, 5xx, timeout) with no JSON body —
       // surface the status so it's diagnosable instead of a bare "Send failed."
-      const detail = json.error
+      const detail = json.error === 'report_not_found'
+        ? 'this report has not synced to the cloud yet — connect and try again.'
+        : json.error
         ? String(json.error)
         : resp.status === 413
           ? 'the report is too large to email (20 MB limit).'
@@ -2014,12 +2115,13 @@ export default function MobileApp() {
     if (!narrative) return
     let blob, fileName
     try {
+      const { getNarrativeDocxBlob } = await loadDocxReport()
       const built = await getNarrativeDocxBlob({ facility: bldg, narrative, profile, ts: viewRpt?.ts })
       blob = built.blob
       fileName = built.fileName
     } catch (e) {
       console.error('Share narrative DOCX build failed:', e)
-      alert('Could not prepare narrative for sharing: ' + ((e && e.message) || 'Unknown error'))
+      toast.error('Could not prepare narrative for sharing: ' + ((e && e.message) || 'Unknown error'))
       return
     }
     trackEvent('narrative_shared', { facility: bldg.fn || '', word_count: String(narrative).split(/\s+/).length })
@@ -2036,13 +2138,46 @@ export default function MobileApp() {
     }
   }
 
+  // Rebuild a screen from a history entry (back / forward gesture, or the
+  // pending entry a refresh left behind). Routes that depend on in-memory
+  // draft state are not restorable and fall back to home.
+  const restoreNav = async (st) => {
+    const kind = ROUTES[st?.view]?.restore
+    if (!kind) { goHome(); return }
+    if (st.view === 'report') {
+      if (!st.rptId) { goHome(); return }
+      const meta = (index.reports || []).find(r => r.id === st.rptId) || { id: st.rptId }
+      await openReport(meta)
+      return
+    }
+    if (st.view === 'project-detail') {
+      if (!st.projectId) { goHome(); return }
+      setActiveProjectId(st.projectId); setViewRpt(null); setView('project-detail')
+      return
+    }
+    if (st.view === 'incident-detail') {
+      const inc = st.incidentId ? (await STO.getIncidents()).find(i => i && i.id === st.incidentId) : null
+      if (inc) { setCurrentIncident(inc); setView('incident-detail') } else setView('incident-log')
+      return
+    }
+    setViewRpt(null)
+    setView(st.view)
+  }
+  const restoredPendingRef = useRef(false)
+  useEffect(() => {
+    if (!profile || !initialNav.pending || restoredPendingRef.current) return
+    restoredPendingRef.current = true
+    restoreNav(initialNav.pending)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile])
+
   // Bridge the FM Buildings portfolio to the project workspace: tapping a
   // building opens its Project (created on first open, matched by name), so
   // the two building-organization surfaces are layered (portfolio → site
   // workspace) rather than parallel and disconnected.
   const openBuildingProject = async (buildingId) => {
     let buildings = []
-    try { buildings = JSON.parse(localStorage.getItem(KEYS.buildings) || '[]') } catch { buildings = [] }
+    buildings = (await STO.get(KEYS.buildings)) || []
     const b = buildings.find(x => x && x.id === buildingId)
     if (!b) return
     const proj = await getOrCreateProjectByName(b.name, { address: b.address || '', status: 'active' })
@@ -2163,7 +2298,7 @@ export default function MobileApp() {
     return <ProfileScreen onLogin={handleLogin} />
   }
   // First interactive sign-in per cache → 7 s brand intro, then the app.
-  if (welcomeAnim) return <Loading onDone={() => { try { localStorage.setItem('aiq_intro_seen','1') } catch { /* private mode */ } ; setWelcomeAnim(false) }} />
+  if (welcomeAnim) return <Loading onDone={() => { STO.set('aiq_intro_seen', '1'); setWelcomeAnim(false) }} />
   // Mode selection — FM mode paused; auto-select IH for all users
   const hasModeSet = localStorage.getItem(KEYS.userMode)
   if (profile && (!hasModeSet || hasModeSet === 'fm')) {
@@ -2195,7 +2330,7 @@ export default function MobileApp() {
   // back to IH rather than stranding the user on a hidden mode.
   if (userMode === 'mold') {
     if (isMoldModuleEnabled()) {
-      return <MoldModeScreen profile={profile} onExit={() => { handleModeSwitch('ih'); setView(homeView('ih')) }} />
+      return <Suspense fallback={LAZY_FALLBACK}><MoldModeScreen profile={profile} onExit={() => { handleModeSwitch('ih'); setView(homeView('ih')) }} /></Suspense>
     }
     persistMode('ih'); setUserMode('ih')
   }
@@ -2255,7 +2390,7 @@ export default function MobileApp() {
 
           {extraTop}
 
-          {q.t==='text'&&<><input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id, q.ac==='street-address' ? e.target.value.replace(/[^A-Za-z0-9\s,.#/'&-]/g,'') : e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id]&&!addrInvalid)goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${addrInvalid?WARN:BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=addrInvalid?WARN:ACCENT} onBlur={e=>e.target.style.borderColor=addrInvalid?WARN:BORDER} />{addrInvalid&&<div style={{fontSize:13,color:WARN,marginTop:8,fontFamily:'inherit'}}>Enter a valid address: letters required (e.g. a street name or campus ID).</div>}</>}
+          {q.t==='text'&&<><input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id, q.ac==='street-address' ? e.target.value.replace(/[^A-Za-z0-9\s,.#/'&-]/g,'') : e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id]&&!addrInvalid)goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${addrInvalid?WARN:BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=addrInvalid?WARN:ACCENT} onBlur={e=>e.target.style.borderColor=addrInvalid?WARN:BORDER} />{addrInvalid&&<div style={{fontSize:13,color:WARN,marginTop:8,fontFamily:'inherit'}}>Enter a valid address: letters required (e.g. a street name or campus ID).</div>}</>}
           {q.t==='num'&&(() => {
             // Map wizard field id → canonical BLE metric. Only the
             // CO2 fields wire to BLE in this PR; adding RH / temp /
@@ -2275,7 +2410,7 @@ export default function MobileApp() {
               <div>
                 <div style={{display:'flex',alignItems:'stretch',gap:8}}>
                   <div style={{position:'relative',flex:1,minWidth:0}}>
-                    <input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,outline:'none',boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+                    <input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
                     {q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}
                   </div>
                   {/* BLE sensor pair button — sits to the right of
@@ -2302,7 +2437,7 @@ export default function MobileApp() {
               </div>
             )
           })()}
-          {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',outline:'none',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
+          {q.t==='date'&&<input type="date" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',boxSizing:'border-box',colorScheme:'dark'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />}
           {q.t==='time'&&<TimePickerInput value={data[q.id]||''} onChange={v=>setField(q.id,v)} placeholder={q.ph||'Select time…'} />}
           {/* Free-text wizard input ('ta' question type). Wrapped in
               a relative container so the dictation mic button can
@@ -2330,7 +2465,7 @@ export default function MobileApp() {
               context={{ field: q.id, prompt: q.q || q.ph || null }}
               placeholder={q.ph||'Notes...'}
               rows={3}
-              style={{width:'100%',padding:'18px 96px 18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',resize:'vertical',boxSizing:'border-box',lineHeight:1.5}}
+              style={{width:'100%',padding:'18px 96px 18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box',lineHeight:1.5}}
               onFocus={e=>e.target.style.borderColor=ACCENT}
               onBlur={e=>e.target.style.borderColor=BORDER}
             />
@@ -2350,13 +2485,13 @@ export default function MobileApp() {
             </div>
           </div>}
           {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(o==='Other'?isOtherChoice(q.opts,data[q.id]):(data[q.id]===o));return(<button key={o} onClick={()=>{haptic('light');if(o==='Other'&&q.other){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span></button>)})}
-            {q.other&&isOtherChoice(q.opts,data[q.id])&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:4}} />}
+            {q.other&&isOtherChoice(q.opts,data[q.id])&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:4}} />}
           </div>}
           {q.t==='multi'&&q.opts&&(()=>{const arr=data[q.id]||[];const exclusiveSel=arr.find(isExclusiveMultiOpt)||null;return(<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const optExclusive=isExclusiveMultiOpt(o);
             // When an exclusive choice is active, every other option is
             // locked (and shown unchecked) until it's deselected.
             const locked=exclusiveSel&&o!==exclusiveSel;const sel=exclusiveSel?o===exclusiveSel:arr.includes(o);const onClick=()=>{if(locked)return;if(optExclusive){setField(q.id,sel?[]:[o]);return}setField(q.id,sel?arr.filter(x=>x!==o):[...arr.filter(x=>!isExclusiveMultiOpt(x)),o])};return(<button key={o} disabled={!!locked} aria-disabled={!!locked} onClick={onClick} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1,transition:'opacity .15s',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>)})()}
-          {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
+          {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
           {q.t==='sensors'&&<>
             <SensorScreen data={data} onChange={setField} sensorData={sensorData} isDesktop={false} showOutdoor={curZone === 0} />
             <InstrumentLogImport calibrationGas={data.pid_cal_gas} onApply={(payload)=>{
@@ -2370,6 +2505,7 @@ export default function MobileApp() {
             <JasperWatchPanel data={data} context={{building: bldg, presurvey}} />
           </>}
           {q.photo&&<PhotoCapture
+            assessmentId={draftId}
             photos={photos[`z${curZone}-${q.id}`]||[]}
             analysisContext={`Zone ${curZone+1} — ${q.lbl || q.id}`}
             onAdd={p=>setPhotos(prev=>({...prev,[`z${curZone}-${q.id}`]:[...(prev[`z${curZone}-${q.id}`]||[]),p]}))}
@@ -2491,6 +2627,12 @@ export default function MobileApp() {
         })
         return
       }
+      // Migration 034: an issued report's content is immutable in the cloud
+      // until it is moved back to draft. The user has just chosen to reopen
+      // it, so say so; the re-finalize upsert then carries report_status
+      // 'final' again with the new content. Best-effort — offline, the
+      // re-finalize is queued and parks as a conflict the user can resolve.
+      if (supabase) { try { await Storage.reopenAssessment(id) } catch { /* best effort */ } }
       setViewRpt(null)
     }
     fixBlocker(blocker)
@@ -2905,7 +3047,7 @@ export default function MobileApp() {
           />
         )}
 
-        {rTab==='logger' && <LoggerGraphsTab sensorData={loggerSd} editable onToggleInclude={archived ? toggleArchivedLoggerInclude : toggleLoggerInclude} />}
+        {rTab==='logger' && <Suspense fallback={LAZY_FALLBACK}><LoggerGraphsTab sensorData={loggerSd} editable onToggleInclude={archived ? toggleArchivedLoggerInclude : toggleLoggerInclude} /></Suspense>}
 
         {rTab==='overview' && zs && (() => {
           // ── v3 Findings tab — derive panels from existing engine state ──
@@ -3355,7 +3497,7 @@ export default function MobileApp() {
           )})}
         </div>}
 
-        {KG_EVIDENCE_ENABLED&&rTab==='evidence'&&isDesktop&&<EvidenceMap zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={viewRpt?.id} />}
+        {KG_EVIDENCE_ENABLED&&rTab==='evidence'&&isDesktop&&<Suspense fallback={LAZY_FALLBACK}><EvidenceMap zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={viewRpt?.id} /></Suspense>}
 
         {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
           {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="flask" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No sampling indicated</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No hypotheses requiring confirmatory sampling.</div></div>
@@ -3484,29 +3626,6 @@ export default function MobileApp() {
               themselves; Logger Studio remains in the bottom nav. */}
         </div>}
         </div>
-      </div>
-    )
-  }
-
-  // ── Trash view (inline component) ──
-  const TrashView = ({ onRecover, onDelete }) => {
-    const [items, setItems] = useState([])
-    useEffect(() => { Backup.listTrash().then(setItems) }, [])
-    return (
-      <div style={{paddingTop:28,paddingBottom:100}}>
-        <h2 style={{fontSize:22,fontWeight:700,marginBottom:8,color:TEXT}}>Trash</h2>
-        <div style={{fontSize:13,color:SUB,marginBottom:20,lineHeight:1.6}}>Deleted items are kept for 30 days, then permanently removed.</div>
-        {items.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>Trash is empty</div>
-        :items.map(t=>(
-          <div key={t.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:15,fontWeight:600,color:TEXT}}>{t.name||'Untitled'}</div>
-              <div style={{fontSize:12,color:DIM,fontFamily:"var(--font-mono)",marginTop:4}}>Deleted {fD(t.deletedAt)} · Expires {fD(t.expiresAt)}</div>
-            </div>
-            <button onClick={async()=>{await onRecover(t.id);setItems(await Backup.listTrash())}} style={{padding:'10px 16px',background:`${mix('accent', 8)}`,border:`1px solid ${mix('accent', 19)}`,borderRadius:10,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Recover</button>
-            <button onClick={async()=>{await onDelete(t.id);setItems(await Backup.listTrash())}} style={{padding:'10px 14px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:DIM,fontSize:13,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>✕</button>
-          </div>
-        ))}
       </div>
     )
   }
@@ -3753,7 +3872,7 @@ export default function MobileApp() {
       className={profile && showHomeMenu ? 'af-content-surface is-open' : 'af-content-surface'}
       onTouchStart={onShellTouchStart}
       onTouchEnd={onShellTouchEnd}
-      style={{minHeight:'100vh',background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: profile && isDesktop ? SIDEBAR_W : 0}}>
+      style={{minHeight:V3.FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: profile && isDesktop ? SIDEBAR_W : 0}}>
       {/* Global offline banner — sits above the header so the
           offline state is impossible to miss. PendingSyncIndicator
           below stays as the source-of-truth for queue depth + last
@@ -4149,7 +4268,7 @@ export default function MobileApp() {
                   <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${sel?ACCENT:DIM}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                     {sel && <span style={{color:ON_ACCENT,fontSize:12,fontWeight:700}}>✓</span>}
                   </div>
-                  {p.src && <img src={p.src} alt="" style={{width:48,height:48,objectFit:'cover',borderRadius:6,flexShrink:0}} />}
+                  <PhotoThumb photo={p} size={48} />
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{fieldLabels[fieldId]||fieldId}</div>
                     <div style={{fontSize:11,color:DIM,marginTop:2}}>{zoneName}{p.ts?` · ${new Date(p.ts).toLocaleTimeString()}`:''}</div>
@@ -4369,15 +4488,9 @@ export default function MobileApp() {
         const send = async (id) => {
           const res = await applyGraphsToReport(id)
           setGraphTargetOpen(false)
-          if (res?.ok) alert(`Charts attached to "${res.facility || 'this report'}". They'll appear in its Word export. Open it and re-export to include them.`)
-          else alert("Couldn't attach the charts to that report.")
+          if (res?.ok) toast.success(`Charts attached to "${res.facility || 'this report'}". They'll appear in its Word export. Open it and re-export to include them.`)
+          else toast.error("Couldn't attach the charts to that report.")
         }
-        const Row = ({ item, kind }) => (
-          <GlassCard dense onClick={()=>send(item.id)} style={{padding:'14px 16px'}}>
-            <div style={{fontSize:14,fontWeight:700,color:TEXT,marginBottom:3}}>{item.facility || 'Untitled'}</div>
-            <div style={{fontSize:12,color:SUB}}>{kind}</div>
-          </GlassCard>
-        )
         return (
           <BottomSheet title="Send graphs to a report" onClose={()=>setGraphTargetOpen(false)} maxWidth={420} ariaLabel="Choose a report to receive the logger charts">
             <div style={{fontSize:13,color:SUB,margin:'4px 0 16px',lineHeight:1.55}}>The charts marked “Include in report” will be attached to the report you pick and embed in its Word export.</div>
@@ -4386,9 +4499,9 @@ export default function MobileApp() {
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 {drafts.length > 0 && <div style={V3.T.micro}>Drafts</div>}
-                {drafts.map(d => <Row key={d.id} item={d} kind="Draft" />)}
+                {drafts.map(d => <GraphTargetRow key={d.id} item={d} kind="Draft" onSend={send} />)}
                 {reports.length > 0 && <div style={{...V3.T.micro, marginTop: drafts.length ? 6 : 0}}>Finalized</div>}
-                {reports.map(r => <Row key={r.id} item={r} kind="Finalized report" />)}
+                {reports.map(r => <GraphTargetRow key={r.id} item={r} kind="Finalized report" onSend={send} />)}
               </div>
             )}
             <div style={{marginTop:14}}>
@@ -4914,12 +5027,12 @@ export default function MobileApp() {
           </div>
           <div style={{display:'flex',gap:8,marginBottom:14}}>
             <div style={{flex:1,position:'relative'}}>
-              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{width:'100%',padding:'12px 14px 12px 38px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:TEXT,fontSize:14,fontFamily:'inherit',outline:'none',boxSizing:'border-box',minHeight:44}} />
+              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{width:'100%',padding:'12px 14px 12px 38px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
               <div style={{position:'absolute',top:'50%',left:14,transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
                 <I n="search" s={14} c={V3.TEXT_TERTIARY} w={1.8} />
               </div>
             </div>
-            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 14px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:13,fontFamily:'inherit',outline:'none',minHeight:44,cursor:'pointer'}}>
+            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 14px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:13,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
               <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="findings-high">Most findings</option><option value="findings-low">Fewest findings</option>
             </select>
           </div>
@@ -4947,7 +5060,7 @@ export default function MobileApp() {
             <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
               {fReports.map((r, i) => {
                 return (
-                  <div key={r.id} onClick={()=>openReport(r)} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
+                  <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
                     <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="report" s={15} c={V3.TEXT_SECONDARY} w={1.6} /></div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
@@ -4966,8 +5079,8 @@ export default function MobileApp() {
           )}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='sampling-forms'&&<SamplingFormsView profile={profile} onBack={exitTool} />}
-        {view==='sensor-data'&&<SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={toolReturn==='project-detail' ? activeProjectId : null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} />}
+        {view==='sampling-forms'&&<Suspense fallback={LAZY_FALLBACK}><SamplingFormsView profile={profile} onBack={exitTool} /></Suspense>}
+        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={toolReturn==='project-detail' ? activeProjectId : null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} /></Suspense>}
         {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else if(v==='mold'){handleModeSwitch('mold')}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
@@ -4976,12 +5089,12 @@ export default function MobileApp() {
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}
         {view==='instrument-edit'&&<InstrumentEditView profile={profile} onSave={(updated)=>{setProfile(updated);setView('account')}} onCancel={()=>setView('account')} />}
-        {view==='admin'&&adminSecret&&<AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} />}
+        {view==='admin'&&adminSecret&&<Suspense fallback={LAZY_FALLBACK}><AdminDashboard onBack={()=>setView('settings')} adminSecret={adminSecret} /></Suspense>}
         {view==='incident-form'&&<IncidentForm onCancel={goHome} onSaved={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={goHome} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(target,arg)=>{if(target==='building'){openBuildingProject(arg)}else{setView(target)}}} assessmentIndex={index} />}
-        {view==='spatial'&&<SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} />}
+        {view==='spatial'&&<Suspense fallback={LAZY_FALLBACK}><SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} /></Suspense>}
 
        </AnimatedPageTransition>
       </div>
@@ -5082,6 +5195,7 @@ export default function MobileApp() {
       )}
 
       {profile && faOpen && (
+        <Suspense fallback={LAZY_FALLBACK}>
         <FieldAssistant
           onClose={() => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null) }}
           onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); if (v === 'dash') goHome(); else setView(v) }}
@@ -5194,6 +5308,7 @@ export default function MobileApp() {
             projects_index: aiProjectsIndex,
           })}
         />
+        </Suspense>
       )}
 
       <style>{`

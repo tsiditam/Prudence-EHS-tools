@@ -39,7 +39,6 @@ function check(name, fn) {
 
 // ── 1. No NaN values rendered ─────────────────────────────────────────────
 check('No NaN values rendered', () => {
-  const nanMatches = text.match(/\bNaN\b/g) || []
   const nanInHtml = allText.match(/NaN/g) || []
   const count = nanInHtml.length
   return count === 0
@@ -52,7 +51,6 @@ check('No null values rendered', () => {
   const nullPatterns = [/\bnull\b\/\d+/g, /\bnull\b%/g, /\bnull\/\d+/g]
   let count = 0
   nullPatterns.forEach(p => { count += (text.match(p) || []).length })
-  const bareNull = (text.match(/\bnull\b/g) || []).filter(m => true)
   count += (allText.match(/null\/\d+/g) || []).length
   return count === 0
     ? { pass: true }
@@ -74,7 +72,7 @@ check('Site name consistent', () => {
   const coverText = $('body').children().first().text().substring(0, 2000)
   // Extract building name from "Site:" or the first bold heading
   const siteMatch = coverText.match(/Site:\s*(.+?)(?:\n|$)/i) || coverText.match(/Assessment Report\s+(.+?)(?:\n|$)/i)
-  const siteName = siteMatch?.[1]?.trim() || h1
+  void (siteMatch?.[1]?.trim() || h1) // site name extraction kept for the heading walk below
 
   // Check all occurrences of anything that looks like a facility name in h2/h3 headings
   const nameVariants = new Set()
@@ -104,7 +102,6 @@ check('No empty section placeholders', () => {
   const sections = []
   $('h2').each((_, el) => {
     const heading = $(el).text().trim()
-    const nextContent = []
     let sibling = $(el).next()
     let charCount = 0
     while (sibling.length && !sibling.is('h2')) {
@@ -122,7 +119,6 @@ check('No empty section placeholders', () => {
 check('Zone scores reconcile', () => {
   // Extract zone scores from the zone headers and the appendix summary
   const zoneScores = {}
-  const scorePattern = /(\d+)\s*\/\s*100/g
   const issues = []
 
   // Look for zone-level score displays
@@ -155,7 +151,6 @@ check('Zone scores reconcile', () => {
 // ── 6. Scoring schema disclosed ───────────────────────────────────────────
 check('Scoring schema disclosed', () => {
   const hasTransparency = text.includes('Standards Reference') || text.includes('Scoring Methodology') || text.includes('Engine v')
-  const hasRiskBands = text.includes('Low Risk') || text.includes('Moderate') || text.includes('High Risk') || text.includes('Critical')
 
   // Check if category weights are disclosed
   const schemas = []

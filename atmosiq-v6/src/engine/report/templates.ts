@@ -48,13 +48,14 @@ export const COVER_METHODOLOGY_LINE =
 // in the CTSI letter format.
 
 import type { AssessmentMeta, Recipient } from '../types/domain'
+import { ASSESSMENT_DATE_NOT_RECORDED } from '../bridge/meta'
 
 export interface TransmittalBodyContext {
   readonly meta: AssessmentMeta
 }
 
 export const TRANSMITTAL_OPENING = (ctx: TransmittalBodyContext): string =>
-  `On ${ctx.meta.assessmentDate} at the request of ${ctx.meta.transmittalRecipient.organization}, ${ctx.meta.issuingFirm.name} (${shortFirmName(ctx.meta.issuingFirm.name)}) performed an indoor air quality evaluation at the above-referenced premises.`
+  `${ctx.meta.assessmentDate === ASSESSMENT_DATE_NOT_RECORDED ? 'On a date not recorded in the assessment record,' : `On ${ctx.meta.assessmentDate}`} at the request of ${ctx.meta.transmittalRecipient.organization}, ${ctx.meta.issuingFirm.name} (${shortFirmName(ctx.meta.issuingFirm.name)}) performed an indoor air quality evaluation at the above-referenced premises.`
 
 export const TRANSMITTAL_ENCLOSED = (ctx: TransmittalBodyContext): string =>
   `Enclosed is ${shortFirmName(ctx.meta.issuingFirm.name)}'s report for these services.`

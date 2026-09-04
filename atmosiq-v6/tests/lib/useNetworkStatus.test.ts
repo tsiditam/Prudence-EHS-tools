@@ -11,7 +11,7 @@
  *   • isOnline() imperative read stays in sync with the hook
  *   • Test harness setOnline() drives state changes deterministically
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
 import { useNetworkStatus, isOnline, __test } from '../../src/hooks/useNetworkStatus'

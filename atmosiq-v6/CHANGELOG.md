@@ -1,5 +1,195 @@
 # AtmosFlow Changelog
 
+## Audit remediation (September 2026)
+
+The engineering audit (`docs/AUDIT-2026-09.md`) found that nothing gated a
+deploy, 85% of production code had no static analysis, the acceptance
+gates were grep, the container path could not boot and the docs
+described scripts that did not exist. This entry covers the process,
+delivery and dependency changes; the other audit areas are recorded
+below it.
+
+**Security and API (audit §2–3)**
+
+- `/api/credits` rejects non-integer or non-positive amounts and debits
+  through the atomic `consume_credits` RPC (migration 033); a negative
+  amount no longer grows a balance.
+- Migration 033: column-level `REVOKE UPDATE` on the entitlement columns of
+  `profiles` (plan, credits, Stripe and status fields), server-side defaults
+  for the values the client used to write, widened `generation_type` CHECK
+  so `inline_ai`, `inline_complete`, `pre_review_semantic` and
+  `photo_analysis` ledger rows land (their rate limits had never fired), RLS
+  on `schema_migrations`, non-recursive org policies via `is_org_admin`,
+  `analytics_events` inserts require `auth.uid()`, user INSERT on
+  `credits_ledger` dropped, `invitations.invited_by` `ON DELETE SET NULL`,
+  and nine missing indexes.
+- Peer review: both `assessments` updates are scoped to the report owner;
+  the public respond endpoint throttles invalid-token attempts per IP.
+- `/api/checkout` requires the Bearer JWT and allow-lists the return
+  origin; the customer portal return URL is allow-listed the same way.
+- `/api/narrative` owns its system prompt server-side and caps the payload
+  at 60 KB; report PDF and template render return 402 without credits.
+- Stripe webhook handles `invoice.paid` subscription cycles idempotently,
+  maps price changes to plan and credits, writes a ledger row on
+  cancellation, never overwrites an admin `suspended` status; all balance
+  changes go through `grant_credits` / `consume_credits`, including the
+  monthly cron and the reset endpoint.
+- Every AI endpoint reserves its ledger row before the upstream call
+  (`api/_rate-limit.js`) and reads `{ error }`; inline-AI rewrites pass
+  through the banned-language scan; the field assistant scopes
+  `conversation_id` to the caller and frames client context as data.
+- Account deletion nulls PII in `audit_log`, purges marketing leads,
+  analytics events and both storage prefixes.
+- Internal error text no longer reaches clients; every handler is wrapped
+  by `withSentry`, so server-side Sentry initialises on Vercel.
+
+**Database and sync (audit §4)**
+
+- The offline sync queue keeps items that fail to save (they were being
+  discarded), is keyed by id, stores compacted copies, surfaces quota
+  exhaustion, and no longer wedges on a persisted in-flight flag.
+- Column-drop retry happens only on `42703`; a `23505` uid collision
+  deletes the stale draft row instead of dropping `payload`.
+- Migration 034: `base_updated_at` conflict detection (multi-device edits
+  no longer silently overwrite), immutability trigger for reviewed/final
+  reports, `finalized_at` as the report date; the v3 census is written to
+  `payload.census`, not `composite`.
+- `fullSync` selects explicit columns without photos and pages by 500.
+- Migration 000 lets a fresh database be built by the runner; the runner
+  enables RLS on its ledger, rejects duplicate versions and requires
+  `--baseline-through`.
+
+**Engine and standards (audit §5)**
+
+- Non-numeric readings (`1,180`, `<5`, `abc`) produce a data-gap finding
+  instead of a pass; the report table shares the engine's parser.
+- The report table's own outcome ladder is gone; outcomes derive from
+  engine findings, and `cross-layer-consistency.test.ts` renders a fixture
+  matrix and checks table, findings and Appendix A agree with `scoreZone`.
+- CO₂ is evaluated even when airflow was measured; the no-outdoor tier is
+  reachable; meeting the 62.1 minimum exactly is a pass.
+- No survey date means a comfort-band data gap, never today's season;
+  report ids and stamps derive from the assessment date; `now` is injected.
+- Grab readings are never stated to exceed an 8-hour PEL; the live advisor
+  and `classify.ts` route on criterion class, not on the word "OSHA".
+- Visible mold growth is IICRC S520 Condition 3 with EPA (2008) extent
+  bands; the NYC "Level" ladder is no longer attributed to EPA.
+- RH 30–60% is cited to EPA moisture-control guidance everywhere (nine
+  building profiles, the DOCX narrative, the Logger card); NIOSH RELs are
+  10-hour TWAs; ACGIH formaldehyde is the 2017 TWA/STEL; the OSHA action
+  level is OSHA's; Δ700 ppm is attributed to the removed appendix;
+  calibration validity reads 365 days.
+- Unverified healthcare and laboratory ACH figures were withdrawn to the
+  gap ledger rather than replaced by guesses; procedure rooms are 15 ACH
+  per ASHRAE 170-2021 Table 7.1; isolation text depends on the recorded
+  kind (AII negative, PE positive).
+- Appendix A lists only references a finding or measurement cited, with
+  the basis and usage for each.
+- Portable HEPA is recommended only with a particulate finding; gypsum
+  moisture is qualitative; one wood-moisture constant (16% MC, IICRC S500).
+
+**Frontend and PWA (audit §6)**
+
+- The main bundle drops from 930 KB to 312 KB gzipped: `React.lazy` for
+  the report, print, sensor, assistant, admin, forms, evidence-map, mold
+  and lab-import screens, vendor chunks for docx, jspdf, recharts, Supabase,
+  Sentry and markdown, and a stale-chunk guard that prompts a reload
+  instead of failing.
+- Three components defined inside render (`TrashView`, `Radio`, the graph
+  row) are hoisted; the 30-second shell re-render is gone.
+- Navigation is history-backed: back gestures return to the previous
+  screen and a refresh restores the last view.
+- `AssessmentContext` is split into data and results contexts so typing in
+  a zone field no longer re-renders every consumer; `setZF` no longer
+  closes over a stale zone.
+- Photos live in IndexedDB as ids; state and autosave carry references,
+  finalize re-keys blobs under the report id, and a full device store
+  surfaces as a toast instead of a silent failure.
+- Bluetooth: unmounting the sensor screen now disconnects GATT.
+- Service worker caches by allow-list only, and an "Update available"
+  toast replaces running old code against a new cache.
+- Accessibility: pinch-zoom re-enabled, the two documented contrast
+  failures fixed (9.26:1 and 5.78:1), theme-aware secondary text, visible
+  focus rings, clickable divs converted to buttons, labelled inputs, focus
+  traps in the bottom sheet and dialogs; `alert`/`confirm` replaced by
+  toasts and an accessible confirm dialog.
+- `ErrorBoundary` reports to Sentry; credit analytics use the live
+  balance; four `no-undef` runtime bugs fixed; dead landing-page
+  components deleted; seven date formatters consolidated.
+- Client follow-ups from the API changes: checkout sends the Bearer token,
+  the narrative client no longer sends a system prompt, 402 and
+  not-yet-synced errors have user-facing copy, analytics events are
+  attributed to the signed-in user.
+
+<!-- coordinator: append other areas here -->
+
+**Process and delivery**
+
+- **CI.** `.github/workflows/atmosflow-ci.yml` runs typecheck → lint →
+  test → build, `accept:api-boot` + `bundle:api`, and `accept:prod-ready`
+  on every pull request and push to `main` touching `atmosiq-v6/` (Node
+  20, npm cache keyed on the lockfile). Require `test` and `api-boot` in
+  branch protection.
+- **`api_boot` acceptance check.** `scripts/api-boot-check.mjs` bundles
+  every `api/**` entry with esbuild the way Vercel's runtime sees it,
+  refuses extension-less relative ESM imports at resolve time, and
+  imports the output under plain Node asserting a function default export
+  — the exact runtime shape of the "every API function was returning
+  500" incident below. Criterion `API-BOOT` in `prod-ready.json`,
+  `go-live.json` and the new `api-boot.json`; `npm run accept:api-boot`.
+- **`prod-ready.json` runs the test suite once.** Seven feature criteria
+  each carried their own `npm_script_passes: test`; the suite ran eight
+  times and the gate timed out. `BUILD-02` is the single run. 76 criteria.
+- **Static analysis reaches `src/`.** `eslint.config.mjs` has real rules
+  (`no-undef`, `no-dupe-keys`, `no-unreachable`, `no-debugger`,
+  `no-unused-vars`, `eqeqeq`) plus `eslint-plugin-react-hooks` on
+  `src/**` under a warning ratchet (`lint:src`, `--max-warnings=<N>`);
+  errors fail outright. Infra paths keep `--max-warnings=0` with
+  `@typescript-eslint/no-unused-vars`. `tsconfig.check.json` now covers
+  `src/**/*.ts(x)` (clean).
+- **Coverage.** `npm run test:coverage` (`@vitest/coverage-v8`) with
+  thresholds just under the measured baseline (lines 65, branches 50,
+  functions 55, statements 60).
+- **Bundle.** `manualChunks` splits docx, jspdf, recharts, supabase,
+  sentry, markdown and lucide into vendor chunks: main chunk 3,104 KB /
+  930 KB gzip → 1,524 KB / 448 KB gzip; the vendor chunks survive deploys
+  in the PWA cache.
+- **Container path is real.** `scripts/bundle-api.mjs` bundles every
+  `api/**` entry and `lib/sentry.ts` to `server/handlers/**/*.mjs`;
+  `server/index.js` mounts every handler by walking that tree (nested
+  routes included), forwards all methods, sets `trust proxy`, serves
+  `GET /healthz` `{ ok, sha }`, initialises Sentry and logs missing env;
+  the Dockerfile runs the bundling step and carries a `HEALTHCHECK`.
+  `docs/CONTAINER.md` now describes what exists.
+- **Environment.** `.env.example` lists every variable read by `api/`,
+  `lib/`, `scripts/`, `server/` and `vite.config.js` (was 3 of 39),
+  grouped and commented; `docs/ENVIRONMENT.md` maps each to its readers;
+  `scripts/check-env.mjs` (`npm run check:env`) lists missing required
+  server variables and runs at container boot.
+- **Smoke test** probes every `api/**` route unauthenticated (GET and
+  POST, non-5xx required) and also runs on every successful production
+  `deployment_status`, not only at 06:00 UTC.
+- **Docs drift.** README engine line reads from `src/version.js`
+  (`atmosflow-engine-3.0.0`) and its test section matches
+  `package.json`; `docs/ACCEPTANCE.md` describes the current configs and
+  check types; `docs/REPORT_ARCHITECTURE.md` no longer points at
+  `v2.3.json` / `accept:v2.6`; CLAUDE.md counts (35 migrations, 76
+  criteria) and a CI paragraph. The runner's default config is
+  `prod-ready.json`.
+- **Dependencies.** Removed the six unused packages (`@mui/material`,
+  `@mui/x-date-pickers`, `@emotion/react`, `@emotion/styled`, `vaul`,
+  `@testing-library/jest-dom`); declared `html2canvas` and `esbuild`,
+  which were imported but undeclared; `cheerio` → devDependencies;
+  `@types/react` / `@types/react-dom` pinned to `^18` to match React 18.
+  Security upgrades are listed in the dependency notes below.
+- **Repo hygiene.** `.nvmrc` (20); `.gitignore` gains `coverage/`,
+  `*.log`, `.DS_Store`, `server/handlers/`; `generate-icons.cjs` and
+  `generate-whitepaper.cjs` moved into `scripts/`; the 13.6 MB demo video
+  and 2.1 MB GIF removed from `public/` (host them on Supabase Storage or
+  a CDN — the landing page carries the note); the stale root-level
+  `atmosflow-landing.html` (still showed the removed 100-point score) and
+  its `test_landing.py` deleted in favour of `public/atmosflow-landing.html`.
+
 ## Fix: mold mode could not be exited on a notched iPhone
 
 **User-visible change**

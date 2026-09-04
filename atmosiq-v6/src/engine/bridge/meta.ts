@@ -63,6 +63,15 @@ export interface MetaInput {
   readonly instrumentsUsed?: ReadonlyArray<InstrumentRef>
 }
 
+/**
+ * What `assessmentDate` carries when the record has none. A string rather
+ * than `undefined` because `AssessmentMeta.assessmentDate` is typed `string`
+ * and every renderer interpolates it; the value reads correctly in the
+ * metadata table ("Survey date: not recorded") and in prose ("on not
+ * recorded" is the honest gap, where "on 2026-09-03" was an invention).
+ */
+export const ASSESSMENT_DATE_NOT_RECORDED = 'not recorded'
+
 const DEFAULT_FIRM: IssuingFirm = {
   name: 'Prudence Safety & Environmental Consulting, LLC',
   contact: {
@@ -103,10 +112,13 @@ export function deriveAssessmentMeta(input: MetaInput): AssessmentMeta {
       : undefined
 
   // v2.2 §2 — project number derivation. Caller override > presurvey
-  // ps_project_number > deterministic year-based default.
+  // ps_project_number > deterministic default keyed on the ASSESSMENT year.
+  // It read the clock until 2026-09 (audit H6), so the same undated record
+  // rendered a different project number after New Year.
+  const assessmentYear = /^\d{4}/.test(input.assessmentDate || '') ? (input.assessmentDate as string).slice(0, 4) : null
   const projectNumber = input.projectNumber
     || presurvey?.ps_project_number
-    || `PSEC-${new Date().getFullYear()}-0001`
+    || (assessmentYear ? `PSEC-${assessmentYear}-0001` : 'PSEC-UNDATED-0001')
 
   // v2.2 §3 — transmittal recipient. Caller override > presurvey
   // ps_recipient_* fields > derived placeholder.
@@ -133,7 +145,10 @@ export function deriveAssessmentMeta(input: MetaInput): AssessmentMeta {
   return {
     siteName: building?.fn || 'Unnamed Facility',
     siteAddress: building?.fl || '',
-    assessmentDate: input.assessmentDate || new Date().toISOString().slice(0, 10),
+    // Never today (audit H5). A record with no survey date says so; the
+    // renderer's `fallbackOrNotSpecified` and the prose both read this
+    // sentinel rather than a date the assessment did not have.
+    assessmentDate: input.assessmentDate || ASSESSMENT_DATE_NOT_RECORDED,
     preparingAssessor,
     reviewingProfessional,
     reviewStatus: input.reviewStatus ?? 'draft_pending_professional_review',

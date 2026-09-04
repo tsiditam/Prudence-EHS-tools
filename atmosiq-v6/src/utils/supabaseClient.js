@@ -34,10 +34,20 @@ export function trackEvent(eventType, eventData = {}) {
       sessionStorage.setItem('aiq_sid', id)
       return id
     })()
-    supabase.from('analytics_events').insert({
-      session_id: sessionId,
-      event_type: eventType,
-      event_data: eventData,
-    }).then(() => {}).catch(() => {})
+    // Migration 033 requires user_id = auth.uid() on direct inserts, so an
+    // event is attributed to the signed-in user or not written at all
+    // (anonymous rows used to be unbounded and un-erasable — audit §4 M2).
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        const userId = data && data.session && data.session.user && data.session.user.id
+        if (!userId) return
+        return supabase.from('analytics_events').insert({
+          user_id: userId,
+          session_id: sessionId,
+          event_type: eventType,
+          event_data: eventData,
+        })
+      })
+      .then(() => {}).catch(() => {})
   } catch {}
 }

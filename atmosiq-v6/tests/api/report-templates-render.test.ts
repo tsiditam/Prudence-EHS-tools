@@ -23,6 +23,7 @@ interface FakeTemplateRow {
 let templatesTable: FakeTemplateRow[] = []
 let storageBucket: Map<string, Buffer> = new Map()
 let nextUser: { id: string; email: string } | null = null
+let nextProfile: { plan: string; credits_remaining: number } | null = { plan: 'pro', credits_remaining: 10 }
 
 function makeTemplatesChain() {
   const filters: Record<string, unknown> = {}
@@ -62,6 +63,14 @@ const fakeSupabase: any = {
   },
   from: (table: string) => {
     if (table === 'report_templates') return makeTemplatesChain()
+    if (table === 'profiles') {
+      const chain: any = {
+        select: () => chain,
+        eq: () => chain,
+        maybeSingle: async () => ({ data: nextProfile, error: null }),
+      }
+      return chain
+    }
     throw new Error(`unexpected table: ${table}`)
   },
   storage: fakeStorage,
@@ -115,7 +124,30 @@ describe('/api/report-templates-render', () => {
     storageBucket.set('report-templates/user-1/mine.docx', templateBuffer)
     storageBucket.set('report-templates/user-2/foreign.docx', templateBuffer)
     nextUser = { id: 'user-1', email: 'a@b.com' }
+    nextProfile = { plan: 'pro', credits_remaining: 10 }
+    delete process.env.UNLIMITED_USAGE_EMAILS
     __test.setSupabase(fakeSupabase)
+  })
+
+  it('402 insufficient_credits before touching the template when the caller has no credits', async () => {
+    nextProfile = { plan: 'solo', credits_remaining: 0 }
+    const { res, out } = makeRes()
+    await handler({ method: 'POST', headers: { authorization: 'Bearer t' }, body: { template_id: 'mine', assessment_context: {} } } as any, res as any)
+    expect(out.status).toBe(402)
+    expect(out.json).toEqual({ error: 'insufficient_credits' })
+  })
+
+  it('renders for a practice-plan user with zero credits and for an allow-listed email', async () => {
+    nextProfile = { plan: 'practice', credits_remaining: 0 }
+    let r = makeRes()
+    await handler({ method: 'POST', headers: { authorization: 'Bearer t' }, body: { template_id: 'mine', assessment_context: {} } } as any, r.res as any)
+    expect(r.out.status).toBe(200)
+
+    nextProfile = { plan: 'free', credits_remaining: 0 }
+    process.env.UNLIMITED_USAGE_EMAILS = 'a@b.com'
+    r = makeRes()
+    await handler({ method: 'POST', headers: { authorization: 'Bearer t' }, body: { template_id: 'mine', assessment_context: {} } } as any, r.res as any)
+    expect(r.out.status).toBe(200)
   })
 
   it('405 on non-POST', async () => {
@@ -208,5 +240,7 @@ describe('/api/report-templates-render', () => {
     } as any, res as any)
     expect(out.status).toBe(422)
     expect((out.json as { error: string }).error).toMatch(/render_failed|template_parse_failed/)
+    // Only the typed code leaves the server — never the renderer's message.
+    expect(Object.keys(out.json as object)).toEqual(['error'])
   })
 })

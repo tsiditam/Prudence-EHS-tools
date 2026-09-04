@@ -21,6 +21,7 @@ import {
   Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell,
   AlignmentType, HeadingLevel, WidthType, BorderStyle,
 } from 'docx'
+import { formatDateTime } from '../utils/formatDate'
 import { BODY_SECTION_PROPERTIES } from './docx/page-setup'
 import { DOCX_STYLES } from './docx/styles'
 import { deliverFile } from './forms/deliverFile'
@@ -43,9 +44,9 @@ function dataUrlToBytes(dataUrl) {
   }
 }
 
-function fmtDateTime(iso) {
-  try { return new Date(iso).toLocaleString() } catch { return iso || '' }
-}
+// Device-locale date-time (what this export has always printed); the
+// definition lives in src/utils/formatDate.js.
+const fmtDateTime = (iso) => formatDateTime(iso, { locale: undefined, options: undefined, fallback: iso || '' })
 
 // Slug-safe filename component. Keeps letters/digits, replaces
 // everything else with '-', collapses runs, trims.

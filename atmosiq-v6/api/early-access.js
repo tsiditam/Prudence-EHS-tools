@@ -9,6 +9,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 const MAX_PER_IP_PER_HOUR = 3
 const WINDOW_MS = 60 * 60 * 1000
@@ -143,7 +144,7 @@ async function handler(req, res) {
   return res.status(200).json({ success: true, id: submission.id })
 }
 
-module.exports = handler
+module.exports = withSentry(handler, { route: 'early-access' })
 module.exports.__test = {
   MAX_PER_IP_PER_HOUR,
   WINDOW_MS,

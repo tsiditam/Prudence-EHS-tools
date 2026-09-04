@@ -9,37 +9,56 @@
  */
 
 import { Component } from 'react'
+import * as Sentry from '@sentry/react'
+import { toast } from 'sonner'
 import { KEYS } from '../utils/storageKeys'
+import STO from '../utils/storage'
+import { isStaleChunkError, evictServiceWorkerCaches } from './ui/lazySafe'
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
-    this.state = { hasError: false, error: null }
+    this.state = { hasError: false, error: null, stale: false }
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, error }
+    // A failed React.lazy chunk lands HERE (React routes it to the nearest
+    // boundary, not to `unhandledrejection`). Recognise it so the copy says
+    // "update available", not "something went wrong".
+    return { hasError: true, error, stale: isStaleChunkError(error) }
   }
 
   componentDidCatch(error, info) {
     console.error('AtmosFlow Error Boundary caught:', error, info)
+    if (isStaleChunkError(error)) {
+      // Old index.html asked for a chunk hash the server no longer has.
+      // Clear the SW caches so the reload below fetches fresh assets.
+      evictServiceWorkerCaches()
+      return
+    }
+    // lib/sentry-client.ts installs the PII-scrubbing beforeSend; capture
+    // is a no-op when no DSN is configured (initSentryClient returned early).
+    try {
+      Sentry.captureException(error, { contexts: { react: { componentStack: info && info.componentStack } } })
+    } catch { /* never let telemetry break the recovery screen */ }
   }
 
   render() {
     if (this.state.hasError) {
       return (
         <div style={{
-          minHeight: '100vh', background: '#060609', color: '#F0F2F5',
+          minHeight: '100dvh', background: '#060609', color: '#F0F2F5',
           fontFamily: "'inherit', system-ui", display: 'flex',
           alignItems: 'center', justifyContent: 'center', padding: 32,
           textAlign: 'center',
         }}>
           <div style={{ maxWidth: 400 }}>
             <div style={{ fontSize: 48, marginBottom: 20 }}>⚠️</div>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Something went wrong</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>{this.state.stale ? 'AtmosFlow has been updated' : 'Something went wrong'}</div>
             <div style={{ fontSize: 15, color: '#9BA4B5', lineHeight: 1.7, marginBottom: 8 }}>
-              The app encountered an error, but your data is safe.
-              All assessments, drafts, and profile data are stored separately from the app.
+              {this.state.stale
+                ? 'This tab is running an older version and could not load part of the new one. Reload to pick up the update — your data is safe.'
+                : 'The app encountered an error, but your data is safe. All assessments, drafts, and profile data are stored separately from the app.'}
             </div>
             <div style={{
               fontSize: 13, color: '#22D3EE', background: '#22D3EE12',
@@ -56,18 +75,18 @@ export default class ErrorBoundary extends Component {
             }}>
               Reload App
             </button>
-            <button onClick={() => {
+            <button onClick={async () => {
               try {
-                const idx = JSON.parse(localStorage.getItem(KEYS.index) || '{}')
+                const idx = (await STO.get(KEYS.index)) || {}
                 const allData = { idx }
-                const keys = Object.keys(localStorage).filter(k => k.startsWith('rpt-') || k.startsWith('draft-') || k === KEYS.profile)
-                keys.forEach(k => { try { allData[k] = JSON.parse(localStorage.getItem(k)) } catch {} })
+                const keys = [...await STO.keys('rpt-'), ...await STO.keys('draft-'), KEYS.profile]
+                for (const k of keys) { const v = await STO.get(k); if (v != null) allData[k] = v }
                 const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url; a.download = `atmosiq-emergency-backup-${new Date().toISOString().slice(0,10)}.json`
                 a.click(); URL.revokeObjectURL(url)
-              } catch (e) { alert('Backup failed: ' + e.message) }
+              } catch (e) { toast.error('Backup failed: ' + e.message) }
             }} style={{
               padding: '14px 32px', background: 'transparent',
               border: '1px solid #1E1E2E', borderRadius: 14, color: '#9BA4B5',

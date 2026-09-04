@@ -1,7 +1,8 @@
 /**
  * AtmosFlow Engine v2.2 §8 — Carbon Monoxide (CO) parameter prose
  *
- * Cites the OSHA PEL (50 ppm), the NIOSH REL (35 ppm), and the 9 ppm
+ * Cites the OSHA PEL (50 ppm, 8-hour TWA), the NIOSH REL (35 ppm, a TWA
+ * for up to a 10-hour workday — NIOSH RELs are not 8-hour figures), and the 9 ppm
  * EPA NAAQS 8-hour standard that ASHRAE 62.1 references indoors.
  *
  * Three citations were removed in 2026-08 as furniture — a citation
@@ -33,14 +34,14 @@
 
 import type { ParameterProse } from './types'
 
-const CO_BACKGROUND = `Carbon monoxide is a colorless, odorless gas produced by incomplete combustion. The Occupational Safety and Health Administration Permissible Exposure Limit is 50 parts per million as an 8-hour Time Weighted Average (29 CFR 1910.1000 Table Z-1). The National Institute for Occupational Safety and Health Recommended Exposure Limit is 35 parts per million as an 8-hour Time Weighted Average with a ceiling of 200 ppm; the NIOSH REL is the health-protective benchmark generally applied in indoor air quality practice, and it is the figure this assessment treats as the point of concern. For indoor evaluation the more relevant comparison is lower still: ASHRAE Standard 62.1 references 9 parts per million — the EPA 8-hour primary NAAQS — as the indoor benchmark for carbon monoxide, because an occupied building is not an industrial process and its occupants are not a healthy-adult worker population on a defined shift. Direct-reading carbon monoxide instruments produce short-duration data; documented determination of OSHA PEL compliance requires 8-hour Time Weighted Average sampling per validated methodology.`
+const CO_BACKGROUND = `Carbon monoxide is a colorless, odorless gas produced by incomplete combustion. The Occupational Safety and Health Administration Permissible Exposure Limit is 50 parts per million as an 8-hour Time Weighted Average (29 CFR 1910.1000 Table Z-1). The National Institute for Occupational Safety and Health Recommended Exposure Limit is 35 parts per million as a Time Weighted Average for up to a 10-hour workday with a ceiling of 200 ppm; the NIOSH REL is the health-protective benchmark generally applied in indoor air quality practice, and it is the figure this assessment treats as the point of concern. For indoor evaluation the more relevant comparison is lower still: ASHRAE Standard 62.1 references 9 parts per million — the EPA 8-hour primary NAAQS — as the indoor benchmark for carbon monoxide, because an occupied building is not an industrial process and its occupants are not a healthy-adult worker population on a defined shift. Direct-reading carbon monoxide instruments produce short-duration data; documented determination of OSHA PEL compliance requires 8-hour Time Weighted Average sampling per validated methodology.`
 
 export const CO_PROSE: ParameterProse = {
   parameter: 'Carbon Monoxide (CO)',
   standardsBackground: CO_BACKGROUND,
   applicableStandards: [
     { source: '29 CFR 1910.1000 Table Z-1 — CO PEL 50 ppm 8-hr TWA', authority: 'regulatory', edition: 'current' },
-    { source: 'NIOSH Recommended Exposure Limit — CO 35 ppm 8-hr TWA, Ceiling 200 ppm', authority: 'consensus', edition: 'current' },
+    { source: 'NIOSH Recommended Exposure Limit — CO 35 ppm 10-hour TWA, Ceiling 200 ppm', authority: 'consensus', edition: 'current' },
     { source: 'ASHRAE Standard 62.1 — CO Reference 9 ppm', authority: 'consensus', edition: 'current' },
     { source: 'EPA NAAQS — CO 9 ppm 8-hour primary standard', authority: 'regulatory', edition: 'current' },
   ],

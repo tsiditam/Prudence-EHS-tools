@@ -13,10 +13,15 @@
  */
 
 import { STD } from '../constants/standards'
+import { evaluateCriteria } from '../constants/criteria'
 import { getConfidenceLevel } from './riskBands'
 import { evaluateAllSufficiency } from './sufficiency'
-import { CONTROL_TIER } from '../constants/pressurizationStandards'
+import { CONTROL_TIER, ZONE_PRESSURE, ZONE_PRESSURE_OPTIONS } from '../constants/pressurizationStandards'
 import { pressurizationRecommendations } from './pressurization'
+// The one numeric parser (audit H1). scoring.js re-exports this module, so
+// the import is circular; it is safe because nothing here calls it at
+// module-evaluation time.
+import { readNumber } from './scoring'
 
 // ── OSHA 3430 control hierarchy ──
 //
@@ -59,18 +64,28 @@ const T_NONE = null
  */
 export function evalOSHA(d) {
   const fl = []
-  if (d.co2 && +d.co2 > STD.v.co2.con) fl.push('Ventilation-related concern pattern')
+  const co2 = readNumber(d.co2), co = readNumber(d.co), hc = readNumber(d.hc), tf = readNumber(d.tf)
+  if (co2 != null && co2 > STD.v.co2.con) fl.push('Ventilation-related concern pattern')
   if (d.wd === 'Active leak' || d.wd === 'Extensive damage' || (d.mi && !['None','Suspected discoloration'].includes(d.mi))) fl.push('Water/mold indicators present')
   if (d.sr === 'Yes — clear pattern' && (d.ac === 'More than 10' || d.ac === '6-10')) fl.push('Building-related symptom pattern — widespread')
-  if (d.co && +d.co > STD.c.co.osha) fl.push('CO measurement above OSHA PEL threshold')
-  if (d.hc && +d.hc > STD.c.hcho.osha) fl.push('Formaldehyde measurement above OSHA PEL threshold')
+  // Occupational-limit flags come from the criterion registry (audit H2), so
+  // the sentence carries the averaging period and what a grab reading can
+  // settle. "CO measurement above OSHA PEL threshold" was the bare-exceedance
+  // statement the registry exists to prevent. A `critical` hit on either
+  // analyte is a PEL / ceiling / STEL tier — the same level the old `> osha`
+  // comparison flagged.
+  for (const [value, parameter, label] of [[co, 'co', 'CO'], [hc, 'hcho', 'Formaldehyde']]) {
+    if (value == null) continue
+    const hit = evaluateCriteria(parameter, value, 'screening_grab')
+    if (hit && hit.severity === 'critical') fl.push(`${label} ${hit.statement}`)
+  }
   if (d.cx === 'Yes — complaints reported' && fl.length > 0) {
     fl.unshift('Documented complaint pattern with concurrent hazard indicators')
   }
   const suff = evaluateAllSufficiency(d)
   const conf = getConfidenceLevel(suff._overall || 0)
   const gaps = []
-  if (!d.co2 && !d.tf) gaps.push('No instrument data')
+  if (co2 == null && tf == null) gaps.push('No instrument data')
   if (!d.hm || d.hm === 'Unknown') gaps.push('HVAC maintenance unknown')
   return { flag: fl.length > 0, fl, conf, gaps }
 }
@@ -219,7 +234,10 @@ export function genRecs(zoneScores, bldg, opts = {}) {
         if (r.t.includes('No supply airflow')) pushBuilding('imm', 'Request immediate HVAC service to restore airflow.', [zs.zoneName], T_ENG)
         if (r.t.includes('No filtration') || r.t.includes('no filter')) pushBuilding('imm', 'Request immediate HVAC service — no filtration installed.', [zs.zoneName], T_ENG)
         if (r.t.includes('Drain pan')) trigger('drainpan_immediate', zs.zoneName)
-        if (r.t.includes('water') || r.t.includes('leak')) pushZone('imm', zs.zoneName, 'Arrest water intrusion. Assess materials within 48 hours.', T_SOURCE)
+        // The 'Arrest water intrusion…' emit that stood here was a double:
+        // `hasWater` below already pushes one Immediate water action for the
+        // zone, and this one also fired on "Drain pan: standing water",
+        // which is the drain-pan rule's job (audit M5).
         if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) pushZone('imm', zs.zoneName, 'Document symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument. Evaluate ventilation immediately.', T_ADM)
       }
       if (r.sev === 'high' || r.sev === 'medium') {
@@ -239,12 +257,28 @@ export function genRecs(zoneScores, bldg, opts = {}) {
       }
     }))
     // Pattern-driven recs (water / mold / drain pan / filter / pressure / symptom cluster)
-    const hasWater = zs.cats.some(c => c.r.some(r => r.t.includes('water') || r.t.includes('leak') || r.t.includes('Water')))
+    // Water intrusion is an Environment condition; a drain pan holding water
+    // is the HVAC rule's job (drainpan_immediate / drainpan_clean), not a
+    // second "repair water intrusion" action for the same pan.
+    const hasWater = zs.cats.some(c => c.r.some(r => !r.t.startsWith('Drain pan') && (r.t.includes('water') || r.t.includes('leak') || r.t.includes('Water'))))
     const hasMold = zs.cats.some(c => c.r.some(r => r.t.toLowerCase().includes('mold')))
     const hasDrainPan = zs.cats.some(c => c.r.some(r => r.t.includes('Drain pan')))
     const hasSymptomCluster = zs.cats.some(c => c.l === 'Complaints' && c.r.some(r => r.sev === 'critical' || r.sev === 'high'))
     const hasFilterIssue = zs.cats.some(c => c.r.some(r => r.t.toLowerCase().includes('filter') && (r.sev === 'high' || r.sev === 'critical')))
-    const hasNegPressure = zs.cats.some(c => c.r.some(r => r.t.includes('Negative') || r.t.includes('negative')))
+    // A particulate finding the engine actually raised (structured `p`, not
+    // the word "PM" in a sentence). Portable HEPA units address particulate;
+    // recommending them on a symptom cluster alone stated a condition the
+    // assessment had not observed (audit M5).
+    const hasParticulate = zs.cats.some(c => c.r.some(r => r.p === 'pm25' && (r.sev === 'critical' || r.sev === 'high' || r.sev === 'medium')))
+    // Pressurization keys on the STRUCTURED observation — the zone's
+    // `path_pressure` intake answer, canonicalised through the same option
+    // map the pressurization module uses, or that module's own zonesNegative
+    // list — never on the word "negative" appearing in any finding text,
+    // which fired the remedy off a pharmacy profile's context sentence.
+    const zoneData = zones.find(z => (z.zn || '') === zs.zoneName)
+    const hasNegPressure =
+      (zoneData != null && ZONE_PRESSURE_OPTIONS[zoneData.path_pressure] === ZONE_PRESSURE.NEGATIVE) ||
+      (opts.pressurization?.zonesNegative || []).includes(zs.zoneName)
     if (hasWater) pushZone('imm', zs.zoneName, 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.', T_SOURCE)
     if (hasMold) {
       pushZone('eng', zs.zoneName, 'Remediate visible mold per IICRC S520 / EPA Mold Remediation in Schools and Commercial Buildings. For areas <10 sq ft (Level I), trained maintenance staff with PPE (N95, gloves, eye protection) may perform cleanup.', T_SOURCE)
@@ -253,8 +287,10 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     if (hasDrainPan) trigger('drainpan_clean', zs.zoneName)
     if (hasFilterIssue) trigger('filter_replace_imm', zs.zoneName)
     if (hasNegPressure) pushZone('eng', zs.zoneName, 'Correct building pressurization. Negative pressure draws contaminants from adjacent spaces and outdoor sources. Evaluate exhaust/supply balance.', T_ENG)
-    if (hasSymptomCluster) {
+    if (hasSymptomCluster && hasParticulate) {
       pushZone('imm', zs.zoneName, 'Deploy portable HEPA filtration units in affected occupied areas as interim measure.', T_ENG)
+    }
+    if (hasSymptomCluster) {
       // The ATSDR occupant-risk-communication action was removed in 2026-08.
       // `phrases/complaints.ts` retired it first and said why: it is
       // disproportionate to a routine commercial IAQ assessment, where no
@@ -389,14 +425,38 @@ export function evalMeasurementConfidence(zones) {
   return { overall: worst, zones: zoneConfs }
 }
 
+// Intake option keyword → EPA (2008) remediation size band. Kept in step
+// with MOLD_EXTENT_BANDS in scoring.js (the parity test checks both engines).
+const MOLD_EXTENT = [['Extensive', '>100 ft²'], ['Moderate', '10–100 ft²'], ['Small', '<10 ft²']]
+
+/**
+ * IICRC S520 Condition from the visual mold indicator.
+ *
+ * Any observed growth is Condition 3 (actual growth). Condition 2 is settled
+ * spores WITHOUT growth and Condition 1 is normal ecology — so area can never
+ * lower the Condition, which the previous ladder did (a small patch was
+ * "Condition 1 or 2", a 10–100 ft² patch "Condition 2"). Area sets the EPA
+ * (2008) size band, which drives the response, not the classification. The
+ * mold module's `remediationCondition.js` has always classified this way;
+ * `tests/engine/mold-condition-parity.test.ts` holds the two engines together.
+ */
 export function evalMold(d) {
   if (!d.mi || d.mi === 'None') return null
-  let condition, sqft = d.mia ? +d.mia : null, triggered = false
-  if (d.mi.includes('Extensive'))     { condition = 3; triggered = true }
-  else if (d.mi.includes('Moderate')) { condition = (sqft && sqft >= 10) ? 3 : 2; triggered = condition >= 2 }
-  else if (d.mi.includes('Small'))    { condition = (sqft && sqft >= 10) ? 2 : 1; triggered = condition >= 2 }
-  else                                { condition = 1; triggered = false }
-  return { condition, label: `IICRC S520 Condition ${condition}`, sqft, investigationTriggered: triggered, visual: d.mi, caveat: 'Visual observation only — not confirmed by sampling' }
+  const sqft = readNumber(d.mia)
+  const band = MOLD_EXTENT.find(([key]) => d.mi.includes(key))
+  const visibleGrowth = !!band
+  const condition = visibleGrowth ? 3 : 1
+  return {
+    condition,
+    label: visibleGrowth
+      ? 'IICRC S520 Condition 3 (actual growth)'
+      : 'IICRC S520 Condition 1 (no growth observed — discoloration unconfirmed)',
+    sqft,
+    extent: band ? band[1] : null,
+    investigationTriggered: visibleGrowth,
+    visual: d.mi,
+    caveat: 'Visual observation only — not confirmed by sampling',
+  }
 }
 
 // Gap 3: SBS pattern detection — complaints alone can trigger causal chains

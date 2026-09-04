@@ -55,19 +55,29 @@ function formatThresholds() {
     lines.push('')
   }
 
-  // Ventilation (ASHRAE 62.1)
+  // Ventilation (ASHRAE 62.1) — outdoor-air RATES only. The CO₂ figures
+  // that used to sit under this heading are NOT ASHRAE 62.1 numbers:
+  // current 62.1 sets no indoor CO₂ value, the Δ700 differential comes from
+  // an informative appendix of earlier editions (since removed), and the
+  // 1,000 / 1,500 ppm indicators are NIOSH's. Nested under "ASHRAE 62.1"
+  // they inherited its citation, which is how Jasper came to quote them
+  // that way (AUDIT-2026-09 M3). Each now sits under its own heading.
   if (STD.v) {
-    lines.push('Ventilation — ' + STD.v.ref + ':')
-    if (STD.v.co2) {
-      lines.push(`  CO₂ ppm: outdoor base ~${STD.v.co2.base}, indoor-outdoor differential ${STD.v.co2.diff} indicates under-ventilation`)
-      lines.push(`  CO₂ ppm: concern threshold ${STD.v.co2.con}, action threshold ${STD.v.co2.act}`)
-    }
+    lines.push('Ventilation — ' + STD.v.ref + ' (outdoor-air rates; 62.1 sets no indoor CO₂ limit):')
     if (STD.v.oa) {
       lines.push('  Outdoor air per person (pp, cfm/person) and per area (ps, cfm/ft²):')
       for (const [space, vals] of Object.entries(STD.v.oa)) {
         lines.push(`    ${space}: pp=${vals.pp}, ps=${vals.ps}`)
       }
     }
+    lines.push('')
+  }
+
+  // CO₂ indicators — their own heading and their own attributions.
+  if (STD.v && STD.v.co2) {
+    lines.push('CO₂ indicators (ventilation indicator, not a contaminant limit; no current ASHRAE standard sets an indoor CO₂ limit):')
+    lines.push(`  Indoor-outdoor differential ${STD.v.co2.diff} ppm above outdoor (base ~${STD.v.co2.base}) indicates under-ventilation — from an informative appendix of earlier ASHRAE 62.1 editions, since removed; see ASHRAE Position Document on Indoor Carbon Dioxide (2022).`)
+    lines.push(`  Absolute indicators ${STD.v.co2.con} ppm (concern) and ${STD.v.co2.act} ppm (action) — NIOSH indoor-ventilation indicator; Persily, ASHRAE Journal 63(2):74–75 (2021).`)
     lines.push('')
   }
 

@@ -139,6 +139,13 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
             onClick={handleMapClick}
             onTouchStart={handleMapTouchStart}
             onTouchEnd={handleMapTouchEnd}
+            // While a zone is being placed the plan is a target: expose it as
+            // a button and let Enter drop the pin at the centre (the user can
+            // then reposition by pointer). Otherwise it is a plain image.
+            role={dragging !== null ? 'button' : undefined}
+            tabIndex={dragging !== null ? 0 : undefined}
+            aria-label={dragging !== null ? `Place ${zones[dragging]?.zn || `Zone ${dragging + 1}`} on the floor plan` : undefined}
+            onKeyDown={(e) => { if (dragging !== null && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onUpdateZone(dragging, { mapX: 50, mapY: 50 }); setDragging(null) } }}
             style={{ position: 'relative', width: '100%', borderRadius: 10, overflow: 'hidden', border: `2px solid ${dragging !== null ? ACCENT : BORDER}`, cursor: dragging !== null ? 'crosshair' : 'default', WebkitUserSelect: 'none', userSelect: 'none' }}
           >
             <img src={floorPlan} alt="Floor plan" style={{ width: '100%', display: 'block', opacity: 0.85 }} />
@@ -150,16 +157,19 @@ export default function SpatialMap({ zones, zoneScores, floorPlan, onUpdateZone,
               const color = pinColor(zs)
               const count = pinCount(zs)
               return (
-                <div
+                <button
+                  type="button"
                   key={zi}
+                  aria-label={`${z.zn || `Zone ${zi + 1}`} pin${count != null ? `, ${count} finding${count === 1 ? '' : 's'}` : ''}`}
+                  aria-pressed={selectedPin === zi}
                   onClick={(e) => { e.stopPropagation(); setSelectedPin(selectedPin === zi ? null : zi) }}
-                  style={{ position: 'absolute', left: `${z.mapX}%`, top: `${z.mapY}%`, transform: 'translate(-50%, -100%)', cursor: 'pointer', zIndex: 10 }}
+                  style={{ position: 'absolute', left: `${z.mapX}%`, top: `${z.mapY}%`, transform: 'translate(-50%, -100%)', cursor: 'pointer', zIndex: 10, background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit' }}
                 >
                   <div style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: '2px solid #fff', boxShadow: `0 2px 8px ${color}80`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: "var(--font-mono)" }}>{count ?? '?'}</span>
                   </div>
                   <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `8px solid ${color}`, margin: '-1px auto 0' }} />
-                </div>
+                </button>
               )
             })}
           </div>

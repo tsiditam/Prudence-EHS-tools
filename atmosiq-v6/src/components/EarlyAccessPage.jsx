@@ -5,6 +5,7 @@
  * EarlyAccessPage — Lead capture form for IH/EHS beta access
  */
 
+import { FULL_VH } from '../styles/tokens'
 import { useState, useRef } from 'react'
 
 const C = {
@@ -25,8 +26,7 @@ const FIELDS = [
 
 const inputStyle = {
   width: '100%', padding: '14px 16px', background: C.card, border: `1.5px solid ${C.border}`,
-  borderRadius: 8, color: C.text, fontSize: 15, fontFamily: "'inherit', system-ui, sans-serif",
-  outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s',
+  borderRadius: 8, color: C.text, fontSize: 15, fontFamily: "'inherit', system-ui, sans-serif", boxSizing: 'border-box', transition: 'border-color 0.2s',
 }
 
 const labelStyle = {
@@ -93,7 +93,7 @@ export default function EarlyAccessPage() {
   if (success) return <SuccessState />
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "'inherit', system-ui, sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px 40px' }}>
+    <div style={{ minHeight: FULL_VH, background: C.bg, color: C.text, fontFamily: "'inherit', system-ui, sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px 40px' }}>
       {/* Brand */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.5px', marginBottom: 4 }}>
@@ -154,7 +154,7 @@ export default function EarlyAccessPage() {
 
 function SuccessState() {
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "'inherit', system-ui, sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
+    <div style={{ minHeight: FULL_VH, background: C.bg, color: C.text, fontFamily: "'inherit', system-ui, sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
       <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${C.cyan}15`, border: `2px solid ${C.cyan}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, animation: 'checkIn 0.5s ease-out' }}>
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={C.cyan} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
       </div>

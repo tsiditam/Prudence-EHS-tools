@@ -8,7 +8,7 @@
  *   • Briefly renders the green "Back online — syncing" affordance
  *     when the network flips from offline → online, then auto-hides
  */
-import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, act } from '@testing-library/react'
 
 import OfflineBanner from '../../src/components/OfflineBanner'

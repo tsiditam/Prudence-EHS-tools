@@ -45,7 +45,7 @@ export async function runMonthlyCreditGrant(now: Date = new Date()): Promise<Cro
 
   const { data: subs, error: selErr } = await supabase
     .from('profiles')
-    .select('id, plan, credits_remaining')
+    .select('id, plan')
     .eq('billing_period', 'annual')
     .eq('subscription_status', 'active')
     .in('plan', ['solo', 'pro', 'practice'])
@@ -76,15 +76,19 @@ export async function runMonthlyCreditGrant(now: Date = new Date()): Promise<Cro
       continue
     }
 
-    const newBalance = (sub.credits_remaining || 0) + grant
-    await supabase.from('profiles').update({ credits_remaining: newBalance }).eq('id', sub.id)
-    await supabase.from('credits_ledger').insert({
-      user_id: sub.id,
-      amount: grant,
-      reason: 'monthly_grant',
-      reference_id: referenceId,
-      balance_after: newBalance,
+    // Atomic: grant_credits (migration 033) locks the profile row, applies
+    // the delta and writes the ledger row in one transaction, so a
+    // concurrent debit can no longer lose either write (audit 2026-09, M9).
+    const { error: rpcErr } = await supabase.rpc('grant_credits', {
+      p_user_id: sub.id,
+      p_amount: grant,
+      p_reason: 'monthly_grant',
+      p_reference_id: referenceId,
     })
+    if (rpcErr) {
+      console.error(`[cron-monthly-credit-grant] grant failed for ${sub.id}: ${rpcErr.message}`)
+      continue
+    }
     granted++
     totalCredits += grant
   }

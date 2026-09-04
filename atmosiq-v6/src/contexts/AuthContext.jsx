@@ -3,7 +3,7 @@
  * User profile, credits, authentication state.
  */
 
-import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import STO from '../utils/storage'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -40,6 +40,9 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [profileChecked, setProfileChecked] = useState(false)
   const [credits, setCredits] = useState(5)
+  // Mirror of `credits` that is always current, for consumeCredit.
+  const creditsRef = useRef(5)
+  useEffect(() => { creditsRef.current = credits }, [credits])
   const [adminSecret, setAdminSecret] = useState(null)
 
   const fetchCredits = useCallback(async () => {
@@ -54,8 +57,16 @@ export function AuthProvider({ children }) {
   }, [])
 
   const consumeCredit = useCallback(async (amount, reason, refId) => {
-    setCredits(prev => Math.max(0, prev - amount))
-    trackEvent('credit_consumed', { amount, reason, balance: credits - amount })
+    // The analytics balance is computed from the live balance in a ref,
+    // not the closed-over `credits`: two debits in one tick (finalize +
+    // narrative) both read the same stale value and reported the same
+    // balance. (A functional setter alone is not enough — React defers
+    // the updater when one is already queued, so its result is not
+    // available synchronously for the event.)
+    const balance = Math.max(0, creditsRef.current - amount)
+    creditsRef.current = balance
+    setCredits(balance)
+    trackEvent('credit_consumed', { amount, reason, balance })
     if (supabase) {
       try {
         const session = await Storage.getSession()
@@ -65,7 +76,7 @@ export function AuthProvider({ children }) {
         }
       } catch {}
     }
-  }, [credits])
+  }, [])
 
   const handleLogin = useCallback(async (userOrProfile) => {
     if (userOrProfile?.email && supabase) {

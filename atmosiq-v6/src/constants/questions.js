@@ -302,16 +302,16 @@ export const Q_ZONE = [
 // captured ONCE (rendered only on the first zone) and propagated to every zone
 // for scoring and the report, rather than re-asked in every zone's panel.
 export const SENSOR_FIELDS = [
-  { id:'co2',  label:'CO2 (Indoor)',         u:'ppm',    ref:'ASHRAE 62.1 · >1000 concern' },
+  { id:'co2',  label:'CO2 (Indoor)',         u:'ppm',    ref:'CO₂: ventilation indicator; ~1,000 ppm NIOSH indicator' },
   { id:'co2o', label:'CO2 (Outdoor)',        u:'ppm',    ref:'~420 typical · REQUIRED for delta', outdoor:1 },
   { id:'tf',   label:'Temperature (Indoor)', u:'°F',     ref:'ASHRAE 55-2023' },
   { id:'tfo',  label:'Temperature (Outdoor)',u:'°F',     ref:'Outdoor baseline', outdoor:1 },
-  { id:'rh',   label:'RH (Indoor)',          u:'%',      ref:'30-60%' },
+  { id:'rh',   label:'RH (Indoor)',          u:'%',      ref:'30-60% (US EPA moisture control)' },
   { id:'rho',  label:'RH (Outdoor)',         u:'%',      ref:'Outdoor baseline', outdoor:1 },
   { id:'pm',   label:'PM2.5 (Indoor)',       u:'ug/m3',  ref:'EPA: 35 · WHO: 15' },
   { id:'pmo',  label:'PM2.5 (Outdoor)',      u:'ug/m3',  ref:'Outdoor control sample', outdoor:1 },
   { id:'co',   label:'CO',                   u:'ppm',    ref:'OSHA: 50 · NIOSH: 35' },
-  { id:'tv',   label:'TVOCs (PID)',          u:'ug/m3',  ref:'Concern: 500 · Use PID for spikes' },
+  { id:'tv',   label:'TVOCs (PID)',          u:'ug/m3',  ref:'TVOC: no consensus limit; trend and compare' },
   { id:'tvo',  label:'TVOCs (Outdoor)',      u:'ug/m3',  ref:'Outdoor control baseline', outdoor:1 },
   { id:'hc',   label:'HCHO',                 u:'ppm',    ref:'OSHA: 0.75 · NIOSH: 0.016' },
 ]

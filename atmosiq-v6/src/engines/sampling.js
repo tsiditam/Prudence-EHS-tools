@@ -11,6 +11,13 @@
  */
 
 import { STD } from '../constants/standards'
+import { MOISTURE_INDICATORS, MOLD_SOURCES } from '../constants/moldStandards.js'
+import { readNumber } from './scoring'
+
+// One wood-moisture figure for the whole platform (audit M8): the IICRC S500
+// dry-standard 16% MC in moldStandards.js. This file carried its own 19% —
+// the fibre-saturation / decay rule of thumb — beside the mold module's 16%.
+const WOOD_MC_SCREEN = MOISTURE_INDICATORS.wood.elevatedAtOrAbovePct
 
 export function generateSamplingPlan(zones, bldg) {
   const plan = []
@@ -27,9 +34,9 @@ export function generateSamplingPlan(zones, bldg) {
     if (d.wd === 'Active leak' || d.wd === 'Extensive damage') {
       plan.push({ zone:zName, type:'Moisture / Bioaerosol', priority:'high',
         hypothesis:'Active water intrusion ('+d.wd+') creates conditions for microbial amplification',
-        method:'Moisture mapping (pin/pinless meter). If RH >60% or moisture >19% MC in wood, add bioaerosol sampling.',
+        method:`Moisture mapping (pin/pinless meter). If RH >60% or wood moisture at or above ${WOOD_MC_SCREEN}% MC (${MOLD_SOURCES.s500}), add bioaerosol sampling.`,
         controls:'Dry reference area for comparison. Document moisture readings at grid pattern.',
-        standard:'IICRC S520 · EPA Mold Remediation in Schools and Commercial Buildings' })
+        standard:'IICRC S520 · IICRC S500 · EPA Mold Remediation in Schools and Commercial Buildings' })
     }
     if ((d.ot||[]).includes('Musty / Earthy') && (!d.mi || d.mi === 'None')) {
       plan.push({ zone:zName, type:'Hidden Bioaerosol', priority:'medium',
@@ -38,7 +45,8 @@ export function generateSamplingPlan(zones, bldg) {
         controls:'Outdoor and unaffected indoor control samples.',
         standard:'AIHA Recognition, Evaluation, and Control of Indoor Mold' })
     }
-    if (d.hc && +d.hc > STD.c.hcho.niosh) {
+    const hc = readNumber(d.hc), co = readNumber(d.co)
+    if (hc != null && hc > STD.c.hcho.niosh) {
       plan.push({ zone:zName, type:'Formaldehyde', priority:'high',
         hypothesis:'Elevated real-time HCHO ('+d.hc+' ppm) — confirm with integrated method',
         method:'NIOSH 2016 (DNPH cartridge, 2-4 hr TWA) or passive badge (8-hr TWA)',
@@ -61,8 +69,8 @@ export function generateSamplingPlan(zones, bldg) {
     // The renovation/off-gassing TO-17 entry above is unaffected — it fires on
     // a recorded SOURCE (recent renovation, new materials), not on a
     // concentration, so it needs no threshold to be defensible.
-    if (d.co && +d.co > 5) {
-      plan.push({ zone:zName, type:'Combustion Gas', priority:+d.co > STD.c.co.niosh?'critical':'medium',
+    if (co != null && co > 5) {
+      plan.push({ zone:zName, type:'Combustion Gas', priority:co > STD.c.co.niosh?'critical':'medium',
         hypothesis:'Elevated CO ('+d.co+' ppm) indicates combustion gas intrusion',
         method:'Trace CO to source using real-time monitor. Check parking garage, boiler room, loading dock.',
         controls:'Outdoor CO reading. Map CO gradient from suspected source.',

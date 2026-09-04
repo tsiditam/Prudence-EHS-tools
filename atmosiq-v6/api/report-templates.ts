@@ -30,6 +30,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { withSentry } from './_with-sentry.js'
 import { discoverTokens, TemplateRenderError } from '../lib/report-templates/render.js'
 // NOTE: render.ts pulls in docxtemplater + pizzip at module load. This used
 // to be a lazy `await import()` inside handleUpload to keep list/delete cold
@@ -291,7 +292,7 @@ async function handleDelete(
   res.status(200).json({ ok: true })
 }
 
-export default handler
+export default withSentry(handler, { route: 'report-templates' })
 
 // Test injection points — same convention as field-assistant-feedback.
 export const __test = {

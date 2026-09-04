@@ -56,6 +56,19 @@ import {
 import { lookupParameterProse as lookupParameterProseForCitations } from './parameter-prose'
 import type { TransmittalLetter, SignatoryLine } from '../types/domain'
 
+import { ASSESSMENT_DATE_NOT_RECORDED } from '../bridge/meta'
+
+/**
+ * Prose for the survey date. `deriveAssessmentMeta` no longer defaults a
+ * missing date to today (audit 2026-09, H5); it carries a sentinel, and
+ * the sentence must say so rather than read "on not recorded".
+ */
+export function onDate(assessmentDate: string): string {
+  return assessmentDate === ASSESSMENT_DATE_NOT_RECORDED
+    ? ' (assessment date not recorded)'
+    : ` on ${assessmentDate}`
+}
+
 const NOT_SPECIFIED = 'Not Specified'
 
 function fallbackOrNotSpecified(value: string | undefined | null): string {
@@ -270,8 +283,8 @@ export function renderClientReport(
   // a dashboard, not a consultant report. Use qualitative language
   // and let the per-finding sections carry the detail.
   const overview = significantFindings.length > 0
-    ? `An indoor air quality evaluation was conducted at ${meta.siteName} on ${meta.assessmentDate}. Multiple conditions were identified that warrant attention; per-zone detail and recommendations follow.`
-    : `An indoor air quality evaluation was conducted at ${meta.siteName} on ${meta.assessmentDate}. No significant conditions were identified within the stated limitations.`
+    ? `An indoor air quality evaluation was conducted at ${meta.siteName}${onDate(meta.assessmentDate)}. Multiple conditions were identified that warrant attention; per-zone detail and recommendations follow.`
+    : `An indoor air quality evaluation was conducted at ${meta.siteName}${onDate(meta.assessmentDate)}. No significant conditions were identified within the stated limitations.`
 
   // v2.2 §6 — Executive Summary restructure: 4-row metadata table +
   // four narrative blocks. The 29-bullet "summaryOfFindings" exhaust
@@ -302,7 +315,7 @@ export function renderClientReport(
   // building system condition was not within the assessment scope
   // beyond what was documented in zone-by-zone findings.
   const scopeOfWorkBase =
-    `${meta.issuingFirm.name} performed an indoor air quality evaluation at ${meta.siteName} on ${meta.assessmentDate}. The assessment covered ${score.zones.length} zone${score.zones.length !== 1 ? 's' : ''} (${surveyArea}). Direct-reading instruments were used to measure indoor environmental parameters; observed building and system conditions were documented per generally accepted industrial hygiene practices. Detailed measurement ranges and per-zone results are presented in the Results section and supporting tables.`
+    `${meta.issuingFirm.name} performed an indoor air quality evaluation at ${meta.siteName}${onDate(meta.assessmentDate)}. The assessment covered ${score.zones.length} zone${score.zones.length !== 1 ? 's' : ''} (${surveyArea}). Direct-reading instruments were used to measure indoor environmental parameters; observed building and system conditions were documented per generally accepted industrial hygiene practices. Detailed measurement ranges and per-zone results are presented in the Results section and supporting tables.`
   const scopeOfWork = buildingActiveFindings.length === 0
     ? `${scopeOfWorkBase} Building system condition was not within the scope of this assessment beyond the observations documented in the zone-by-zone findings.`
     : scopeOfWorkBase

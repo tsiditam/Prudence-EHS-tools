@@ -92,3 +92,121 @@ describe('db-migrate: directory listing', () => {
     expect(files.map(f => f.version)).toEqual(['001', '002', '010'])
   })
 })
+
+// ── Audit 2026-09 remediations (H1, H2, "--baseline foot-gun", TLS) ──
+
+import {
+  LEDGER_DDL,
+  findDuplicateVersions,
+  parseArgs,
+  planBaseline,
+  resolveSsl,
+} from '../../scripts/db-migrate.mjs'
+
+describe('db-migrate: 000 base schema is a migration (H2)', () => {
+  it('accepts 000_base_schema.sql and sorts it first', async () => {
+    expect(isMigrationFile('000_base_schema.sql')).toBe(true)
+    expect(parseVersion('000_base_schema.sql')).toBe('000')
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'dbmig-'))
+    try {
+      await fs.writeFile(path.join(dir, '001_a.sql'), '')
+      await fs.writeFile(path.join(dir, '000_base_schema.sql'), '')
+      const files = await listMigrationFiles(dir)
+      expect(files.map(f => f.version)).toEqual(['000', '001'])
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('the real migrations directory lists 000 first and 034 last with no duplicates', async () => {
+    const files = await listMigrationFiles()
+    expect(files[0].name).toBe('000_base_schema.sql')
+    expect(files.some(f => f.name === '034_report_immutability_and_conflicts.sql')).toBe(true)
+    expect(findDuplicateVersions(files)).toEqual([])
+  })
+})
+
+describe('db-migrate: ledger hardening (H1)', () => {
+  it('enables RLS on schema_migrations and revokes anon / authenticated / PUBLIC', () => {
+    expect(LEDGER_DDL).toMatch(/ALTER TABLE public\.schema_migrations ENABLE ROW LEVEL SECURITY/)
+    expect(LEDGER_DDL).toMatch(/REVOKE ALL ON TABLE public\.schema_migrations FROM PUBLIC/)
+    expect(LEDGER_DDL).toMatch(/REVOKE ALL ON TABLE public\.schema_migrations FROM anon/)
+    expect(LEDGER_DDL).toMatch(/REVOKE ALL ON TABLE public\.schema_migrations FROM authenticated/)
+  })
+
+  it('guards the role revokes so a plain Postgres without those roles still bootstraps', () => {
+    expect(LEDGER_DDL).toMatch(/pg_roles WHERE rolname = 'anon'/)
+    expect(LEDGER_DDL).toMatch(/pg_roles WHERE rolname = 'authenticated'/)
+  })
+})
+
+describe('db-migrate: duplicate version prefixes are a hard error', () => {
+  it('findDuplicateVersions reports every clashing version', () => {
+    const dupes = findDuplicateVersions([
+      { version: '027', name: '027_a.sql' },
+      { version: '027', name: '027_b.sql' },
+      { version: '028', name: '028_c.sql' },
+    ])
+    expect(dupes).toEqual([{ version: '027', names: ['027_a.sql', '027_b.sql'] }])
+  })
+
+  it('listMigrationFiles throws instead of silently dropping one file', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'dbmig-'))
+    try {
+      await fs.writeFile(path.join(dir, '027_a.sql'), '')
+      await fs.writeFile(path.join(dir, '027_b.sql'), '')
+      await expect(listMigrationFiles(dir)).rejects.toThrow(/duplicate migration version.*027/)
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('db-migrate: --baseline is guarded', () => {
+  const files = [
+    { version: '000', name: '000_a.sql', path: '/x/000_a.sql' },
+    { version: '001', name: '001_b.sql', path: '/x/001_b.sql' },
+    { version: '022', name: '022_c.sql', path: '/x/022_c.sql' },
+    { version: '023', name: '023_d.sql', path: '/x/023_d.sql' },
+  ]
+
+  it('parseArgs requires --baseline-through=NNN alongside --baseline', () => {
+    expect(() => parseArgs(['--baseline'])).toThrow(/--baseline-through/)
+    expect(() => parseArgs(['--baseline', '--baseline-through'])).toThrow(/--baseline-through=NNN/)
+    expect(() => parseArgs(['--baseline', '--baseline-through=22'])).toThrow(/--baseline-through=NNN/)
+    expect(parseArgs(['--baseline', '--baseline-through=022'])).toEqual({ dryRun: false, baseline: true, baselineThrough: '022' })
+  })
+
+  it('parseArgs rejects --baseline-through on its own and parses --dry-run', () => {
+    expect(() => parseArgs(['--baseline-through=022'])).toThrow(/together with --baseline/)
+    expect(parseArgs(['--dry-run'])).toEqual({ dryRun: true, baseline: false, baselineThrough: null })
+    expect(parseArgs([])).toEqual({ dryRun: false, baseline: false, baselineThrough: null })
+  })
+
+  it('planBaseline refuses to run when the ledger is non-empty', () => {
+    expect(() => planBaseline(files, new Set(['001']), '022')).toThrow(/refusing to baseline/)
+  })
+
+  it('planBaseline records only files up to and including --baseline-through', () => {
+    expect(planBaseline(files, new Set(), '022').map(f => f.version)).toEqual(['000', '001', '022'])
+  })
+
+  it('planBaseline rejects a version that has no file', () => {
+    expect(() => planBaseline(files, new Set(), '099')).toThrow(/does not match any migration file/)
+  })
+})
+
+describe('db-migrate: TLS', () => {
+  it('verifies the server certificate against SUPABASE_DB_CA when set', () => {
+    const { ssl, warning } = resolveSsl({ SUPABASE_DB_CA: '-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----\n' })
+    expect(ssl).toEqual({ rejectUnauthorized: true, ca: '-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----' })
+    expect(warning).toBeNull()
+  })
+
+  it('keeps the unverified legacy mode with a warning when no CA is set', () => {
+    const { ssl, warning } = resolveSsl({})
+    expect(ssl).toEqual({ rejectUnauthorized: false })
+    expect(warning).toMatch(/SUPABASE_DB_CA is not set/)
+    expect(resolveSsl({ SUPABASE_DB_CA: '   ' }).warning).toMatch(/not set/)
+  })
+})

@@ -8,19 +8,25 @@ import { I } from './Icons'
 import { FM_TRAFFIC_LIGHT } from '../constants/terminology'
 import { mix } from '../utils/theme'
 import { KEYS, complaintsKey } from '../utils/storageKeys'
+import STO from '../utils/storage'
 
 const BG = 'var(--bg)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
 const SUCCESS = 'var(--success)', WARN = 'var(--warn)', DANGER = 'var(--danger)'
 const STORAGE_KEY = KEYS.buildings
 
-function loadBuildings() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
+// Persistence goes through the storage wrapper (src/utils/storage.js) like
+// the rest of the app — the previous direct localStorage reads bypassed its
+// quota handling and the complaints migration.
+async function loadBuildings() {
+  const b = await STO.get(STORAGE_KEY)
+  return Array.isArray(b) ? b : []
 }
-function saveBuildings(b) { localStorage.setItem(STORAGE_KEY, JSON.stringify(b)) }
+function saveBuildings(b) { return STO.set(STORAGE_KEY, b) }
 
-function loadComplaints(buildingId) {
-  try { return JSON.parse(localStorage.getItem(complaintsKey(buildingId)) || '[]') } catch { return [] }
+async function loadComplaints(buildingId) {
+  const c = await STO.get(complaintsKey(buildingId))
+  return Array.isArray(c) ? c : []
 }
 
 /**
@@ -43,7 +49,20 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
   const [newName, setNewName] = useState('')
   const [newAddr, setNewAddr] = useState('')
 
-  useEffect(() => { setBuildings(loadBuildings()) }, [])
+  // Open-complaint counts per building, loaded alongside the portfolio so
+  // the render stays synchronous.
+  const [complaintsById, setComplaintsById] = useState({})
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const list = await loadBuildings()
+      const pairs = await Promise.all(list.map(async (b) => [b.id, await loadComplaints(b.id)]))
+      if (!alive) return
+      setBuildings(list)
+      setComplaintsById(Object.fromEntries(pairs))
+    })()
+    return () => { alive = false }
+  }, [])
 
   const addBuilding = () => {
     if (!newName.trim()) return
@@ -63,7 +82,7 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
   const enriched = buildings.filter(b => !b.archived).map(b => {
     const bReports = reports.filter(r => r.facility === b.name)
     const lastReport = bReports[0]
-    const complaints = loadComplaints(b.id)
+    const complaints = complaintsById[b.id] || []
     const openComplaints = complaints.filter(c => c.status === 'open' || c.status === 'investigating').length
     const daysSince = lastReport ? Math.floor((Date.now() - new Date(lastReport.ts).getTime()) / 86400000) : null
     // Was a band ladder over the last report's score (80/60/40) — a
@@ -94,7 +113,7 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
   }
 
   const tl = (risk) => FM_TRAFFIC_LIGHT[risk] || { color: DIM, label: '—', bg: `${mix('dim', 6)}` }
-  const inp = { width: '100%', padding: '12px 14px', background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+  const inp = { width: '100%', padding: '12px 14px', background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }
 
   return (
     <div style={{ paddingTop: 20, paddingBottom: 100 }}>
@@ -145,7 +164,7 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
       {filtered.map(b => {
         const light = tl(b.risk)
         return (
-          <div key={b.id} style={{ padding: 14, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => onNavigate?.('building', b.id)}>
+          <button type="button" key={b.id} style={{ display: 'block', width: '100%', textAlign: 'left', fontFamily: 'inherit', color: TEXT, padding: 14, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => onNavigate?.('building', b.id)} aria-label={`Open ${b.name}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>{b.name}</div>
               {b.risk && <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 9, fontWeight: 700, background: light.bg, color: light.color }}>{light.label}</span>}
@@ -156,7 +175,7 @@ export default function PropertyDashboard({ onBack, onNavigate, assessmentIndex 
               {b.openComplaints > 0 && <span style={{ color: WARN }}>{b.openComplaints} open complaints</span>}
               {b.daysSince != null && <span>{b.daysSince > 90 ? <span style={{ color: WARN }}>Overdue ({b.daysSince}d)</span> : `${b.daysSince}d ago`}</span>}
             </div>
-          </div>
+          </button>
         )
       })}
     </div>

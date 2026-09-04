@@ -51,9 +51,16 @@ describe('screening framing (defensibility)', () => {
   })
   it('moisture indicators are labeled as growth-potential screening, never health limits', () => {
     for (const key of Object.keys(MOISTURE_INDICATORS)) {
-      const ind = MOISTURE_INDICATORS[key as keyof typeof MOISTURE_INDICATORS]
-      expect(typeof ind.elevatedAtOrAbovePct).toBe('number')
-      expect(ind.source).toBeTruthy()
+      const ind = MOISTURE_INDICATORS[key as keyof typeof MOISTURE_INDICATORS] as any
+      // A numeric line carries a source; a qualitative-only material carries
+      // neither a number nor an attribution it does not have (audit H7/M8).
+      if (ind.qualitativeOnly) {
+        expect(ind.elevatedAtOrAbovePct).toBeNull()
+        expect(ind.note).toMatch(/no published numeric threshold/i)
+      } else {
+        expect(typeof ind.elevatedAtOrAbovePct).toBe('number')
+        expect(ind.source).toBeTruthy()
+      }
       expect(ind.note).not.toMatch(/\bhealth limit\b/i)
     }
   })

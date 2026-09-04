@@ -513,4 +513,50 @@ describe('no TVOC threshold survives in shipped text', () => {
     }
     expect(bad, 'TVOC compared to something in shipped text').toEqual([])
   })
+
+  it('states no retired TVOC figure near the word TVOC anywhere in a file, not only inside one literal', () => {
+    // AUDIT-2026-09 C8: "Concern: 500" survived on intake and print because
+    // the guard above only fires when the word and the number share ONE
+    // literal of ≤900 characters — PrintReport is a single template literal
+    // many times that size, and an intake hint can put the number in a
+    // literal the word is not in. This sweep runs over the comment-stripped
+    // file as a whole, in a window that crosses literal and line boundaries.
+    const WINDOW = /\btvocs?\b[\s\S]{0,160}?\b(?:500|3,?000|25,?000)\b|\b(?:500|3,?000|25,?000)\b[\s\S]{0,80}?\btvocs?\b/gi
+    // The one entry that may name the figure: the LEED green-building target
+    // in the standards corpus, kept on purpose and asserted separately above
+    // ("the LEED 500 µg/m³ entry survives but says AtmosFlow applies
+    // nothing"). Its span — from its `id:` line to the closing `},` of that
+    // object — is the only region of the tree exempt from this sweep. An
+    // exempt SPAN, not an exempt phrase, so nothing else can shelter under it.
+    const leedSpan = (code: string): [number, number] | null => {
+      const start = code.indexOf("id: 'tvoc-500-green-building-target'")
+      if (start < 0) return null
+      const end = code.indexOf('\n  },', start)
+      return [start, end < 0 ? code.length : end]
+    }
+    const bad: string[] = []
+    for (const f of files) {
+      const code = stripComments(readFileSync(f, 'utf8'))
+      const span = leedSpan(code)
+      for (const m of code.matchAll(WINDOW)) {
+        // The window plus a little of what precedes it, so a sentence that
+        // OPENS with the instruction ("Do not state a TVOC threshold ...")
+        // is judged with its verb attached.
+        const hit = code.slice(Math.max(0, m.index! - 40), m.index! + m[0].length).replace(/\s+/g, ' ')
+        if (span && m.index! >= span[0] && m.index! <= span[1]) continue
+        // The same allowances as above: a sentence denying that a limit
+        // exists, an instruction NOT to state one, and the named prohibitions.
+        if (/\bno\b[^.]{0,60}\b(?:consensus|health-based|applicable|regulatory)\b[^.]{0,40}\blimit\b/i.test(hit)) continue
+        if (/applies\s+(?:no|none)\b|not (?:evaluated|judged|compared|scored)|compares? (?:it )?to nothing/i.test(hit)) continue
+        if (/\bdo not (?:state|cite|quote)\b[^.]{0,40}\btvocs?\b/i.test(hit)) continue
+        if ([...PROHIBITIONS].some((p) => hit.includes(p))) continue
+        // A measurement RANGE of an instrument ("0–500 ppm", "1–500 ppm") is
+        // not a threshold; the KB sampling-method rows state one beside a
+        // method name.
+        if (/\b\d+(?:\.\d+)?\s*[–-]\s*500\b/.test(hit)) continue
+        bad.push(`${relative(ROOT, f)}: ${hit.slice(0, 160)}`)
+      }
+    }
+    expect(bad, 'a retired TVOC figure within reach of the word TVOC').toEqual([])
+  })
 })

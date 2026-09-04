@@ -109,7 +109,7 @@ export default function JasperFeedbackRow({ dbId, rating, submitFeedback }) {
             data-testid="jasper-feedback-reason-input"
             style={{
               flex: 1, minWidth: 0,
-              background: 'transparent', border: 'none', outline: 'none',
+              background: 'transparent', border: 'none',
               color: TEXT, fontSize: 13, fontFamily: 'inherit',
             }}
           />

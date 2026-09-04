@@ -57,20 +57,53 @@ function setEnv() {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role'
 }
 
+// Ledger rows captured across the mock so tests can see the reservation
+// row land, get finalized, or get released.
+const ledgerRows: Array<Record<string, unknown> & { id: number }> = []
+let nextLedgerId = 1
+
 function makeSupabaseMock(overrides: Record<string, unknown> = {}) {
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1', email: 'a@b.com' } }, error: null }),
     },
-    from: vi.fn(() => ({
-      select() { return this },
-      eq() { return this },
-      gte() { return this },
-      order() { return this },
-      limit() { return this },
-      single: vi.fn().mockResolvedValue({ data: { plan: 'paid' }, error: null }),
-      insert: vi.fn().mockResolvedValue({ error: null }),
-    })),
+    from: vi.fn((table: string) => {
+      const ctx: { insertedId: number | null; patch: Record<string, unknown> | null; isDelete: boolean; filters: Record<string, unknown> } =
+        { insertedId: null, patch: null, isDelete: false, filters: {} }
+      const chain: any = {
+        select() { return chain },
+        eq(col: string, val: unknown) { ctx.filters[col] = val; return chain },
+        gte() { return chain },
+        order() { return chain },
+        limit() { return chain },
+        single: async () => {
+          if (table === 'profiles') return { data: { plan: 'paid' }, error: null }
+          if (ctx.insertedId != null) return { data: { id: ctx.insertedId }, error: null }
+          return { data: null, error: null }
+        },
+        insert(row: Record<string, unknown>) {
+          if (table === 'narrative_generations') {
+            const id = nextLedgerId++
+            ledgerRows.push({ ...row, id })
+            ctx.insertedId = id
+          }
+          return chain
+        },
+        update(patch: Record<string, unknown>) { ctx.patch = patch; return chain },
+        delete() { ctx.isDelete = true; return chain },
+        then(resolve: (v: unknown) => void) {
+          if (ctx.patch) {
+            const row = ledgerRows.find((r) => r.id === ctx.filters.id)
+            if (row) Object.assign(row, ctx.patch)
+          } else if (ctx.isDelete) {
+            const i = ledgerRows.findIndex((r) => r.id === ctx.filters.id)
+            if (i >= 0) ledgerRows.splice(i, 1)
+          }
+          resolve({ data: null, error: null, count: 0 })
+        },
+      }
+      return chain
+    }),
     ...overrides,
   }
 }
@@ -105,6 +138,8 @@ const MODEL_RESPONSE_OK = {
 
 beforeEach(() => {
   setEnv()
+  ledgerRows.length = 0
+  nextLedgerId = 1
 })
 
 afterEach(() => {
@@ -295,6 +330,53 @@ describe('handler — happy path', () => {
     const res = makeRes()
     await handler(makeReq(), res)
     expect(res.statusCode).toBe(502)
+  })
+
+  it('writes its OWN ledger stream (generation_type=photo_analysis) with the token counts', async () => {
+    __test.setSupabase(makeSupabaseMock())
+    __test.setFetch(makeFetchMock(MODEL_RESPONSE_OK))
+    await handler(makeReq(), makeRes())
+    expect(ledgerRows).toHaveLength(1)
+    expect(ledgerRows[0].generation_type).toBe('photo_analysis')
+    expect(ledgerRows[0].input_tokens).toBe(1500)
+    expect(ledgerRows[0].output_tokens).toBe(230)
+  })
+
+  it('counts only photo_analysis rows toward its rate limit', async () => {
+    const sb: any = makeSupabaseMock()
+    const filters: Array<Record<string, unknown>> = []
+    const realFrom = sb.from
+    sb.from = (table: string) => {
+      const chain = realFrom(table)
+      if (table === 'narrative_generations') {
+        const realEq = chain.eq
+        const seen: Record<string, unknown> = {}
+        filters.push(seen)
+        chain.eq = (col: string, val: unknown) => { seen[col] = val; return realEq(col, val) }
+      }
+      return chain
+    }
+    __test.setSupabase(sb)
+    __test.setFetch(makeFetchMock(MODEL_RESPONSE_OK))
+    await handler(makeReq(), makeRes())
+    const countQueries = filters.filter((f) => 'generation_type' in f)
+    expect(countQueries.length).toBeGreaterThan(0)
+    for (const f of countQueries) expect(f.generation_type).toBe('photo_analysis')
+  })
+
+  it('reserves the ledger row before the vision call and releases it when upstream fails (no raw error text)', async () => {
+    __test.setSupabase(makeSupabaseMock())
+    let rowsDuringCall = -1
+    __test.setFetch(vi.fn(async () => {
+      rowsDuringCall = ledgerRows.length
+      return { ok: false, status: 500, json: async () => ({}), text: async () => 'internal anthropic stack trace' }
+    }))
+    const res = makeRes()
+    await handler(makeReq(), res)
+    expect(rowsDuringCall).toBe(1)
+    expect(ledgerRows).toHaveLength(0)
+    expect(res.statusCode).toBe(502)
+    expect(JSON.stringify(res.body)).not.toContain('stack trace')
   })
 })
 

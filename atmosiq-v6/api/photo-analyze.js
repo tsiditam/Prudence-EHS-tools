@@ -20,10 +20,11 @@
  *   2. Per-user: 100 analyses / 24h rolling window
  *   3. Free tier: 5 analyses / 24h regardless of credit balance
  *
- * Records each successful analysis to narrative_generations (the
- * existing AI-cost ledger) with a generation_type='photo_analysis'
- * audit tag, so per-user gross margin stays observable. Reusing
- * the table avoids a new migration for the prototype.
+ * Records each analysis to narrative_generations (the existing AI-cost
+ * ledger) with generation_type='photo_analysis' so per-user gross margin
+ * stays observable and photos have their OWN rate-limit budget. The row is
+ * reserved before the vision call and finalized with token counts after
+ * (api/_rate-limit.js); a failed upstream call releases it.
  *
  * Test injection (per CLAUDE.md note 2): __test.setSupabase /
  * setFetch / resetSupabase / resetFetch swap the singletons so
@@ -31,12 +32,17 @@
  */
 
 const { createClient } = require('@supabase/supabase-js')
-const { auditLog } = require('./_audit')
-const { hasUnlimitedUsage } = require('../lib/unlimited-usage')
+const { auditLog } = require('./_audit.js')
+const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
+const rateLimit = require('./_rate-limit.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 10
 const PER_DAY_LIMIT = 100
 const FREE_TIER_DAILY_CAP = 5
+// Own ledger stream: photos used to insert with no generation_type, so
+// they landed as 'narrative' and shared (and drained) the narrative budget.
+const GENERATION_TYPE = 'photo_analysis'
 const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 1200
 // Reject oversized image payloads before the upstream vision call. A field
@@ -65,49 +71,12 @@ function estimateCost(inputTokens, outputTokens) {
   return Math.round(usd * 10000) / 10000
 }
 
-async function countRowsSince(supabase, userId, sinceIso) {
-  const { count, error } = await supabase
-    .from('narrative_generations')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('generated_at', sinceIso)
-  if (error) throw new Error(error.message)
-  return count || 0
-}
-
-async function findOldestSince(supabase, userId, sinceIso) {
-  const { data } = await supabase
-    .from('narrative_generations')
-    .select('generated_at')
-    .eq('user_id', userId)
-    .gte('generated_at', sinceIso)
-    .order('generated_at', { ascending: true })
-    .limit(1)
-    .single()
-  return data && data.generated_at ? data.generated_at : null
-}
-
 async function checkRateLimits(supabase, userId, plan, now = Date.now()) {
-  const oneMinAgo = new Date(now - 60_000).toISOString()
-  const oneDayAgo = new Date(now - 24 * 60 * 60_000).toISOString()
-
-  const minuteCount = await countRowsSince(supabase, userId, oneMinAgo)
-  if (minuteCount >= PER_MINUTE_LIMIT) {
-    const oldest = await findOldestSince(supabase, userId, oneMinAgo)
-    const retryAt = oldest ? new Date(oldest).getTime() + 60_000 : now + 60_000
-    const retryAfter = Math.max(1, Math.ceil((retryAt - now) / 1000))
-    return { ok: false, scope: 'per_minute', retry_after: retryAfter }
-  }
-
-  const dayCount = await countRowsSince(supabase, userId, oneDayAgo)
-  if (plan === 'free' && dayCount >= FREE_TIER_DAILY_CAP) {
-    return { ok: false, scope: 'free_tier_daily', retry_after: 24 * 60 * 60 }
-  }
-  if (dayCount >= PER_DAY_LIMIT) {
-    return { ok: false, scope: 'per_day', retry_after: 24 * 60 * 60 }
-  }
-
-  return { ok: true }
+  return rateLimit.checkRateLimits(
+    supabase, userId, plan,
+    { perMinute: PER_MINUTE_LIMIT, perDay: PER_DAY_LIMIT, freeTierDaily: FREE_TIER_DAILY_CAP },
+    GENERATION_TYPE, now,
+  )
 }
 
 /**
@@ -291,37 +260,43 @@ async function handler(req, res) {
     return res.status(413).json({ error: 'image too large (max 8 MB)' })
   }
 
+  // Reserve the ledger row BEFORE the upstream call (api/_rate-limit.js).
+  let reservation
+  try {
+    reservation = await rateLimit.reserveGeneration(supabase, { userId: user.id, generationType: GENERATION_TYPE, tag: 'photo-analyze' })
+  } catch {
+    return res.status(500).json({ error: 'ledger_reserve_failed' })
+  }
+
   let response
   try {
     response = await callAnthropicVision(apiKey, image, typeof context === 'string' ? context : null)
   } catch (e) {
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'photo-analyze')
     if (e && e._client) return res.status(400).json({ error: e.message })
-    return res.status(500).json({ error: (e && e.message) || 'anthropic call failed' })
+    console.error('[photo-analyze] anthropic call threw:', e && e.message)
+    return res.status(502).json({ error: 'upstream_unreachable' })
   }
 
   if (!response.ok) {
     const errText = typeof response.text === 'function' ? await response.text() : ''
-    return res.status(response.status).json({ error: errText })
+    console.error('[photo-analyze] anthropic non-2xx:', response.status, String(errText).slice(0, 300))
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'photo-analyze')
+    const status = response.status === 429 ? 429 : 502
+    return res.status(status).json({ error: `upstream_${response.status}` })
   }
 
   const data = await response.json()
   const analysis = parseModelResponse(data)
-  if (!analysis) {
-    return res.status(502).json({ error: 'model returned an unparseable response; try again or simplify the photo context' })
-  }
   const inputTokens = data.usage && typeof data.usage.input_tokens === 'number' ? data.usage.input_tokens : null
   const outputTokens = data.usage && typeof data.usage.output_tokens === 'number' ? data.usage.output_tokens : null
   const cost = estimateCost(inputTokens, outputTokens)
 
-  try {
-    await supabase.from('narrative_generations').insert({
-      user_id: user.id,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      estimated_cost_usd: cost,
-    })
-  } catch (err) {
-    console.error('[photo-analyze] failed to record generation:', err && err.message)
+  // Tokens were spent whether or not the JSON parsed — the ledger keeps them.
+  await rateLimit.finalizeGeneration(supabase, reservation.id, { inputTokens, outputTokens, cost }, 'photo-analyze')
+
+  if (!analysis) {
+    return res.status(502).json({ error: 'model returned an unparseable response; try again or simplify the photo context' })
   }
 
   await auditLog({
@@ -347,7 +322,7 @@ async function handler(req, res) {
   })
 }
 
-module.exports = handler
+module.exports = withSentry(handler, { route: 'photo-analyze' })
 module.exports.__test = {
   estimateCost,
   checkRateLimits,
@@ -356,6 +331,7 @@ module.exports.__test = {
   parseModelResponse,
   SYSTEM_PROMPT,
   ANTHROPIC_MODEL,
+  GENERATION_TYPE,
   PER_MINUTE_LIMIT,
   PER_DAY_LIMIT,
   FREE_TIER_DAILY_CAP,

@@ -18,7 +18,7 @@ const inputStyle = {
   width: '100%', boxSizing: 'border-box', padding: '11px 12px',
   background: 'var(--surface)', border: `1px solid ${V3.BORDER_DEFAULT}`,
   borderRadius: V3.R.md, color: V3.TEXT_PRIMARY, fontSize: 14,
-  fontFamily: 'inherit', outline: 'none',
+  fontFamily: 'inherit',
 }
 
 function Label({ children }) {

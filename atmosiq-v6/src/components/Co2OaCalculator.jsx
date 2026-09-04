@@ -109,7 +109,6 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
               fontSize: 15,
               fontFamily: 'inherit',
               fontWeight: 500,
-              outline: 'none',
               boxSizing: 'border-box',
             }}
             onFocus={e => e.target.style.borderColor = ACCENT}
@@ -134,7 +133,6 @@ export default function Co2OaCalculator({ co2, co2o, onApply, onCo2Change, onCo2
               fontSize: 15,
               fontFamily: 'inherit',
               fontWeight: 500,
-              outline: 'none',
               boxSizing: 'border-box',
             }}
             onFocus={e => e.target.style.borderColor = ACCENT}

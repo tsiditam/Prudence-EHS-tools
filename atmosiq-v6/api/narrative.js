@@ -4,29 +4,46 @@
  * Proxies AI narrative generation to the Anthropic API. The API key
  * stays server-side; the browser never sees it.
  *
+ * The system prompt is SERVER-OWNED (api/_narrative-prompt.js). A client
+ * that still sends `system` in the body is ignored — the old handler
+ * passed it verbatim, which made this an open Claude proxy for any
+ * signed-in user (audit 2026-09 H1). The payload is capped at
+ * MAX_PAYLOAD_CHARS (413 above it).
+ *
  * Three rate-limit gates before the upstream call:
  *   1. Per-user: 10 generations / 60s rolling window
  *   2. Per-user: 100 generations / 24h rolling window
  *   3. Free tier: 5 generations / 24h regardless of credit balance
+ * All three count ONLY generation_type='narrative' rows, so a photo or
+ * inline-AI burst never eats the narrative budget.
+ *
+ * The ledger row is RESERVED before the upstream call and finalized with
+ * token counts after (api/_rate-limit.js) — parallel requests can no longer
+ * all pass the count, and a failed upstream call releases its reservation.
  *
  * On a hit, returns 429 with a Retry-After header and an actionable
- * error body. Successful generations write a row to
- * narrative_generations with token counts and estimated cost so per-user
- * gross margin is observable.
+ * error body.
  */
 
 const { createClient } = require('@supabase/supabase-js')
-const { auditLog } = require('./_audit')
-const { hasUnlimitedUsage } = require('../lib/unlimited-usage')
-const { scan: scanBannedLanguage, scanStyle } = require('./_banned-language')
+const { auditLog } = require('./_audit.js')
+const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
+const { scan: scanBannedLanguage, scanStyle } = require('./_banned-language.js')
+const { REASONING_SYSTEM_PROMPT } = require('./_narrative-prompt.js')
+const rateLimit = require('./_rate-limit.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 10
 const PER_DAY_LIMIT = 100
 const FREE_TIER_DAILY_CAP = 5
+const GENERATION_TYPE = 'narrative'
 const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
 // $/M tokens — keep in sync with Anthropic pricing.
 const COST_INPUT_PER_M = 3
 const COST_OUTPUT_PER_M = 15
+// A real assessment payload is ~6-30 KB compacted. 60 KB is generous
+// headroom; anything past it is not an assessment.
+const MAX_PAYLOAD_CHARS = 60_000
 
 let _supabaseClient = null
 function getSupabase() {
@@ -48,54 +65,12 @@ function estimateCost(inputTokens, outputTokens) {
   return Math.round(usd * 10000) / 10000
 }
 
-async function countRowsSince(supabase, userId, sinceIso) {
-  const { count, error } = await supabase
-    .from('narrative_generations')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('generated_at', sinceIso)
-  if (error) throw new Error(error.message)
-  return count || 0
-}
-
-async function findOldestSince(supabase, userId, sinceIso) {
-  const { data } = await supabase
-    .from('narrative_generations')
-    .select('generated_at')
-    .eq('user_id', userId)
-    .gte('generated_at', sinceIso)
-    .order('generated_at', { ascending: true })
-    .limit(1)
-    .single()
-  return data && data.generated_at ? data.generated_at : null
-}
-
 async function checkRateLimits(supabase, userId, plan, now = Date.now()) {
-  const oneMinAgo = new Date(now - 60_000).toISOString()
-  const oneDayAgo = new Date(now - 24 * 60 * 60_000).toISOString()
-
-  // Both windows are counted in parallel: they are independent queries and
-  // only the decision below needs both. In series this cost an extra
-  // round trip on the critical path of every generation.
-  const [minuteCount, dayCount] = await Promise.all([
-    countRowsSince(supabase, userId, oneMinAgo),
-    countRowsSince(supabase, userId, oneDayAgo),
-  ])
-  if (minuteCount >= PER_MINUTE_LIMIT) {
-    const oldest = await findOldestSince(supabase, userId, oneMinAgo)
-    const retryAt = oldest ? new Date(oldest).getTime() + 60_000 : now + 60_000
-    const retryAfter = Math.max(1, Math.ceil((retryAt - now) / 1000))
-    return { ok: false, scope: 'per_minute', retry_after: retryAfter }
-  }
-
-  if (plan === 'free' && dayCount >= FREE_TIER_DAILY_CAP) {
-    return { ok: false, scope: 'free_tier_daily', retry_after: 24 * 60 * 60 }
-  }
-  if (dayCount >= PER_DAY_LIMIT) {
-    return { ok: false, scope: 'per_day', retry_after: 24 * 60 * 60 }
-  }
-
-  return { ok: true }
+  return rateLimit.checkRateLimits(
+    supabase, userId, plan,
+    { perMinute: PER_MINUTE_LIMIT, perDay: PER_DAY_LIMIT, freeTierDaily: FREE_TIER_DAILY_CAP },
+    GENERATION_TYPE, now,
+  )
 }
 
 async function callAnthropic(apiKey, system, payload) {
@@ -122,8 +97,8 @@ async function callAnthropic(apiKey, system, payload) {
       messages: [{
         role: 'user',
         // Compact, not pretty-printed. The indentation was ~2,300 of the
-      // ~5,900 characters sent and bought the model nothing.
-      content: `Based ONLY on this data, write a professional IAQ findings narrative:\n\n${JSON.stringify(payload)}`,
+        // ~5,900 characters sent and bought the model nothing.
+        content: `Based ONLY on this data, write a professional IAQ findings narrative:\n\n${JSON.stringify(payload)}`,
       }],
     }),
   })
@@ -143,6 +118,24 @@ async function handler(req, res) {
     authHeader.replace('Bearer ', '')
   )
   if (authErr || !user) return res.status(401).json({ error: 'Invalid token' })
+
+  // Body validation happens before any DB round trip.
+  const body = req.body || {}
+  const { payload } = body
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'Missing payload in request body' })
+  }
+  let payloadLength
+  try {
+    payloadLength = JSON.stringify(payload).length
+  } catch {
+    return res.status(400).json({ error: 'payload_not_serializable' })
+  }
+  if (payloadLength > MAX_PAYLOAD_CHARS) {
+    return res.status(413).json({ error: 'payload_too_large', max_chars: MAX_PAYLOAD_CHARS })
+  }
+  // `body.system` is deliberately ignored — see the header comment.
+  const system = REASONING_SYSTEM_PROMPT
 
   let plan = 'free'
   try {
@@ -185,22 +178,29 @@ async function handler(req, res) {
     })
   }
 
-  const body = req.body || {}
-  const { system, payload } = body
-  if (!system || !payload) {
-    return res.status(400).json({ error: 'Missing system or payload in request body' })
+  // Reserve the ledger row BEFORE the upstream call.
+  let reservation
+  try {
+    reservation = await rateLimit.reserveGeneration(supabase, { userId: user.id, generationType: GENERATION_TYPE, tag: 'narrative' })
+  } catch {
+    return res.status(500).json({ error: 'ledger_reserve_failed' })
   }
 
   let response
   try {
     response = await callAnthropic(apiKey, system, payload)
   } catch (e) {
-    return res.status(500).json({ error: (e && e.message) || 'anthropic call failed' })
+    console.error('[narrative] anthropic call threw:', e && e.message)
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'narrative')
+    return res.status(502).json({ error: 'upstream_unreachable' })
   }
 
   if (!response.ok) {
     const errText = typeof response.text === 'function' ? await response.text() : ''
-    return res.status(response.status).json({ error: errText })
+    console.error('[narrative] anthropic non-2xx:', response.status, String(errText).slice(0, 300))
+    await rateLimit.releaseGeneration(supabase, reservation.id, 'narrative')
+    const status = response.status === 429 ? 429 : 502
+    return res.status(status).json({ error: `upstream_${response.status}` })
   }
 
   const data = await response.json()
@@ -220,25 +220,15 @@ async function handler(req, res) {
   const outputTokens = data.usage && typeof data.usage.output_tokens === 'number' ? data.usage.output_tokens : null
   const cost = estimateCost(inputTokens, outputTokens)
 
-  // Usage row and audit entry are both bookkeeping, and they were awaited
-  // one after the other with the finished narrative already in hand — two
-  // round trips the assessor spent staring at a spinner. They run together
-  // now. Still awaited, not fire-and-forget: the serverless runtime can
-  // freeze the instance the moment the response is sent, which would drop
-  // the usage row the rate limiter counts and the audit entry.
+  // Finalize the reservation with the real token counts and write the
+  // audit entry. Both are bookkeeping; they run together. Still awaited,
+  // not fire-and-forget: the serverless runtime can freeze the instance
+  // the moment the response is sent.
   //
   // Renamed `narrative.generate` → `narrative_generated` (connectivity
-  // PR D EventName allowlist). No external consumer reads the old
-  // string today; the new name lines up with KNOWN_EVENTS so the
-  // event-spine vocabulary is consistent across browser + server.
-  const recordUsage = supabase.from('narrative_generations').insert({
-    user_id: user.id,
-    input_tokens: inputTokens,
-    output_tokens: outputTokens,
-    estimated_cost_usd: cost,
-  }).then(
-    () => {},
-    (err) => console.error('[narrative] failed to record generation:', err && err.message),
+  // PR D EventName allowlist).
+  const recordUsage = rateLimit.finalizeGeneration(
+    supabase, reservation.id, { inputTokens, outputTokens, cost }, 'narrative',
   )
 
   const recordAudit = auditLog({
@@ -265,12 +255,12 @@ async function handler(req, res) {
     narrative: text,
     language_review: languageReview,
     banned_language: bannedLanguage,
-      style_flags: styleFlags,
+    style_flags: styleFlags,
     usage: { input_tokens: inputTokens, output_tokens: outputTokens, estimated_cost_usd: cost },
   })
 }
 
-module.exports = handler
+module.exports = withSentry(handler, { route: 'narrative' })
 module.exports.__test = {
   estimateCost,
   checkRateLimits,
@@ -278,7 +268,10 @@ module.exports.__test = {
   PER_MINUTE_LIMIT,
   PER_DAY_LIMIT,
   FREE_TIER_DAILY_CAP,
+  GENERATION_TYPE,
   ANTHROPIC_MODEL,
+  MAX_PAYLOAD_CHARS,
+  REASONING_SYSTEM_PROMPT,
   setSupabase(mock) { _supabaseClient = mock },
   setFetch(mock) { _fetch = mock },
   resetSupabase() { _supabaseClient = null },

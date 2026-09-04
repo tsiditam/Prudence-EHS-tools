@@ -105,6 +105,17 @@ describe('no source file claims ASHRAE 55 for humidity again', () => {
     'src/report/narrativeLibrary.js',
     'src/engine/report/phrases/environment.ts',
     'src/engine/report/parameter-prose/thermal.ts',
+    // Added 2026-09 (AUDIT-2026-09 C1/C2/C4): nine building profiles, the
+    // Logger card, the intake hints, the print report's parameter table, the
+    // Jasper knowledge base and the DOCX narrative all stated the band under
+    // ASHRAE 55 (or 62.1) and none of them was in this list.
+    'src/engines/buildingProfiles.js',
+    'src/utils/sensorThresholds.js',
+    'src/constants/questions.js',
+    'src/constants/fm-questions.js',
+    'src/constants/iaq-knowledge-base.js',
+    'src/constants/field-assistant-corpus.js',
+    'src/report/narrativeLibrary.js',
   ]
 
   // Phrases that DISCLAIM the attribution rather than make it. A line
@@ -141,6 +152,25 @@ describe('no source file claims ASHRAE 55 for humidity again', () => {
         .map((line, i) => ({ line, n: i + 1 }))
         .filter(({ line }) => !isComment(line))
         .filter(({ line }) => /ASHRAE/i.test(line) && /humid|\bRH\b/i.test(line))
+        .filter(({ line }) => !DISCLAIMERS.some((d) => d.test(line)))
+      expect(offenders.map((o) => `${rel}:${o.n} ${o.line.trim()}`)).toEqual([])
+    })
+
+    // The phrasing-independent form. The profiles stated the band as
+    // `{ min: 30, max: 60, label: 'ASHRAE 55' }` — no "humidity", no "RH" —
+    // and the Logger card as `${STD.v.ref}: ${STD.t.rh.min}–${STD.t.rh.max}%`,
+    // which names neither number in source. So: the two figures within 40
+    // characters of "ASHRAE 55" or "62.1" on a non-comment line fails, and
+    // a reference to the temperature/ventilation ref BESIDE the rh band
+    // constants fails too, however it is worded.
+    it(`${rel} does not put 30 and 60 beside ASHRAE 55 or 62.1`, () => {
+      const NEAR = /(ASHRAE\s*55|62\.1)[^\n]{0,40}\b30\b[^\n]{0,10}\b60\b|\b30\b[^\n]{0,10}\b60\b[^\n]{0,40}(ASHRAE\s*55|62\.1)/i
+      const INHERITED = /STD\.(t|v)\.ref[^\n]{0,40}STD\.t\.rh\.(min|max)|STD\.t\.rh\.(min|max)[^\n]{0,40}STD\.(t|v)\.ref/
+      const offenders = read(rel)
+        .split('\n')
+        .map((line, i) => ({ line, n: i + 1 }))
+        .filter(({ line }) => !isComment(line))
+        .filter(({ line }) => NEAR.test(line) || INHERITED.test(line))
         .filter(({ line }) => !DISCLAIMERS.some((d) => d.test(line)))
       expect(offenders.map((o) => `${rel}:${o.n} ${o.line.trim()}`)).toEqual([])
     })

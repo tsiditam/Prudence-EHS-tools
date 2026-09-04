@@ -15,7 +15,9 @@
     "api/**/*.ts",
     "lib/**/*.ts",
     "components/**/*.{ts,tsx}",
-    "pages/**/*.{ts,tsx}"
+    "pages/**/*.{ts,tsx}",
+    "src/**/*.ts",
+    "src/**/*.tsx"
   ],
-  "exclude": ["node_modules", "dist", "src", "scripts/render-acceptance-fixture.test.ts", "scripts/acceptance/render-acceptance-fixture.test.ts", "scripts/dev/render-kg-traceability-sample.test.ts"]
+  "exclude": ["node_modules", "dist", "scripts/render-acceptance-fixture.test.ts", "scripts/acceptance/render-acceptance-fixture.test.ts", "scripts/dev/render-kg-traceability-sample.test.ts"]
 }

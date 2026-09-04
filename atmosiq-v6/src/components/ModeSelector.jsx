@@ -3,6 +3,7 @@
  * "How will you use AtmosFlow?" → IH or FM mode
  */
 
+import { FULL_VH } from '../styles/tokens'
 import { I } from './Icons'
 import { mix } from '../utils/theme'
 
@@ -12,7 +13,7 @@ const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
 export default function ModeSelector({ onSelect }) {
   return (
     <div style={{
-      minHeight: '100vh', background: BG, color: TEXT,
+      minHeight: FULL_VH, background: BG, color: TEXT,
       fontFamily: "'inherit', system-ui, sans-serif",
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: '40px 20px',

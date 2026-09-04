@@ -17,8 +17,13 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { fromCloudRow, toPayload } from '../../src/utils/supabaseStorage'
-import { deriveLegacyUid } from '../../src/billing/assessmentUid'
+import {
+  fromCloudRow,
+  toPayload,
+  OPTIONAL_ASSESSMENT_COLUMNS,
+  isUndefinedColumnError,
+  isUniqueViolationError,
+} from '../../src/utils/supabaseStorage'
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8')
 
@@ -104,9 +109,26 @@ describe('the migration is safe on a project that is behind', () => {
     expect(sql).toMatch(/UNIQUE INDEX[\s\S]*\(user_id, assessment_uid\)/)
   })
 
-  it('an unmigrated project still syncs — the column is dropped on retry', () => {
-    // Migrations 023-031 are unapplied in production today, so 032 will be
-    // too. Writing a column that does not exist must not break all syncing.
-    expect(storage).toMatch(/delete row\.assessment_uid/)
+  it('an unmigrated project still syncs — the column is dropped on an undefined-column error', () => {
+    // Writing a column that does not exist must not break all syncing. The
+    // drop is keyed on the Postgres code for "undefined column" (42703, or
+    // PostgREST's schema-cache form PGRST204) and only ever removes the
+    // optional set — never on "any error" (audit H3).
+    expect(OPTIONAL_ASSESSMENT_COLUMNS).toContain('assessment_uid')
+    expect(isUndefinedColumnError({ code: '42703', message: 'column "assessment_uid" of relation "assessments" does not exist' })).toBe(true)
+    expect(isUndefinedColumnError({ code: 'PGRST204', message: "Could not find the 'assessment_uid' column" })).toBe(true)
+    expect(storage).toMatch(/isUndefinedColumnError\(error\)[\s\S]*delete row\[col\]/)
+  })
+
+  it('a unique violation on the uid is NOT "fixed" by dropping the column', () => {
+    // 23505 means a stale draft- row still carries this uid (the finalize
+    // deleted the draft locally only). Dropping assessment_uid would make the
+    // upsert "succeed" as an unidentified report; the stale draft row is
+    // deleted and the write retried with the uid intact instead.
+    expect(isUniqueViolationError({ code: '23505' })).toBe(true)
+    expect(isUndefinedColumnError({ code: '23505' })).toBe(false)
+    expect(storage).toMatch(/isUniqueViolationError\(error\)[\s\S]*\.like\('id', 'draft-%'\)/)
+    const uniqueBranch = storage.slice(storage.indexOf('isUniqueViolationError(error) &&'))
+    expect(uniqueBranch.slice(0, uniqueBranch.indexOf('return { ok: false, error }'))).not.toMatch(/delete row/)
   })
 })

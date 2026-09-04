@@ -9,8 +9,16 @@
  *
  * Wiring (§6):
  *   • GitHub Actions cron at 6:00 UTC daily (.github/workflows/smoke-test.yml)
+ *   • Also on every successful PRODUCTION deployment_status event, so a
+ *     route that 500s at cold start is caught minutes after the deploy
  *   • On failure → Slack webhook OR email to SMOKE_TEST_ALERT_EMAIL
  *   • Production Stripe is NEVER hit. STRIPE_TEST_SECRET_KEY only.
+ *
+ * Route probe: every api/** entry in the checkout is hit unauthenticated
+ * (GET and POST) and must answer with a non-5xx status. 401 / 405 / 400 /
+ * 503-from-CRON_SECRET are all fine; a 500 means the function crashed at
+ * import or on its first line — the CHANGELOG incident, which the old
+ * smoke test could not see because it touched none of the failing routes.
  *
  * Required env:
  *   SMOKE_TEST_BASE_URL          e.g. https://atmosflow.app
@@ -24,6 +32,8 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { readdirSync, existsSync } from 'node:fs'
+import path from 'node:path'
 
 interface StepResult {
   step: string
@@ -70,6 +80,62 @@ async function stripeTestRequest(path: string, body: Record<string, string>): Pr
     throw new Error(`Stripe ${path} failed: ${resp.status} ${txt}`)
   }
   return resp.json()
+}
+
+// ─── Unauthenticated route probe ────────────────────────────────────
+/**
+ * Every routable api/** entry in this checkout, as URL paths. Mirrors the
+ * discovery in scripts/bundle-api.mjs: recursive, .js + .ts, `_`-prefixed
+ * helpers skipped. Derived from the file tree so a new route is probed the
+ * day it lands, with no list to keep in sync.
+ */
+export function listApiRoutes(rootDir: string = process.cwd()): string[] {
+  const apiDir = path.join(rootDir, 'api')
+  if (!existsSync(apiDir)) return []
+  const out: string[] = []
+  const walk = (dir: string, rel: string) => {
+    for (const d of readdirSync(dir, { withFileTypes: true })) {
+      if (d.name.startsWith('_')) continue
+      const relPath = rel ? `${rel}/${d.name}` : d.name
+      if (d.isDirectory()) { walk(path.join(dir, d.name), relPath); continue }
+      if (!/\.(js|ts)$/.test(d.name) || /\.(test|spec)\.[jt]s$/.test(d.name) || d.name.endsWith('.d.ts')) continue
+      out.push(`/api/${relPath.replace(/\.(js|ts)$/, '')}`)
+    }
+  }
+  walk(apiDir, '')
+  return out.sort()
+}
+
+export interface RouteProbeResult { route: string; method: 'GET' | 'POST'; status: number; ok: boolean }
+
+/**
+ * Hit every route unauthenticated with GET and an empty-JSON POST. A route
+ * passes when it answers with anything below 500 — 401/405/400/404/503 all
+ * mean the function booted and ran its own gate. 5xx means it did not.
+ */
+export async function probeApiRoutes(baseUrl: string, routes: string[] = listApiRoutes()): Promise<RouteProbeResult[]> {
+  const results: RouteProbeResult[] = []
+  for (const route of routes) {
+    for (const method of ['GET', 'POST'] as const) {
+      let status = 0
+      try {
+        const r = await fetch(`${baseUrl}${route}`, {
+          method,
+          headers: method === 'POST' ? { 'Content-Type': 'application/json' } : {},
+          body: method === 'POST' ? '{}' : undefined,
+          redirect: 'manual',
+        })
+        status = r.status
+      } catch (err: unknown) {
+        status = 0
+        results.push({ route, method, status, ok: false })
+        void err
+        continue
+      }
+      results.push({ route, method, status, ok: status > 0 && status < 500 })
+    }
+  }
+  return results
 }
 
 // ─── Alert routing ──────────────────────────────────────────────────
@@ -229,6 +295,18 @@ export async function runSmokeTest(): Promise<number> {
       })
       if (r.status !== 400 && r.status !== 401) {
         throw new Error(`expected 400/401 on empty body, got ${r.status}`)
+      }
+    })
+
+    // 6b. Every api/** route answers unauthenticated with a non-5xx status.
+    await step('Probe every /api route unauthenticated (non-5xx required)', async () => {
+      const routes = listApiRoutes()
+      if (routes.length === 0) throw new Error('no api/** routes found in this checkout')
+      const probes = await probeApiRoutes(baseUrl, routes)
+      const bad = probes.filter(p => !p.ok)
+      if (bad.length > 0) {
+        throw new Error(`${bad.length} of ${probes.length} probes returned 5xx/unreachable: ` +
+          bad.map(b => `${b.method} ${b.route} → ${b.status || 'unreachable'}`).join('; '))
       }
     })
 

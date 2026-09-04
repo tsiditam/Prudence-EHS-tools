@@ -36,7 +36,7 @@ describe('JasperWatchPanel', () => {
     const panel = screen.getByTestId('jasper-watch-panel')
     expect(panel.textContent).toMatch(/JASPER WATCH/)
     expect(panel.textContent).toMatch(/CRITICAL/)
-    expect(panel.textContent).toMatch(/CO at 55 ppm/)
+    expect(panel.textContent).toMatch(/CO 55 ppm/)
     expect(panel.textContent).toMatch(/Evacuate or ventilate/i)
     expect(panel.textContent).toMatch(/OSHA/)
   })

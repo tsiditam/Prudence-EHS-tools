@@ -9,7 +9,17 @@
  * `!zoneScores.length`, and the report view renders nothing (dead tap).
  */
 import { describe, it, expect } from 'vitest'
-import Storage, { fromCloudRow, toPayload } from '../../src/utils/supabaseStorage.js'
+import Storage, {
+  fromCloudRow,
+  toPayload,
+  toAssessmentRow,
+  toProfileRow,
+  engineMajor,
+  isCensus,
+  missingColumnName,
+  deriveProfileName,
+  indexEntryFromRow,
+} from '../../src/utils/supabaseStorage.js'
 
 function cloudRow() {
   return {
@@ -217,5 +227,150 @@ describe('getRemoteAssessment — cloud-bypass fetch', () => {
     // It must resolve null rather than throw, so openReport can fall through.
     expect(typeof Storage.getRemoteAssessment).toBe('function')
     await expect(Storage.getRemoteAssessment('rpt-x')).resolves.toBeNull()
+  })
+})
+
+// ── Audit 2026-09 (M4 report date, M5 composite shape, H5 token) ────
+
+const CENSUS = { count: 1, findings: { total: 2, attention: 1, bySeverity: { critical: 0, high: 1, medium: 0, low: 1 } }, confidence: 'High', partialData: false }
+
+describe('fromCloudRow — report date (M4)', () => {
+  it('prefers finalized_at over the payload ts and over updated_at', () => {
+    const out = fromCloudRow({
+      id: 'A-1', status: 'complete', updated_at: '2026-06-30T00:00:00Z', finalized_at: '2026-05-01T00:00:00Z',
+      payload: { id: 'A-1', ts: '2026-05-02T00:00:00Z' },
+    })
+    expect(out.ts).toBe('2026-05-01T00:00:00Z')
+  })
+
+  it('falls back to the finalize timestamp the app stamped into the payload before updated_at', () => {
+    // updated_at moves on every re-save; the finalize stamp does not.
+    const out = fromCloudRow({ id: 'A-1', status: 'complete', updated_at: '2026-06-30T00:00:00Z', payload: { id: 'A-1', ts: '2026-05-02T00:00:00Z' } })
+    expect(out.ts).toBe('2026-05-02T00:00:00Z')
+  })
+
+  it('legacy rows prefer finalized_at over updated_at', () => {
+    const out = fromCloudRow({ ...cloudRow(), finalized_at: '2026-05-01T00:00:00Z' })
+    expect(out.ts).toBe('2026-05-01T00:00:00Z')
+  })
+
+  it('exposes the cloud updated_at as cloudUpdatedAt (the next push\'s base) on both paths', () => {
+    expect(fromCloudRow(cloudRow()).cloudUpdatedAt).toBe('2026-05-27T10:00:00Z')
+    expect(fromCloudRow({ id: 'A-1', updated_at: 'T', payload: { id: 'A-1' } }).cloudUpdatedAt).toBe('T')
+    expect('cloudUpdatedAt' in fromCloudRow({ id: 'A-1', payload: { id: 'A-1' } })).toBe(false)
+  })
+})
+
+describe('composite shape (M5)', () => {
+  it('engineMajor reads the engine from the payload version strings', () => {
+    expect(engineMajor({ payload: { ver: '6.0.0-beta (Engine v3.0.0)' } })).toBe(3)
+    expect(engineMajor({ payload: { standardsManifest: { engineVersion: '2.9.1' } } })).toBe(2)
+    expect(engineMajor({ payload: {} })).toBeNull()
+    expect(engineMajor({ composite: { tot: 50 } })).toBeNull()
+  })
+
+  it('isCensus tells the v3 census from the legacy score', () => {
+    expect(isCensus(CENSUS)).toBe(true)
+    expect(isCensus({ tot: 62, risk: 'MODERATE' })).toBe(false)
+    expect(isCensus(null)).toBe(false)
+  })
+
+  it('toPayload writes the census to payload.census', () => {
+    expect(toPayload({ id: 'A', comp: CENSUS }).census).toEqual(CENSUS)
+    expect('census' in toPayload({ id: 'A', comp: { tot: 62 } })).toBe(false)
+  })
+
+  it('reads payload.census first and does not consult the composite column for a v3 record', () => {
+    const out = fromCloudRow({
+      id: 'A-1', status: 'complete', updated_at: 't',
+      composite: { tot: 62, risk: 'MODERATE' },
+      payload: { id: 'A-1', ver: '6.0.0-beta (Engine v3.0.0)', census: CENSUS },
+    })
+    expect(out.comp).toEqual(CENSUS)
+    expect(out.composite).toEqual(CENSUS)
+    expect('census' in out).toBe(false)
+  })
+
+  it('a v3 payload without a census leaves the legacy composite column alone', () => {
+    const out = fromCloudRow({
+      id: 'A-1', status: 'complete', updated_at: 't',
+      composite: { tot: 62, risk: 'MODERATE' },
+      payload: { id: 'A-1', ver: '6.0.0-beta (Engine v3.0.0)' },
+    })
+    expect(out.comp).toBeUndefined()
+  })
+
+  it('reads the composite column for a pre-v3 payload that has no comp of its own', () => {
+    const out = fromCloudRow({
+      id: 'A-1', status: 'complete', updated_at: 't',
+      composite: { tot: 62, risk: 'MODERATE' },
+      payload: { id: 'A-1', ver: '6.0.0-beta (Engine v2.9.0)' },
+    })
+    expect(out.comp).toEqual({ tot: 62, risk: 'MODERATE' })
+  })
+
+  it('a legacy row (no payload, unknown engine) still maps the composite column', () => {
+    expect(fromCloudRow(cloudRow()).comp).toEqual({ tot: 62, risk: 'MODERATE' })
+  })
+})
+
+describe('toAssessmentRow — wire shape', () => {
+  const report = { id: 'rpt-1', status: 'complete', ts: '2026-05-01T00:00:00Z', building: { fn: 'X' }, zones: [], photos: {}, comp: CENSUS, assessmentUid: 'u', cloudUpdatedAt: 'T1' }
+
+  it('never writes composite; the census rides in payload.census', () => {
+    const row = toAssessmentRow(report, 'user-1')
+    expect('composite' in row).toBe(false)
+    expect(row.payload.census).toEqual(CENSUS)
+  })
+
+  it('writes finalized_at and base_updated_at', () => {
+    const row = toAssessmentRow(report, 'user-1')
+    expect(row.finalized_at).toBe('2026-05-01T00:00:00Z')
+    expect(row.base_updated_at).toBe('T1')
+    expect(toAssessmentRow({ ...report, status: 'draft', reportStatus: 'draft' }, 'user-1').finalized_at).toBeNull()
+    expect(toAssessmentRow({ ...report, cloudUpdatedAt: undefined }, 'user-1').base_updated_at).toBeNull()
+  })
+
+  it('strips per-device bookkeeping from the payload', () => {
+    const row = toAssessmentRow({ ...report, _photosPending: true }, 'user-1')
+    expect('cloudUpdatedAt' in row.payload).toBe(false)
+    expect('_photosPending' in row.payload).toBe(false)
+    expect('photos' in row).toBe(false)
+  })
+})
+
+describe('toProfileRow — server-owned columns are never sent', () => {
+  it('drops plan and credits_remaining', () => {
+    const row = toProfileRow('u-1', { name: 'J', plan: 'pro', credits_remaining: 9, email_preferences: { a: true } })
+    expect('plan' in row).toBe(false)
+    expect('credits_remaining' in row).toBe(false)
+    expect(row.email_preferences).toEqual({ a: true })
+    expect(row.id).toBe('u-1')
+  })
+})
+
+describe('helpers', () => {
+  it('missingColumnName parses both Postgres and PostgREST messages', () => {
+    expect(missingColumnName({ message: 'column "finalized_at" of relation "assessments" does not exist' })).toBe('finalized_at')
+    expect(missingColumnName({ message: 'column assessments.finalized_at does not exist' })).toBe('finalized_at')
+    expect(missingColumnName({ message: "Could not find the 'payload' column of 'assessments' in the schema cache" })).toBe('payload')
+    expect(missingColumnName({ message: 'permission denied' })).toBeNull()
+  })
+
+  it('deriveProfileName prefers metadata, then the email local-part', () => {
+    expect(deriveProfileName({ user_metadata: { name: ' Jane ' } }, 'j@x.com')).toBe('Jane')
+    expect(deriveProfileName({ user_metadata: {} }, 'jane.doe@x.com')).toBe('jane.doe')
+    expect(deriveProfileName({ email: 'bob@x.com' }, '')).toBe('bob')
+    expect(deriveProfileName(null, '')).toBe('New user')
+  })
+
+  it('indexEntryFromRow maps findings from the payload (no findings/attention columns exist)', () => {
+    const e = indexEntryFromRow({ id: 'rpt-1', status: 'complete', facility_name: 'X', updated_at: 'U', finalized_at: 'F', payload: { census: CENSUS } })
+    expect(e).toMatchObject({ id: 'rpt-1', ts: 'F', facility: 'X', findings: 2, attention: 1 })
+    const zs = [{ cats: [{ l: 'Air', r: [{ sev: 'high' }, { sev: 'pass' }] }] }]
+    const e2 = indexEntryFromRow({ id: 'rpt-2', status: 'complete', updated_at: 'U', payload: { zoneScores: zs } })
+    expect(e2.findings).toBe(1)
+    expect(e2.worstSeverity).toBe('high')
+    expect(e2.ts).toBe('U')
   })
 })

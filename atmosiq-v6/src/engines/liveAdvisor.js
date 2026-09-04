@@ -29,6 +29,8 @@
  */
 
 import { STD } from '../constants/standards'
+import { evaluateCriteria } from '../constants/criteria'
+import { readNumber } from './scoring'
 
 const PARAM = {
   co2: 'co2',
@@ -40,10 +42,54 @@ const PARAM = {
   rh: 'rh',
 }
 
-function num(v) {
-  if (v === null || v === undefined || v === '') return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
+// The engine's one numeric parser (audit H1): '1,180' reads, 'abc' is null.
+const num = readNumber
+
+// ── CO / formaldehyde through the criterion registry (audit H2) ──
+//
+// The two checks used to compare the reading against bare STD numbers with
+// `>=` and say "at or above OSHA PEL" of a grab reading — the averaging-period
+// category error the registry exists to prevent — and called the formaldehyde
+// NIOSH REL (0.016 ppm, a 10-hour TWA) a "ceiling" (the NIOSH ceiling is
+// 0.1 ppm). Both now take the criterion, the sentence, the citation and the
+// comparison (strictly `>`, as the registry defines it — audit M7) from
+// `evaluateCriteria`. Advisory ids keep their historical names where one
+// existed so the JasperWatchPanel's dismissal keys survive.
+const ADVISORY_ID = {
+  co_niosh_ceiling: 'co-ceiling', co_osha_pel: 'co-pel', co_niosh_rel: 'co-niosh',
+  co_who_1h: 'co-who-1h', co_epa_naaqs_8h: 'co-naaqs-8h', co_who_24h: 'co-who-24h',
+  hcho_osha_stel: 'hcho-stel', hcho_osha_pel: 'hcho-pel', hcho_osha_al: 'hcho-action',
+  hcho_who_30min: 'hcho-who-30min', hcho_niosh_rel: 'hcho-niosh',
+}
+const ADVISORY_SEVERITY = { critical: 'critical', high: 'warn', medium: 'info', low: 'info' }
+const SUGGESTION = {
+  co_niosh_ceiling: 'Evacuate or ventilate immediately. Locate combustion source (vehicle, generator, furnace, water heater). Continuous monitoring while remediation proceeds.',
+  co_osha_pel: 'Evacuate or ventilate immediately. Locate combustion source (vehicle, generator, furnace, water heater). Continuous monitoring while remediation proceeds.',
+  co_niosh_rel: 'Identify the source. Consider continuous CO logging over a representative occupancy period.',
+  co_who_1h: 'Identify the source. Consider continuous CO logging over a representative occupancy period.',
+  co_epa_naaqs_8h: 'Worth noting — indoor CO above the 8-hour NAAQS indicates a combustion source or an infiltration pathway. If the reading is rising over the walkthrough, consider continuous monitoring.',
+  co_who_24h: 'Note the likely source (fuel-fired appliance, attached garage, loading dock, flue) and re-check under normal operation.',
+  hcho_osha_stel: 'Identify the source (new finishes, mobile homes, combustion). Remove occupants from the affected area pending confirmation.',
+  hcho_osha_pel: 'Identify the source (new finishes, mobile homes, combustion). Evacuate sensitive occupants pending source isolation.',
+  hcho_osha_al: 'Consider sorbent-tube confirmation (NIOSH 2016 DNPH) and source survey.',
+  hcho_who_30min: 'Identify the emitting material; confirm with NIOSH 2016 sampling.',
+  hcho_niosh_rel: 'The NIOSH REL is a health-protective 10-hour TWA; a single spot reading above it does not establish exposure, but a sorbent-tube TWA is the defensible confirmation.',
+}
+
+function criterionAdvisory(parameter, field, label, value) {
+  const hit = evaluateCriteria(parameter, value, 'screening_grab')
+  if (!hit) return null
+  const id = hit.criterion.id
+  return {
+    id: ADVISORY_ID[id] || `${field}-${id}`,
+    severity: ADVISORY_SEVERITY[hit.severity] || 'info',
+    parameter: field,
+    observation: `${label} ${hit.statement}`,
+    suggestion: SUGGESTION[id] || 'Identify the source and confirm with an integrated method.',
+    reference: hit.criterion.source,
+    criterionId: id,
+    determinative: hit.determinative,
+  }
 }
 
 /**
@@ -108,73 +154,13 @@ function checkOutdoorBaseline(data) {
 function checkCO(data) {
   const co = num(data.co)
   if (co === null) return null
-  if (co >= STD.c.co.osha) {
-    return {
-      id: 'co-pel',
-      severity: 'critical',
-      parameter: PARAM.co,
-      observation: `CO at ${co} ppm — at or above OSHA PEL (${STD.c.co.osha} ppm).`,
-      suggestion: 'Evacuate or ventilate immediately. Locate combustion source (vehicle, generator, furnace, water heater). Continuous monitoring while remediation proceeds.',
-      reference: '29 CFR 1910.1000 (OSHA Z-1 PELs)',
-    }
-  }
-  if (co >= STD.c.co.niosh) {
-    return {
-      id: 'co-niosh',
-      severity: 'warn',
-      parameter: PARAM.co,
-      observation: `CO at ${co} ppm — at or above NIOSH REL (${STD.c.co.niosh} ppm).`,
-      suggestion: 'Identify the source. Consider continuous CO logging over a representative occupancy period.',
-      reference: 'NIOSH Pocket Guide to Chemical Hazards',
-    }
-  }
-  if (co >= STD.c.co.niosh / 2) {
-    return {
-      id: 'co-rising',
-      severity: 'info',
-      parameter: PARAM.co,
-      observation: `CO at ${co} ppm — half of NIOSH REL.`,
-      suggestion: 'Worth noting. If reading is rising over the walkthrough, consider continuous monitoring.',
-      reference: 'NIOSH Pocket Guide to Chemical Hazards',
-    }
-  }
-  return null
+  return criterionAdvisory('co', PARAM.co, 'CO', co)
 }
 
 function checkHCHO(data) {
   const hc = num(data.hc)
   if (hc === null) return null
-  if (hc >= STD.c.hcho.osha) {
-    return {
-      id: 'hcho-pel',
-      severity: 'critical',
-      parameter: PARAM.hcho,
-      observation: `Formaldehyde at ${hc} ppm — at or above OSHA PEL (${STD.c.hcho.osha} ppm).`,
-      suggestion: 'Identify the source (new finishes, mobile homes, combustion). Evacuate sensitive occupants pending source isolation.',
-      reference: '29 CFR 1910.1048 (Formaldehyde standard)',
-    }
-  }
-  if (hc >= STD.c.hcho.al) {
-    return {
-      id: 'hcho-action',
-      severity: 'warn',
-      parameter: PARAM.hcho,
-      observation: `Formaldehyde at ${hc} ppm — at or above OSHA Action Level (${STD.c.hcho.al} ppm).`,
-      suggestion: 'Consider sorbent-tube confirmation (NIOSH 2016 DNPH) and source survey.',
-      reference: '29 CFR 1910.1048 §IV (Action Level)',
-    }
-  }
-  if (hc > STD.c.hcho.niosh) {
-    return {
-      id: 'hcho-niosh',
-      severity: 'info',
-      parameter: PARAM.hcho,
-      observation: `Formaldehyde at ${hc} ppm — above NIOSH REL ceiling (${STD.c.hcho.niosh} ppm).`,
-      suggestion: 'NIOSH REL is health-protective; a single spot reading above it does not establish exposure, but a sorbent-tube TWA is the defensible confirmation.',
-      reference: 'NIOSH Pocket Guide — Formaldehyde',
-    }
-  }
-  return null
+  return criterionAdvisory('hcho', PARAM.hcho, 'Formaldehyde', hc)
 }
 
 function checkPM25(data) {

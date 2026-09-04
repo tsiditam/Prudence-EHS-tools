@@ -60,9 +60,30 @@ describe('classifyCondition — Ventilation', () => {
 })
 
 describe('classifyCondition — Contaminants', () => {
-  it('CO above OSHA PEL → co_above_pel_documented', () => {
+  it('CO above the OSHA PEL value on a grab reading → co_screening_elevated (audit H2)', () => {
+    // Routing is structured: the documented-PEL type needs an 8-hour TWA
+    // criterion AND a basis that can settle it. "OSHA" in the std string
+    // used to be enough, which is how a grab reading rendered as a
+    // documented PEL exceedance.
     const c = classifyCondition(
       { t: 'CO 60 ppm — EXCEEDS OSHA PEL', sev: 'critical', std: 'OSHA' },
+      'Contaminants',
+      { co: '60' },
+    )
+    expect(c).toBe('co_screening_elevated')
+    const structuredGrab = classifyCondition(
+      { t: 'CO 60 ppm — above the OSHA PEL of 50 ppm', sev: 'critical', std: 'OSHA 29 CFR 1910.1000 Table Z-1',
+        p: 'co', criterionClass: 'regulatory_oel', averaging: 'hour8', determinative: false, evidenceBasis: 'screening_grab' },
+      'Contaminants',
+      { co: '60' },
+    )
+    expect(structuredGrab).toBe('co_screening_elevated')
+  })
+
+  it('CO above the OSHA PEL on a DOCUMENTED 8-hour TWA → co_above_pel_documented', () => {
+    const c = classifyCondition(
+      { t: 'CO 60 ppm — above the OSHA PEL of 50 ppm', sev: 'critical', std: 'OSHA 29 CFR 1910.1000 Table Z-1',
+        p: 'co', criterionClass: 'regulatory_oel', averaging: 'hour8', determinative: true, evidenceBasis: 'documented_8hr_twa' },
       'Contaminants',
       { co: '60' },
     )
@@ -332,15 +353,16 @@ describe('legacyToAssessmentScore — Finding shape', () => {
     }
   })
 
-  it('CO above OSHA PEL — Finding has regulatoryConclusionAllowed=false (screening-grade evidence)', () => {
+  it('CO above OSHA PEL on a walkthrough — never the documented-PEL type; regulatoryConclusionAllowed=false', () => {
     const zone = { zn: 'Z1', su: 'office', co: '60' }
     const lz = scoreZone(zone, {})
     const cs = summarizeAssessment([lz])
     const score = legacyToAssessmentScore([lz], cs, [zone as any], { meta: META })
-    const coFinding = score.zones[0].categories
-      .find(c => c.category === 'Contaminants')!.findings
-      .find(f => f.conditionType === 'co_above_pel_documented')
+    const contaminants = score.zones[0].categories.find(c => c.category === 'Contaminants')!.findings
+    expect(contaminants.find(f => f.conditionType === 'co_above_pel_documented')).toBeUndefined()
+    const coFinding = contaminants.find(f => f.conditionType === 'co_screening_elevated')
     expect(coFinding).toBeDefined()
+    expect(coFinding!.severityInternal).toBe('critical')
     // Bridge does not promote walkthrough screening to documented_8hr_twa, so
     // regulatory language must remain blocked.
     expect(coFinding!.regulatoryConclusionAllowed).toBe(false)

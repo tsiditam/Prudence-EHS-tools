@@ -6,7 +6,8 @@
  */
 
 const { createClient } = require('@supabase/supabase-js')
-const { auditLog } = require('./_audit')
+const { auditLog } = require('./_audit.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 const ALLOWED_ACTIONS = new Set([
   'user.signin',
@@ -15,7 +16,7 @@ const ALLOWED_ACTIONS = new Set([
   'profile.update',
 ])
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
@@ -47,3 +48,5 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json({ logged: true })
 }
+
+module.exports = withSentry(handler, { route: 'audit' })

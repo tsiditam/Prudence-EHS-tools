@@ -21,6 +21,7 @@
  * Screening only. Gated by isMoldModuleEnabled() at the MobileApp seam.
  */
 import { useEffect, useState } from 'react'
+import { formatDate } from '../utils/formatDate'
 import * as V3 from '../styles/tokens'
 import { I, iconForEmoji } from './Icons'
 import GlassCard from './ui/GlassCard'
@@ -36,7 +37,7 @@ import { DEMO_MOLD } from '../constants/demoDataMold.js'
 
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', BORDER = 'var(--border)', ACCENT = 'var(--accent)', WARN = 'var(--warn)', DANGER = 'var(--danger)'
 
-const inp = { width: '100%', padding: '9px 11px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+const inp = { width: '100%', padding: '9px 11px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }
 
 function condOk(cond, answers) {
   if (!cond) return true
@@ -128,7 +129,8 @@ const deriveTitle = (zones) => {
   const first = (zones || []).map((z) => (z.label || '').trim()).find(Boolean)
   return first ? `Mold — ${first}` : 'Mold assessment'
 }
-const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString() } catch { return '' } }
+// Device-locale date (the historical output here); definition in src/utils/formatDate.js.
+const fmtDate = (iso) => formatDate(iso, { locale: undefined, options: undefined })
 
 export default function MoldModeScreen({ onExit, profile }) {
   const [stage, setStage] = useState('home') // home | intake | result

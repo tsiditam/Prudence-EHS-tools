@@ -18,6 +18,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js')
+const { withSentry } = require('../_with-sentry-cjs.js')
 
 const MAX_PER_IP_PER_HOUR = 6
 const WINDOW_MS = 60 * 60 * 1000
@@ -202,7 +203,7 @@ async function handler(req, res) {
   return res.status(200).json({ ok: true, leadId: row.id, intentScore })
 }
 
-module.exports = handler
+module.exports = withSentry(handler, { route: 'marketing-agent/chat' })
 module.exports.__test = {
   MAX_PER_IP_PER_HOUR,
   WINDOW_MS,

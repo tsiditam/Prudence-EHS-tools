@@ -32,8 +32,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getTemplate, type UserContext } from '../lib/email-sequences.js'
 import { canTransition, resolveLifecycle } from '../src/constants/reportLifecycle.js'
+import { withSentry } from './_with-sentry.js'
 
-const APP_URL = process.env.RESEND_FROM_ADDRESS ? 'atmosflow.net' : 'atmosflow.net'
+const APP_URL = 'atmosflow.net'
 const FROM = process.env.RESEND_FROM_ADDRESS || 'support@prudenceehs.com'
 const RESEND_API = 'https://api.resend.com/emails'
 
@@ -140,7 +141,8 @@ async function handleList(
     .eq('assessor_id', userId)
     .order('created_at', { ascending: false })
   if (error) {
-    res.status(500).json({ error: 'query_failed', message: error.message })
+    console.error('[peer-review] list query failed:', error.message)
+    res.status(500).json({ error: 'query_failed' })
     return
   }
   res.status(200).json({ reviews: data || [] })
@@ -161,7 +163,8 @@ async function handleCancel(
     .eq('assessor_id', userId)
     .eq('status', 'pending')  // never flip already-reviewed rows
   if (error) {
-    res.status(500).json({ error: 'update_failed', message: error.message })
+    console.error('[peer-review] cancel update failed:', error.message)
+    res.status(500).json({ error: 'update_failed' })
     return
   }
   res.status(200).json({ ok: true })
@@ -221,6 +224,31 @@ async function handleSend(
     return
   }
 
+  // ── Ownership: the report must be the caller's ──────────────────
+  // The service-role client bypasses RLS and report ids are client-
+  // minted `rpt-<timestamp>` strings, so without this check a caller
+  // could send (and later have "reviewed" stamped on) another user's
+  // report (audit 2026-09 C2). A cloud row for the report must exist and
+  // carry the caller's user_id; a report that was never synced cannot be
+  // sent for review, because the review would otherwise advance a row
+  // this user does not own.
+  const { data: owned, error: ownErr } = await supabase
+    .from('assessments')
+    .select('id, user_id')
+    .eq('id', reportId)
+    .eq('user_id', authUser.id)
+    .maybeSingle()
+  if (ownErr) {
+    console.error('[peer-review] ownership lookup failed:', ownErr.message)
+    res.status(500).json({ error: 'query_failed' })
+    return
+  }
+  if (!owned) {
+    if (docxPath) await supabase.storage.from(ATTACHMENT_BUCKET).remove([docxPath]).catch(() => {})
+    res.status(404).json({ error: 'report_not_found' })
+    return
+  }
+
   // ── Fetch the assessor's name from profiles for the email body ──
   const { data: profile } = await supabase
     .from('profiles')
@@ -245,7 +273,8 @@ async function handleSend(
     .select('id, token, expires_at, status')
     .single()
   if (insertErr || !inserted) {
-    res.status(500).json({ error: 'insert_failed', message: insertErr?.message || 'no_row' })
+    console.error('[peer-review] insert failed:', insertErr?.message || 'no_row')
+    res.status(500).json({ error: 'insert_failed' })
     return
   }
   type Inserted = { id: string; token: string; expires_at: string; status: string }
@@ -263,6 +292,7 @@ async function handleSend(
       .from('assessments')
       .select('report_profile, report_status, status')
       .eq('id', reportId)
+      .eq('user_id', authUser.id)
       .maybeSingle()
     const current = resolveLifecycle((asmt || {}) as Record<string, unknown>)
     if (canTransition(current.profile, current.status, 'in_review').ok) {
@@ -270,6 +300,7 @@ async function handleSend(
         .from('assessments')
         .update({ report_status: 'in_review' })
         .eq('id', reportId)
+        .eq('user_id', authUser.id)
     }
   } catch {
     // Non-fatal — see above.
@@ -341,7 +372,7 @@ async function handleSend(
   })
 }
 
-export default handler
+export default withSentry(handler, { route: 'peer-review' })
 
 // Test injection points — same convention as api/sites.ts.
 export const __test = {

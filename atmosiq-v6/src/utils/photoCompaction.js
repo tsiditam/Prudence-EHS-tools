@@ -47,7 +47,7 @@ function isCompactPhoto(photo) {
   return photo && typeof photo === 'object' && typeof photo.idbId === 'string'
 }
 
-function makeIdbId(assessmentId) {
+export function makeIdbId(assessmentId) {
   const aid = assessmentId || 'orphan'
   // crypto.randomUUID is widely supported on every browser AtmosFlow
   // ships to (Safari 15.4+, Chrome 92+, Firefox 95+). Fall back to a
@@ -148,7 +148,11 @@ export async function expandPhotos(photos) {
           missing++
           continue
         }
-        outArr.push({ src: dataUrl, ts: photo.ts || null })
+        // Keep everything else on the record (aiAnalysis, caption…) —
+        // only the reference is swapped for the image.
+        // eslint-disable-next-line no-unused-vars
+        const { idbId, ...rest } = photo
+        outArr.push({ ...rest, src: dataUrl, ts: photo.ts || null })
         expanded++
         continue
       }
@@ -167,4 +171,76 @@ export async function expandPhotos(photos) {
 export async function purgeAssessmentPhotos(assessmentId) {
   if (!assessmentId) return 0
   return await deletePhotosByPrefix(`${IDB_KEY_PREFIX}:${assessmentId}:`)
+}
+
+// ── Capture-time API (PhotoCapture / thumbnails) ─────────────────────
+//
+// Photos no longer enter React state as base64 (audit 2026-09 §6). The
+// capture component writes the Blob here and keeps only `{ idbId, ts }`
+// in state; thumbnails resolve the id with resolvePhotoSrc (cached by
+// src/hooks/usePhotoSrc.js) and every export path expands the whole map
+// with expandPhotos before the renderer sees it.
+
+/** The inline image of a record, if it carries one (legacy shape or string). */
+export function photoInlineSrc(photo) {
+  if (!photo) return null
+  if (typeof photo === 'string') return photo
+  return typeof photo.src === 'string' && photo.src ? photo.src : null
+}
+
+/**
+ * Store a captured data URL under the assessment's namespace. Resolves to
+ * the new idbId, or null when IndexedDB is unavailable — the caller then
+ * keeps the inline `src` exactly as before (never worse than today).
+ */
+export async function storePhoto(dataUrl, assessmentId) {
+  const blob = dataUrlToBlob(dataUrl)
+  if (!blob) return null
+  const id = makeIdbId(assessmentId)
+  const ok = await putPhoto(id, blob)
+  return ok ? id : null
+}
+
+/** Data URL for one record — inline source, or the blob behind its idbId. */
+export async function resolvePhotoSrc(photo) {
+  const inline = photoInlineSrc(photo)
+  if (inline) return inline
+  const id = photo && typeof photo === 'object' ? photo.idbId : null
+  if (!id) return null
+  const blob = await getPhoto(id)
+  return blob ? await blobToDataUrl(blob) : null
+}
+
+/**
+ * Re-home an assessment's blobs under a new id. Finalize turns
+ * `draft-…` into `rpt-…` and then DELETES the draft — including its
+ * IndexedDB namespace — so refs captured under the draft id must be
+ * copied across first or the issued report loses its photos. Records
+ * already under `newAssessmentId`, inline records and unknown shapes pass
+ * through unchanged; a blob that cannot be read keeps its old ref (the
+ * purge is best-effort and the expand path reports it as missing).
+ */
+export async function rekeyPhotos(photos, newAssessmentId) {
+  if (!photos || typeof photos !== 'object' || !newAssessmentId) {
+    return { photos: photos || {}, moved: 0 }
+  }
+  const prefix = `${IDB_KEY_PREFIX}:${newAssessmentId}:`
+  const out = {}
+  let moved = 0
+  for (const key of Object.keys(photos)) {
+    const arr = Array.isArray(photos[key]) ? photos[key] : []
+    const outArr = []
+    for (const photo of arr) {
+      if (!isCompactPhoto(photo) || photo.idbId.startsWith(prefix)) { outArr.push(photo); continue }
+      const blob = await getPhoto(photo.idbId)
+      if (!blob) { outArr.push(photo); continue }
+      const nextId = makeIdbId(newAssessmentId)
+      const ok = await putPhoto(nextId, blob)
+      if (!ok) { outArr.push(photo); continue }
+      outArr.push({ ...photo, idbId: nextId })
+      moved++
+    }
+    out[key] = outArr
+  }
+  return { photos: out, moved }
 }

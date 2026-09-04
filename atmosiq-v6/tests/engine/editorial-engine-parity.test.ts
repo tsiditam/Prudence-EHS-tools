@@ -262,7 +262,18 @@ describe('what must REMAIN — removals must not hollow out the advice', () => {
       ac, sy: ['Headache', 'Eye irritation', 'Fatigue', 'Throat irritation'],
     })
     expect(texts.some((t) => /NIOSH IEQ questionnaire/i.test(t)), 'no structured symptom instrument').toBe(true)
-    expect(texts.some((t) => /HEPA/i.test(t)), 'no interim control').toBe(true)
+    // The interim control for a symptom cluster is relocation. Portable HEPA
+    // units used to be offered here too, on a symptom-only fixture with no
+    // particulate finding — a recommendation stating a condition the
+    // assessment had not observed (audit 2026-09, M5). They are still
+    // offered when a particulate finding exists; asserted below.
+    expect(texts.some((t) => /temporary relocation/i.test(t)), 'no interim control').toBe(true)
+    expect(texts.some((t) => /HEPA/i.test(t)), 'HEPA offered with no particulate finding').toBe(false)
+    const withPm = recsFor({
+      cx: 'Yes — complaints reported', sr: 'Yes — clear pattern', cc: 'Yes — this zone',
+      ac, sy: ['Headache', 'Eye irritation', 'Fatigue', 'Throat irritation'], pm: '40',
+    })
+    expect(withPm.some((t) => /HEPA/i.test(t)), 'HEPA withheld despite a particulate finding').toBe(true)
     expect(texts.some((t) => /relocation/i.test(t)), 'no relocation evaluation').toBe(true)
   })
 

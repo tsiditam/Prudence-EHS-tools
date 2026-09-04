@@ -139,7 +139,11 @@ Cite a standard or numeric value ONLY if it appears in the supplied standardsMan
  * The Anthropic API key never leaves the server.
  */
 export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey) {
-  const system = REASONING_SYSTEM_PROMPT
+  // The system prompt is no longer sent. api/narrative.js uses its own
+  // server-owned copy (api/_narrative-prompt.js) and ignores body.system;
+  // shipping ~13 KB per call was dead weight. REASONING_SYSTEM_PROMPT stays
+  // exported because tests/api/narrative-prompt-parity.test.ts asserts the
+  // server copy is byte-identical — edit the prompt in BOTH files together.
   const payload = {
     facility: bldg.fn, location: bldg.fl, type: bldg.ft, hvac: bldg.ht, hvacMaintenance: bldg.hm,
     // `oshaDefensibility` used to ride here and is deliberately gone. It is
@@ -201,7 +205,7 @@ export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey
     const res = await fetch('/api/narrative', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ system, payload }),
+      body: JSON.stringify({ payload }),
     })
     const data = await res.json()
     if (!res.ok) {

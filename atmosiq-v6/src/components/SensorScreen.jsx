@@ -14,14 +14,16 @@ import { useState } from 'react'
 import { SENSOR_FIELDS } from '../constants/questions'
 import { SENSOR_PARAMS, TVOC_REFERENCES, DEFAULT_TVOC_REFERENCE, convertTvoc, parseCalibrationGas, sensorAveragesToFields } from '../utils/sensorParser'
 import { mix } from '../utils/theme'
+import { useConfirm } from './ui/ConfirmDialog'
 
 const paramLabel = (key) => SENSOR_PARAMS.find((p) => p.key === key)?.label || key
 const fieldUnit = (id) => SENSOR_FIELDS.find((f) => f.id === id)?.u || ''
 
 const miniSelect = { padding: '8px 10px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', appearance: 'auto', minHeight: 38 }
-const miniInput = { width: 84, padding: '8px 10px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box', minHeight: 38 }
+const miniInput = { width: 84, padding: '8px 10px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontFamily: 'var(--font-mono)', boxSizing: 'border-box', minHeight: 38 }
 
 export default function SensorScreen({ data, onChange, sensorData, isDesktop, showOutdoor = true }) {
+  const [confirm, confirmDialog] = useConfirm()
   // TVOC reference compound for ppb/ppm → µg/m³ (shared by the logger
   // auto-fill and the manual converter below the TVOC field).
   //
@@ -48,15 +50,18 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop, sh
   const { fields: avgFields, details, skipped } = sensorAveragesToFields(sensorData, { stat: 'mean', tvocRef })
   const hasAverages = details.length > 0
 
-  const applyAverages = () => {
+  const applyAverages = async () => {
     const ids = Object.keys(avgFields)
     const occupied = ids.filter((id) => String(data[id] ?? '').trim() !== '')
     let overwrite = true
     if (occupied.length) {
-      overwrite = window.confirm(
-        `${occupied.length} field${occupied.length > 1 ? 's' : ''} already ${occupied.length > 1 ? 'have' : 'has'} a value. ` +
-        'Click OK to overwrite with the sensor-log averages, or Cancel to keep your entries and fill only the blanks.'
-      )
+      overwrite = await confirm({
+        title: 'Overwrite existing values?',
+        message: `${occupied.length} field${occupied.length > 1 ? 's' : ''} already ${occupied.length > 1 ? 'have' : 'has'} a value. ` +
+          'Overwrite with the sensor-log averages, or keep your entries and fill only the blanks.',
+        confirmLabel: 'Overwrite',
+        cancelLabel: 'Fill blanks only',
+      })
     }
     ids.forEach((id) => {
       const isEmpty = String(data[id] ?? '').trim() === ''
@@ -83,6 +88,7 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop, sh
 
   return (
     <div style={{ display: isDesktop ? 'grid' : 'flex', gridTemplateColumns: isDesktop ? '1fr 1fr' : undefined, flexDirection: isDesktop ? undefined : 'column', gap: isDesktop ? 16 : 12 }}>
+      {confirmDialog}
       <div style={{ padding: '12px 16px', background: mix('accent', 3), border: `1px solid ${mix('accent', 13)}`, borderRadius: 10, fontSize: 14, color: 'var(--accent)', gridColumn: isDesktop ? '1 / -1' : undefined }}>
         📏 Enter all available readings. Leave blank if not measured.
       </div>
@@ -125,7 +131,7 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop, sh
             </div>
             <div style={{ position: 'relative', width: 140 }}>
               <input type="number" value={data[sf.id] || ''} onChange={e => onChange(sf.id, e.target.value)}
-                style={{ width: '100%', padding: '12px 14px', paddingRight: 44, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 16, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box', transition: 'all 0.2s ease' }}
+                style={{ width: '100%', padding: '12px 14px', paddingRight: 44, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 16, fontFamily: 'var(--font-mono)', boxSizing: 'border-box', transition: 'all 0.2s ease' }}
                 onFocus={e => { e.target.style.borderColor = 'var(--accent)'; e.target.style.boxShadow = '0 0 20px rgba(34,211,238,0.15)' }}
                 onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }} />
               <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: 'var(--dim)', fontFamily: 'var(--font-mono)' }}>{sf.u}</span>

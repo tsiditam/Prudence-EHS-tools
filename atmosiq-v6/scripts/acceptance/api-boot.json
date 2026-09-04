@@ -1,0 +1,14 @@
+{
+  "feature": "AtmosFlow API handlers boot under plain Node",
+  "_comment": "Stand-alone wrapper for `npm run accept:api-boot` (CI job `api-boot`). The same API-BOOT criterion is also part of prod-ready.json and go-live.json.",
+  "criteria": [
+    {
+      "id": "API-BOOT",
+      "label": "Every api/** entry bundles with esbuild (node, esm, packages external) and imports under plain Node with a function default export",
+      "_comment": "The runtime shape that failed in the CHANGELOG incident: vitest, lint, typecheck and the grep gates were all green while 24 extension-less imports took every affected route to 500 at cold start. The check also refuses any relative ESM import without a file extension at resolve time (CLAUDE.md pitfall #4).",
+      "checks": [
+        { "type": "api_boot", "dir": "api" }
+      ]
+    }
+  ]
+}

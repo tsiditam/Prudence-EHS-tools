@@ -4,30 +4,51 @@
  * Returns array of triggered rules with rationale strings.
  */
 
-export function evaluateEscalation(assessment, complaints, history) {
+import { readNumber } from './scoring'
+
+/**
+ * @param {object} assessment  { zones, moldResults, observations, building }
+ * @param {Array}  complaints
+ * @param {Array}  history
+ * @param {object} [opts]
+ * @param {Date|number} [opts.now]  The clock the 30-day complaint window is
+ *   measured from. Injected so a re-evaluation is reproducible (audit H6).
+ *   It defaults to the real clock HERE and only here — this is the outermost
+ *   entry point (MobileApp calls it directly after a save); any render or
+ *   test path must pass `now` explicitly.
+ */
+export function evaluateEscalation(assessment, complaints, history, opts = {}) {
+  const now = opts.now instanceof Date ? opts.now.getTime()
+    : (typeof opts.now === 'number' && Number.isFinite(opts.now)) ? opts.now
+    : Date.now()
   const triggers = []
   const zones = assessment?.zones || []
   const moldResults = assessment?.moldResults || []
 
-  // Mold: IICRC S520 Condition 2 ≥10 sq ft OR any Condition 3
+  // Mold, per IICRC S520: Condition 3 is actual growth (any visible growth,
+  // whatever its area); Condition 2 is settled spores without growth. Area
+  // never lowers the Condition, so the old "Condition 2 AND ≥10 sq ft" gate
+  // is gone — it treated a 10–100 ft² patch of growth as Condition 2.
   moldResults.forEach(m => {
     if (m.condition >= 3) {
-      triggers.push({ rule: 'mold_condition_3', severity: 'critical', rationale: `IICRC S520 Condition 3 identified: ${m.visual}. Professional mold assessment and remediation required.` })
-    } else if (m.condition >= 2 && m.sqft && m.sqft >= 10) {
-      triggers.push({ rule: 'mold_condition_2_large', severity: 'high', rationale: `IICRC S520 Condition 2 affecting ≥10 sq ft. Professional evaluation recommended before remediation.` })
+      const extent = m.extent ? ` Extent: ${m.extent} per EPA (2008) size bands.` : ''
+      triggers.push({ rule: 'mold_condition_3', severity: 'critical', rationale: `Visible mold growth (${m.visual}) — IICRC S520 Condition 3 (actual growth).${extent} Professional mold assessment and remediation required.` })
+    } else if (m.condition === 2) {
+      triggers.push({ rule: 'mold_condition_2', severity: 'high', rationale: 'IICRC S520 Condition 2 (settled spores without observed growth). Professional evaluation recommended before remediation.' })
     }
   })
 
   // CO > 9 ppm sustained
   zones.forEach(z => {
-    if (z.co && +z.co > 9) {
-      triggers.push({ rule: 'combustion_byproducts', severity: 'critical', rationale: `Carbon monoxide reading of ${z.co} ppm detected in ${z.zn || 'a zone'}. Investigate potential combustion source immediately.` })
+    const co = readNumber(z.co)
+    if (co != null && co > 9) {
+      triggers.push({ rule: 'combustion_byproducts', severity: 'critical', rationale: `Carbon monoxide reading of ${co} ppm detected in ${z.zn || 'a zone'}. Investigate potential combustion source immediately.` })
     }
   })
 
   // Any complaint with medicalAttention
   const recentComplaints = (complaints || []).filter(c => {
-    const age = Date.now() - new Date(c.dateReported).getTime()
+    const age = now - new Date(c.dateReported).getTime()
     return age < 30 * 86400000
   })
 
@@ -75,8 +96,9 @@ export function evaluateEscalation(assessment, complaints, history) {
 
   // TVOC > 3000 µg/m³ on prosumer/professional PID
   zones.forEach(z => {
-    if (z.tv && +z.tv > 3000 && z.pid_lamp && z.pid_lamp !== 'No PID used') {
-      triggers.push({ rule: 'tvoc_extreme', severity: 'high', rationale: `TVOC reading of ${z.tv} µg/m³ in ${z.zn || 'a zone'}. Compound-specific investigation recommended.` })
+    const tv = readNumber(z.tv)
+    if (tv != null && tv > 3000 && z.pid_lamp && z.pid_lamp !== 'No PID used') {
+      triggers.push({ rule: 'tvoc_extreme', severity: 'high', rationale: `TVOC reading of ${tv} µg/m³ in ${z.zn || 'a zone'}. Compound-specific investigation recommended.` })
     }
   })
 

@@ -15,8 +15,8 @@
  * of its checks asks whether a FILE exists. These tests pin behaviour and the
  * mount, in that order.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react'
 import ReportTemplatesPanel from '../../src/components/settings/ReportTemplatesPanel'
 import SettingsScreen from '../../src/components/SettingsScreen'
 import { StorageProvider } from '../../src/contexts/StorageContext'
@@ -50,9 +50,13 @@ function mockFetch(handler: (body: any) => { ok?: boolean; json: any }) {
 
 const withProvider = (ui: React.ReactElement) => render(<StorageProvider>{ui}</StorageProvider>)
 
-beforeEach(() => {
-  vi.stubGlobal('confirm', () => true)
-})
+// Deletion now goes through the accessible ConfirmDialog (role=alertdialog)
+// rather than window.confirm; tests answer it by clicking its Delete button.
+async function acceptConfirm() {
+  const dialog = await screen.findByRole('alertdialog')
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+}
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -88,6 +92,7 @@ describe('ReportTemplatesPanel', () => {
     })
     withProvider(<ReportTemplatesPanel />)
     fireEvent.click(await screen.findByText('Delete'))
+    await acceptConfirm()
     await waitFor(() => expect(deleted).toBe(true))
     expect(spy.mock.calls.some(([, init]: any) =>
       JSON.parse(init.body).action === 'delete')).toBe(true)

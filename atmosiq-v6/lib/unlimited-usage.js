@@ -48,4 +48,33 @@ function hasUnlimitedUsage(email) {
   return list.includes(email.trim().toLowerCase())
 }
 
-module.exports = { hasUnlimitedUsage, parseAllowlist }
+/**
+ * Plans whose deliverables are not metered per credit. `practice` is the
+ * top self-serve tier (500 credits/month — lib/stripe-prices.ts) and is
+ * treated as unlimited for the server-side deliverable gate; there is no
+ * separate "unlimited" plan value in the profiles_plan_check constraint
+ * (migration 009) but the name is accepted defensively.
+ */
+const UNMETERED_PLANS = new Set(['practice', 'unlimited'])
+
+/**
+ * Server-side gate for anything that produces a client deliverable (the
+ * fixed PDF, a rendered DOCX template). Audit 2026-09 H3: nothing on the
+ * server read credits_remaining — deduction was a separate client-initiated
+ * POST, so a client that omitted it got every deliverable free. This does
+ * NOT deduct; it only decides whether the handler may produce the artifact.
+ *
+ * @param {{ plan?: string|null, credits_remaining?: number|null }|null} profile
+ * @param {string|null|undefined} email
+ * @returns {boolean}
+ */
+function hasDeliverableEntitlement(profile, email) {
+  if (hasUnlimitedUsage(email)) return true
+  if (!profile) return false
+  const plan = typeof profile.plan === 'string' ? profile.plan.toLowerCase() : ''
+  if (UNMETERED_PLANS.has(plan)) return true
+  const credits = Number(profile.credits_remaining)
+  return Number.isFinite(credits) && credits > 0
+}
+
+module.exports = { hasUnlimitedUsage, parseAllowlist, hasDeliverableEntitlement, UNMETERED_PLANS }

@@ -9,6 +9,8 @@
  */
 
 import { useEffect, useState } from 'react'
+import { clickable } from './ui/a11y'
+import { formatShortDateTime } from '../utils/formatDate'
 import STO from '../utils/storage'
 import { mix } from '../utils/theme'
 import { generateIncidentDocx } from './IncidentDocxReport'
@@ -41,12 +43,9 @@ const STATUS_LABEL = {
   escalated: 'Escalated',
 }
 
-function fmtDate(iso) {
-  try {
-    const d = new Date(iso)
-    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-  } catch { return iso }
-}
+// src/utils/formatDate.js is the single definition; this row format drops
+// the year (the list is recent-first) and uses the device locale.
+const fmtDate = (iso) => formatShortDateTime(iso, { fallback: iso || '' })
 
 export default function IncidentLog({ profile, onBack, onNewIncident, onView }) {
   const [incidents, setIncidents] = useState([])
@@ -112,7 +111,7 @@ export default function IncidentLog({ profile, onBack, onNewIncident, onView }) 
         </div>
       )}
       {filtered.map(inc => (
-        <div key={inc.id} onClick={() => onView?.(inc)} role="button" tabIndex={0} style={{
+        <div key={inc.id} {...clickable(() => onView?.(inc), { label: `Open incident ${inc.location || '(no location)'}` })} style={{
           width: '100%', textAlign: 'left', padding: '14px 16px',
           background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10,
           marginBottom: 8, cursor: 'pointer', fontFamily: 'inherit',

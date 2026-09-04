@@ -9,7 +9,7 @@
  *   • Filename builder produces the documented prefix
  */
 
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 // jsPDF reads window.crypto in some code paths. jsdom provides one,
 // but vitest's node environment does not — set up a minimal Blob

@@ -29,6 +29,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { withSentry } from './_with-sentry.js'
 
 const MAX_REASON_LEN = 1000
 
@@ -142,7 +143,7 @@ async function handler(req: import('http').IncomingMessage & {
   res.status(200).json({ ok: true })
 }
 
-export default handler
+export default withSentry(handler, { route: 'field-assistant-feedback' })
 
 // Test injection points — same convention as api/field-assistant-history.ts.
 export const __test = {

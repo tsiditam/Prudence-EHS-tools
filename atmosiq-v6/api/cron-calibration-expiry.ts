@@ -13,6 +13,7 @@
 
 import { runCalibrationExpiryScan } from '../scripts/cron-calibration-expiry.js'
 import { requireCronSecret } from './_cron-auth.js'
+import { withSentry } from './_with-sentry.js'
 
 interface VercelLikeReq {
   method?: string
@@ -24,7 +25,7 @@ interface VercelLikeRes {
   end: () => VercelLikeRes
 }
 
-export default async function handler(req: VercelLikeReq, res: VercelLikeRes) {
+async function handler(req: VercelLikeReq, res: VercelLikeRes) {
   if (req.method && req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -34,3 +35,5 @@ export default async function handler(req: VercelLikeReq, res: VercelLikeRes) {
   if (!result.ok) return res.status(500).json(result as unknown as Record<string, unknown>)
   return res.status(200).json(result as unknown as Record<string, unknown>)
 }
+
+export default withSentry(handler, { route: 'cron-calibration-expiry' })

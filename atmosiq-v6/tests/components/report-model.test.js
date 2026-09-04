@@ -100,7 +100,24 @@ describe('buildReportModel (integration with demo data)', () => {
     expect(model.reportMeta.mode).toBe('draft')
     expect(model.reportMeta.brandColor).toBe('#0E7490')
   })
-  it('always includes base references', () => {
-    expect(model.references).toEqual(expect.arrayContaining(['ASHRAE 62.1-2025', 'OSHA PELs (29 CFR 1910.1000)']))
+  it('lists only references something in the report actually cited', () => {
+    // Appendix A used to be an unguarded standards register: four fixed
+    // references were appended whether or not anything was compared to
+    // them (audit 2026-09 §5 M2). A reference now enters only when a
+    // finding, causal chain or evaluated measurement cites it.
+    // `referenceUsage` records, per reference, WHAT cited it (a finding or
+    // causal chain) or which measured parameter was evaluated against it.
+    expect(model.references.length).toBeGreaterThan(0)
+    for (const ref of model.references) {
+      const key = Array.isArray(ref) ? ref[0] : ref
+      const usage = model.referenceUsage?.[key]
+      expect(typeof usage, `reference "${key}" has no usage record`).toBe('string')
+      expect(usage, `reference "${key}" is listed without anything citing it`).toMatch(/^(Cited by|Applied to measured parameter)/)
+      expect(usage).not.toMatch(/screening interpretation/i)
+    }
+    // The retired fixed four appear only when something cited them.
+    for (const fixed of ['ASHRAE 62.1-2025', 'ASHRAE 55-2023', 'US EPA NAAQS', 'OSHA PELs (29 CFR 1910.1000)']) {
+      if (model.references.includes(fixed)) expect(model.referenceUsage[fixed]).toBeTruthy()
+    }
   })
 })

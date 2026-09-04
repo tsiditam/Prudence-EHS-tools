@@ -168,10 +168,22 @@ export function useInlineAi() {
                 acc += frame.data.text
                 setResult(acc)
               }
+            } else if (frame.event === 'replace') {
+              // The server lints the assembled rewrite against the
+              // banned-language list; on a hit it sends back the user's
+              // ORIGINAL text so the field is restored rather than left
+              // holding the rejected rewrite (API handoff §9).
+              if (typeof frame.data?.text === 'string') {
+                acc = frame.data.text
+                setResult(acc)
+              }
             } else if (frame.event === 'done') {
               // Final ledger info on data.input_tokens / output_tokens
               // — UI doesn't surface it today but keep the hook
               // contract open for a future "cost / token" badge.
+              if (frame.data?.language_review === 'failed') {
+                upstreamError = 'The rewrite used wording AtmosFlow does not allow in reports, so your original text was kept.'
+              }
             } else if (frame.event === 'error') {
               upstreamError = friendlyError(frame.data?.error || 'Upstream error')
             }

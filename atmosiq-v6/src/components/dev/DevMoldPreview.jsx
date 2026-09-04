@@ -12,6 +12,7 @@
  *
  * Read-only harness: no persistence, no auth, no engine modification.
  */
+import { FULL_VH } from '../../styles/tokens'
 import { useMemo } from 'react'
 import MoldScreeningView from '../MoldScreeningView'
 import { assessMold } from '../../engines/mold/index.js'
@@ -30,7 +31,7 @@ export default function DevMoldPreview() {
   const findingCount = result?.findings?.length || 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', padding: '24px 16px', paddingTop: 'calc(24px + env(safe-area-inset-top))' }}>
+    <div style={{ minHeight: FULL_VH, background: 'var(--bg)', color: 'var(--text)', padding: '24px 16px', paddingTop: 'calc(24px + env(safe-area-inset-top))' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--warn)' }}>Non-production preview</div>

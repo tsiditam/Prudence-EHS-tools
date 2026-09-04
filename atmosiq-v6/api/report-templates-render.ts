@@ -27,6 +27,8 @@ import {
   renderTemplate,
   TemplateRenderError,
 } from '../lib/report-templates/render.js'
+import { hasDeliverableEntitlement } from '../lib/unlimited-usage.js'
+import { withSentry } from './_with-sentry.js'
 
 const MAX_FILENAME_LEN = 200
 const BUCKET = 'report-templates'
@@ -111,6 +113,23 @@ async function handler(req: Req, res: Res) {
     res.status(401).json({ error: 'invalid_token' }); return
   }
 
+  // Server-side credit gate (audit 2026-09 H3): a rendered DOCX is a
+  // client deliverable, so the caller must have credits, an unmetered
+  // plan, or be on the unlimited-usage allowlist. Gate only — the debit
+  // stays on /api/credits. Lookup errors fail closed.
+  const { data: entitlement, error: entErr } = await supabase
+    .from('profiles')
+    .select('plan, credits_remaining')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (entErr) {
+    console.error('[report-templates-render] entitlement lookup failed:', entErr.message)
+    res.status(500).json({ error: 'entitlement_lookup_failed' }); return
+  }
+  if (!hasDeliverableEntitlement(entitlement as { plan?: string; credits_remaining?: number } | null, user.email)) {
+    res.status(402).json({ error: 'insufficient_credits' }); return
+  }
+
   // Owner check via the catalog row — RLS would catch a cross-user
   // attempt too, but the explicit query gives us a clean 403/404
   // split for the chat client.
@@ -145,11 +164,11 @@ async function handler(req: Req, res: Res) {
     result = renderTemplate(templateBuffer, assessmentContext)
   } catch (err) {
     if (err instanceof TemplateRenderError) {
-      res.status(422).json({
-        error: err.code,
-        message: err.message,
-        detail: err.detail,
-      })
+      // err.code is a stable, typed code from the renderer; the free-text
+      // message / detail (which can quote docxtemplater internals) stays
+      // in the server log.
+      console.error('[report-templates-render] template error:', err.code, err.message, err.detail || '')
+      res.status(422).json({ error: err.code })
       return
     }
     console.error('[report-templates-render] render failed:', err)
@@ -188,7 +207,7 @@ async function handler(req: Req, res: Res) {
   })
 }
 
-export default handler
+export default withSentry(handler, { route: 'report-templates-render' })
 
 export const __test = {
   BUCKET,

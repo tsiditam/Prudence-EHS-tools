@@ -3,8 +3,13 @@ import type { ConditionType, PhraseLibraryEntry } from '../../types/domain'
 export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEntry>> = {
   co_above_pel_documented: {
     conditionType: 'co_above_pel_documented',
+    // States the CONDITION (CLAUDE.md rule 1). It used to add "This finding
+    // is supported by direct measurement using validated methodology" —
+    // an evidence claim the template cannot know is true. Whether the basis
+    // supports the comparison is decided by classify.ts before this
+    // template is ever selected; the sentence has nothing to add to that.
     intentTemplate:
-      'Carbon monoxide measurements documented during the assessment exceed the OSHA 8-hour permissible exposure limit. This finding is supported by direct measurement using validated methodology.',
+      'Carbon monoxide was measured above the OSHA 8-hour permissible exposure limit on an 8-hour time-weighted-average basis.',
     bannedAlternatives: [],
     definitiveConclusionRequires: ['documented_8hr_twa', 'screening_continuous'],
     causationSupportRequires: ['documented_8hr_twa'],
@@ -35,8 +40,9 @@ export const CONTAMINANTS_PHRASES: Partial<Record<ConditionType, PhraseLibraryEn
 
   hcho_above_pel_documented: {
     conditionType: 'hcho_above_pel_documented',
+    // Same rule as co_above_pel_documented: the condition, not the evidence.
     intentTemplate:
-      'Formaldehyde measurements documented during the assessment exceed the OSHA permissible exposure limit. This finding is supported by validated integrated sampling methodology.',
+      'Formaldehyde was measured above the OSHA permissible exposure limit on an 8-hour time-weighted-average basis.',
     bannedAlternatives: [],
     definitiveConclusionRequires: ['documented_8hr_twa', 'laboratory_speciation'],
     causationSupportRequires: ['documented_8hr_twa'],

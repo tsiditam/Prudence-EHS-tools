@@ -7,7 +7,8 @@
 
 const { createClient } = require('@supabase/supabase-js')
 const crypto = require('crypto')
-const { auditLog } = require('./_audit')
+const { auditLog } = require('./_audit.js')
+const { withSentry } = require('./_with-sentry-cjs.js')
 
 // Timing-safe bearer compare. Length is checked first (timingSafeEqual throws
 // on unequal-length buffers); that leaks only the length, not the secret.
@@ -17,7 +18,7 @@ function safeBearer(header, secret) {
   return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   // FAIL-CLOSED: a missing CRON_SECRET is a misconfiguration, not an open door.
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) return res.status(503).json({ error: 'CRON_SECRET not configured' })
@@ -44,18 +45,19 @@ module.exports = async function handler(req, res) {
     let resetCount = 0
     for (const p of (profiles || [])) {
       const newCredits = p.monthly_credit_limit || 50
+      // Atomic balance + ledger write via grant_credits (migration 033):
+      // the delta brings the balance to the plan limit in one locked
+      // transaction instead of a read-compute-write pair (audit M9).
+      const { error: rpcErr } = await supabase.rpc('grant_credits', {
+        p_user_id: p.id,
+        p_amount: newCredits - (p.credits_remaining || 0),
+        p_reason: 'monthly_reset',
+        p_reference_id: `reset-${new Date().toISOString().slice(0, 7)}`,
+      })
+      if (rpcErr) { console.error('[reset-credits] grant failed for', p.id, rpcErr.message); continue }
       await supabase.from('profiles').update({
-        credits_remaining: newCredits,
         billing_cycle_start: new Date().toISOString(),
       }).eq('id', p.id)
-
-      await supabase.from('credits_ledger').insert({
-        user_id: p.id,
-        amount: newCredits - p.credits_remaining,
-        reason: 'monthly_reset',
-        reference_id: `reset-${new Date().toISOString().slice(0, 7)}`,
-        balance_after: newCredits,
-      })
 
       await auditLog({
         action: 'credits.reset',
@@ -73,3 +75,5 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Reset failed' })
   }
 }
+
+module.exports = withSentry(handler, { route: 'reset-credits' })

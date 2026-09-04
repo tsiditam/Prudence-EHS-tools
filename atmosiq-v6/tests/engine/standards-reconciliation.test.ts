@@ -33,6 +33,8 @@ import { describe, it, expect } from 'vitest'
 import { CRITERIA, allCriteria } from '../../src/constants/criteria'
 import { STANDARDS_CORPUS } from '../../src/constants/standards-corpus'
 import { STANDARDS_MANIFEST } from '../../src/constants/standards'
+import { BUILDING_PROFILES } from '../../src/engines/buildingProfiles.js'
+import { PROFILE_ACH_GAPS } from './citations-gap-ledger'
 
 type Figure = {
   criterionId: string
@@ -168,6 +170,37 @@ describe('no threshold enters the engine unremarked', () => {
     const documented = new Set(corpusFigures.map((f) => f.criterionId))
     const both = Object.keys(UNDOCUMENTED).filter((id) => documented.has(id))
     expect(both, 'these are documented in the corpus and should leave UNDOCUMENTED').toEqual([])
+  })
+})
+
+describe('figures removed from building profiles are on a visible ledger', () => {
+  // The second gap ledger (AUDIT-2026-09 C7). `UNDOCUMENTED` above is keyed
+  // to registry criteria and cannot hold a building-profile air-change rate,
+  // which is exactly the kind of number that bypassed the registry and turned
+  // out to be wrong. `citations-gap-ledger.ts` records every ACH figure that
+  // was REMOVED rather than corrected, with its reason; the profile test
+  // checks the removal happened, and this block checks the ledger is real —
+  // no ghosts, no placeholders, a reason a person could act on.
+  it('names only profiles and subtypes that exist', () => {
+    for (const g of PROFILE_ACH_GAPS) {
+      const p = (BUILDING_PROFILES as any)[g.profile]
+      expect(p, `${g.profile} is not a profile`).toBeTruthy()
+      expect(p.zoneSubtypes.map((s: any) => s.id), `${g.profile}.${g.subtype}`).toContain(g.subtype)
+    }
+  })
+
+  it('every entry carries a reason and records what was removed', () => {
+    for (const g of PROFILE_ACH_GAPS) {
+      expect(g.reason, `${g.profile}.${g.subtype}`).not.toMatch(/^(TODO|TBD|N\/A|\?+)/i)
+      expect(g.reason.length, `${g.profile}.${g.subtype} reason`).toBeGreaterThan(25)
+      expect(g.removed, `${g.profile}.${g.subtype} removed`).toMatch(/\d+ ACH/)
+    }
+  })
+
+  it('a ledgered subtype no longer carries the number it excuses', () => {
+    for (const g of PROFILE_ACH_GAPS) {
+      expect((BUILDING_PROFILES as any)[g.profile].achOverrides?.[g.subtype], `${g.profile}.${g.subtype}`).toBeUndefined()
+    }
   })
 })
 

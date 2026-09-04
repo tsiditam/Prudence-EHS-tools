@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { clickable } from './ui/a11y'
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip, Legend,
@@ -342,7 +343,7 @@ export default function AdminDashboard({ onBack, adminSecret }) {
       {/* User List */}
       <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:10}}>Users ({(data?.users||[]).length})</div>
       {(data?.users||[]).map(u=>(
-        <div key={u.id} style={{padding:'12px 16px',background:CARD,border:`1px solid ${selectedUser===u.id?mix('accent', 19):BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer'}} onClick={()=>setSelectedUser(selectedUser===u.id?null:u.id)}>
+        <div key={u.id} {...clickable(()=>setSelectedUser(selectedUser===u.id?null:u.id), { label: `${selectedUser===u.id ? 'Collapse' : 'Expand'} user ${u.email || u.id}` })} aria-expanded={selectedUser===u.id} style={{padding:'12px 16px',background:CARD,border:`1px solid ${selectedUser===u.id?mix('accent', 19):BORDER}`,borderRadius:10,marginBottom:6,cursor:'pointer'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div style={{minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{u.name||'Unnamed'}</div>
@@ -361,7 +362,7 @@ export default function AdminDashboard({ onBack, adminSecret }) {
           {selectedUser===u.id&&(
             <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${BORDER}`}}>
               <div style={{display:'flex',gap:8,marginBottom:8}}>
-                <input value={creditAdj} onChange={e=>setCreditAdj(e.target.value)} placeholder="Credits (+/-)" type="number" style={{flex:1,padding:'8px 12px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit',outline:'none'}} />
+                <input value={creditAdj} onChange={e=>setCreditAdj(e.target.value)} placeholder="Credits (+/-)" type="number" style={{flex:1,padding:'8px 12px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,fontFamily:'inherit'}} />
                 <button onClick={()=>adjustCredits(u.id,creditAdj,'admin')} style={{padding:'8px 14px',background:`${mix('accent', 7)}`,border:`1px solid ${mix('accent', 15)}`,borderRadius:8,color:ACCENT,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Apply</button>
               </div>
               <div style={{display:'flex',gap:8}}>

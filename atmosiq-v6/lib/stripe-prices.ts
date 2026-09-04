@@ -51,3 +51,40 @@ export function isPriceConfigured(id: string | null): boolean {
   if (!id) return false
   return !id.endsWith('_unset')
 }
+
+// Env-key table for the reverse lookup. Duplicated (with a comment) in
+// api/_stripe.js because the CommonJS webhook / checkout handlers cannot
+// import this TypeScript module — keep the two tables identical.
+const PRICE_ENV_KEYS: Record<PriceLookupKey, string> = {
+  solo_monthly:     'STRIPE_PRICE_SOLO_MONTHLY',
+  solo_annual:      'STRIPE_PRICE_SOLO_ANNUAL',
+  pro_monthly:      'STRIPE_PRICE_PRO_MONTHLY',
+  pro_annual:       'STRIPE_PRICE_PRO_ANNUAL',
+  practice_monthly: 'STRIPE_PRICE_PRACTICE_MONTHLY',
+  practice_annual:  'STRIPE_PRICE_PRACTICE_ANNUAL',
+}
+
+/**
+ * Reverse lookup used by the Stripe webhook on customer.subscription.updated:
+ * the subscription's price id → which tier / period it now is, so a plan
+ * switch made in the Customer Portal (which changes only the Stripe price)
+ * propagates to profiles.plan / billing_period / monthly_credit_limit.
+ * Reads process.env at CALL time so a warm instance sees current config.
+ */
+export function planForPriceId(priceId: string | null | undefined): { plan: Exclude<PlanTier, 'free'>; billing_period: BillingPeriod } | null {
+  if (!priceId) return null
+  for (const [key, envKey] of Object.entries(PRICE_ENV_KEYS) as Array<[PriceLookupKey, string]>) {
+    const configured = process.env[envKey]
+    if (configured && !configured.endsWith('_unset') && configured === priceId) {
+      const [plan, billing_period] = key.split('_') as [Exclude<PlanTier, 'free'>, BillingPeriod]
+      return { plan, billing_period }
+    }
+  }
+  return null
+}
+
+/** Monthly credit allotment for a plan; 0 for an unknown value. */
+export function monthlyCreditsFor(plan: string | null | undefined): number {
+  if (!plan) return 0
+  return TIER_CREDITS[plan as PlanTier] ?? 0
+}

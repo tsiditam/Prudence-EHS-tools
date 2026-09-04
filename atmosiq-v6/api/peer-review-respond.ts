@@ -34,8 +34,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getTemplate, type UserContext } from '../lib/email-sequences.js'
 import { canTransition, resolveLifecycle } from '../src/constants/reportLifecycle.js'
+import { withSentry } from './_with-sentry.js'
 
-const APP_URL = 'atmosflow.net'
 const FROM = process.env.RESEND_FROM_ADDRESS || 'support@prudenceehs.com'
 const RESEND_API = 'https://api.resend.com/emails'
 
@@ -100,10 +100,56 @@ function parseTokenFromUrl(url: string | undefined): string | null {
   return t || null
 }
 
+/**
+ * Invalid-token throttle (audit 2026-09, §3 M10). The token is a 128-bit
+ * uuid so guessing one is infeasible, but nothing bounded how fast a
+ * caller could try. This is a per-instance in-memory counter: it bounds a
+ * single hot serverless instance and costs nothing; it is not a global
+ * limit across instances (that would need a table — see api/early-access.js
+ * for the DB-backed shape). Only MISSES count, so a legitimate reviewer
+ * refreshing their page is never throttled.
+ */
+const MISS_WINDOW_MS = 15 * 60 * 1000
+const MISS_LIMIT = 10
+const missesByIp = new Map<string, number[]>()
+
+function clientIp(req: Req): string {
+  const fwd = req.headers?.['x-forwarded-for']
+  const first = Array.isArray(fwd) ? fwd[0] : fwd
+  return (first || '').split(',')[0].trim() || 'unknown'
+}
+
+function tooManyMisses(ip: string, now = Date.now()): boolean {
+  const recent = (missesByIp.get(ip) || []).filter(t => now - t < MISS_WINDOW_MS)
+  missesByIp.set(ip, recent)
+  return recent.length >= MISS_LIMIT
+}
+
+function recordMiss(ip: string, now = Date.now()) {
+  const recent = (missesByIp.get(ip) || []).filter(t => now - t < MISS_WINDOW_MS)
+  recent.push(now)
+  missesByIp.set(ip, recent)
+}
+
 async function handler(req: Req, res: Res) {
-  if (req.method === 'GET') return handleGet(req, res)
-  if (req.method === 'POST') return handlePost(req, res)
-  res.status(405).json({ error: 'method_not_allowed' })
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.status(405).json({ error: 'method_not_allowed' })
+    return
+  }
+  const ip = clientIp(req)
+  if (tooManyMisses(ip)) {
+    res.setHeader?.('Retry-After', String(Math.ceil(MISS_WINDOW_MS / 1000)))
+    res.status(429).json({ error: 'too_many_attempts' })
+    return
+  }
+  // Observe the status the handler chose without relying on the platform's
+  // `statusCode` bookkeeping (test fakes and Vercel's helper differ).
+  let chosen = 0
+  const origStatus = res.status.bind(res)
+  res.status = (n: number) => { chosen = n; return origStatus(n) }
+  if (req.method === 'GET') await handleGet(req, res)
+  else await handlePost(req, res)
+  if (chosen === 404) recordMiss(ip)
 }
 
 interface PeerReviewRow {
@@ -232,10 +278,16 @@ async function handlePost(req: Req, res: Res) {
   // record of truth either way.
   if (status === 'approved' && row.report_id) {
     try {
+      // Scoped to the assessor who requested the review: report ids are
+      // client-minted strings, and the service-role client bypasses RLS,
+      // so without the user_id filter an approval could stamp "reviewed"
+      // on another user's report that happens to share the id (audit
+      // 2026-09 C2).
       const { data: asmt } = await supabase
         .from('assessments')
         .select('report_profile, report_status, status')
         .eq('id', row.report_id)
+        .eq('user_id', row.assessor_id)
         .maybeSingle()
       const current = resolveLifecycle((asmt || {}) as Record<string, unknown>)
       // Only advance a report the lifecycle actually permits to advance.
@@ -256,6 +308,7 @@ async function handlePost(req: Req, res: Res) {
             approval_notes: notes,
           })
           .eq('id', row.report_id)
+          .eq('user_id', row.assessor_id)
       }
     } catch {
       // Non-fatal — see above.
@@ -325,16 +378,16 @@ async function handlePost(req: Req, res: Res) {
     // best-effort
   }
 
-  void APP_URL  // keep import-side-effect parity with /api/peer-review
   res.status(200).json({ ok: true, status })
 }
 
-export default handler
+export default withSentry(handler, { route: 'peer-review-respond' })
 
 export const __test = {
   ALLOWED_RESPONSE_STATUSES,
   MAX_NOTES_LEN,
   setSupabase(client: SupabaseClient | null) { _supabaseClient = client },
   setFetch(fn: typeof fetch) { _fetchFn = fn },
-  reset() { _supabaseClient = null; _fetchFn = fetch },
+  MISS_LIMIT,
+  reset() { _supabaseClient = null; _fetchFn = fetch; missesByIp.clear() },
 }
