@@ -275,3 +275,26 @@ describe('/api/peer-review-respond — unsupported methods', () => {
     expect(res._statusCode).toBe(405)
   })
 })
+
+describe('invalid-token throttle', () => {
+  it('returns 429 after MISS_LIMIT invalid tokens from one IP and leaves other IPs alone', async () => {
+    __test.setSupabase(makeMockSupabase({ review: null }) as never)
+    const mk = (ip: string) => ({
+      method: 'GET', url: '/api/peer-review-respond?token=nope',
+      headers: { 'x-forwarded-for': ip },
+    }) as never
+    for (let i = 0; i < __test.MISS_LIMIT; i++) {
+      const res = makeRes()
+      await handler(mk('203.0.113.9'), res as never)
+      expect(res._statusCode).toBe(404)
+    }
+    const blocked = makeRes()
+    await handler(mk('203.0.113.9'), blocked as never)
+    expect(blocked._statusCode).toBe(429)
+    expect((blocked._body as { error: string }).error).toBe('too_many_attempts')
+
+    const other = makeRes()
+    await handler(mk('198.51.100.4'), other as never)
+    expect(other._statusCode).toBe(404)
+  })
+})

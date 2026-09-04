@@ -251,18 +251,6 @@ export default [
     },
   },
 
-  // ── TEMPORARY: genuine undefined identifiers found when src/ was first
-  // linted (2026-09). `setError` (FieldAssistant.jsx:1534) and
-  // `setEditorialCuts` (MobileApp.jsx:1020, 1049, 1381) are called but never
-  // declared — a ReferenceError on those paths at runtime. They are
-  // downgraded to warnings HERE ONLY so the ratchet can land; no-undef stays
-  // an error everywhere else. Delete this block once the frontend fix lands
-  // (tracked in the audit-remediation handoff).
-  {
-    files: ['src/components/FieldAssistant.jsx', 'src/components/MobileApp.jsx'],
-    rules: { 'no-undef': 'warn' },
-  },
-
   // ── SPA tier: src/**/*.{ts,tsx} ───────────────────────────────────────
   {
     files: ['src/**/*.{ts,tsx}'],

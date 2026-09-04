@@ -970,6 +970,11 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   // unambiguous.
   const [pendingDeleteId, setPendingDeleteId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  // Failure copy for the history panel (a conversation that could not be
+  // deleted). Local to the panel: the chat-level `error` from the hook is
+  // about the stream, and this component never owned a setter for it —
+  // the old `setError(...)` call here was a ReferenceError at runtime.
+  const [historyError, setHistoryError] = useState(null)
   const pendingDeleteTimerRef = useRef(null)
   // Context-switch override. When the user picks a different
   // assessment via the facility-chip picker, this object replaces
@@ -1479,6 +1484,11 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             }}>
               Past conversations
             </div>
+            {historyError && (
+              <div role="alert" style={{ padding: '8px 4px 12px', color: DANGER, fontSize: 12, lineHeight: 1.5 }}>
+                {historyError}
+              </div>
+            )}
             {historyLoading && (
               <div style={{ padding: 20, textAlign: 'center', color: SUB, fontSize: 12 }}>
                 Loading…
@@ -1531,9 +1541,10 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                   const ok = await deleteConversation(c.id)
                   setDeletingId(null)
                   if (!ok) {
-                    setError('Could not delete that conversation. Please try again.')
+                    setHistoryError('Could not delete that conversation. Please try again.')
                     return
                   }
+                  setHistoryError(null)
                   // Optimistically prune from the in-memory list.
                   setHistoryList((list) => list.filter((row) => row.id !== c.id))
                   // If we just deleted the conversation the chat

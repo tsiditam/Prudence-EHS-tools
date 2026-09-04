@@ -1017,7 +1017,7 @@ export default function MobileApp() {
         setCurrentSiteId(site.id)
         setZones([{}]); setCurZone(0); setQsqi(0); setDqi(0); setZqi(0)
         setPhotos({}); setPhotoOverrides({}); setSensorData(null); setFloorPlan(null)
-        setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setEditorialCuts(null)
+        setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
         setNarrative(null); setSamplingPlan(null); setCausalChains([])
         trackEvent('site_link_hydrated', { site_id: site.id, prior_report: !!prior })
         setView('quickstart')
@@ -1046,7 +1046,7 @@ export default function MobileApp() {
   // "Go home" — the consultant home is the Projects landing; FM home stays
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
-  const goHome = () => { setView(homeView(userMode)); setViewRpt(null); setEditorialCuts(null) }
+  const goHome = () => { setView(homeView(userMode)); setViewRpt(null) }
 
   // Sustained "liquid-glass" press for the header glass controls (hamburger,
   // kebab, back pill). While held, the control grows and a cyan glow blooms;
@@ -1378,7 +1378,7 @@ export default function MobileApp() {
     // Pre-bind to the originating Project when launched from its workspace.
     setPresurvey(psFill); setBldg(assessmentSeed ? { name: assessmentSeed.name, address: assessmentSeed.address } : {}); setAssessmentSeed(null); setQsqi(0); setDqi(0); setSensorData(null)
     setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
-    setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([]); setEditorialCuts(null)
+    setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
     setView('quickstart')
   }
 
@@ -1678,7 +1678,13 @@ export default function MobileApp() {
     await STO.set(rid, report)
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
-    if (draftId && draftId !== rid) { await STO.del(draftId); await STO.removeFromIndex(draftId, 'dft') }
+    // Storage.deleteAssessment, not STO.del: the draft row in the cloud
+    // still carries this assessment_uid, and the new rpt- row would hit
+    // the 032 unique index on first finalize (audit H3). deleteAssessment
+    // removes local + index + IDB photos AND the cloud row, queueing the
+    // cloud delete when offline. (supabaseStorage also self-heals a
+    // 23505 by deleting the stale draft- row, so this is belt and braces.)
+    if (draftId && draftId !== rid) { await Storage.deleteAssessment(draftId) }
     // Advance the session pointer to the finalized report. Without this,
     // draftId kept pointing at the now-retired draft id, so a follow-up
     // finalize in the SAME session — e.g. right after fixing a readiness
@@ -1690,8 +1696,11 @@ export default function MobileApp() {
     await refreshIndex()
     // Sync to cloud
     if (supabase) {
-      try { await Storage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn }) }
-      catch (e) { console.warn('Cloud sync deferred:', e.message) }
+      // saveAssessment never throws on a cloud failure any more; it reports
+      // { ok, queued, conflict } (sync handoff §4).
+      const r = await Storage.saveAssessment({ ...report, status: 'complete', facility_name: bldg.fn })
+      if (r && !r.ok && r.conflict) console.warn('Cloud sync conflict — resolve from the sync indicator:', r.error?.message)
+      else if (r && !r.ok && !r.queued) console.warn('Cloud sync failed:', r.error?.message)
     }
 
     // Habit-loop PR 1 — close the investment → trigger arc.
@@ -2491,6 +2500,12 @@ export default function MobileApp() {
         })
         return
       }
+      // Migration 034: an issued report's content is immutable in the cloud
+      // until it is moved back to draft. The user has just chosen to reopen
+      // it, so say so; the re-finalize upsert then carries report_status
+      // 'final' again with the new content. Best-effort — offline, the
+      // re-finalize is queued and parks as a conflict the user can resolve.
+      if (supabase) { try { await Storage.reopenAssessment(id) } catch { /* best effort */ } }
       setViewRpt(null)
     }
     fixBlocker(blocker)

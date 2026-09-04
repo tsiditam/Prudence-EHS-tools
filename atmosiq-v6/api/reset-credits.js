@@ -45,18 +45,19 @@ async function handler(req, res) {
     let resetCount = 0
     for (const p of (profiles || [])) {
       const newCredits = p.monthly_credit_limit || 50
+      // Atomic balance + ledger write via grant_credits (migration 033):
+      // the delta brings the balance to the plan limit in one locked
+      // transaction instead of a read-compute-write pair (audit M9).
+      const { error: rpcErr } = await supabase.rpc('grant_credits', {
+        p_user_id: p.id,
+        p_amount: newCredits - (p.credits_remaining || 0),
+        p_reason: 'monthly_reset',
+        p_reference_id: `reset-${new Date().toISOString().slice(0, 7)}`,
+      })
+      if (rpcErr) { console.error('[reset-credits] grant failed for', p.id, rpcErr.message); continue }
       await supabase.from('profiles').update({
-        credits_remaining: newCredits,
         billing_cycle_start: new Date().toISOString(),
       }).eq('id', p.id)
-
-      await supabase.from('credits_ledger').insert({
-        user_id: p.id,
-        amount: newCredits - p.credits_remaining,
-        reason: 'monthly_reset',
-        reference_id: `reset-${new Date().toISOString().slice(0, 7)}`,
-        balance_after: newCredits,
-      })
 
       await auditLog({
         action: 'credits.reset',

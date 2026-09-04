@@ -31,6 +31,8 @@ import { useEffect, useRef, useState } from 'react'
 import { parseLabResultsCsv, getCanonicalFields } from '../utils/labResultsParser'
 import { listTemplates, saveTemplate, findTemplateForLab, deleteTemplate } from '../utils/labCsvTemplates'
 import Storage from '../utils/cloudStorage'
+import { supabase } from '../utils/supabaseClient'
+import { toast } from 'sonner'
 import { emitEvent } from '../../lib/events/emit'
 
 const CARD = 'var(--card)'
@@ -362,7 +364,18 @@ export default function LabResultsImport({ onBack, onSaved }) {
         importedFromFilename: filename || null,
         rows: parsed.rows,
       }
-      await Storage.saveAssessment({ ...assessment, labResults })
+      // Migration 034: an issued report's payload is immutable in the cloud
+      // until it is moved back to draft. Attaching lab results changes the
+      // payload, so reopen first (best effort — offline, the save queues).
+      if (supabase && (assessment.status === 'complete' || assessment.reportStatus === 'final' || assessment.reportStatus === 'reviewed')) {
+        try { await Storage.reopenAssessment(targetId) } catch { /* best effort */ }
+      }
+      const saved = await Storage.saveAssessment({ ...assessment, labResults })
+      if (saved && !saved.ok && !saved.queued) {
+        const msg = 'Lab results were saved on this device but could not be synced: ' + (saved.error?.message || 'unknown error')
+        setError(msg)
+        toast.warning(msg)
+      }
       // Habit-loop PR 5: emit lab_results_attached so /api/events
       // can cancel any pending sampling_results.reminder for this
       // report. Best-effort; never blocks the save.

@@ -14,7 +14,19 @@
  */
 
 import { useState } from 'react'
+import { toast } from 'sonner'
+import { supabase } from '../../utils/supabaseClient'
 import { TIERS, formatUsd, annualSavingsPercent } from './tiers'
+
+// /api/checkout answers with stable error codes, not prose. Map the ones a
+// user can act on; anything unknown falls back to the generic line.
+const CHECKOUT_ERROR_COPY = {
+  invalid_plan: 'That plan is not available. Please pick another.',
+  invalid_billing_period: 'Choose monthly or annual billing and try again.',
+  price_not_configured: 'That plan is not set up for checkout yet. Please contact support.',
+  checkout_session_failed: 'Payment setup failed. Please try again.',
+  unauthorized: 'Please sign in to choose a plan.',
+}
 
 const BG = '#07080C'
 const SURFACE = '#0D0E14'
@@ -46,14 +58,24 @@ export default function PricingSheet({ profile, credits = 0, onClose, contentMax
       return
     }
     try {
+      // /api/checkout requires the session JWT; the user id and email are
+      // taken from the token and any userId/userEmail in the body is
+      // ignored (audit §3, checkout hardening).
+      let token = null
+      try {
+        const { data } = await supabase.auth.getSession()
+        token = data?.session?.access_token || null
+      } catch { /* server will 401 */ }
+      if (!token) {
+        toast.error('Please sign in to choose a plan.')
+        return
+      }
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({
           plan: tierId,
           billing_period: billingPeriod,
-          userId: profile?.id,
-          userEmail: profile?.email,
           returnUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
         }),
       })
@@ -61,12 +83,10 @@ export default function PricingSheet({ profile, credits = 0, onClose, contentMax
       if (data.url && typeof window !== 'undefined') {
         window.location.href = data.url
       } else {
-        // eslint-disable-next-line no-alert
-        alert(data.error || 'Payment setup failed. Please try again.')
+        toast.error(CHECKOUT_ERROR_COPY[data.error] || 'Payment setup failed. Please try again.')
       }
     } catch {
-      // eslint-disable-next-line no-alert
-      alert('Payment setup failed. Please try again.')
+      toast.error('Payment setup failed. Please try again.')
     }
   }
 

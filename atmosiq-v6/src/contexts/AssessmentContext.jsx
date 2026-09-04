@@ -8,6 +8,7 @@ import { createContext, useContext, useState, useCallback, useMemo, useRef, useE
 import STO from '../utils/storage'
 import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMeasurementConfidence, evalMold } from '../engines/scoring'
 import { worstZoneIndex } from '../utils/assessmentVerdict'
+import { resolveAssessmentDate } from '../utils/assessmentDate'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { STANDARDS_MANIFEST } from '../constants/standards'
@@ -82,7 +83,15 @@ export function AssessmentProvider({ children }) {
       outdoorFields.forEach(f => { if (!z[f] && outdoorValues[f]) fill[f] = outdoorValues[f] })
       return Object.keys(fill).length > 0 ? { ...z, ...fill } : z
     })
-    const zScores = zonesWithOutdoor.map(z => scoreZone(z, bldg))
+    // The survey date rides in on the building object (scoreZone reads
+    // `assessmentDate`; see field-registry INJECTED_KEYS). Without it the
+    // engine states a comfort-band data gap rather than guessing a season.
+    // A draft has no `ts` in this context, so presurvey.ps_survey_date is
+    // the only source; null → the engine reports the gap, which is the
+    // correct answer for a draft with no survey date (CLAUDE.md pitfall #3).
+    const surveyDate = resolveAssessmentDate({ presurvey })
+    const scoringBldg = surveyDate ? { ...bldg, assessmentDate: surveyDate } : bldg
+    const zScores = zonesWithOutdoor.map(z => scoreZone(z, scoringBldg))
     const composite = summarizeAssessment(zScores)
     // The zone carrying the worst finding. This used to re-run scoreZone
     // twice per comparison to find the LOWEST-SCORING zone — O(n²) calls
