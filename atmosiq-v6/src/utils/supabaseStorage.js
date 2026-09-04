@@ -57,7 +57,13 @@ const SYNC_QUEUE_KEY = KEYS.syncQueue
 const SYNC_STATE_KEY = KEYS.syncState
 const SYNC_CONFLICTS_KEY = KEYS.syncConflicts
 const SYNC_EVENT = 'atmosflow:sync-state-changed'
-const isOnline = () => navigator.onLine && !!supabase
+// `navigator` exists in every browser, which is the only place this module
+// runs — but not in Node 20, which is what CI uses. Node 22 DOES define a
+// global `navigator`, so the unguarded read passed on a developer machine
+// and threw `ReferenceError` on the runner: the same "green locally, red on
+// the real runtime" shape as the extension-less-import incident. Treat a
+// missing navigator as "the browser has not told us we are offline".
+const isOnline = () => (typeof navigator === 'undefined' || navigator.onLine) && !!supabase
 
 /** A drain older than this is presumed dead (tab killed mid-drain). */
 export const DRAIN_STALE_MS = 2 * 60 * 1000
