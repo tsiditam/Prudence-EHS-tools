@@ -653,3 +653,56 @@ describe('signUp profile bootstrap (L1)', () => {
     expect(ins.args.name).toBe('Jane Doe')
   })
 })
+
+describe('profile push — under-migrated project', () => {
+  // "Sync had errors: 1 pending" in the field, with a queue that never
+  // drained. toProfileRow writes seven columns added by migrations 019 and
+  // 020; on a project missing either, the whole profile upsert failed and
+  // requeued forever — the assessor's name, firm and credentials held
+  // hostage by an absent calibration column. The assessment path had this
+  // recovery from the start; the profile path did not.
+  it('drops only the named optional column and still saves the profile', async () => {
+    const { default: Storage } = await load()
+    let n = 0
+    fake.state.handler = async (c) => {
+      if (c.table !== 'profiles') return {}
+      n++
+      if (n === 1) return { error: { code: 'PGRST204', message: "Could not find the 'iaq_cal_status' column of 'profiles' in the schema cache" } }
+      if (n === 2) return { error: { code: '42703', message: 'column "email_preferences" of relation "profiles" does not exist' } }
+      return {}
+    }
+    const res = await Storage.saveProfile({
+      name: 'Jane Doe', firm: 'PSEC', certs: ['CIH'],
+      iaq_cal_status: 'current', email_preferences: { reassessment: true },
+    })
+
+    expect(res.ok).toBe(true)
+    expect(queue()).toHaveLength(0)
+
+    const rows = fake.state.calls.filter(c => c.table === 'profiles' && c.op === 'upsert')
+    expect(rows).toHaveLength(3)
+    // Each attempt gives up exactly the column the error named…
+    expect(rows[1].args.iaq_cal_status).toBeUndefined()
+    expect(rows[2].args.email_preferences).toBeUndefined()
+    // …and never the identity fields the report is signed with.
+    expect(rows[2].args.name).toBe('Jane Doe')
+    expect(rows[2].args.firm).toBe('PSEC')
+    expect(rows[2].args.certs).toEqual(['CIH'])
+  })
+
+  it('still queues when a column outside the optional set is missing', async () => {
+    const { default: Storage } = await load()
+    fake.state.handler = async (c) => {
+      if (c.table !== 'profiles') return {}
+      return { error: { code: '42703', message: 'column "name" of relation "profiles" does not exist' } }
+    }
+    const res = await Storage.saveProfile({ name: 'Jane Doe' })
+    expect(res.ok).toBe(false)
+    expect(res.queued).toBe(true)
+    // One attempt, then surfaced: a missing required column means the
+    // project is too far behind for this build, and mangling the row to
+    // "succeed" would write a profile with no assessor on it.
+    expect(fake.state.calls.filter(c => c.table === 'profiles' && c.op === 'upsert')).toHaveLength(1)
+  })
+})
+

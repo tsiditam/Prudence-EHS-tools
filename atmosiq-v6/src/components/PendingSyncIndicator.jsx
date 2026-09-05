@@ -27,6 +27,7 @@
 
 import { useSyncState } from '../hooks/useSyncState'
 import Storage from '../utils/cloudStorage'
+import { useState } from 'react'
 
 function relativeTime(iso) {
   if (!iso) return null
@@ -44,6 +45,7 @@ function relativeTime(iso) {
 
 export default function PendingSyncIndicator() {
   const state = useSyncState()
+  const [showDetail, setShowDetail] = useState(false)
 
   if (!state) return null
 
@@ -91,11 +93,25 @@ export default function PendingSyncIndicator() {
 
   const lastSync = relativeTime(state.lastSuccess)
 
+  // The reason the drain failed, for the title/tooltip and for anyone
+  // reading a screenshot. The pill itself stays short; without this the
+  // banner said only THAT sync failed, which is not enough to act on
+  // (the first real report of it could not be diagnosed from the screen).
+  const errorDetail = hasError && !quotaError && typeof state.lastError === 'string'
+    ? state.lastError
+    : null
+  const title = [
+    label,
+    errorDetail ? `Reason: ${errorDetail}` : null,
+    lastSync ? `Last synced ${lastSync}` : null,
+  ].filter(Boolean).join(' · ')
+
   return (
     <div
       role="status"
       aria-live="polite"
       data-testid="pending-sync-indicator"
+      title={title}
       style={{
         position: 'fixed',
         top: 'calc(56px + env(safe-area-inset-top, 0px))',
@@ -110,11 +126,13 @@ export default function PendingSyncIndicator() {
         fontFamily: 'inherit',
         boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
         display: 'flex',
-        alignItems: 'center',
-        gap: 8,
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 4,
         maxWidth: 'calc(100vw - 24px)',
       }}
     >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <span
         style={{
           width: 6,
@@ -148,6 +166,34 @@ export default function PendingSyncIndicator() {
       )}
       {!hasPending && lastSync && (
         <span style={{ fontSize: 10, opacity: 0.85 }}>last {lastSync}</span>
+      )}
+      {errorDetail && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowDetail((v) => !v) }}
+          aria-expanded={showDetail}
+          aria-label={showDetail ? 'Hide sync error detail' : 'Show sync error detail'}
+          style={{
+            background: 'transparent', border: `1px solid ${fg}`, color: fg,
+            borderRadius: 6, padding: '2px 6px', fontSize: 10, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1,
+            minWidth: 22, minHeight: 22,
+          }}
+        >
+          {showDetail ? '\u2715' : '?'}
+        </button>
+      )}
+      </div>
+      {errorDetail && showDetail && (
+        <div
+          data-testid="sync-error-detail"
+          style={{
+            fontSize: 10, fontWeight: 500, lineHeight: 1.4, opacity: 0.95,
+            whiteSpace: 'normal', wordBreak: 'break-word', paddingLeft: 14,
+          }}
+        >
+          {errorDetail}
+        </div>
       )}
     </div>
   )

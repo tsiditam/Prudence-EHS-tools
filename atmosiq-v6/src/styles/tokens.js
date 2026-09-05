@@ -78,7 +78,8 @@ export const FONT_MOBILE = FONT_SYSTEM
 // can sit under the toolbar); older engines get the vh fallback. Inline
 // styles cannot carry two values for one property, so the check is done
 // once here.
-export const FULL_VH = (typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('height', '100dvh')) ? '100dvh' : '100vh'
+export const VH_UNIT = (typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('height', '100dvh')) ? 'dvh' : 'vh'
+export const FULL_VH = `100${VH_UNIT}`
 
 export const BG_BASE = 'var(--bg)'
 export const SURFACE = 'var(--surface)'

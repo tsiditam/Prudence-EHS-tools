@@ -48,6 +48,7 @@ import {
   jasperComposerFocusShadow,
   JASPER_KEYFRAMES_CSS,
 } from '../styles/jasper-tokens'
+import { VH_UNIT } from '../styles/tokens'
 
 const INTRO_FLAG_KEY = 'jasper_intro_v1'
 
@@ -1300,7 +1301,13 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           // shadow are tuned in one place.
           animation: `jasperSheetIn ${JASPER_DURATION.sheet}ms ${JASPER_SPRING} both`,
           boxShadow: JASPER_SHEET_SHADOW,
-          maxHeight: '88vh',
+          // 88% of the DYNAMIC viewport, less the status-bar inset. With
+          // `vh` the sheet was sized against the full-height viewport, so
+          // opening the keyboard left an 88vh sheet anchored to bottom:0
+          // with its header pushed up under the status bar and the title
+          // unreadable. `dvh` shrinks with the keyboard; the env() term
+          // keeps the top clear of the notch / Dynamic Island either way.
+          maxHeight: `calc(88${VH_UNIT} - env(safe-area-inset-top, 0px))`,
           display: 'flex', flexDirection: 'column',
           boxSizing: 'border-box',
           overflow: 'hidden',
@@ -2226,6 +2233,12 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               background: 'transparent',
               border: 'none',
               color: TEXT, fontSize: 15, fontFamily: 'inherit', boxSizing: 'border-box',
+              // The rounded container above owns the focus affordance: it
+              // draws a 1.5px ACCENT border and a glow while `composerFocused`,
+              // which is what satisfies WCAG 2.4.7 here. The global
+              // :focus-visible ring is suppressed on this ONE element because
+              // it drew a second rectangle inside the container's own.
+              outline: 'none',
               minHeight: 40, maxHeight: 200, lineHeight: 1.5,
               resize: 'none',
               display: 'block',

@@ -57,7 +57,13 @@ const SYNC_QUEUE_KEY = KEYS.syncQueue
 const SYNC_STATE_KEY = KEYS.syncState
 const SYNC_CONFLICTS_KEY = KEYS.syncConflicts
 const SYNC_EVENT = 'atmosflow:sync-state-changed'
-const isOnline = () => navigator.onLine && !!supabase
+// `navigator` exists in every browser, which is the only place this module
+// runs — but not in Node 20, which is what CI uses. Node 22 DOES define a
+// global `navigator`, so the unguarded read passed on a developer machine
+// and threw `ReferenceError` on the runner: the same "green locally, red on
+// the real runtime" shape as the extension-less-import incident. Treat a
+// missing navigator as "the browser has not told us we are offline".
+const isOnline = () => (typeof navigator === 'undefined' || navigator.onLine) && !!supabase
 
 /** A drain older than this is presumed dead (tab killed mid-drain). */
 export const DRAIN_STALE_MS = 2 * 60 * 1000
@@ -171,6 +177,26 @@ export function missingColumnName(err) {
 /** Columns a build may write that an under-migrated project may lack.
  *  Dropped ONE AT A TIME, by name, on an undefined-column error. Nothing
  *  else is ever dropped. */
+/** Profile columns added by a later migration than the base table, and
+ *  therefore absent on a project that is behind. Same rule as the
+ *  assessment set: dropped ONE AT A TIME, by name, on an undefined-column
+ *  error, and never anything outside this list.
+ *
+ *  Without this the whole profile upsert failed on the first such column
+ *  and queued forever — one item that could never drain, which is what
+ *  "Sync had errors: 1 pending" turned out to mean in the field. Losing a
+ *  calibration field in the cloud (it is still held locally) beats losing
+ *  the assessor's name, firm and credentials with it. */
+export const OPTIONAL_PROFILE_COLUMNS = Object.freeze([
+  'email_preferences',  // 019
+  'iaq_meter',          // 020
+  'iaq_serial',         // 020
+  'iaq_cal_date',       // 020
+  'iaq_cal_status',     // 020
+  'pid_meter',          // 020
+  'pid_cal_status',     // 020
+])
+
 export const OPTIONAL_ASSESSMENT_COLUMNS = Object.freeze([
   'payload',          // 014
   'assessment_uid',   // 032
@@ -693,7 +719,23 @@ const SupaStorage = {
       return { ok: false, error: authError }
     }
     try {
-      const { error } = await supabase.from('profiles').upsert(toProfileRow(user.id, profile))
+      const row = toProfileRow(user.id, profile)
+      let error = null
+      // Same named-column recovery the assessment path uses: an
+      // under-migrated project must cost the column, not the whole row.
+      for (let attempt = 0; attempt <= OPTIONAL_PROFILE_COLUMNS.length; attempt++) {
+        ;({ error } = await supabase.from('profiles').upsert(row))
+        if (!error || !isUndefinedColumnError(error)) break
+        const col = missingColumnName(error)
+        if (!col || !OPTIONAL_PROFILE_COLUMNS.includes(col) || !(col in row)) break
+        delete row[col]
+        // Drift the operator should see: the user is unaffected, the
+        // database is behind, and nothing else would report it.
+        Sentry.captureException(
+          new Error(`profile_sync.column_missing: ${col} (migration not applied)`),
+          { tags: { component: 'profile_sync', op: 'saveProfile' }, extra: { column: col } },
+        )
+      }
       if (error) {
         // Supabase upsert does NOT throw on PostgREST errors —
         // RLS denial, schema mismatch, validation all return

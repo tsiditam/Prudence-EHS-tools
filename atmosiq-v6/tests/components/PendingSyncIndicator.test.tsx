@@ -104,3 +104,45 @@ describe('PendingSyncIndicator', () => {
     expect(processSyncQueue).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('sync error detail', () => {
+  // The first field report of a sync failure arrived as a screenshot of
+  // the pill reading "Sync had errors: 1 pending" and nothing else. That
+  // is enough to know sync broke and not enough to know why, on the one
+  // device where it happened. The reason is in the sync state; the pill
+  // now discloses it on tap (a title tooltip is useless on a phone).
+  it('reveals lastError on tap and hides it again', async () => {
+    getSyncState.mockResolvedValue({
+      queueDepth: 1,
+      inFlight: false,
+      online: true,
+      lastError: "PGRST204 Could not find the 'base_updated_at' column of 'assessments'",
+      lastSuccess: null,
+      conflicts: [],
+      conflictCount: 0,
+    })
+    render(<PendingSyncIndicator />)
+    await flushEffects()
+
+    expect(screen.getByText(/Sync had errors: 1 pending/)).toBeTruthy()
+    expect(screen.queryByTestId('sync-error-detail')).toBeNull()
+
+    fireEvent.click(screen.getByLabelText('Show sync error detail'))
+    expect(screen.getByTestId('sync-error-detail').textContent).toContain('base_updated_at')
+
+    fireEvent.click(screen.getByLabelText('Hide sync error detail'))
+    expect(screen.queryByTestId('sync-error-detail')).toBeNull()
+  })
+
+  it('offers no detail control for the quota state, which explains itself', async () => {
+    getSyncState.mockResolvedValue({
+      queueDepth: 1, inFlight: false, online: true,
+      lastError: 'storage_quota', lastSuccess: null, conflicts: [], conflictCount: 0,
+    })
+    render(<PendingSyncIndicator />)
+    await flushEffects()
+    expect(screen.getByText(/Device storage full/)).toBeTruthy()
+    expect(screen.queryByLabelText('Show sync error detail')).toBeNull()
+  })
+})
+
