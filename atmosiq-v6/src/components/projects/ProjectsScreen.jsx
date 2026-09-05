@@ -20,6 +20,7 @@ import { I } from '../Icons'
 import { getProjects, createProject, deleteProject, PROJECT_STATUSES } from '../../utils/projectStore'
 import ProjectForm from './ProjectForm'
 import { STATUS_TONE, STATUS_LABEL, fmtDate } from './projectsTheme'
+import { useScrollEdges } from '../../hooks/useScrollEdges'
 
 const DIM = V3.TEXT_MUTED
 
@@ -117,6 +118,8 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
   const list = projects || []
   const filtered = filter === 'all' ? list : list.filter(p => p.status === filter)
 
+  const chipScroll = useScrollEdges()
+
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
       {onBack && (
@@ -137,6 +140,12 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
           Assessment creation has moved into the project workspace; it is no
           longer offered globally here. "Report an incident" stays as a glass
           secondary for the off-workflow safety action. */}
+      {/* Hidden on a first run: the empty-state card below already carries
+          "New project" as its own primary, and showing the same action twice
+          on one screen — plus a second CTA for an off-workflow safety report —
+          left three competing calls to action above an empty list. With
+          projects on screen the row is the fast path and stays. */}
+      {list.length > 0 && (
       <div style={{ marginTop: 14, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <TactileButton
           variant="primary"
@@ -163,9 +172,16 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
           </TactileButton>
         )}
       </div>
+      )}
 
-      {/* Status filter chips */}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 14, WebkitOverflowScrolling: 'touch' }}>
+      {/* Status filter chips. The strip scrolls past the frame on a narrow
+          phone, so it fades on whichever side still has chips rather than
+          cutting the last label in half (useScrollEdges). */}
+      <div ref={chipScroll.ref} style={{
+        display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 14,
+        WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
+        ...chipScroll.maskStyle,
+      }}>
         {['all', ...PROJECT_STATUSES].map(s => {
           const active = filter === s
           // Unified glass + cyan pill, matching the app's nav/segmented
@@ -204,7 +220,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
           <div style={{ ...V3.T.h3, marginBottom: 6 }}>{list.length === 0 ? 'Start with a project' : 'No projects in this status'}</div>
           <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto' }}>
             {list.length === 0
-              ? 'Every engagement begins with a project. Create one to hold its assessments, logger data, sampling forms, findings, reports, and photos in one place.'
+              ? 'One project per site, holding its assessments, logger data, sampling forms, photos and reports.'
               : 'Try a different status filter, or create a new project.'}
           </div>
           <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center' }}>
