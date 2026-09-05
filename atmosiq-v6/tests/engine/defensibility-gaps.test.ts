@@ -12,6 +12,12 @@
 import { describe, it, expect } from 'vitest'
 // @ts-expect-error — JS module without TS types
 import { detectDefensibilityGaps, __test } from '../../src/engines/defensibility-gaps.js'
+// @ts-expect-error — JS module without TS types
+import { scoreZone, genRecs } from '../../src/engines/scoring.js'
+import {
+  DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT,
+// @ts-expect-error — JS module without TS types
+} from '../../src/constants/demoDataFindings.js'
 
 const {
   ruleMissingOutdoorCo2,
@@ -155,23 +161,59 @@ describe('defensibility-gaps :: ruleMoldConcernWithoutMoisture', () => {
 })
 
 describe('defensibility-gaps :: ruleRecommendationWithoutLocation', () => {
-  it('fires when an Immediate-priority rec has no zone/system/surface/free_text', () => {
+  /**
+   * The clean case is built by RUNNING the engine, not by writing down
+   * what its output is assumed to look like.
+   *
+   * That is the entire lesson of this rule's first version. It checked
+   * `r.zone` / `r.system` / `r.surface_or_asset` / `r.free_text`, and
+   * its "does not fire" fixture was hand-written with exactly those
+   * keys — so the test passed on a record `genRecs` cannot produce,
+   * while in the field every Immediate recommendation was reported as
+   * unlocated (8 of 8 on the demo assessment, matching a user report).
+   * A fixture invented to satisfy the code under test proves only that
+   * the two agree with each other.
+   */
+  it('does not fire on the recommendations the engine actually emits', () => {
+    const bldg = { ...DEMO_FINDINGS_BUILDING, assessmentDate: '2026-07-15' }
+    const zones = DEMO_FINDINGS_ZONES as unknown as Array<Record<string, unknown>>
+    const zoneScores = zones.map((z) => scoreZone(z, { ...bldg }))
+    const recs = genRecs(zoneScores, bldg, { zones, equipment: DEMO_FINDINGS_EQUIPMENT })
+
+    // Guard the guard: a fixture that stopped producing Immediate
+    // actions would make the assertion below pass over an empty list.
+    expect(recs.imm.length).toBeGreaterThan(0)
+    // And the shape is the point — if genRecs ever starts emitting the
+    // keys the old rule imagined, this test should be revisited rather
+    // than silently keep passing.
+    expect(Object.keys(recs.imm[0])).toContain('zoneName')
+
+    expect(ruleRecommendationWithoutLocation({ recs })).toHaveLength(0)
+  })
+
+  it('fires when an Immediate rec carries no location of any kind', () => {
     const out = ruleRecommendationWithoutLocation({
-      recs: { imm: [{ finding: 'Critical: replace clogged filter', action: 'Replace' }] },
+      recs: { imm: [{ text: 'Replace clogged filter', controlTier: 'engineering' }] },
     })
     expect(out).toHaveLength(1)
     expect(out[0].kind).toBe('recommendation_without_location')
     expect(out[0].count).toBe(1)
   })
 
-  it('does not fire when each Immediate rec has at least one location field', () => {
+  it('accepts every location form a recommendation can carry', () => {
     const out = ruleRecommendationWithoutLocation({
       recs: {
         imm: [
-          { zone: 'Zone 1', finding: 'A', action: 'X' },
-          { system: 'AHU-1', finding: 'B', action: 'Y' },
-          { surface_or_asset: 'Ceiling tile', finding: 'C', action: 'Z' },
-          { free_text: 'Whole building', finding: 'D', action: 'W' },
+          { scope: 'zone', zoneName: '4th Floor Open Office', text: 'A' },
+          { scope: 'zone', zoneId: 'z-1', text: 'B' },
+          { scope: 'equipment', equipmentLabel: 'AHU-3', text: 'C' },
+          { scope: 'building', affectedZoneNames: ['Conference Room C'], text: 'D' },
+          // Building-wide with no originating zone: the scope IS the location.
+          { scope: 'building', affectedZoneNames: [], text: 'E' },
+          // Forward-compatible fields from the defensibility primitive.
+          { system: 'AHU-1', text: 'F' },
+          { surface_or_asset: 'Ceiling tile', text: 'G' },
+          { free_text: 'Whole building', text: 'H' },
         ],
       },
     })

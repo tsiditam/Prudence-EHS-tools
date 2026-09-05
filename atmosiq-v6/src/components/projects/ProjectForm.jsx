@@ -14,11 +14,31 @@ import TactileButton from '../ui/TactileButton'
 import { PROJECT_STATUSES, SITE_TYPES } from '../../utils/projectStore'
 import { STATUS_LABEL } from './projectsTheme'
 
+// 16px is a functional floor, not a type choice: iOS Safari zooms the
+// viewport when a focused control is under 16px, and the app's viewport is
+// locked, so the zoom leaves the form half off-screen with no way back.
+// index.html sets `input,select,textarea{font-size:16px}` for exactly this,
+// but an inline style outranks a stylesheet rule — so the 14px that used to
+// be here silently defeated the guard on every field of this sheet.
 const inputStyle = {
   width: '100%', boxSizing: 'border-box', padding: '11px 12px',
   background: 'var(--surface)', border: `1px solid ${V3.BORDER_DEFAULT}`,
-  borderRadius: V3.R.md, color: V3.TEXT_PRIMARY, fontSize: 14,
+  borderRadius: V3.R.md, color: V3.TEXT_PRIMARY, fontSize: 16,
   fontFamily: 'inherit',
+}
+
+// A native <select> renders the platform's own chevron, height and corner
+// radius, so beside these inputs it read as an unstyled control dropped into
+// a designed sheet. Same box as inputStyle, with the caret drawn as an
+// inline SVG in the theme's muted foreground.
+const CARET = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23A1A1AA' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+const selectStyle = {
+  ...inputStyle,
+  appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+  paddingRight: 34,
+  backgroundImage: `url("${CARET}")`,
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 12px center',
 }
 
 function Label({ children }) {
@@ -66,14 +86,14 @@ export default function ProjectForm({ initial = {}, submitLabel = 'Create projec
       <div style={{ display: 'flex', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <Label>Site type</Label>
-          <select style={inputStyle} value={siteType} onChange={e => setSiteType(e.target.value)}>
+          <select style={selectStyle} value={siteType} onChange={e => setSiteType(e.target.value)}>
             <option value="">Select…</option>
             {SITE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <Label>Status</Label>
-          <select style={inputStyle} value={status} onChange={e => setStatus(e.target.value)}>
+          <select style={selectStyle} value={status} onChange={e => setStatus(e.target.value)}>
             {PROJECT_STATUSES.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
           </select>
         </div>
@@ -84,7 +104,7 @@ export default function ProjectForm({ initial = {}, submitLabel = 'Create projec
       </div>
       <div>
         <Label>Description / notes (optional)</Label>
-        <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Scope, reason for engagement, context…" />
+        <textarea style={{ ...inputStyle, minHeight: 80, resize: 'none' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Scope, reason for engagement, context…" />
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
         <TactileButton

@@ -26,6 +26,7 @@
  * [data-theme]; layout (size / shape) stays inline.
  */
 import { I } from '../Icons'
+import { useScrollEdges } from '../../hooks/useScrollEdges'
 
 // Injected once. Hides the WebKit scrollbar + carries the theme-aware glass
 // for the tabs (so the same markup reads in dark + light, like the dock).
@@ -57,12 +58,19 @@ export default function AssessmentSegmentedPillNav({
   // stay icon-only-when-inactive.
   showLabels = false,
 }) {
+  // Nine project sections do not fit a phone frame, and the scrollbar is
+  // hidden, so the strip fades on whichever side still has tabs instead of
+  // slicing one down the middle ("Assessm"). A cut word reads as breakage,
+  // not as an invitation to scroll.
+  const scroll = useScrollEdges()
+
   return (
     <div
       id={id}
       role="tablist"
       aria-label={ariaLabel}
       className="aspn-scroll"
+      ref={scroll.ref}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -73,6 +81,7 @@ export default function AssessmentSegmentedPillNav({
         margin: '0 0 16px',
         scrollbarWidth: 'none',
         WebkitOverflowScrolling: 'touch',
+        ...scroll.maskStyle,
         ...style,
       }}
     >

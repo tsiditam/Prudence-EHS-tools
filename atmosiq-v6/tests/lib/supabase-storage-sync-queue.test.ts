@@ -661,7 +661,31 @@ describe('profile push — under-migrated project', () => {
   // requeued forever — the assessor's name, firm and credentials held
   // hostage by an absent calibration column. The assessment path had this
   // recovery from the start; the profile path did not.
-  it('drops only the named optional column and still saves the profile', async () => {
+  it('drops the base column a drifted database is missing (certs, from the field)', async () => {
+    // The exact failure, verbatim from the production screenshot:
+    //   PGRST204 Could not find the 'certs' column of 'profiles' in the
+    //   schema cache
+    // `certs` is in the BASE table definition, so the first version of
+    // this recovery — an enumerated list of columns added by LATER
+    // migrations — did not cover it and the profile stayed stuck.
+    const { default: Storage } = await load()
+    let n = 0
+    fake.state.handler = async (c) => {
+      if (c.table !== 'profiles') return {}
+      n++
+      if (n === 1) return { error: { code: 'PGRST204', message: "Could not find the 'certs' column of 'profiles' in the schema cache" } }
+      return {}
+    }
+    const res = await Storage.saveProfile({ name: 'Jane Doe', firm: 'PSEC', certs: ['CIH'] })
+    expect(res.ok).toBe(true)
+    expect(queue()).toHaveLength(0)
+    const rows = fake.state.calls.filter(c => c.table === 'profiles' && c.op === 'upsert')
+    expect(rows[1].args.certs).toBeUndefined()
+    expect(rows[1].args.name).toBe('Jane Doe')
+    expect(rows[1].args.firm).toBe('PSEC')
+  })
+
+  it('drops only the named column and still saves the profile', async () => {
     const { default: Storage } = await load()
     let n = 0
     fake.state.handler = async (c) => {
@@ -690,7 +714,7 @@ describe('profile push — under-migrated project', () => {
     expect(rows[2].args.certs).toEqual(['CIH'])
   })
 
-  it('still queues when a column outside the optional set is missing', async () => {
+  it('still queues when the missing column is one that addresses the row', async () => {
     const { default: Storage } = await load()
     fake.state.handler = async (c) => {
       if (c.table !== 'profiles') return {}
@@ -699,9 +723,10 @@ describe('profile push — under-migrated project', () => {
     const res = await Storage.saveProfile({ name: 'Jane Doe' })
     expect(res.ok).toBe(false)
     expect(res.queued).toBe(true)
-    // One attempt, then surfaced: a missing required column means the
-    // project is too far behind for this build, and mangling the row to
-    // "succeed" would write a profile with no assessor on it.
+    // One attempt, then surfaced. `name` is NOT NULL and `id` addresses
+    // the row: a database missing either is not merely behind, and
+    // dropping one to "succeed" would write a profile with no assessor
+    // on it, or write it over somebody else's.
     expect(fake.state.calls.filter(c => c.table === 'profiles' && c.op === 'upsert')).toHaveLength(1)
   })
 })

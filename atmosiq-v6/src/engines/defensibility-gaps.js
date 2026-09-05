@@ -201,22 +201,55 @@ function ruleMoldConcernWithoutMoisture(assessment) {
   ]
 }
 
+/**
+ * True when a recommendation says WHERE it applies.
+ *
+ * The fields checked here are the ones `genRecs` actually emits. That
+ * distinction is the whole bug this function was rewritten to fix: the
+ * original checked `r.zone` / `r.system` / `r.surface_or_asset` /
+ * `r.free_text` on the stated belief that "the shipped recs shape uses
+ * `zone` for the location string". It does not, and never has. Since
+ * v2.8.0 `genRecs` pushes `{ scope, text, controlTier, zoneId, zoneName,
+ * affectedZoneIds, affectedZoneNames }` for a zone action and
+ * `{ scope, equipmentId, equipmentLabel, … }` for an equipment one — so
+ * all four checked keys were `undefined` on every recommendation the
+ * engine has ever produced, and the rule reported 100% of Immediate
+ * actions as unlocated no matter what the assessor recorded.
+ *
+ * It read as a real finding because the count was real: eight
+ * recommendations, eight offenders. And it survived because the test
+ * fixture was hand-written in the same imagined shape the rule read
+ * (`{ zone: 'Zone 1', finding, action }`), so the suite exercised a
+ * record the engine cannot emit. The regression test now builds its
+ * input by running `genRecs`.
+ *
+ * The four original keys are still accepted: they cost nothing and a
+ * future writer may use them.
+ */
+function recHasLocation(r) {
+  if (!r || typeof r !== 'object') return false
+  // Zone-scoped: the zone is named on the action itself.
+  if (!isEmpty(r.zoneName) || !isEmpty(r.zoneId)) return true
+  // Equipment-scoped: the unit IS the location (AHU-3, RTU-1).
+  if (!isEmpty(r.equipmentLabel) || !isEmpty(r.equipmentId)) return true
+  // Provenance list — carried by building-scoped actions that were
+  // raised from specific zones.
+  if (!isEmpty(r.affectedZoneNames) || !isEmpty(r.affectedZoneIds)) return true
+  // An explicitly building-wide action is located AT the building; that
+  // is a stated scope, not a missing one. Note this is the declared
+  // `scope`, not an inference from absent fields — a recommendation that
+  // simply has nothing on it still counts as unlocated below.
+  if (r.scope === 'building') return true
+  // Forward-compatible fields, per the platform's defensibility
+  // primitive (zone / system / surface_or_asset / free_text).
+  return !isEmpty(r.zone) || !isEmpty(r.system)
+    || !isEmpty(r.surface_or_asset) || !isEmpty(r.free_text)
+}
+
 function ruleRecommendationWithoutLocation(assessment) {
   const recs = assessment.recs || {}
   const imm = Array.isArray(recs.imm) ? recs.imm : []
-  const offenders = imm.filter((r) => {
-    if (!r || typeof r !== 'object') return true
-    // Per the platform's defensibility primitive: every Immediate-priority
-    // recommendation must populate at least one of zone / system /
-    // surface_or_asset / free_text. The shipped recs shape uses `zone`
-    // for the location string; system / surface / free_text are
-    // forward-compat fields. A rec with all of them empty is a gap.
-    const hasZone = !isEmpty(r.zone)
-    const hasSystem = !isEmpty(r.system)
-    const hasSurface = !isEmpty(r.surface_or_asset)
-    const hasFreeText = !isEmpty(r.free_text)
-    return !(hasZone || hasSystem || hasSurface || hasFreeText)
-  })
+  const offenders = imm.filter((r) => !recHasLocation(r))
   if (offenders.length === 0) return []
   return [
     {
@@ -232,6 +265,16 @@ function ruleRecommendationWithoutLocation(assessment) {
   ]
 }
 
+// TODO(claude): this rule reads `r.qualitative_only` / `r.confidenceTier`
+// off the LEGACY zone-score shape (`zoneScores[].cats[].r[]`), which is
+// what the Readiness panel passes. Neither key is set there — the engine
+// attaches `confidenceTier` in src/engine/bridge/legacy.ts, on the
+// AssessmentScore findings, a different shape. So this rule cannot fire
+// on its real input. Same class as the location bug fixed above, but the
+// opposite sign: it under-reports silently rather than crying wolf, so
+// it is flagged here rather than changed under a bug report about the
+// other one. Fixing it means either reading the bridge output or having
+// scoreZone propagate the flag; both change what the panel shows.
 function ruleQualitativeOnlyPropagated(assessment) {
   const zoneScores = assessment.zoneScores || []
   let count = 0

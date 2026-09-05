@@ -177,25 +177,24 @@ export function missingColumnName(err) {
 /** Columns a build may write that an under-migrated project may lack.
  *  Dropped ONE AT A TIME, by name, on an undefined-column error. Nothing
  *  else is ever dropped. */
-/** Profile columns added by a later migration than the base table, and
- *  therefore absent on a project that is behind. Same rule as the
- *  assessment set: dropped ONE AT A TIME, by name, on an undefined-column
- *  error, and never anything outside this list.
+/** The only profile columns a missing-column retry may NOT drop.
  *
- *  Without this the whole profile upsert failed on the first such column
- *  and queued forever — one item that could never drain, which is what
- *  "Sync had errors: 1 pending" turned out to mean in the field. Losing a
- *  calibration field in the cloud (it is still held locally) beats losing
- *  the assessor's name, firm and credentials with it. */
-export const OPTIONAL_PROFILE_COLUMNS = Object.freeze([
-  'email_preferences',  // 019
-  'iaq_meter',          // 020
-  'iaq_serial',         // 020
-  'iaq_cal_date',       // 020
-  'iaq_cal_status',     // 020
-  'pid_meter',          // 020
-  'pid_cal_status',     // 020
-])
+ *  The first version of this was an enumerated list of "columns a later
+ *  migration added" — email_preferences and the 020 calibration set. It
+ *  was written from a guess about which migrations a behind database
+ *  would be missing, and the guess was wrong: production turned out to
+ *  lack `certs`, which has been in the BASE table definition all along.
+ *  A list of what might be missing can only ever encode what its author
+ *  happened to think of, which is how the profile stayed stuck after a
+ *  fix aimed at exactly that failure (CLAUDE.md pitfall #4: state the
+ *  rule from the constraint, not from the shape of one failure).
+ *
+ *  The constraint: a profile row is a flat set of independent user
+ *  fields, so losing any one of them to a behind database costs that
+ *  field and nothing else. Two are different in kind — `id` addresses
+ *  the row and `name` is NOT NULL — so those are never dropped and a
+ *  database missing either is surfaced instead. */
+export const REQUIRED_PROFILE_COLUMNS = Object.freeze(['id', 'name'])
 
 export const OPTIONAL_ASSESSMENT_COLUMNS = Object.freeze([
   'payload',          // 014
@@ -723,11 +722,12 @@ const SupaStorage = {
       let error = null
       // Same named-column recovery the assessment path uses: an
       // under-migrated project must cost the column, not the whole row.
-      for (let attempt = 0; attempt <= OPTIONAL_PROFILE_COLUMNS.length; attempt++) {
+      const maxDrops = Object.keys(row).length
+      for (let attempt = 0; attempt <= maxDrops; attempt++) {
         ;({ error } = await supabase.from('profiles').upsert(row))
         if (!error || !isUndefinedColumnError(error)) break
         const col = missingColumnName(error)
-        if (!col || !OPTIONAL_PROFILE_COLUMNS.includes(col) || !(col in row)) break
+        if (!col || REQUIRED_PROFILE_COLUMNS.includes(col) || !(col in row)) break
         delete row[col]
         // Drift the operator should see: the user is unaffected, the
         // database is behind, and nothing else would report it.

@@ -246,7 +246,12 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
         )}
         <div style={{ display: 'flex', gap: 10 }}>
           <TactileButton variant="secondary" size="md" pill bubble onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />} style={{ flex: 1, color: 'var(--accent)' }}>Upload</TactileButton>
-          {onAskAI && <TactileButton variant="secondary" size="md" pill bubble onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />} style={{ flex: 1, color: 'var(--accent)' }}>Ask AtmosFlow AI</TactileButton>}
+          {/* "Ask AtmosFlow AI" wrapped to two lines in a half-width pill,
+              which left the mic glyph floating against a two-line block and
+              read as a broken button. The destination is unambiguous from the
+              icon and the context, so the label is short enough to sit on one
+              line at 393px; the full name stays on the accessible name. */}
+          {onAskAI && <TactileButton variant="secondary" size="md" pill bubble onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />} aria-label="Ask AtmosFlow AI" title="Ask AtmosFlow AI" style={{ flex: 1, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Ask AI</TactileButton>}
         </div>
       </div>
 
@@ -545,7 +550,7 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
         <div>
           <SectionHead title="Notes" count={(project.notes || []).length} />
           <GlassCard style={{ marginBottom: 14 }}>
-            <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)} placeholder="Add a note about this site…" style={{ width: '100%', boxSizing: 'border-box', minHeight: 72, resize: 'vertical', padding: '11px 12px', background: 'var(--surface)', border: `1px solid ${V3.BORDER_DEFAULT}`, borderRadius: V3.R.md, color: V3.TEXT_PRIMARY, fontSize: 14, fontFamily: 'inherit' }} />
+            <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)} placeholder="Add a note about this site…" style={{ width: '100%', boxSizing: 'border-box', minHeight: 72, resize: 'none', padding: '11px 12px', background: 'var(--surface)', border: `1px solid ${V3.BORDER_DEFAULT}`, borderRadius: V3.R.md, color: V3.TEXT_PRIMARY, fontSize: 16, fontFamily: 'inherit' }} />
             <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
               <TactileButton variant="primary" size="sm" disabled={!noteDraft.trim()} onClick={handleAddNote}>Add note</TactileButton>
             </div>
