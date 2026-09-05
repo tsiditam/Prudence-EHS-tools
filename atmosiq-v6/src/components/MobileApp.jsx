@@ -148,6 +148,7 @@ import { emitEvent } from '../../lib/events/emit'
 import SaveSitePrompt from './SaveSitePrompt'
 import PeerReviewModal from './PeerReviewModal'
 import { parseSiteLink, clearSiteLink, findMostRecentReportForSite } from '../utils/siteLink'
+import { siteSaveMessage } from '../utils/siteSaveMessage'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
@@ -4088,7 +4089,7 @@ export default function MobileApp() {
                   if (stored) await STO.set(rid, { ...stored, site_id: savedSite.id })
                 }
               } else {
-                throw new Error(json.error || 'save_failed')
+                throw new Error(siteSaveMessage(json.error, resp.status))
               }
             }
           } catch (e) {

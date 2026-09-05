@@ -36,11 +36,33 @@ const MIN_INTERVAL_MONTHS = 1
 const MAX_INTERVAL_MONTHS = 60
 
 let _supabaseClient: SupabaseClient | null = null
-function getSupabase(): SupabaseClient {
+
+/**
+ * Returns the client, or null when this deployment has no Supabase
+ * credentials.
+ *
+ * It returns null rather than throwing because a missing environment
+ * variable is a deployment condition, not a crash. Throwing sent it
+ * through withSentry, which — correctly, for an unexpected error —
+ * answers `{ error: 'internal_error', code: 'unhandled' }` and puts the
+ * detail only in the server log. So the Save-site sheet displayed the
+ * word "internal_error" to an assessor in the field, which names no
+ * cause and suggests no action, and the actual sentence ("Supabase env
+ * not configured") was visible only to someone reading Vercel logs.
+ * Observed on the PR preview deployment, where the Supabase env vars
+ * are not present; the same throw reaches /api/events on that build.
+ *
+ * 503 + a distinct code is the honest answer: the request was fine, the
+ * server is not configured to serve it, and retrying now will not help.
+ * Stable per-path codes follow the `fa_init_*` convention from the
+ * Jasper handler (CLAUDE.md pitfall #5) — the client shows a human
+ * sentence and the code identifies the branch without a log dive.
+ */
+function getSupabase(): SupabaseClient | null {
   if (_supabaseClient) return _supabaseClient
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Supabase env not configured')
+  if (!url || !key) return null
   _supabaseClient = createClient(url, key)
   return _supabaseClient
 }
@@ -122,6 +144,11 @@ async function handler(req: Req, res: Res) {
   }
 
   const supabase = getSupabase()
+  if (!supabase) {
+    console.error('[sites] Supabase env not configured on this deployment')
+    res.status(503).json({ error: 'not_configured', code: 'sites_env_000' })
+    return
+  }
   const { data: { user }, error: authErr } = await supabase.auth.getUser(
     authHeader.replace('Bearer ', ''),
   )
