@@ -19,8 +19,7 @@
 
 import * as V3 from '../../styles/tokens'
 import GlassCard from '../ui/GlassCard'
-import dayjs from 'dayjs'
-import { SENSOR_PARAMS, normalizeSensorData, primaryDataset } from '../../utils/sensorParser'
+import { normalizeSensorData, primaryDataset } from '../../utils/sensorParser'
 import { GRAPH_DEFS, MultiParameterChart, currentPalette } from './SensorCharts'
 import { fmtRange, paramLabel } from './sensorHelpers'
 
@@ -35,7 +34,9 @@ function EmptyNote() {
   )
 }
 
-export default function LoggerGraphsTab({ sensorData, editable = false, onToggleInclude }) {
+// `editable` is still passed by the results screen; the include switch keys
+// off `onToggleInclude` alone, so the flag is not read here.
+export default function LoggerGraphsTab({ sensorData, onToggleInclude }) {
   const env = normalizeSensorData(sensorData)
   if (!env || !env.graphs) return <EmptyNote />
 
