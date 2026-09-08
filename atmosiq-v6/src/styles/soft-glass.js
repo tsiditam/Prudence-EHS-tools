@@ -193,7 +193,9 @@ export const softPill = (tone, opts = {}) => ({
   letterSpacing: '0.35px',
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
-  boxShadow: opts.dim ? 'none' : `inset 0 1px 0 ${tone}28`,
+  // Flat: the inset highlight that made this "glass" is gone (pill pass,
+  // 2026-09) — a tint, a hairline, the label.
+  boxShadow: 'none',
 })
 
 // Stack of cards — wraps a column of soft-glass cards in a consistent

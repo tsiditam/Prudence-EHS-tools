@@ -17,6 +17,7 @@ import { I } from './Icons'
 import * as V3 from '../styles/tokens'
 import TactileButton from './ui/TactileButton'
 import Chip from './ui/Chip'
+import StatusPill from './ui/StatusPill'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -133,7 +134,7 @@ export default function IncidentLog({ profile, onNewIncident, onView }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{inc.location || '(no location)'}</div>
-            <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: `${SEVERITY_COLOR[inc.severity] || DIM}18`, color: SEVERITY_COLOR[inc.severity] || DIM, textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0 }}>{inc.severity}</span>
+            <StatusPill tone={SEVERITY_COLOR[inc.severity] || DIM} style={{ flexShrink: 0 }}>{inc.severity}</StatusPill>
             <button
               onClick={(e) => handleExport(e, inc)}
               disabled={exportingId === inc.id}

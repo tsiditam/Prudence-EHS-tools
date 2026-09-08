@@ -251,7 +251,9 @@ export const pill = (tone, opts = {}) => ({
   alignItems: 'center',
   gap: 6,
   padding: opts.lg ? '6px 12px' : '3px 9px',
-  borderRadius: R.sm,
+  // Fully rounded, like StatusPill / Chip / every other pill — this was
+  // the one 6px-radius "pill" and sat beside round ones on the results.
+  borderRadius: R.pill,
   background: `${tone}14`,
   border: `1px solid ${tone}38`,
   color: tone,

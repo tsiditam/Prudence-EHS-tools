@@ -13,6 +13,7 @@ import STO from '../utils/storage'
 import { mix } from '../utils/theme'
 import { generateIncidentDocx } from './IncidentDocxReport'
 import { I } from './Icons'
+import StatusPill from './ui/StatusPill'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -95,7 +96,7 @@ export default function IncidentDetail({ incident, profile, onBack, onChange, on
       {/* Header */}
       <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: TEXT, margin: 0, letterSpacing: '-0.3px' }}>{incident.trigger_type}</h2>
-        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: `${sevColor}18`, color: sevColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{incident.severity}</span>
+        <StatusPill tone={sevColor}>{incident.severity}</StatusPill>
       </div>
       <div style={{ fontSize: 12, color: SUB, fontFamily: 'var(--font-mono)' }}>{incident.location}{incident.building_name ? ` · ${incident.building_name}` : ''}</div>
 

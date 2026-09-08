@@ -3444,7 +3444,7 @@ export default function MobileApp() {
               <div key={i} style={{marginBottom:i<moldResults.length-1?12:0}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:3,flexWrap:'wrap'}}>
                   <div style={{color:moldColor,fontWeight:700,fontSize:13,lineHeight:1.4}}>{m.label}</div>
-                  {m.investigationTriggered&&<span style={{padding:'2px 8px',background:`${mix('warn', 8)}`,border:`1px solid ${mix('warn', 19)}`,borderRadius:4,fontSize:10,fontWeight:700,color:WARN,letterSpacing:'0.3px'}}>Investigation triggered</span>}
+                  {m.investigationTriggered&&<span style={{padding:'2px 8px',background:`${mix('warn', 8)}`,border:`1px solid ${mix('warn', 19)}`,borderRadius:999,fontSize:10,fontWeight:700,color:WARN,letterSpacing:'0.3px'}}>Investigation triggered</span>}
                 </div>
                 <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{m.visual}</div>
               </div>
@@ -4449,7 +4449,7 @@ export default function MobileApp() {
                     <div style={{...V3.T.bodyStrong, overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inst.make || inst.nickname || 'Instrument'}</div>
                     <div style={V3.T.captionDim}>{inst.serial ? `S/N ${inst.serial}` : 'No serial'}{inst.lastCalDate ? ` · Cal ${inst.lastCalDate}` : ' · No cal date'}</div>
                   </div>
-                  {isOutOfCal(inst) && <span style={{fontSize:10,fontWeight:700,color:WARN,padding:'2px 8px',borderRadius:4,background:`color-mix(in srgb, var(--warn) 12%, transparent)`,border:`1px solid color-mix(in srgb, var(--warn) 30%, transparent)`,letterSpacing:'0.3px',flexShrink:0}}>OVERDUE</span>}
+                  {isOutOfCal(inst) && <span style={{fontSize:10,fontWeight:700,color:WARN,padding:'2px 8px',borderRadius:999,background:`color-mix(in srgb, var(--warn) 12%, transparent)`,border:`1px solid color-mix(in srgb, var(--warn) 30%, transparent)`,letterSpacing:'0.3px',flexShrink:0}}>OVERDUE</span>}
                   <span style={{color:V3.TEXT_TERTIARY,fontSize:13,flexShrink:0}}>›</span>
                 </button>
               ))}
@@ -5543,11 +5543,13 @@ export default function MobileApp() {
             transition:transform 340ms cubic-bezier(.34,1.56,.64,1), box-shadow 200ms cubic-bezier(.2,.8,.2,1), background 180ms ease, border-color 180ms ease, filter 180ms ease;
           }
           .bubble-btn::after{ transition:opacity 240ms ease, transform 240ms cubic-bezier(.34,1.56,.64,1); }
-          .bubble-btn:not(:disabled):hover{ transform:translateY(-1px); filter:brightness(1.06); }
+          .bubble-btn:not(:disabled):hover{ filter:brightness(1.06); }
+          /* Press = the scale alone. The lift on hover and the deep inset
+             on press were the last of the "liquid" read; a flat pill just
+             gets slightly smaller under the finger. */
           .bubble-btn:not(:disabled):active{
-            transition:transform 110ms cubic-bezier(.4,0,.2,1), box-shadow 110ms cubic-bezier(.4,0,.2,1) !important;
-            transform:translateY(1px) scale(var(--bubble-press-scale, .96)) !important;
-            box-shadow:0 5px 14px rgba(0,0,0,0.34), inset 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 1px rgba(255,255,255,0.16) !important;
+            transition:transform 110ms cubic-bezier(.4,0,.2,1) !important;
+            transform:scale(var(--bubble-press-scale, .96)) !important;
           }
           .bubble-btn:not(:disabled):active::after{ opacity:1; transform:scale(1.08); }
         }

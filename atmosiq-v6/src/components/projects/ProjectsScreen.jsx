@@ -31,7 +31,11 @@ const DIM = V3.TEXT_MUTED
 
 // Filter pills carry a lighter shadow than a full CTA so the chip row doesn't
 // read as a row of floating buttons.
-const FILTER_BUBBLE_BASE = { '--bubble-shadow': '0 2px 8px rgba(0,0,0,0.20)', '--bubble-inset': 'inset 0 1px 0 rgba(255,255,255,0.10)' }
+// Filter pills share the app's one pill treatment (Chip, result tabs,
+// header pill): hairline edge, flat fill, accent tint + ring when on.
+// The gradient fill, inset highlight and tap glow they used to carry
+// were the last "bubble" surfaces left after the flat token pass.
+const FILTER_BUBBLE_BASE = { '--bubble-shadow': '0 0 0 0 transparent', '--bubble-inset': '0 0 0 0 transparent', '--bubble-glow': 'transparent' }
 
 function CountChip({ icon, n, label }) {
   return (
@@ -195,13 +199,12 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
               ...FILTER_BUBBLE_BASE,
               ...(active
                 ? {
-                    '--bubble-bg': 'linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 8%, transparent))',
-                    '--bubble-border': 'color-mix(in srgb, var(--accent) 36%, transparent)',
-                    '--bubble-glow': 'rgba(57,192,217,0.34)',
+                    '--bubble-bg': 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                    '--bubble-border': 'color-mix(in srgb, var(--accent) 30%, transparent)',
                   }
                 : {
-                    '--bubble-bg': 'linear-gradient(180deg, color-mix(in srgb, var(--text) 9%, transparent), color-mix(in srgb, var(--text) 3%, transparent))',
-                    '--bubble-border': 'color-mix(in srgb, var(--text) 12%, transparent)',
+                    '--bubble-bg': 'transparent',
+                    '--bubble-border': 'var(--border)',
                   }),
             }}>
               {s === 'all' ? 'All' : STATUS_LABEL[s]}
