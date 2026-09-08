@@ -14,7 +14,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import STO from '../utils/storage'
 import { resolveFinalizeTarget } from '../utils/finalizeTarget'
 import { ensureAssessmentUid } from '../billing/assessmentUid'
-import { hasDraftContent, isAbandonedDraft } from '../utils/draftContent'
+import { hasDraftContent } from '../utils/draftContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -29,12 +29,12 @@ import {
   buildCalibrationAcknowledgement, validateJustification, MAX_JUSTIFICATION_LEN,
 } from '../utils/calibrationAcknowledgement'
 import { extractDocxText, REVIEW_INSTRUCTIONS, REVIEW_CREDIT_COST } from '../utils/reportReview'
-import { getSubscriptionBannerState, BILLING_MODE } from '../utils/subscriptionState'
+import { getSubscriptionBannerState } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
-import { Q_PRESURVEY, Q_BUILDING, Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
+import { Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
 import { deriveInvestigation } from '../engine/investigation'
-import { scoreZone, summarizeAssessment, evalOSHA, calcVent, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
+import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
@@ -60,7 +60,9 @@ import PhotoCapture, { PhotoThumb } from './PhotoCapture'
 import { expandPhotos, rekeyPhotos } from '../utils/photoCompaction'
 import { reportStorageWrite } from './ui/storageToast'
 import { useViewHistory, readInitialNav } from '../hooks/useViewHistory'
+import { useNavStack } from '../hooks/useNavStack'
 import { ROUTES } from '../constants/routes'
+import ToolsHub from './ToolsHub'
 import CollaboratorsBar from './CollaboratorsBar'
 import SensorScreen from './SensorScreen'
 import InstrumentLogImport from './InstrumentLogImport'
@@ -720,28 +722,17 @@ export default function MobileApp() {
   // can be restored without in-memory draft state (see routes.js
   // `restore`); id-bearing routes are hydrated once storage is ready.
   const initialNav = useRef(readInitialNav('projects')).current
-  const [view, setView] = useState(initialNav.view)
-  // ── Notion-style page-transition direction tracker ──
-  // Classifies each view change so AnimatedPageTransition can pick the
-  // right enter animation: top-level dock destinations are "tab" (soft
-  // fade+scale); drilling into a detail page is "forward" (slide from
-  // right); returning to the page we came from is "back" (slide from
-  // left). Computed during render (guarded so it only updates on an
-  // actual view change) so the direction is correct the instant the new
-  // page mounts. A ref-held stack approximates a nav stack without
-  // touching routing.
-  const navRef = useRef({ stack: ['projects'], dir: 'up' })
-  {
-    const TAB_VIEWS = new Set(['dash', 'history', 'sensor-data', 'account', 'properties', 'incident-log'])
-    const st = navRef.current.stack
-    const cur = st[st.length - 1]
-    if (view !== cur) {
-      if (TAB_VIEWS.has(view)) { navRef.current.dir = 'tab'; navRef.current.stack = [view] }
-      else if (st.length >= 2 && st[st.length - 2] === view) { navRef.current.dir = 'back'; st.pop() }
-      else { navRef.current.dir = 'forward'; st.push(view) }
-    }
-  }
-  const navDir = navRef.current.dir
+  // Navigation is a stack (hooks/useNavStack): `view` is the top entry,
+  // `setView` pushes a screen, a dock tab resets the stack to itself, and
+  // the header back pill pops — so "back" means the screen you came from,
+  // and a tool opened from a project returns to that project without the
+  // shell remembering it. The page-transition direction (tab / forward /
+  // back) comes from the same stack, so it is right the instant the new
+  // page mounts.
+  const nav = useNavStack(initialNav.view, homeView(userMode))
+  const view = nav.view
+  const setView = nav.navigate
+  const navDir = nav.dir
   const [activeProjectId, setActiveProjectId] = useState(null)
   // Summary of the open Project/Site workspace — loaded when a project is
   // opened and handed to Jasper's context (project_workspace) so the AI
@@ -771,7 +762,6 @@ export default function MobileApp() {
   }, [activeProjectId])
   // Where the project workspace returns to — 'projects' (IH list) or
   // 'properties' (FM Buildings portfolio), set when navigating in.
-  const [projectBackView, setProjectBackView] = useState('projects')
   // Bumped from the header ⋯ overflow's "Edit details" item; ProjectDetail
   // watches it and opens its edit sheet (the sheet state lives in the child).
   const [projectEditNonce, setProjectEditNonce] = useState(0)
@@ -1142,7 +1132,9 @@ export default function MobileApp() {
   // "Go home" — the consultant home is the Projects landing; FM home stays
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
-  const goHome = () => { setView(homeView(userMode)); setViewRpt(null) }
+  const goHome = () => { nav.reset(homeView(userMode)); setViewRpt(null) }
+  // A dock tab / menu primary: the stack becomes that one screen.
+  const goTab = (v) => { nav.reset(v); if (v === 'dash' || v === 'projects') setViewRpt(null) }
 
   // Sustained "liquid-glass" press for the header glass controls (hamburger,
   // kebab, back pill). While held, the control grows and a cyan glow blooms;
@@ -1178,13 +1170,32 @@ export default function MobileApp() {
       willChange: 'transform',
     }
   }
-  // Where a tool (Logger Studio / Sampling forms) should return to. Set to
-  // 'project-detail' when the tool is opened from inside a project
-  // workspace so one tap goes straight back to that project; cleared when
-  // the tool is entered from the menu/dock instead.
-  const [toolReturn, setToolReturn] = useState(null)
-  const exitTool = () => {
-    if (toolReturn) { setView(toolReturn); setToolReturn(null) } else goHome()
+  // Opening a tool. A tool is pushed onto the stack, so back returns to
+  // wherever it was opened from (a project workspace, the Tools hub, the
+  // results screen). Logger Studio ingests a file INTO an assessment: when
+  // no assessment is open and there are drafts to choose from, it asks
+  // which one to attach to first (the sheet is rendered with the other
+  // sheets below). The chooser is deliberately not shown when there is
+  // nothing to choose — an empty list is not a question.
+  const [attachSheet, setAttachSheet] = useState(false)
+  const draftOpen = !!draftId && hasDraftContent({ bldg, zones, equipment, photos, sensorData, floorPlan })
+  const openTool = (id) => {
+    if (id === 'sensor-data' && !draftOpen && (index.drafts || []).length > 0) { setAttachSheet(true); return }
+    nav.navigate(id)
+  }
+  const attachLoggerTo = async (id) => {
+    setAttachSheet(false)
+    // resumeDraft lands on the assessment's phase; Logger Studio goes on
+    // top of it, so back from the tool is the assessment it attached to.
+    await resumeDraft(id)
+    nav.navigate('sensor-data')
+  }
+  // The Assess dock tab: continue the open assessment, or start one.
+  const openAssess = () => {
+    goTab('projects')
+    if (comp) nav.navigate('results')
+    else if (draftOpen) nav.navigate(bldg?.fn && zones?.[0]?.zn ? 'zone' : 'quickstart')
+    else startNew()
   }
 
   const handleLogin = async (userOrProfile) => {
@@ -2199,7 +2210,6 @@ export default function MobileApp() {
     const b = buildings.find(x => x && x.id === buildingId)
     if (!b) return
     const proj = await getOrCreateProjectByName(b.name, { address: b.address || '', status: 'active' })
-    setProjectBackView('properties')
     setActiveProjectId(proj.id)
     setView('project-detail')
   }
@@ -3653,6 +3663,15 @@ export default function MobileApp() {
   const dtcq = dtVis[dqi]
   const zcq = zVis[zqi]
   const isAssessing = ['quickstart','zone','details'].includes(view)
+  // What the header back pill names — the screen one tap returns to.
+  const backLabel = (() => {
+    const dest = nav.backView
+    const r = ROUTES[dest]
+    if (!r) return 'Back'
+    if (['quickstart','zone','details','results'].includes(dest) && bldg?.fn) return bldg.fn
+    if (dest === 'project-detail' && activeProjectSummary?.name) return activeProjectSummary.name
+    return r.short
+  })()
 
   // ── Layered side menu (Claude-style) ───────────────────────────────
   // The menu lives BEHIND the app; opening it transforms the whole content
@@ -3667,21 +3686,18 @@ export default function MobileApp() {
   // (Home/dashboard was dropped from nav: Projects is the landing and the
   // Start-survey flow now also lives on the Projects screen.)
   const sideMenuPrimary = [
-    { label: 'Projects',     icon: 'bldg',      view: 'projects',    onClick: () => { setView('projects'); setViewRpt(null) } },
-    { label: 'Reports',      icon: 'report',    view: 'history',     onClick: () => setView('history') },
+    { label: 'Projects',     icon: 'bldg',      view: 'projects',    onClick: () => goTab('projects') },
+    { label: 'Reports',      icon: 'report',    view: 'history',     onClick: () => goTab('history') },
+    // The Tools hub lists every working tool (Logger Studio, Ventilation,
+    // Sampling forms, Incidents, Search) — they used to be a collapsed
+    // group here and nowhere else.
+    { label: 'Tools',        icon: 'wrench',    view: 'tools',       onClick: () => goTab('tools') },
     { label: 'AtmosFlow AI', icon: 'jasper', renderIcon: () => <JasperBrainIcon size={20} animate={false} />, onClick: () => { supabase && trackEvent('jasper_open', { source: 'side_menu' }); setFaOpen(true) } },
   ]
   // Secondary navigation — grouped + collapsible (Linear/Arc/Notion style)
   // so the menu leads with the primaries and tucks the rest away. Trash is
   // isolated at the bottom (rare/destructive, low salience).
   const sideMenuGroups = [
-    { key: 'tools', label: 'Tools', items: [
-      { label: 'Logger Studio',  icon: 'chartLine', view: 'sensor-data',    onClick: () => { setToolReturn(null); setView('sensor-data') } },
-      { label: 'Sampling forms', icon: 'flask',     view: 'sampling-forms', onClick: () => { setToolReturn(null); setView('sampling-forms') } },
-      { label: 'Ventilation',    icon: 'wind',      view: 'ventilation',    onClick: () => { setToolReturn(null); setView('ventilation') } },
-      { label: 'Incidents',      icon: 'alert',     view: 'incident-log',   onClick: () => setView('incident-log') },
-      { label: 'Search',         icon: 'search',    view: 'search',         onClick: () => setView('search') },
-    ] },
     { key: 'resources', label: 'Resources', items: (userMode === 'fm'
       ? [{ label: 'Sample Air Quality Check', icon: 'play', onClick: () => runDemo() }]
       : [
@@ -3793,7 +3809,7 @@ export default function MobileApp() {
         {(() => {
           const current = activeProjectId ? menuProjects.find(p => p.id === activeProjectId) : null
           const recents = [...menuProjects].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5)
-          const openProject = (id) => go(() => { setProjectBackView('projects'); setActiveProjectId(id); setView('project-detail') })
+          const openProject = (id) => go(() => { setActiveProjectId(id); setView('project-detail') })
           return (
             <div style={{marginBottom:8}}>
               <button
@@ -3903,28 +3919,22 @@ export default function MobileApp() {
               this left cluster, so the popover opens DOWN-LEFT from the
               hamburger rather than down-right. */}
           <div style={{position:'relative',display:'flex',alignItems:'center'}}>
-            {/* Back to dashboard — shown on every screen except the
-                dashboard root. The chevron always routes Home; the label
-                names the CURRENT page (context over branding, Notion/
-                Linear style) — the AtmosFlow wordmark only lives on the
-                home dashboard. On an assessment / its results the label is
-                the facility name. */}
-            {/* project-detail owns its own single "Projects" back control in
-                the body, so the global header back pill is suppressed there to
-                avoid two stacked back affordances. */}
-            {profile && view!=='dash' && view!=='projects' && view!=='project-detail' && (
+            {/* Back — pops the navigation stack. The label names the
+                DESTINATION (iOS convention): "‹ Project" means one tap
+                returns to the project workspace, "‹ Tools" to the hub. When
+                the destination is an assessment screen or a project it
+                names the facility / project rather than the generic word.
+                Hidden on the home screens (nothing beneath) and on
+                project-detail, which owns its own "Projects" control. */}
+            {profile && nav.backView && view!=='dash' && view!=='projects' && view!=='project-detail' && (
               <button
-                onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms'||view==='ventilation') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
+                onClick={()=>{ nav.back(); setViewRpt(null) }}
                 {...triggerPress('back')}
-                aria-label="Back"
+                aria-label={`Back to ${backLabel}`}
                 className="af-glass-control af-menu-trigger"
                 style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
-                <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
-                  ((isAssessing || view==='results' || view==='report') && bldg?.fn)
-                    ? bldg.fn
-                    : ({dash:'Home',history:'Reports',settings:'Settings',account:'Account','sensor-data':'Logger Studio',properties:'Buildings','incident-log':'Incidents','incident-form':'New Incident','incident-detail':'Incident','project-detail':'Project',trash:'Trash',search:'Search',help:'Help','sampling-forms':'Sampling Forms',ventilation:'Ventilation','instrument-edit':'Instruments',equipment:'Instruments',spatial:'Floor Plan',tos:'Terms of Service',privacy:'Privacy Policy',admin:'Admin',results:'Assessment',report:'Report'}[view] || 'Projects')
-                }</span>
+                <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{backLabel}</span>
               </button>
             )}
             {profile && !isDesktop && (view==='dash' || view==='projects') && (
@@ -4169,6 +4179,33 @@ export default function MobileApp() {
             >
               Finish walkthrough
             </TactileButton>
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* Logger Studio opened with no assessment in progress: which one
+          should the logger data belong to? Listed newest first; "open
+          without attaching" keeps the old behaviour for a quick look at a
+          file. See openTool. */}
+      {attachSheet && (
+        <BottomSheet title="Attach logger data to" onClose={()=>setAttachSheet(false)} ariaLabel="Choose the assessment Logger Studio should attach to">
+          <div style={{...V3.T.bodyDim, margin:'4px 0 14px'}}>Session averages can be sent into a zone of the assessment you pick.</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:'44vh',overflowY:'auto',marginBottom:12}}>
+            {[...(index.drafts||[])].sort((a,b)=>String(b.ua||'').localeCompare(String(a.ua||''))).map(d => (
+              <button key={d.id} type="button" onClick={()=>attachLoggerTo(d.id)}
+                style={{display:'flex',alignItems:'center',gap:12,width:'100%',textAlign:'left',minHeight:52,padding:'10px 14px',borderRadius:V3.R.md,background:'var(--card)',border:'1px solid var(--border)',color:'var(--text)',cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                <I n="draft" s={18} c="var(--accent)" w={1.8} />
+                <span style={{flex:1,minWidth:0}}>
+                  <span style={{...V3.T.bodyStrong,display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.facility || 'Untitled draft'}</span>
+                  {d.ua && <span style={{...V3.T.captionDim,display:'block',marginTop:2}}>Edited {new Date(d.ua).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>}
+                </span>
+                <span aria-hidden="true" style={{color:'var(--sub)',fontSize:18,lineHeight:1}}>›</span>
+              </button>
+            ))}
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <TactileButton variant="secondary" fullWidth onClick={()=>{setAttachSheet(false);startNew()}} icon={<I n="plus" s={16} c="var(--accent)" w={1.8} />}>Start a new assessment</TactileButton>
+            <TactileButton variant="secondary" fullWidth onClick={()=>{setAttachSheet(false);nav.navigate('sensor-data')}}>Open without attaching</TactileButton>
           </div>
         </BottomSheet>
       )}
@@ -5093,11 +5130,15 @@ export default function MobileApp() {
           )}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='sampling-forms'&&<Suspense fallback={LAZY_FALLBACK}><SamplingFormsView profile={profile} onBack={exitTool} /></Suspense>}
+        {view==='tools'&&<ToolsHub onOpen={openTool} attachedTo={draftOpen ? (bldg?.fn || 'the open assessment') : null} />}
+        {view==='sampling-forms'&&<Suspense fallback={LAZY_FALLBACK}><SamplingFormsView profile={profile} onBack={nav.back} /></Suspense>}
         {view==='ventilation'&&<Suspense fallback={LAZY_FALLBACK}><VentilationTool /></Suspense>}
-        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={toolReturn==='project-detail' ? activeProjectId : null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} /></Suspense>}
-        {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
-        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
+        {/* A tool carries the project it was opened from as its params
+            (see ProjectDetail's onOpenLogger) — nothing in the shell
+            remembers it. */}
+        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} /></Suspense>}
+        {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} />}
+        {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={nav.back} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>nav.navigate('sensor-data', { projectId: activeProjectId })} onOpenSampling={()=>nav.navigate('sampling-forms', { projectId: activeProjectId })} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else if(v==='mold'){handleModeSwitch('mold')}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setEditingProfile(true);setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
@@ -5135,8 +5176,8 @@ export default function MobileApp() {
           icon: t.icon,
           badge: t.badge,
           ...(t.renderIcon ? { renderIcon: t.renderIcon } : {}),
-          active: view === t.id,
-          onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); setToolReturn(null); setView(t.id); if (t.id === 'dash' || t.id === 'projects') setViewRpt(null) },
+          active: t.active !== undefined ? t.active : view === t.id,
+          onClick: () => { haptic('light'); supabase && trackEvent('page_view', { tab: t.id }); if (t.onClick) t.onClick(); else goTab(t.id) },
         })
         // Account tab = the assessor's circular profile photo, Instagram's
         // profile destination. A plain neutral circle with a hairline edge;
@@ -5161,13 +5202,16 @@ export default function MobileApp() {
           {id:'incident-log',label:'Incidents',icon:'alert'},
           {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
         ] : [
-          // Consultant dock = the workflow anchors + Logger Studio. AtmosFlow
-          // AI is detached from the dock and floats on the right edge (see
-          // JasperFloatingButton below). Account is a dock tab (also in the
-          // menu).
+          // Consultant dock, Project as the spine: Projects · Assess ·
+          // Reports · Tools · Account. Assess continues the open assessment
+          // (or starts one); Tools is the hub every working tool lives in —
+          // Logger Studio moved there from its own tab. AtmosFlow AI is
+          // detached from the dock and floats on the right edge (see
+          // JasperFloatingButton below).
           {id:'projects',label:'Projects',icon:'bldg'},
-          {id:'sensor-data',label:'Logger Studio',icon:'chartLine'},
+          {id:'assess',label:'Assess',icon:'draft',active:isAssessing||view==='results',onClick:openAssess},
           {id:'history',label:'Reports',icon:'report',badge:((index.drafts||[]).length+(index.reports||[]).length)||null},
+          {id:'tools',label:'Tools',icon:'wrench',active:view==='tools'||nav.within('tools')},
           {id:'account',label:'Account',icon:'user',renderIcon:accountAvatarIcon},
         ]).map(mkTab)
 
@@ -5317,7 +5361,7 @@ export default function MobileApp() {
             // Project workspace context — attached while the assessor is in
             // the project's orbit (the workspace itself, or a tool opened
             // from it), so unrelated chats aren't biased toward it.
-            project_workspace: (view === 'project-detail' || toolReturn === 'project-detail') ? activeProjectSummary : null,
+            project_workspace: (view === 'project-detail' || nav.within('project-detail')) ? activeProjectSummary : null,
             // Portfolio index — always attached so the AI can answer
             // project questions from any view.
             projects_index: aiProjectsIndex,
