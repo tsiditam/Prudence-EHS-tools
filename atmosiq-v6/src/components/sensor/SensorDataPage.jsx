@@ -247,7 +247,7 @@ function AnalyzingCard({ fileName, phase }) {
   )
 }
 
-export default function SensorDataPage({ value, onChange, onBack, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], onApplyAverages }) {
+export default function SensorDataPage({ value, onChange, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], onApplyAverages }) {
   // The PID span gas, read off the assessor's saved profile — the same place
   // the report sheet seeds its own field from, so the reference tick on these
   // cards and the reference line in the generated report are derived from one
@@ -582,16 +582,13 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 820, margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-        {onBack && (
-          <button onClick={onBack} aria-label="Back" style={{ width: 36, height: 36, borderRadius: 10, background: CARD, border: `1px solid ${BORDER}`, color: SUB, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <I n="home" s={17} c={SUB} w={1.8} />
-          </button>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...V3.T.h1, marginBottom: 2 }}>Logger Studio</div>
-          <div style={V3.T.bodyDim}>Upload logger data for report-ready IAQ visuals.</div>
-        </div>
+      {/* The shell header's back pill is the one back affordance on this
+          screen (it routes to the tool's origin via toolReturn); the
+          in-body home button duplicated it and pushed the title off the
+          left edge every other page title sits on. */}
+      <div style={{ marginBottom: 6 }}>
+        <div style={{ ...V3.T.h1, marginBottom: 2 }}>Logger Studio</div>
+        <div style={V3.T.h1Sub}>Upload logger data for report-ready IAQ visuals.</div>
       </div>
 
       {/* Single hidden file input; pendingTarget decides where the file lands. */}
@@ -607,20 +604,12 @@ export default function SensorDataPage({ value, onChange, onBack, reports = [], 
             CSV or XLSX exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
           </div>
           {error && <InlineError style={{ marginBottom: 14 }}>{error}</InlineError>}
-          {/* ~30%-smaller red upload CTA (per product direction). Sizes
-              are 0.7× the `lg` variant (pad 16/22→11/15, font 15→11,
-              minH 52→36, icon 15→11); background uses the theme-aware
-              --danger with white text + a soft red glow, overriding the
-              primary variant's cyan accent-fill + glow. */}
-          <TactileButton variant="primary" size="lg" pill disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} icon={<I n="upload" s={11} c="#FFFFFF" w={2} />} style={{
-            padding: '11px 15px',
-            fontSize: 11,
-            minHeight: 36,
-            background: 'var(--danger)',
-            color: '#FFFFFF',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(0,0,0,0.20), 0 8px 18px color-mix(in srgb, var(--danger) 30%, transparent)',
-          }}>
-            {busy ? 'Reading…' : 'Upload Data'}
+          {/* Standard accent primary, the same pill as "New project" on the
+              Projects empty state. It used to be a red --danger fill: the
+              only red CTA in the app, on the one action here that is not
+              destructive, so it read as a warning rather than the way in. */}
+          <TactileButton variant="primary" size="sm" pill bubble disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} icon={<I n="upload" s={14} c="var(--on-accent-fill)" w={2} />}>
+            {busy ? 'Reading…' : 'Upload data'}
           </TactileButton>
           <div style={{ marginTop: 12 }}>
             <GhostButton disabled={busy} onClick={() => pickProjectFor({ role: 'indoor', label: 'Indoor' })} style={{ minHeight: 36 }}>

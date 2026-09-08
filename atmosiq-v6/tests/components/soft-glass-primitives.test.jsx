@@ -226,17 +226,18 @@ describe('StatusPill', () => {
     expect(smPad).toContain('10px')
   })
 
-  it('softens the tone and drops the inner highlight when dim', () => {
+  it('is flat in both states and softens the tone when dim', () => {
     const { container: bright } = render(<StatusPill tone="#22D3EE">x</StatusPill>)
     const brightColor = bright.firstChild.style.color
     const brightShadow = bright.firstChild.style.boxShadow
     cleanup()
     const { container: dimmed } = render(<StatusPill tone="#22D3EE" dim>x</StatusPill>)
     const dimEl = dimmed.firstChild
-    // dim removes the inner-highlight glow that gives the pill its neon look
+    // Pill pass (2026-09): no inner highlight in either state — a pill is a
+    // tint, a hairline and a label, same as Chip and the filter pills.
     expect(dimEl.style.boxShadow).toBe('none')
-    expect(brightShadow).not.toBe('none')
-    // and shifts the text off the raw bright tone
+    expect(brightShadow).toBe('none')
+    // dim shifts the text off the raw bright tone
     expect(dimEl.style.color).not.toBe(brightColor)
   })
 })

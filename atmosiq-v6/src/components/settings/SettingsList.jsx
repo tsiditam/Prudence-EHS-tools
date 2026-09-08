@@ -68,7 +68,7 @@ export const ExceptionPill = ({ tone = 'warn', text }) => (
   <span style={{
     fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-mono)',
     color: tone === 'warn' ? WARN : DANGER,
-    padding: '3px 8px', borderRadius: 6,
+    padding: '3px 8px', borderRadius: 999,
     background: tone === 'warn' ? mix('warn', 6) : mix('danger', 6),
     border: `1px solid ${tone === 'warn' ? mix('warn', 14) : mix('danger', 14)}`,
   }}>{text}</span>

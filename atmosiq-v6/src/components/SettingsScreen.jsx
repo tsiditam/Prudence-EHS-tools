@@ -13,6 +13,7 @@ import { VER, BUILD_SHA } from '../constants/standards'
 import { mix } from '../utils/theme'
 import * as V3 from '../styles/tokens'
 import { Group, Row, ExceptionPill } from './settings/SettingsList'
+import Chip from './ui/Chip'
 import SiteLibraryPanel from './settings/SiteLibraryPanel'
 import ReportTemplatesPanel from './settings/ReportTemplatesPanel'
 import { isMoldModuleEnabled } from '../utils/featureFlags'
@@ -113,7 +114,7 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
         <div style={{padding:'14px 16px'}}>
           <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
             {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG','AIHA'].map(s => (
-              <span key={s} style={{padding:'4px 8px',borderRadius:4,background:mix('accent', 3),border:`1px solid ${mix('accent', 7)}`,fontSize:9,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)",letterSpacing:'0.2px'}}>{s}</span>
+              <Chip key={s}>{s}</Chip>
             ))}
           </div>
           <details>

@@ -17,7 +17,11 @@
          (WCAG 2.1 SC 1.4.4 Resize text). iOS auto-zoom on focus is prevented
          by the 16px input floor below, not by locking the viewport. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#1C1B19" />
+    <!-- Matches --bg for the default (dark) theme. src/utils/theme.js
+         rewrites this to the live --bg whenever the theme changes, so the
+         iOS status-bar / safe-area tint follows light mode instead of
+         staying dark. -->
+    <meta name="theme-color" content="#0A0A0A" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AtmosFlow" />
@@ -93,16 +97,29 @@
            identically. Components opt into theming by referencing
            var(--bg) etc. instead of inline hex literals. Light mode is
            an opt-in override under [data-theme="light"] below. */
-        --bg:#1C1B19;
-        --surface:#232220;
-        --card:#2A2926;
+        /* Neutral near-black ladder (UI pass, 2026-09). The previous
+           #1C1B19 → #3A3834 ladder carried a warm brown cast that read as
+           "charcoal"; the surfaces are now true neutrals stepping 6–7 L*
+           apart, so hierarchy comes from the hairline border and the
+           step itself rather than from tint or glass. */
+        --bg:#0A0A0A;
+        --surface:#111111;
+        --card:#161616;
         /* Deep surface — the near-black used by the slide-out side menu.
            Opt-in via the BottomSheet `tone="deep"` prop for sheets that
            should read as a dark stage rather than a raised card. Flips to
            white in light mode below (mirrors the menu). */
-        --surface-deep:#070809;
-        --raised:#322F2C;
-        --border:#3A3834;
+        --surface-deep:#050505;
+        --raised:#1E1E1E;
+        --border:#262626;
+        /* Border ladder (UI consistency pass, 2026-09). tokens.js used to
+           hard-code these as white-alpha (rgba(255,255,255,.04/.07/.12)),
+           which is invisible on a white page — in light mode every
+           V3.panel / SettingsList group lost its edge and read as loose
+           text. Subtle is for dividers inside a panel, --border for panel
+           edges, strong for emphasised edges / selected tracks. */
+        --border-subtle:#1C1C1C;
+        --border-strong:#333333;
         /* Restrained primary cyan — darker and a touch less saturated
            than the old #22D3EE aqua, so header controls, icon outlines,
            text accents, and default active states read technical and
@@ -110,13 +127,16 @@
            below is reserved for filled-CTA / active emphasis. */
         --accent:#2EA7BF;
         --accent-dim:#1A8FA0;
-        --text:#ECEEF2;
+        /* Text ladder is neutral grey to match the neutral surfaces — the
+           previous cool-tinted greys (#ECEEF2 / #A8B0BD / #8B93A5) read
+           faintly blue on a pure-neutral black. */
+        --text:#F2F2F2;
         /* Supporting-label tier between --text and --sub (tokens.js
-           TEXT_SECONDARY). Was a hard-coded #A8B0BD in 17 call sites, so
-           it never flipped for light mode. 7.88:1 on --bg, 6.66:1 on --card. */
-        --text-secondary:#A8B0BD;
-        --sub:#8B93A5;
-        --dim:#6B7380;
+           TEXT_SECONDARY). Was a hard-coded hex in 17 call sites, so it
+           never flipped for light mode. 7.8:1 on --bg, 7.2:1 on --card. */
+        --text-secondary:#A3A3A3;
+        --sub:#8A8A8A;
+        --dim:#6B6B6B;
         --warn:#FBBF24;
         --danger:#EF4444;
         --success:#22C55E;
@@ -141,12 +161,21 @@
            the cyan tap-glow, the resting layered shadow, the inset
            specular + contact shades, and the press-down scale. Flipped for
            light mode below. */
-        --bubble-bg:linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03));
-        --bubble-border:rgba(255,255,255,0.18);
-        --bubble-glow:rgba(57,192,217,0.32);
-        --bubble-shadow:0 10px 26px rgba(0,0,0,0.34);
-        --bubble-inset:inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -7px 16px rgba(0,0,0,0.22);
-        --bubble-press-scale:0.96;
+        /* Flat controls (UI pass, 2026-09): a solid card-tone fill and a
+           hairline edge, no gradient, no inset highlights, no tap-glow, no
+           blur. --bubble-blur / --bubble-sheen are read by .bubble-btn in
+           MobileApp.jsx and default to the old glass values when unset, so
+           the class still renders the previous treatment on any page that
+           does not define them. A control still tints itself by overriding
+           --bubble-bg inline. */
+        --bubble-bg:var(--card);
+        --bubble-border:var(--border);
+        --bubble-glow:transparent;
+        --bubble-shadow:0 1px 2px rgba(0,0,0,0.40);
+        --bubble-inset:0 0 0 0 transparent;
+        --bubble-blur:none;
+        --bubble-sheen:none;
+        --bubble-press-scale:0.97;
       }
       [data-theme="light"]{
         /* Premium Light palette — a clean WHITE page (was a warm beige
@@ -161,7 +190,13 @@
            5.78:1 on --bg, 4.69:1 on --surface and 5.17:1 on --raised,
            so accent text passes AA on every light surface it sits on. */
         --bg:#FFFFFF;
-        --surface:#E4E8EC;
+        /* Surface tier sits one step below a white card, not four: the
+           previous #E4E8EC was a mid grey that turned every var(--surface)
+           control (AI suggestion cards, composer, chips, segmented
+           controls, stat tiles) into heavy slate slabs on an otherwise
+           white sheet. #F3F5F7 reads as a grouped area and still sits
+           visibly under a white card. */
+        --surface:#F3F5F7;
         --card:#FFFFFF;
         --surface-deep:#FFFFFF;
         /* Light-mode raised surface for "selected" / "focused" rows.
@@ -176,6 +211,8 @@
            cyan-outlined. Cyan still carries active/selected states via
            --accent and the pale --raised tint. */
         --border:#D6DBE1;
+        --border-subtle:#E6EAEE;
+        --border-strong:#C2C9D2;
         --accent:#0C6F86;
         --accent-dim:#155E75;
         --text:#0F172A;
@@ -201,13 +238,26 @@
         --success:#15703A;
         /* Bubble controls flip to a near-white capsule with soft slate
            shadows (mirrors the dock / glass controls in light mode). */
-        --bubble-bg:linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.86));
-        --bubble-border:rgba(15,23,42,0.10);
-        --bubble-glow:rgba(46,167,191,0.26);
-        --bubble-shadow:0 8px 22px rgba(15,23,42,0.16);
-        --bubble-inset:inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -6px 14px rgba(15,23,42,0.06);
-        --bubble-press-scale:0.96;
+        --bubble-bg:#FFFFFF;
+        --bubble-border:rgba(15,23,42,0.12);
+        --bubble-glow:transparent;
+        --bubble-shadow:0 1px 2px rgba(15,23,42,0.08);
+        --bubble-inset:0 0 0 0 transparent;
+        --bubble-blur:none;
+        --bubble-sheen:none;
+        --bubble-press-scale:0.97;
       }
+      /* The page canvas — html is what iOS paints into the safe areas and
+         behind anything the app moves out of the way (the side menu slides
+         the whole content surface right and scales it, exposing the canvas
+         along its left edge and at the bottom). With no background here the
+         UA default showed through, which under black-translucent status-bar
+         styling is BLACK — a hard black strip beside a white light-mode
+         menu. color-scheme is declared per theme so the UA canvas, native
+         form controls and scrollbars follow the app rather than the OS. */
+      :root{color-scheme:dark;}
+      [data-theme="light"]{color-scheme:light;}
+      html,body{background:var(--bg);min-height:100%;}
       body{
         font-family:var(--font-sans);
         /* OpenType features: cv11 = single-storey 'a' (Inter), ss03 =

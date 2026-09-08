@@ -59,9 +59,10 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     '.affd-selector{position:absolute;top:50%;left:0;height:' + TILE_H + 'px;' +
       'width:var(--bubble-width,64px);border-radius:999px;' +
       'transform:translate3d(var(--bubble-x,0px),-50%,0);' +
-      'background:rgba(255,255,255,0.14);' +
-      'box-shadow:inset 0 1px 0 rgba(255,255,255,0.22),inset 0 0 0 1px rgba(255,255,255,0.10),0 8px 22px rgba(0,0,0,0.22);' +
-      'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);' +
+      // Flat neutral tile — a step of the text colour over the capsule, so
+      // it reads as "raised" in both themes without a specular highlight.
+      'background:color-mix(in srgb, var(--text) 8%, transparent);' +
+      'box-shadow:inset 0 0 0 1px var(--border);' +
       'pointer-events:none;z-index:1;opacity:0;' +
       'transition:transform 420ms cubic-bezier(0.22,1,0.36,1), width 320ms cubic-bezier(0.22,1,0.36,1), opacity 200ms ease;}' +
     '.affd-tab:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
@@ -79,8 +80,7 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     // active tile to a bright frosted tile, and the selected glyph back to the
     // monochrome foreground (cyan-on-white would clash). !important beats the
     // inline dark-mode styles.
-    '[data-theme="light"] .affd-dock{--affd-active-icon: var(--text);background:rgba(255,255,255,0.62)!important;border-color:rgba(15,23,42,0.07)!important;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 10px 30px rgba(15,23,42,0.20),0 2px 8px rgba(15,23,42,0.10)!important;}' +
-    '[data-theme="light"] .affd-selector{background:rgba(255,255,255,0.92);box-shadow:0 1px 3px rgba(15,23,42,0.14),inset 0 0 0 1px rgba(15,23,42,0.04);}'
+    '[data-theme="light"] .affd-dock{--affd-active-icon: var(--text);box-shadow:0 8px 24px rgba(15,23,42,0.14),0 1px 2px rgba(15,23,42,0.08)!important;}'
   document.head.appendChild(s)
 }
 
@@ -235,16 +235,13 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
           // between its default and contracted sizes (class toggled on scroll).
           transition: 'transform 280ms cubic-bezier(.22,1,.36,1), gap 280ms cubic-bezier(.22,1,.36,1), padding 280ms cubic-bezier(.22,1,.36,1)',
           transformOrigin: 'center bottom',
-          // Floating frosted-glass capsule (dark-mode value here; the
-          // light-mode flip is in the injected stylesheet above).
+          // Floating capsule in the app's flat material: card tone, hairline
+          // edge, one lifted shadow. Theme tokens do the light-mode flip;
+          // the injected stylesheet only softens the shadow there.
           borderRadius: 999,
-          background: 'rgba(30,30,34,0.52)',
-          backdropFilter: 'blur(22px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-          border: '1px solid rgba(255,255,255,0.14)',
-          boxShadow:
-            '0 10px 34px rgba(0,0,0,0.40), ' +
-            'inset 0 1px 0 rgba(255,255,255,0.16)',
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30)',
         }}
       >
         {/* Single sliding selector bubble — sits behind the glyphs, glides to

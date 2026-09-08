@@ -13,7 +13,7 @@
 import {
   ClipboardCheck, Link2, FlaskConical, Activity, Zap, Play, Check, Building2,
   BarChart3, Wind, Home, Clipboard, Clock, Search, ShieldCheck, User, Download,
-  Upload, Send, RefreshCw, AlertTriangle, Trash2, Flag, Menu, Save, Layers,
+  Upload, Send, RefreshCw, AlertTriangle, Trash2, Flag, Menu, Save, Layers, Plus,
   Droplets, Droplet, Thermometer, AirVent, PersonStanding, HeartPulse, FileText,
   Target, Calendar, MapPin, Gauge, Users, Mic, Eye, DoorClosed, Filter, Cloud,
   Wrench, Barcode, AlertCircle, ScrollText, LayoutTemplate, SquarePen, Info,
@@ -30,7 +30,7 @@ const LUCIDE = {
   chartLine: ChartLine,
   wind: Wind, airflow: Wind, home: Home, clip: Clipboard, clock: Clock,
   search: Search, shield: ShieldCheck, user: User, download: Download,
-  upload: Upload, send: Send, refresh: RefreshCw, alert: AlertTriangle,
+  upload: Upload, send: Send, refresh: RefreshCw, alert: AlertTriangle, plus: Plus,
   trash: Trash2, flag: Flag, menu: Menu, save: Save, layers: Layers,
   moisture: Droplets, droplet: Droplet, thermo: Thermometer, hvac: AirVent,
   person: PersonStanding, symptom: HeartPulse, notes: FileText, target: Target,

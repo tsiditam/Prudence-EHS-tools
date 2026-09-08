@@ -45,22 +45,21 @@ const fireHaptic = (kind) => {
 }
 
 const VARIANT = {
+  // Flat surfaces (pill pass, 2026-09): a solid fill or a tint, a
+  // hairline edge, at most one contact shadow. The inset highlights and
+  // the accent halo under the primary were the last glass left on the
+  // buttons after the token pass flattened everything else.
   primary: {
     background: 'var(--accent-fill)',
     color: 'var(--on-accent-fill)',
-    border: 'none',
-    boxShadow:
-      'inset 0 1px 0 rgba(255,255,255,0.22), ' +
-      '0 1px 2px rgba(0,0,0,0.20), ' +
-      '0 8px 18px color-mix(in srgb, var(--accent) 30%, transparent)',
+    border: '1px solid var(--accent-fill)',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.20)',
   },
   secondary: {
     background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
     color: 'var(--accent)',
     border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-    boxShadow:
-      'inset 0 1px 0 rgba(255,255,255,0.04), ' +
-      '0 1px 2px rgba(0,0,0,0.20)',
+    boxShadow: 'none',
   },
   ghost: {
     background: 'transparent',
@@ -72,9 +71,7 @@ const VARIANT = {
     background: 'color-mix(in srgb, var(--danger) 14%, transparent)',
     color: 'var(--danger)',
     border: '1px solid color-mix(in srgb, var(--danger) 32%, transparent)',
-    boxShadow:
-      'inset 0 1px 0 rgba(255,255,255,0.05), ' +
-      '0 1px 2px rgba(0,0,0,0.20)',
+    boxShadow: 'none',
   },
 }
 
@@ -127,7 +124,10 @@ const TactileButton = forwardRef(function TactileButton({
     gap: 8,
     padding: `${padY}px ${padX}px`,
     fontSize,
-    fontWeight: 700,
+    // 600, the weight every other pill in the app uses (chips, filter
+    // pills, result tabs, the header pill). 700 made the buttons the
+    // one heavy element in a row of chips.
+    fontWeight: 600,
     letterSpacing: '-0.1px',
     cursor: disabled ? 'not-allowed' : 'pointer',
     fontFamily: 'inherit',
@@ -190,21 +190,24 @@ const TactileButton = forwardRef(function TactileButton({
 export default TactileButton
 
 // Per-variant bubble tint (custom properties consumed by .bubble-btn).
+// Same fills as the classic VARIANT table above — solid or tinted, no
+// gradient, no tap glow — so a bubble button and a classic one are the
+// same pill; `bubble` now only buys the CSS press/hover/focus behaviour.
 const BUBBLE_TINT = {
   primary: {
-    '--bubble-bg': 'linear-gradient(180deg, var(--accent-fill), color-mix(in srgb, var(--accent-fill) 82%, #001417))',
-    '--bubble-glow': 'rgba(57,192,217,0.42)',
-    '--bubble-border': 'color-mix(in srgb, var(--accent-fill) 55%, transparent)',
+    '--bubble-bg': 'var(--accent-fill)',
+    '--bubble-glow': 'transparent',
+    '--bubble-border': 'var(--accent-fill)',
   },
   secondary: {
-    '--bubble-bg': 'linear-gradient(180deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 7%, transparent))',
-    '--bubble-glow': 'rgba(57,192,217,0.34)',
-    '--bubble-border': 'color-mix(in srgb, var(--accent) 34%, transparent)',
+    '--bubble-bg': 'color-mix(in srgb, var(--accent) 12%, transparent)',
+    '--bubble-glow': 'transparent',
+    '--bubble-border': 'color-mix(in srgb, var(--accent) 30%, transparent)',
   },
   danger: {
-    '--bubble-bg': 'linear-gradient(180deg, color-mix(in srgb, var(--danger) 22%, transparent), color-mix(in srgb, var(--danger) 8%, transparent))',
-    '--bubble-glow': 'rgba(239,68,68,0.34)',
-    '--bubble-border': 'color-mix(in srgb, var(--danger) 34%, transparent)',
+    '--bubble-bg': 'color-mix(in srgb, var(--danger) 14%, transparent)',
+    '--bubble-glow': 'transparent',
+    '--bubble-border': 'color-mix(in srgb, var(--danger) 32%, transparent)',
   },
   ghost: {},
 }

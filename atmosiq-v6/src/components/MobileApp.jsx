@@ -266,13 +266,16 @@ function mapInstrumentCalStatus(inst) {
 // In-app FAQ — same FAQ_SECTIONS data as the public landing page so the
 // public answer and the in-app answer cannot drift apart. One question
 // open at a time across the entire list.
-function HelpView({ onBack }) {
+function HelpView() {
   const [openId, setOpenId] = useState(null)
   return (
     <div style={{paddingTop:24,paddingBottom:120}}>
-      <button onClick={onBack} style={{background:'none',border:'none',color:ACCENT,fontSize:15,fontWeight:500,cursor:'pointer',padding:'0 4px',marginBottom:16,fontFamily:'inherit'}}>← Settings</button>
-      <h2 style={{fontSize:22,fontWeight:700,marginBottom:6,color:TEXT,letterSpacing:'-0.3px',fontFamily:'inherit'}}>Help &amp; FAQ</h2>
-      <div style={{fontSize:12,color:DIM,marginBottom:20,lineHeight:1.55}}>Common questions about AtmosFlow methodology, scoring, workflow, and limitations.</div>
+      {/* The shell header's back pill is the single back affordance; the
+          in-body "← Settings" link duplicated it (and pointed somewhere
+          else, which is how a screen ends up with two backs). Title +
+          subtitle on the shared scale. */}
+      <h2 style={{...V3.T.h1,marginBottom:4}}>Help &amp; FAQ</h2>
+      <div style={{...V3.T.h1Sub,marginBottom:20}}>Common questions about AtmosFlow methodology, scoring, workflow, and limitations.</div>
       {FAQ_SECTIONS.map(section => (
         <div key={section.title} style={{marginTop:24}}>
           <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',padding:'0 4px 8px'}}>{section.title}</div>
@@ -330,10 +333,20 @@ export const TrashView = ({ onRecover, onDelete }) => {
   const [items, setItems] = useState([])
   useEffect(() => { Backup.listTrash().then(setItems) }, [])
   return (
-    <div style={{paddingTop:28,paddingBottom:100}}>
-      <h2 style={{fontSize:22,fontWeight:700,marginBottom:8,color:TEXT}}>Trash</h2>
-      <div style={{fontSize:13,color:SUB,marginBottom:20,lineHeight:1.6}}>Deleted items are kept for 30 days, then permanently removed.</div>
-      {items.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>Trash is empty</div>
+    <div style={{paddingTop:24,paddingBottom:120}}>
+      <h2 style={{...V3.T.h1,marginBottom:4}}>Trash</h2>
+      <div style={{...V3.T.h1Sub,marginBottom:20}}>Deleted items are kept for 30 days, then permanently removed.</div>
+      {items.length===0?(
+        // Same empty-state shape as Projects / Reports / Incidents: icon
+        // tile, title, one line of body — not a bare sentence in a box.
+        <div style={{...V3.panel(),textAlign:'center',padding:'36px 24px'}}>
+          <div style={{width:52,height:52,borderRadius:14,margin:'0 auto 14px',display:'flex',alignItems:'center',justifyContent:'center',background:'color-mix(in srgb, var(--accent) 8%, transparent)',border:'1px solid color-mix(in srgb, var(--accent) 22%, transparent)'}}>
+            <I n="trash" s={24} c="var(--accent)" w={1.8} />
+          </div>
+          <div style={{...V3.T.h3,marginBottom:6}}>Trash is empty</div>
+          <div style={{...V3.T.bodyDim,maxWidth:360,margin:'0 auto'}}>Deleted reports and drafts wait here for 30 days before they are removed for good.</div>
+        </div>
+      )
       :items.map(t=>(
         <div key={t.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}>
           <div style={{flex:1}}>
@@ -880,9 +893,12 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
-  // Which secondary side-menu groups (Tools/Resources/Support) are expanded.
-  // Collapsed by default so the menu opens calm — just the primaries + Trash.
-  const [menuGroupsOpen, setMenuGroupsOpen] = useState({ tools: false, resources: false, support: false })
+  // Which secondary groups (Tools/Resources/Support) are expanded on the
+  // DESKTOP rail, which keeps its toggles. The phone side menu no longer
+  // collapses anything — every destination is visible under a static
+  // section label — so this state only reaches DesktopSidebar. Open by
+  // default there too, so the two surfaces show the same list.
+  const [menuGroupsOpen, setMenuGroupsOpen] = useState({ tools: true, resources: true, support: true })
   // Project switcher (top of the side menu). Loads the project list each
   // time the menu opens so the recents are fresh; `menuSwitcherOpen`
   // expands the inline recents list under the chip.
@@ -3428,7 +3444,7 @@ export default function MobileApp() {
               <div key={i} style={{marginBottom:i<moldResults.length-1?12:0}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:3,flexWrap:'wrap'}}>
                   <div style={{color:moldColor,fontWeight:700,fontSize:13,lineHeight:1.4}}>{m.label}</div>
-                  {m.investigationTriggered&&<span style={{padding:'2px 8px',background:`${mix('warn', 8)}`,border:`1px solid ${mix('warn', 19)}`,borderRadius:4,fontSize:10,fontWeight:700,color:WARN,letterSpacing:'0.3px'}}>Investigation triggered</span>}
+                  {m.investigationTriggered&&<span style={{padding:'2px 8px',background:`${mix('warn', 8)}`,border:`1px solid ${mix('warn', 19)}`,borderRadius:999,fontSize:10,fontWeight:700,color:WARN,letterSpacing:'0.3px'}}>Investigation triggered</span>}
                 </div>
                 <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{m.visual}</div>
               </div>
@@ -3701,17 +3717,17 @@ export default function MobileApp() {
         onClick={() => go(item.onClick)}
         aria-current={active ? 'page' : undefined}
         style={{
-          // Active row: cyan-tinted glass pill (colors unchanged per request).
+          // Active row: a flat accent tint with a hairline edge (UI pass,
+          // 2026-09 — the blur + inset highlight went with the rest of the
+          // glass; the tint alone reads as selected on the flat menu).
           width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
           margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
           color: active ? 'var(--accent)' : 'var(--text)',
-          background: active ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'transparent',
+          background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'transparent',
           boxShadow: active
-            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent), inset 0 1px 0 var(--m-inset)'
+            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent)'
             : 'none',
-          WebkitBackdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
-          backdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
           WebkitTapHighlightColor:'transparent',
         }}>
         {/* Accent discipline (Rule 2): cyan marks the active row only; inactive
@@ -3725,28 +3741,23 @@ export default function MobileApp() {
     )
   }
 
-  // Collapsible section header (Tools / Resources / Support) — uppercase
-  // label + a chevron that rotates open. Toggles the group's expanded state.
-  const sideMenuGroupHeader = (g) => {
-    const open = menuGroupsOpen[g.key]
-    return (
-      <button
-        key={`h-${g.key}`}
-        onClick={() => setMenuGroupsOpen(m => ({ ...m, [g.key]: !m[g.key] }))}
-        aria-expanded={open}
-        style={{
-          width:'100%', display:'flex', alignItems:'center', gap:8, padding:'11px 14px 7px',
-          marginTop:6, background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
-          fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
-        }}>
-        <span style={{flex:1, fontSize:11, fontWeight:700, letterSpacing:'0.6px', textTransform:'uppercase', color:'var(--sub)'}}>{g.label}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-          style={{transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 180ms cubic-bezier(.22,1,.36,1)'}}>
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </button>
-    )
-  }
+  // Section label (Tools / Resources / Support). A static uppercase label
+  // — not a control. The groups used to collapse behind a chevron, which
+  // meant the phone menu opened as three rows and a lot of empty column,
+  // and every secondary destination was a tap further away than it needed
+  // to be. Every destination is now visible; the column scrolls if it
+  // ever needs to.
+  const sideMenuSectionLabel = (g) => (
+    <div
+      key={`h-${g.key}`}
+      role="heading" aria-level={2}
+      style={{
+        padding:'16px 14px 6px', fontSize:11, fontWeight:700, letterSpacing:'0.6px',
+        textTransform:'uppercase', color:'var(--sub)',
+      }}>
+      {g.label}
+    </div>
+  )
 
   return (
     <>
@@ -3837,8 +3848,8 @@ export default function MobileApp() {
           {sideMenuPrimary.map(sideMenuRow)}
           {sideMenuGroups.map(g => (
             <div key={g.key}>
-              {sideMenuGroupHeader(g)}
-              {menuGroupsOpen[g.key] && g.items.map(sideMenuRow)}
+              {sideMenuSectionLabel(g)}
+              {g.items.map(sideMenuRow)}
             </div>
           ))}
         </div>
@@ -4438,7 +4449,7 @@ export default function MobileApp() {
                     <div style={{...V3.T.bodyStrong, overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{inst.make || inst.nickname || 'Instrument'}</div>
                     <div style={V3.T.captionDim}>{inst.serial ? `S/N ${inst.serial}` : 'No serial'}{inst.lastCalDate ? ` · Cal ${inst.lastCalDate}` : ' · No cal date'}</div>
                   </div>
-                  {isOutOfCal(inst) && <span style={{fontSize:10,fontWeight:700,color:WARN,padding:'2px 8px',borderRadius:4,background:`color-mix(in srgb, var(--warn) 12%, transparent)`,border:`1px solid color-mix(in srgb, var(--warn) 30%, transparent)`,letterSpacing:'0.3px',flexShrink:0}}>OVERDUE</span>}
+                  {isOutOfCal(inst) && <span style={{fontSize:10,fontWeight:700,color:WARN,padding:'2px 8px',borderRadius:999,background:`color-mix(in srgb, var(--warn) 12%, transparent)`,border:`1px solid color-mix(in srgb, var(--warn) 30%, transparent)`,letterSpacing:'0.3px',flexShrink:0}}>OVERDUE</span>}
                   <span style={{color:V3.TEXT_TERTIARY,fontSize:13,flexShrink:0}}>›</span>
                 </button>
               ))}
@@ -5351,7 +5362,10 @@ export default function MobileApp() {
            card when it transforms. */
         .af-sidemenu{
           position:fixed; top:0; left:0; bottom:0; width:280px; z-index:1;
-          background:#070809; display:flex; flex-direction:column;
+          /* --surface-deep is defined in index.html FOR this menu (its
+             comment says so) and flips to white in light mode; the rule
+             used to hardcode #070809 and carry its own light override. */
+          background:var(--surface-deep); display:flex; flex-direction:column;
           padding:calc(env(safe-area-inset-top, 0px) + 20px) 14px calc(env(safe-area-inset-bottom, 0px) + 18px);
           overflow:hidden;
           /* Menu-scoped glass tokens — kept dark by default; the light-theme
@@ -5361,14 +5375,15 @@ export default function MobileApp() {
           --m-hair:rgba(255,255,255,0.07);
           --m-border:rgba(255,255,255,0.14);
           --m-ctl:rgba(255,255,255,0.06);
-          --m-inset:rgba(255,255,255,0.10);
+          /* Inset highlight retired with the flat pass; kept as a token so
+             the call sites need no change. */
+          --m-inset:transparent;
         }
         [data-theme="light"] .af-sidemenu{
-          background:#FFFFFF;
           --m-hair:rgba(15,23,42,0.08);
           --m-border:rgba(15,23,42,0.12);
           --m-ctl:rgba(15,23,42,0.045);
-          --m-inset:rgba(15,23,42,0.04);
+          --m-inset:transparent;
         }
         .af-content-surface{
           position:fixed; inset:0; z-index:2; overflow-y:auto;
@@ -5461,24 +5476,22 @@ export default function MobileApp() {
            menu opens. position:relative is kept for stacking; the transform /
            transition / filter all come from the inline style. */
         .af-menu-trigger{position:relative;}
-        /* ── Shared glass control ──
-           Same liquid-glass language as the bottom dock (AtmosFlowFloatingDock):
-           near-clear translucent fill + light blur + a bright specular rim in
-           dark mode, flipping to a white capsule in light mode. Applied to the
-           header controls (back/title pill, hamburger, kebab) so the header and
-           the nav speak one material. Shape (border-radius) is left to each
-           control's inline style. */
+        /* ── Shared header control ──
+           The same flat material as the bottom dock (AtmosFlowFloatingDock)
+           and every card: solid card tone, hairline edge, one soft contact
+           shadow. Applied to the header controls (back/title pill,
+           hamburger, kebab) so header, nav and content speak one material.
+           Shape (border-radius) is left to each control's inline style.
+           (UI consistency pass, 2026-09: the translucent fill, blur and
+           bright specular rim went — they were the brightest edges on
+           screen once the cards went flat.) */
         .af-glass-control{
-          background:rgba(255,255,255,0.05);
-          -webkit-backdrop-filter:blur(14px) saturate(200%);
-          backdrop-filter:blur(14px) saturate(200%);
-          border:1px solid rgba(255,255,255,0.22);
-          box-shadow:0 4px 16px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.42), inset 0 0 0 1px rgba(255,255,255,0.04);
+          background:var(--card);
+          border:1px solid var(--border);
+          box-shadow:0 1px 2px rgba(0,0,0,0.30);
         }
         [data-theme="light"] .af-glass-control{
-          background:rgba(255,255,255,0.92);
-          border-color:rgba(15,23,42,0.10);
-          box-shadow:0 4px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7);
+          box-shadow:0 1px 2px rgba(15,23,42,0.08);
         }
         /* ── Liquid-glass "bubble" button (iOS-26 tactile control) ──
            A reusable, token-driven surface for primary CTAs, filter / nav
@@ -5496,8 +5509,11 @@ export default function MobileApp() {
           background:var(--bubble-bg) !important;
           border:1px solid var(--bubble-border) !important;
           box-shadow:var(--bubble-shadow), var(--bubble-inset) !important;
-          -webkit-backdrop-filter:blur(16px) saturate(180%);
-          backdrop-filter:blur(16px) saturate(180%);
+          /* Blur and sheen are token-driven so the theme decides whether a
+             control is glass or flat; the fallbacks are the original glass
+             values, for any context that does not set them. */
+          -webkit-backdrop-filter:var(--bubble-blur, blur(16px) saturate(180%));
+          backdrop-filter:var(--bubble-blur, blur(16px) saturate(180%));
           -webkit-tap-highlight-color:transparent; touch-action:manipulation;
           transform:translateZ(0);
         }
@@ -5505,7 +5521,7 @@ export default function MobileApp() {
            keeps it above the fill but below the label/icon. */
         .bubble-btn::before{
           content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
-          background:radial-gradient(120% 100% at 26% 12%, rgba(255,255,255,0.22), transparent 46%);
+          background:var(--bubble-sheen, radial-gradient(120% 100% at 26% 12%, rgba(255,255,255,0.22), transparent 46%));
           pointer-events:none;
         }
         /* Cyan tap-glow — expands from centre on press, fades fast. */
@@ -5527,11 +5543,13 @@ export default function MobileApp() {
             transition:transform 340ms cubic-bezier(.34,1.56,.64,1), box-shadow 200ms cubic-bezier(.2,.8,.2,1), background 180ms ease, border-color 180ms ease, filter 180ms ease;
           }
           .bubble-btn::after{ transition:opacity 240ms ease, transform 240ms cubic-bezier(.34,1.56,.64,1); }
-          .bubble-btn:not(:disabled):hover{ transform:translateY(-1px); filter:brightness(1.06); }
+          .bubble-btn:not(:disabled):hover{ filter:brightness(1.06); }
+          /* Press = the scale alone. The lift on hover and the deep inset
+             on press were the last of the "liquid" read; a flat pill just
+             gets slightly smaller under the finger. */
           .bubble-btn:not(:disabled):active{
-            transition:transform 110ms cubic-bezier(.4,0,.2,1), box-shadow 110ms cubic-bezier(.4,0,.2,1) !important;
-            transform:translateY(1px) scale(var(--bubble-press-scale, .96)) !important;
-            box-shadow:0 5px 14px rgba(0,0,0,0.34), inset 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 1px rgba(255,255,255,0.16) !important;
+            transition:transform 110ms cubic-bezier(.4,0,.2,1) !important;
+            transform:scale(var(--bubble-press-scale, .96)) !important;
           }
           .bubble-btn:not(:disabled):active::after{ opacity:1; transform:scale(1.08); }
         }
@@ -5549,7 +5567,7 @@ export default function MobileApp() {
         }
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         button{font-family:inherit;-webkit-tap-highlight-color:transparent;}
-        input::placeholder,textarea::placeholder{color:#525A6A;}
+        input::placeholder,textarea::placeholder{color:var(--dim);}
         input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;}
         input[type=number]{-moz-appearance:textfield;}
         select option{background:${CARD};color:${SUB};}

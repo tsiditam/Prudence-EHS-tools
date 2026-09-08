@@ -21,10 +21,13 @@ export const CSS = {
   danger: 'var(--danger)',
   warn: 'var(--warn)',
   success: 'var(--success)',
-  cardGlass: 'rgba(12, 16, 23, 0.7)',
-  cardGlassBorder: 'rgba(34, 211, 238, 0.08)',
-  surfaceHover: '#0F1520',
-  glowAccent: '0 0 20px rgba(34,211,238,0.15)',
+  // Flat surfaces (UI pass, 2026-09): the legacy glass card is now the
+  // plain card tone with a neutral edge, and the resting accent glow is
+  // gone — emphasis comes from --accent-fill on the control itself.
+  cardGlass: 'var(--card)',
+  cardGlassBorder: 'var(--border)',
+  surfaceHover: 'var(--raised)',
+  glowAccent: 'none',
   shadow1: '0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)',
   shadow2: '0 4px 14px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.2)',
   shadow3: '0 10px 30px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.25)',
@@ -95,10 +98,13 @@ export const RAISED = 'var(--raised)'
 // semantic emphasis (active states, key links). Subtle is for
 // dividers within a panel; default is for panel edges; strong is
 // for top-of-card emphasis or selected tab underline tracks.
-export const BORDER_SUBTLE  = 'rgba(255,255,255,0.04)'
-export const BORDER_DEFAULT = 'rgba(255,255,255,0.07)'
-export const BORDER_STRONG  = 'rgba(255,255,255,0.12)'
-export const BORDER_ACCENT  = 'rgba(34,211,238,0.35)'
+// Theme-aware (index.html --border-subtle / --border / --border-strong).
+// These were white-alpha literals, which vanish on a white page: in
+// light mode every panel drawn with them had no edge at all.
+export const BORDER_SUBTLE  = 'var(--border-subtle)'
+export const BORDER_DEFAULT = 'var(--border)'
+export const BORDER_STRONG  = 'var(--border-strong)'
+export const BORDER_ACCENT  = 'color-mix(in srgb, var(--accent) 35%, transparent)'
 
 // Text ladder. Primary for body and titles; secondary for supporting
 // labels; tertiary for metadata; muted for legal-fine-print and
@@ -201,8 +207,10 @@ export const N = {
   sm:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
 }
 
-// Radii.
-export const R = { sm: 6, md: 10, lg: 14, xl: 18, pill: 999 }
+// Radii. Tightened one step across the scale (UI pass, 2026-09) so
+// cards and controls read as crisp panels rather than soft capsules;
+// pills are unchanged.
+export const R = { sm: 6, md: 8, lg: 12, xl: 14, pill: 999 }
 
 // ── v3 primitives ─────────────────────────────────────────────────
 
@@ -243,7 +251,9 @@ export const pill = (tone, opts = {}) => ({
   alignItems: 'center',
   gap: 6,
   padding: opts.lg ? '6px 12px' : '3px 9px',
-  borderRadius: R.sm,
+  // Fully rounded, like StatusPill / Chip / every other pill — this was
+  // the one 6px-radius "pill" and sat beside round ones on the results.
+  borderRadius: R.pill,
   background: `${tone}14`,
   border: `1px solid ${tone}38`,
   color: tone,
