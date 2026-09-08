@@ -48,7 +48,6 @@ export default function AccountScreen({ profile, onEditProfile, onLogout, onNavi
     <div style={{ paddingTop: 24, paddingBottom: 120 }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ ...V3.T.h1, marginBottom: 4 }}>Account</div>
-        <div style={V3.T.bodyDim}>Profile, subscription, and instruments</div>
       </div>
 
       {/* ── Account ── Circular ProfileAvatar = the assessor's identity

@@ -3,92 +3,75 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * ProjectsScreen — the Project / Site Folder index. Lists every site
- * workspace as a scannable card (name, client, status, counts, last
- * updated), with status filtering and a create flow. Tapping a card
- * opens the ProjectDetail workspace.
+ * ProjectsScreen — the Project / Site Folder index: one heading, a row
+ * of text filters, and the projects as rows. Tapping a row opens the
+ * ProjectDetail workspace.
+ *
+ * Restraint pass (2026-09): the screen used to explain itself under
+ * the heading, box every project in a card with an icon-per-count
+ * strip and a tinted status pill, and open on an icon-tile empty state
+ * with two paragraphs. All of that is gone. Hierarchy comes from
+ * weight and colour; rows part with a hairline; the one accent on the
+ * screen is the action.
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import * as V3 from '../../styles/tokens'
-import { stack as sgStack } from '../../styles/soft-glass'
-import GlassCard from '../ui/GlassCard'
-import StatusPill from '../ui/StatusPill'
 import TactileButton from '../ui/TactileButton'
 import BottomSheet from '../ui/BottomSheet'
 import { I } from '../Icons'
 import { getProjects, createProject, deleteProject, PROJECT_STATUSES } from '../../utils/projectStore'
 import ProjectForm from './ProjectForm'
-import { STATUS_TONE, STATUS_LABEL, fmtDate } from './projectsTheme'
+import { STATUS_LABEL, fmtDate } from './projectsTheme'
 import { useScrollEdges } from '../../hooks/useScrollEdges'
 
-const DIM = V3.TEXT_MUTED
+const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
 
-// "New project" uses the standard cyan primary bubble (TactileButton
-// variant="primary" bubble — BUBBLE_TINT.primary). Brand-token discipline:
-// the CTA is differentiated by fill and weight, not by hue. Green is off the
-// table for chrome — it's reserved for the safe / severity scale (ANSI Z535).
-
-// Filter pills carry a lighter shadow than a full CTA so the chip row doesn't
-// read as a row of floating buttons.
-// Filter pills share the app's one pill treatment (Chip, result tabs,
-// header pill): hairline edge, flat fill, accent tint + ring when on.
-// The gradient fill, inset highlight and tap glow they used to carry
-// were the last "bubble" surfaces left after the flat token pass.
-const FILTER_BUBBLE_BASE = { '--bubble-shadow': '0 0 0 0 transparent', '--bubble-inset': '0 0 0 0 transparent', '--bubble-glow': 'transparent' }
-
-function CountChip({ icon, n, label }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: V3.TEXT_TERTIARY, fontSize: 12 }}>
-      <I n={icon} s={13} c={V3.TEXT_TERTIARY} w={1.8} />
-      <span style={{ ...V3.N.sm, color: V3.TEXT_SECONDARY }}>{n}</span>
-      {/* Contrast floor (Rule 5): meaningful labels use --sub (~5.6:1 on the
-          app bg), not --dim (~3.6:1, fails AA 4.5 for small text). */}
-      <span style={{ color: V3.TEXT_TERTIARY }}>{label}</span>
-    </span>
-  )
+// The one count a row carries is assessments — the workspace is where
+// its documents, photos and notes are inventoried. A project with none
+// says nothing rather than "0 assessments".
+function countsLine(project) {
+  const n = (project.linkedReportIds || []).length
+  return n > 0 ? `${n} assessment${n === 1 ? '' : 's'}` : ''
 }
 
-function ProjectCard({ project, onOpen, onRequestDelete }) {
-  const tone = STATUS_TONE[project.status] || V3.STATUS.draft
+function ProjectRow({ project, first, onOpen, onRequestDelete }) {
   const meta = [project.client, project.siteType].filter(Boolean).join(' · ')
-  // Stop propagation so the destructive control never triggers the card's
+  const counts = countsLine(project)
+  const status = STATUS_LABEL[project.status] || project.status
+  // Stop propagation so the destructive control never triggers the row's
   // open-on-tap; the actual delete still goes through the confirm sheet.
   const requestDelete = (e) => { e.stopPropagation(); onRequestDelete(project) }
   return (
-    <GlassCard onClick={() => onOpen(project.id)} style={{ padding: '16px 18px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...V3.T.h3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
-          {meta && <div style={{ ...V3.T.captionDim, marginTop: 3 }}>{meta}</div>}
-          {project.address && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
-              <I n="location" s={12} c={DIM} w={1.8} />
-              <span style={{ ...V3.T.caption, color: V3.TEXT_TERTIARY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.address}</span>
-            </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <StatusPill tone={tone} dim>{STATUS_LABEL[project.status] || project.status}</StatusPill>
-          <button
-            type="button"
-            onClick={requestDelete}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label={`Delete ${project.name || 'project'}`}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 9, border: 'none', background: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-          >
-            <I n="trash" s={15} c="var(--danger)" w={1.8} />
-          </button>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(project.id)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(project.id) } }}
+      style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 0', borderTop: first ? 'none' : HAIRLINE, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ ...V3.T.h3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
+        {meta && <div style={{ ...V3.T.caption, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</div>}
+        <div style={{ ...V3.T.captionDim, marginTop: 6 }}>
+          {counts ? `${counts} · ` : ''}Updated {fmtDate(project.updatedAt)}
         </div>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
-        <CountChip icon="findings" n={(project.linkedReportIds || []).length} label="assess." />
-        <CountChip icon="paperclip" n={(project.documents || []).length} label="docs" />
-        <CountChip icon="image" n={(project.evidence || []).length} label="photos" />
-        <CountChip icon="notes" n={(project.notes || []).length} label="notes" />
-        <span style={{ marginLeft: 'auto', ...V3.T.caption, color: V3.TEXT_TERTIARY }}>Updated {fmtDate(project.updatedAt)}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginTop: 1 }}>
+        {/* Status is a word, not a chip. Only follow-up carries a colour:
+            it is the one status that asks for something. */}
+        <span style={{ ...V3.T.caption, color: project.status === 'follow-up' ? 'var(--warn)' : V3.TEXT_TERTIARY }}>{status}</span>
+        <button
+          type="button"
+          onClick={requestDelete}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label={`Delete ${project.name || 'project'}`}
+          title="Delete project"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, marginRight: -10, border: 'none', background: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
+          <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.8} />
+        </button>
       </div>
-    </GlassCard>
+    </div>
   )
 }
 
@@ -122,7 +105,19 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
   const list = projects || []
   const filtered = filter === 'all' ? list : list.filter(p => p.status === filter)
 
-  const chipScroll = useScrollEdges()
+  const tabScroll = useScrollEdges()
+
+  const newProjectButton = (
+    <TactileButton
+      variant="primary"
+      size="sm"
+      pill
+      haptic="success"
+      onClick={() => setShowCreate(true)}
+    >
+      New project
+    </TactileButton>
+  )
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
@@ -132,121 +127,66 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
-        <div>
-          <h2 style={{ ...V3.T.h1, margin: 0 }}>Projects</h2>
-          <div style={{ ...V3.T.h1Sub, marginTop: 4 }}>Site engagement workspaces, one per building, property, or client site.</div>
-        </div>
+      {/* Heading and the one action. No subtitle: the list is the
+          explanation. On a first run the action lives in the empty state
+          instead, so it is never on the screen twice. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
+        <h2 style={{ ...V3.T.h1, margin: 0 }}>Projects</h2>
+        {list.length > 0 && newProjectButton}
       </div>
 
-      {/* Action row — AtmosFlow is project-centric: every engagement begins
-          with a Project, so "New project" is the single primary (cyan) CTA.
-          Assessment creation has moved into the project workspace; it is no
-          longer offered globally here. "Report an incident" stays as a glass
-          secondary for the off-workflow safety action. */}
-      {/* Hidden on a first run: the empty-state card below already carries
-          "New project" as its own primary, and showing the same action twice
-          on one screen — plus a second CTA for an off-workflow safety report —
-          left three competing calls to action above an empty list. With
-          projects on screen the row is the fast path and stays. */}
+      {/* Status filters as text tabs — the active one in the primary ink
+          with a rule beneath it. The strip scrolls past the frame on a
+          narrow phone and fades on whichever side still has tabs
+          (useScrollEdges). */}
       {list.length > 0 && (
-      <div style={{ marginTop: 14, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <TactileButton
-          variant="primary"
-          size="sm"
-          pill
-          bubble
-          haptic="success"
-          onClick={() => setShowCreate(true)}
-          icon={<I n="bldg" s={14} c="var(--on-accent-fill)" />}
-        >
-          New project
-        </TactileButton>
-        {onReportIncident && (
-          <TactileButton
-            variant="secondary"
-            size="sm"
-            pill
-            bubble
-            onClick={onReportIncident}
-            icon={<I n="alert" s={14} c="var(--accent)" />}
-            style={{ color: 'var(--accent)' }}
-          >
-            Report an incident
-          </TactileButton>
-        )}
-      </div>
+        <div ref={tabScroll.ref} role="tablist" aria-label="Filter by status" style={{
+          display: 'flex', gap: 22, overflowX: 'auto', marginBottom: 4,
+          borderBottom: HAIRLINE,
+          WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
+          ...tabScroll.maskStyle,
+        }}>
+          {['all', ...PROJECT_STATUSES].map(s => {
+            const active = filter === s
+            return (
+              <button key={s} role="tab" aria-selected={active} onClick={() => setFilter(s)} style={{
+                flexShrink: 0, padding: '8px 0 10px', cursor: 'pointer', fontFamily: 'inherit',
+                background: 'transparent', border: 'none',
+                borderBottom: `2px solid ${active ? V3.TEXT_PRIMARY : 'transparent'}`, marginBottom: -1,
+                fontSize: 14, fontWeight: active ? 600 : 500, letterSpacing: '-0.01em',
+                color: active ? V3.TEXT_PRIMARY : V3.TEXT_SECONDARY,
+                WebkitTapHighlightColor: 'transparent',
+              }}>
+                {s === 'all' ? 'All' : STATUS_LABEL[s]}
+              </button>
+            )
+          })}
+        </div>
       )}
-
-      {/* Status filter chips. The strip scrolls past the frame on a narrow
-          phone, so it fades on whichever side still has chips rather than
-          cutting the last label in half (useScrollEdges). */}
-      <div ref={chipScroll.ref} style={{
-        display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 14,
-        WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
-        ...chipScroll.maskStyle,
-      }}>
-        {['all', ...PROJECT_STATUSES].map(s => {
-          const active = filter === s
-          // Unified glass + cyan pill, matching the app's nav/segmented
-          // pills (subtle neutral glass when idle, cyan-tinted glass + cyan
-          // text + ring when active) rather than the old per-status tones.
-          return (
-            <button key={s} onClick={() => setFilter(s)} className="bubble-btn" aria-pressed={active} style={{
-              flexShrink: 0, padding: '7px 14px', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 12, fontWeight: 600, letterSpacing: '0.2px',
-              color: active ? 'var(--accent)' : 'var(--sub)',
-              ...FILTER_BUBBLE_BASE,
-              ...(active
-                ? {
-                    '--bubble-bg': 'color-mix(in srgb, var(--accent) 12%, transparent)',
-                    '--bubble-border': 'color-mix(in srgb, var(--accent) 30%, transparent)',
-                  }
-                : {
-                    '--bubble-bg': 'transparent',
-                    '--bubble-border': 'var(--border)',
-                  }),
-            }}>
-              {s === 'all' ? 'All' : STATUS_LABEL[s]}
-            </button>
-          )
-        })}
-      </div>
 
       {projects === null ? (
         <div style={{ ...V3.T.bodyDim, textAlign: 'center', padding: '40px 0' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        // Neutral card edge, like every other empty state (Reports, Logger
-        // Studio, Trash). The cyan outline this one carried was the only
-        // accent-bordered card in the app and made it read as selected.
-        <GlassCard style={{ textAlign: 'center', padding: '36px 24px' }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
-            <I n="bldg" s={24} c="var(--accent)" w={1.8} />
-          </div>
-          <div style={{ ...V3.T.h3, marginBottom: 6 }}>{list.length === 0 ? 'Start with a project' : 'No projects in this status'}</div>
-          <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto' }}>
-            {list.length === 0
-              ? 'One project per site, holding its assessments, logger data, sampling forms, photos and reports.'
-              : 'Try a different status filter, or create a new project.'}
-          </div>
-          <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center' }}>
-            <TactileButton
-              variant="primary"
-              size="sm"
-              pill
-              bubble
-              haptic="success"
-              onClick={() => setShowCreate(true)}
-              icon={<I n="bldg" s={14} c="var(--on-accent-fill)" />}
-            >
-              New project
-            </TactileButton>
-          </div>
-        </GlassCard>
-      ) : (
-        <div style={sgStack('base')}>
-          {filtered.map(p => <ProjectCard key={p.id} project={p} onOpen={onOpen} onRequestDelete={setPendingDelete} />)}
+        // Empty state: a line and the action, on the open page.
+        <div style={{ textAlign: 'center', padding: '72px 24px 0' }}>
+          <div style={{ ...V3.T.h2, marginBottom: 16 }}>{list.length === 0 ? 'Start with a project' : `No ${filter === 'all' ? '' : STATUS_LABEL[filter].toLowerCase() + ' '}projects`}</div>
+          {list.length === 0
+            ? newProjectButton
+            : <button type="button" onClick={() => setFilter('all')} style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: 'var(--accent)', fontFamily: 'inherit', cursor: 'pointer' }}>Show all</button>}
         </div>
+      ) : (
+        <div>
+          {filtered.map((p, i) => <ProjectRow key={p.id} project={p} first={i === 0} onOpen={onOpen} onRequestDelete={setPendingDelete} />)}
+          <div style={{ borderTop: HAIRLINE }} />
+        </div>
+      )}
+
+      {/* Off-workflow safety action, kept one tap away without competing
+          with the screen's one CTA. */}
+      {onReportIncident && list.length > 0 && (
+        <button type="button" onClick={onReportIncident} style={{ display: 'block', marginTop: 20, background: 'transparent', border: 'none', padding: 0, ...V3.T.caption, color: V3.TEXT_SECONDARY, fontFamily: 'inherit', cursor: 'pointer' }}>
+          Report an incident ›
+        </button>
       )}
 
       {showCreate && (

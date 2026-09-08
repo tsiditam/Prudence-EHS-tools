@@ -229,6 +229,13 @@ const DANGER = 'var(--danger)'
 // groups read as distinct sections and the card gets a clear vertical
 // rhythm.
 const CARD_LABEL = { fontSize: 10, color: DIM, textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 600, marginBottom: 5 }
+// Results screen (restraint pass, 2026-09): a section is a micro heading
+// over content that parts from the previous section with a hairline — no
+// card, no icon tile, no tinted pill. Every result tab uses the same two
+// styles, so the screen reads as one document rather than a dashboard.
+const RS_SECTION = { paddingTop: 16, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
+const RS_HEAD = { ...V3.T.micro, marginBottom: 10 }
+const RS_LINK = { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }
 
 // Confidence tones for the results cards. High = green (confident),
 // Moderate = amber, Possible = a cool slate-blue — deliberately lower-
@@ -2765,17 +2772,8 @@ export default function MobileApp() {
 
     return (
       <div style={{paddingTop:20,paddingBottom:120,position:'relative',isolation:'isolate'}}>
-        {/* Very-low-intensity airflow gradient behind the results — a
-            calm "moving air" ambience for the instrument-panel feel.
-            Masked to fade out before content, pointer-transparent, and
-            disabled under prefers-reduced-motion. */}
-        <div className="fa-airflow" aria-hidden="true" style={{
-          position:'absolute', top:0, left:0, right:0, height:440, zIndex:0, pointerEvents:'none',
-          background:'radial-gradient(60% 50% at 50% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%)',
-          backgroundSize:'160% 160%', backgroundRepeat:'no-repeat',
-          maskImage:'linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)',
-          WebkitMaskImage:'linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)',
-        }} />
+        {/* The ambient "airflow" gradient that used to sit behind the header
+            is gone — the page is the page. */}
         <div style={{position:'relative', zIndex:1}}>
 
         {/* ── Building Header — facility name + address only. The
@@ -2802,14 +2800,9 @@ export default function MobileApp() {
             const zonesCount = (zoneScores||[]).length
             const findingsCount = countFindings(zoneScores).total
             return (
-              <div style={{display:'flex',alignItems:'center',gap:9,marginTop:12,fontSize:13,color:SUB,flexWrap:'wrap',fontFamily:'var(--font-mono)'}}>
-                <span style={{display:'inline-flex',alignItems:'center',gap:6,color:V3.STATUS.ready,fontWeight:600}}>
-                  <span style={{width:7,height:7,borderRadius:'50%',background:V3.STATUS.ready,flexShrink:0}} />Saved
-                </span>
-                <span style={{color:DIM}}>·</span>
-                <span>{findingsCount} finding{findingsCount===1?'':'s'}</span>
-                <span style={{color:DIM}}>·</span>
-                <span>{zonesCount} zone{zonesCount===1?'':'s'}</span>
+              // One line of secondary ink. "Saved" is a word, not a green dot.
+              <div style={{...V3.T.caption, marginTop:8}}>
+                Saved · {findingsCount} finding{findingsCount===1?'':'s'} · {zonesCount} zone{zonesCount===1?'':'s'}
               </div>
             )
           })()}
@@ -2863,20 +2856,13 @@ export default function MobileApp() {
               below it explains the verdict or lists what was found; if a
               second surface starts restating the conclusion, that is the
               duplication this comment exists to prevent. ── */}
-          <GlassCard style={{
-            padding:0,
-            // Flat card surface — no severity-tinted glow. The colored outline
-            // (border) stays as the severity cue.
-            background:'var(--card)',
-            border:`1px solid color-mix(in srgb, ${sevPillTone} 45%, transparent)`,
-            boxShadow:`0 4px 14px rgba(0,0,0,0.35)`,
-          }}>
-            <div style={{padding:'18px 20px'}}>
-              {/* Situational summary. An animated ScoreRing carrying the
-                  composite sat to the left of this until the score was
-                  removed; the serif diagnosis it flanked now leads. */}
-              <div style={{display:'flex',gap:16,alignItems:'center'}}>
+          {/* The verdict on the page, not in a bordered card: the severity
+              is a word in its colour above the serif headline. */}
+          <div style={{...RS_SECTION, paddingTop:18}}>
+            <div>
+              <div>
                 <div style={{minWidth:0,flex:1}}>
+                  <div style={{...V3.T.caption, color:sevPillTone, fontWeight:600, marginBottom:6}}>{sevPillLabel}</div>
                   {/* Severity band only. The measurement-confidence badge used
                       to sit here too, directly above the diagnosis headline —
                       which read as confidence in the FINDING. It is neither:
@@ -2887,10 +2873,10 @@ export default function MobileApp() {
                       Assessment panel, where it is labelled and in context. */}
                   {/* Serif diagnosis — the screening indicator named in the
                       editorial serif (matches the prototype's Lora .diag). */}
-                  <div style={{fontFamily:SERIF, fontSize:18, fontWeight:600, lineHeight:'24px', color:V3.TEXT_PRIMARY, textWrap:'pretty'}}>{headline}</div>
+                  <div style={{fontFamily:SERIF, fontSize:22, fontWeight:600, lineHeight:'28px', color:V3.TEXT_PRIMARY, textWrap:'pretty'}}>{headline}</div>
                 </div>
               </div>
-              <div style={{...V3.T.bodyDim, lineHeight:'20px', marginTop:12}}>
+              <div style={{...V3.T.bodyDim, lineHeight:'21px', marginTop:10}}>
                 {verdict.prose}
               </div>
               {/* Footer — the zone denominator plus the drill-in to the
@@ -2907,38 +2893,29 @@ export default function MobileApp() {
                   }}
                   aria-label="View the per-zone findings breakdown."
                   {...pressFeedback('soft')}
-                  style={{display:'flex',alignItems:'center',gap:8,marginTop:14,paddingTop:14,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,...pressFeedback.style}}>
+                  style={{display:'flex',alignItems:'center',gap:8,marginTop:12,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',padding:0,...pressFeedback.style}}>
                   <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {comp.count===1?'zone':'zones'} assessed</span>
-                  <span style={{...V3.T.captionDim,whiteSpace:'nowrap'}}>View breakdown</span>
-                  <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
+                  <span style={{...RS_LINK}}>View breakdown <span aria-hidden="true">›</span></span>
                 </button>
               ) : (
-                <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${V3.BORDER_SUBTLE}`,...V3.T.captionDim}}>
+                <div style={{marginTop:12,...V3.T.captionDim}}>
                   {comp.count} area{comp.count!==1?'s':''} assessed
                 </div>
               )}
             </div>
             {measConf?.overall === 'Low' && (
-              <div style={{
-                margin:'0 20px 20px',
-                padding:'12px 14px',
-                ...GLASS.subtle,
-                borderRadius:RADII.md,
-                ...V3.T.captionDim,
-                color:WARN,
-                lineHeight:1.55,
-              }}>
+              <div style={{...V3.T.caption, color:WARN, marginTop:10, lineHeight:1.5}}>
                 Single-point measurement. Consider time-weighted sampling per AIHA strategy before drawing conclusions.
               </div>
             )}
-          </GlassCard>
+          </div>
 
           {/* Next recommended steps — soft-glass card matching the
               hero's surface vocabulary. Sits to the right on tablet,
               stacks below on phone. */}
-          <GlassCard>
-            <div style={{...V3.T.h3, marginBottom:14}}>Next Recommended Steps</div>
-            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div style={RS_SECTION}>
+            <div style={RS_HEAD}>Next steps</div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {(() => {
                 const items = []
                 if (recs?.imm?.length) {
@@ -2969,22 +2946,20 @@ export default function MobileApp() {
                     </div>
                   )
                 }
-                return items.map(({ k, text }) => (
-                  <div key={k} style={{display:'flex',alignItems:'flex-start',gap:10}}>
-                    <div style={{...V3.iconBox('var(--accent)'), width:22, height:22, borderRadius:V3.R.pill, flexShrink:0, marginTop:1}}>
-                      <I n="check" s={12} c="var(--accent)" w={2.2} />
-                    </div>
+                // Numbered in tertiary ink — an order, not a checklist of
+                // things already done (the check tiles read as done).
+                return items.map(({ k, text }, i) => (
+                  <div key={k} style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                    <span style={{...V3.N.sm, width:14, flexShrink:0, marginTop:2}}>{i + 1}</span>
                     <div style={{...V3.T.body, flex:1, minWidth:0}}>{text}</div>
                   </div>
                 ))
               })()}
             </div>
-            <div style={V3.divider()} />
-            <button onClick={()=>{ haptic('light'); setRTab('actions') }} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
-              View all actions
-              <span style={{fontSize:13}}>›</span>
+            <button onClick={()=>{ haptic('light'); setRTab('actions') }} style={{...RS_LINK, marginTop:12}}>
+              View all actions <span aria-hidden="true">›</span>
             </button>
-          </GlassCard>
+          </div>
         </div>
 
         {/* ── v2.1 Engine InternalReport (operator dashboard) ──
@@ -3017,24 +2992,24 @@ export default function MobileApp() {
             exception entries — surface only when defensibility is at
             risk. Restyled with the v3 token surface so they read as
             actionable warnings rather than chrome noise. ── */}
+        {/* Completeness prompts — rows, not tinted boxes. The label carries
+            the warn colour; the reason is the sub-line. */}
         {!archived && (!presurvey.ps_inst_iaq || !presurvey.ps_inst_iaq_serial || !presurvey.ps_inst_iaq_cal) && (
-          <button onClick={()=>{setDqi(Math.max(0, dtVis.findIndex(q=>q.id==='ps_inst_iaq')));setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}10`,border:`1px solid ${WARN}28`,borderRadius:V3.R.md,marginBottom:8,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
-            <I n="alert" s={16} c={WARN} />
+          <button onClick={()=>{setDqi(Math.max(0, dtVis.findIndex(q=>q.id==='ps_inst_iaq')));setView('details')}} style={{width:'100%',padding:'12px 0',background:'transparent',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{...V3.T.bodyStrong, color:WARN}}>Add instrument data</div>
-              <div style={V3.T.captionDim}>Required for defensible reports</div>
+              <div style={V3.T.caption}>Required for defensible reports</div>
             </div>
-            <span style={{fontSize:13,color:WARN}}>→</span>
+            <span style={{fontSize:18,lineHeight:1,color:V3.TEXT_TERTIARY}}>›</span>
           </button>
         )}
         {!archived && detailsFilled < 5 && (
-          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'12px 16px',background:`${WARN}10`,border:`1px solid ${WARN}28`,borderRadius:V3.R.md,marginBottom:12,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
-            <I n="clip" s={16} c={WARN} />
+          <button onClick={()=>{setDqi(0);setView('details')}} style={{width:'100%',padding:'12px 0',marginBottom:6,background:'transparent',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{...V3.T.bodyStrong, color:WARN}}>Add assessment details</div>
-              <div style={V3.T.captionDim}>Strengthens defensibility</div>
+              <div style={V3.T.caption}>Strengthens defensibility</div>
             </div>
-            <span style={{fontSize:13,color:WARN}}>→</span>
+            <span style={{fontSize:18,lineHeight:1,color:V3.TEXT_TERTIARY}}>›</span>
           </button>
         )}
 
@@ -3158,17 +3133,11 @@ export default function MobileApp() {
                     at the narrowest of the iPad-portrait two-column
                     split we collapse Primary driver / Complaint pattern
                     to a single column for breathing room. ── */}
-                <div style={V3.panel()}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:18}}>
-                    <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
-                      <div style={V3.T.h3}>Professional Assessment</div>
-                    </div>
-                    <I n="help" s={13} c={V3.TEXT_MUTED} w={1.6} />
-                  </div>
+                <div style={RS_SECTION}>
+                  <div style={RS_HEAD}>Professional assessment</div>
                   <div style={{display:'grid',gridTemplateColumns:isTabletLand?'minmax(0,1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:isTabletLand?14:10,marginBottom:expertCause||expertComplaint?14:0}}>
                     {expertDriver && (
                       <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-                        <div style={V3.iconBox('var(--accent)')}><I n="wind" s={15} c="var(--accent)" w={1.8} /></div>
                         <div style={{minWidth:0,flex:1}}>
                           <div style={V3.T.captionDim}>Primary driver</div>
                           <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>{expertDriver}</div>
@@ -3177,7 +3146,6 @@ export default function MobileApp() {
                     )}
                     {expertComplaint && (
                       <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-                        <div style={V3.iconBox(WARN)}><I n="people" s={15} c={WARN} w={1.8} /></div>
                         <div style={{minWidth:0,flex:1}}>
                           <div style={V3.T.captionDim}>Complaint pattern</div>
                           <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>Occupant symptoms reported</div>
@@ -3187,7 +3155,6 @@ export default function MobileApp() {
                   </div>
                   {expertCause && (
                     <div style={{padding:'14px 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
-                      <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="person" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
                       <div style={{minWidth:0,flex:1}}>
                         <div style={V3.T.captionDim}>Likely contributing cause</div>
                         {/* The cause is stated in full. It used to be sliced at 137 characters
@@ -3218,7 +3185,6 @@ export default function MobileApp() {
                   <div style={V3.divider()} />
                   <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:16}}>
                     <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
-                      <I n="chart" s={14} c={confTone} w={1.7} />
                       <div style={{minWidth:0}}>
                         <div style={V3.T.captionDim}>Measurement confidence</div>
                         {/* comp.confidence — the WORST zone's confidence, which
@@ -3231,7 +3197,6 @@ export default function MobileApp() {
                       </div>
                     </div>
                     <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
-                      <I n="shield" s={14} c={V3.TEXT_SECONDARY} w={1.7} />
                       <div style={{minWidth:0}}>
                         {/* Was a hardcoded "Screening (Non-compliance)" chip —
                             the retired label, and the same for four spot readings
@@ -3251,18 +3216,12 @@ export default function MobileApp() {
                     right-hand side, both of them the category's share of its
                     points; the severity-tinted concern label is what is left,
                     over the category's own findings. ── */}
-                <div style={V3.panel()}>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:16,flexWrap:'wrap'}}>
-                    <div style={V3.T.h3}>Key Indicator</div>
-                    <div style={V3.T.captionDim}>(Worst Zone)</div>
-                  </div>
+                <div style={RS_SECTION}>
+                  <div style={RS_HEAD}>Key indicator · worst zone</div>
                   {keyCat ? (
                     <>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:18}}>
                         <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0,flex:1}}>
-                          <div style={V3.iconBox(keyTone)}>
-                            <I n={keyCat.l === 'Ventilation' ? 'wind' : keyCat.l === 'HVAC' ? 'hvac' : keyCat.l === 'Environment' ? 'thermo' : keyCat.l === 'Contaminants' ? 'flask' : 'symptom'} s={16} c={keyTone} w={1.8} />
-                          </div>
                           <div style={{...V3.T.bodyStrong, fontSize:17, lineHeight:'22px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{keyCat.l}</div>
                         </div>
                         {/* A 32pt category percentage, its label and a 0–100
@@ -3286,55 +3245,35 @@ export default function MobileApp() {
               {/* ── Two-up: Data Gaps + Evidence Summary ─── */}
               <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16}}>
                 {/* Data Gaps */}
-                <div style={V3.panel()}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                    <div style={{display:'flex',alignItems:'center',gap:10}}>
-                      <div style={V3.iconBox(WARN)}><I n="gap" s={15} c={WARN} w={1.8} /></div>
-                      <div style={V3.T.h3}>Data Gaps</div>
-                    </div>
-                    {dataGaps.length > 0 && <span style={V3.pill(WARN)}>{dataGaps.length} item{dataGaps.length===1?'':'s'}</span>}
-                  </div>
+                <div style={RS_SECTION}>
+                  <div style={RS_HEAD}>Data gaps{dataGaps.length > 0 ? <span style={{color:WARN}}> · {dataGaps.length}</span> : null}</div>
                   {dataGaps.length === 0 ? (
                     <div style={V3.T.bodyDim}>No defensibility-blocking gaps identified for this assessment.</div>
                   ) : (
                     <div style={{display:'flex',flexDirection:'column',gap:10}}>
                       {dataGaps.map((g, i) => (
-                        <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10}}>
-                          <I n="alert" s={14} c={WARN} w={1.8} />
-                          <div style={{...V3.T.body, flex:1, minWidth:0, lineHeight:'19px'}}>{g}</div>
-                        </div>
+                        <div key={i} style={{...V3.T.body, lineHeight:'19px'}}>{g}</div>
                       ))}
                     </div>
                   )}
                   {dataGaps.length > 0 && (
-                    <>
-                      <div style={V3.divider()} />
-                      <button onClick={()=>{ haptic('light'); setRTab('readiness') }} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,display:'inline-flex',alignItems:'center',gap:6}}>
-                        View all gaps and assumptions
-                        <span style={{fontSize:13}}>›</span>
-                      </button>
-                    </>
+                    <button onClick={()=>{ haptic('light'); setRTab('readiness') }} style={{...RS_LINK, marginTop:12}}>
+                      View all gaps and assumptions <span aria-hidden="true">›</span>
+                    </button>
                   )}
                 </div>
 
                 {/* Evidence Summary */}
-                <div style={V3.panel()}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                    <div style={{display:'flex',alignItems:'center',gap:10}}>
-                      <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="report" s={15} c={V3.TEXT_SECONDARY} w={1.8} /></div>
-                      <div style={V3.T.h3}>Evidence Summary</div>
-                    </div>
-                    {evTotal > 0 && <span style={V3.pill(V3.TEXT_SECONDARY)}>{evTotal} finding{evTotal===1?'':'s'}</span>}
-                  </div>
+                <div style={RS_SECTION}>
+                  <div style={RS_HEAD}>Evidence{evTotal > 0 ? ` · ${evTotal} finding${evTotal===1?'':'s'}` : ''}</div>
                   <div style={{display:'flex',flexDirection:'column'}}>
                     {[
-                      ['Measurements',     evCount.meas, 'gauge'],
-                      ['Observations',     evCount.obs,  'eye'],
-                      ['Occupant Feedback',evCount.occ,  'people'],
-                      ['Photos',           photoCount,   'image'],
-                    ].map(([k, v, ic], i, arr) => (
+                      ['Measurements',     evCount.meas],
+                      ['Observations',     evCount.obs],
+                      ['Occupant feedback',evCount.occ],
+                      ['Photos',           photoCount],
+                    ].map(([k, v], i, arr) => (
                       <div key={k} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 0',borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
-                        <I n={ic} s={14} c={V3.TEXT_TERTIARY} w={1.6} />
                         <div style={{...V3.T.body, flex:1, minWidth:0}}>{k}</div>
                         <div style={{...V3.N.md, color: v > 0 ? V3.TEXT_PRIMARY : V3.TEXT_MUTED}}>{v}</div>
                       </div>
@@ -3347,36 +3286,22 @@ export default function MobileApp() {
                   for the detailed drilldown below. Current focus is
                   visually called out with a Current focus sub-label
                   and a raised background on the row. ── */}
-              <div id="result-zones-anchor" style={V3.panel({ dense: true })}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,padding:'4px 4px 0'}}>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8}}>
-                    <div style={V3.T.h3}>Assessed Zones</div>
-                    <div style={V3.T.captionDim}>{zoneScores.length}</div>
-                  </div>
-                </div>
-                {/* Header row */}
-                <div style={{display:'grid',gridTemplateColumns: isTablet ? '2fr 1fr 1fr 1.4fr' : '2fr 1fr 1.4fr', gap:12, padding:'8px 8px', borderBottom:`1px solid ${V3.BORDER_DEFAULT}`}}>
-                  <div style={V3.T.micro}>Zone</div>
-                  {isTablet && <div style={V3.T.micro}>Findings</div>}
-                  <div style={{...V3.T.micro, textAlign:'right'}}>Findings</div>
-                  <div style={{...V3.T.micro, textAlign:'right'}}>Status</div>
-                </div>
+              {/* Zones as rows: name, finding count, and the focused zone
+                  named as such. Tap a row to focus it for the findings below. */}
+              <div id="result-zones-anchor" style={RS_SECTION}>
+                <div style={RS_HEAD}>Zones · {zoneScores.length}</div>
                 {zoneScores.map((z, i) => {
                   const isFocus = selZone === i
                   const findingCount = countFindings([z]).total
                   return (
-                    <button key={i} onClick={()=>setSelZone(i)} style={{display:'grid',gridTemplateColumns: isTablet ? '2fr 1fr 1fr 1.4fr' : '2fr 1fr 1.4fr', gap:12, padding:'12px 8px', alignItems:'center', textAlign:'left', background: isFocus ? V3.RAISED : 'transparent', border:'none', borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`, cursor:'pointer', fontFamily:'inherit', borderRadius: isFocus ? V3.R.sm : 0, width:'100%'}}>
-                      <div style={{minWidth:0}}>
-                        <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{z.zoneName}</div>
-                        {isFocus && <div style={{...V3.T.micro, color:'var(--accent)', marginTop:3, textTransform:'none', letterSpacing:0, fontSize:11}}>Current focus</div>}
+                    <button key={i} onClick={()=>setSelZone(i)} aria-pressed={isFocus} style={{display:'flex', alignItems:'center', gap:12, padding:'11px 0', textAlign:'left', background:'transparent', border:'none', borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`, cursor:'pointer', fontFamily:'inherit', width:'100%', WebkitTapHighlightColor:'transparent'}}>
+                      <div style={{minWidth:0, flex:1}}>
+                        <div style={{...V3.T.bodyStrong, color: isFocus ? V3.TEXT_PRIMARY : V3.TEXT_SECONDARY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{z.zoneName}</div>
                       </div>
-                      {isTablet && <div style={{...V3.N.md, color:V3.TEXT_SECONDARY}}>{findingCount}</div>}
-                      <div style={{textAlign:'right'}}>
-                        <span style={{...V3.T.captionDim}}>{findingCount} {findingCount===1?'finding':'findings'}</span>
-                      </div>
-                      <div style={{textAlign:'right',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8}}>
-                        <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
-                      </div>
+                      <span style={{...V3.T.captionDim, whiteSpace:'nowrap'}}>{findingCount} {findingCount===1?'finding':'findings'}</span>
+                      {isFocus
+                        ? <span style={{...V3.T.caption, color:'var(--accent)', whiteSpace:'nowrap'}}>Showing</span>
+                        : <span style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1}}>›</span>}
                     </button>
                   )
                 })}
@@ -3386,23 +3311,19 @@ export default function MobileApp() {
                   drilldown for the currently focused zone. Kept as the
                   authoritative engine readout so the redesigned panels
                   above act as the executive summary, not a substitute. ── */}
-              <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:8,padding:'0 2px'}}>
-                <div style={V3.T.micro}>Detailed findings</div>
-                <div style={V3.T.captionDim}>· {zs.zoneName}</div>
+              <div style={{...RS_SECTION, marginTop:4}}>
+                <div style={RS_HEAD}>Findings · {zs.zoneName}</div>
               </div>
-              <div key={selZone} className="fa-zone-in" style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:10}}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
-                  <div style={{...V3.T.bodyStrong}}>{zs.zoneName}</div>
-                </div>
+              <div key={selZone} style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:0}}>
           {zs.cats.map((cat,ci)=>{
             if (cat.status === 'DATA_GAP' || cat.status === 'INSUFFICIENT') {
               return(
-                <div key={cat.l} style={{padding:'14px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
+                <div key={cat.l} style={{padding:'12px 0', borderTop: ci === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={V3.T.bodyStrong}>{cat.l}</span>
-                    <span style={V3.pill(V3.TEXT_TERTIARY)}>No data</span>
+                    <span style={{...V3.T.bodyStrong, fontSize:15}}>{cat.l}</span>
+                    <span style={V3.T.captionDim}>No data</span>
                   </div>
-                  <div style={{...V3.T.captionDim, marginTop:6}}>Data gap: documentation not provided for this category</div>
+                  <div style={{...V3.T.captionDim, marginTop:4}}>Documentation not provided for this category</div>
                 </div>
               )
             }
@@ -3414,7 +3335,7 @@ export default function MobileApp() {
             const SEV_RANK={critical:0,high:1,medium:2,low:3,info:4,pass:5};
             const catHasConcern = cat.r.some(r => r.sev==='critical'||r.sev==='high'||r.sev==='medium');
             const findings=cat.r.filter(r => !(r.sev === 'pass' && catHasConcern)).sort((a,b)=>(SEV_RANK[a.sev]??9)-(SEV_RANK[b.sev]??9));return(
-            <div key={cat.l} style={{padding:'16px 18px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md}}>
+            <div key={cat.l} style={{padding:'12px 0 14px', borderTop: ci === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
               {/* Category header — single row, mono score + concern
                   text inline, with a thin progress bar below. Replaces
                   the legacy "Category | Score" two-up grid that double-
@@ -3443,19 +3364,19 @@ export default function MobileApp() {
               product direction — it is no longer surfaced on any report.
               (The engine still computes oshaResult.fl; it is simply not
               rendered here. Data Gaps below is unaffected.) */}
-          {oshaResult?.gaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:10}}>
-            <div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>Data Gaps</div>
+          {oshaResult?.gaps?.length>0&&<div style={RS_SECTION}>
+            <div style={{...RS_HEAD, color:WARN}}>Data gaps</div>
             {oshaResult.gaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<oshaResult.gaps.length-1?6:0}}>{g}</div>)}
           </div>}
           {/* Mold Findings — parallel panel, not in composite */}
-          {moldResults.length>0&&<div style={{padding:16,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:10}}>
-            <div style={{fontSize:14,fontWeight:600,color:TEXT,marginBottom:3}}>Mold Findings</div>
-            <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>Parallel assessment, not included in composite score. Drives IICRC S520 Conditions assessment.</div>
+          {moldResults.length>0&&<div style={RS_SECTION}>
+            <div style={RS_HEAD}>Mold findings</div>
+            <div style={{fontSize:11,color:DIM,marginBottom:12,lineHeight:1.5}}>Parallel assessment. Drives the IICRC S520 Conditions assessment.</div>
             {moldResults.map((m,i)=>{const moldColor=m.condition>=3?DANGER:m.condition>=2?WARN:SUB;return(
               <div key={i} style={{marginBottom:i<moldResults.length-1?12:0}}>
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:3,flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:3,flexWrap:'wrap'}}>
                   <div style={{color:moldColor,fontWeight:700,fontSize:13,lineHeight:1.4}}>{m.label}</div>
-                  {m.investigationTriggered&&<span style={{padding:'2px 8px',background:`${mix('warn', 8)}`,border:`1px solid ${mix('warn', 19)}`,borderRadius:999,fontSize:10,fontWeight:700,color:WARN,letterSpacing:'0.3px'}}>Investigation triggered</span>}
+                  {m.investigationTriggered&&<span style={{...V3.T.caption, color:WARN}}>Investigation triggered</span>}
                 </div>
                 <div style={{color:SUB,fontSize:13,lineHeight:1.6}}>{m.visual}</div>
               </div>
@@ -3469,7 +3390,7 @@ export default function MobileApp() {
                 <summary style={{fontSize:11,fontWeight:600,color:DIM,cursor:'pointer',padding:'10px 0',listStyle:'none',display:'flex',alignItems:'center',gap:6}}>
                   <span style={{fontSize:8,color:DIM}}>▶</span> Standards reference · Engine v{manifest.engineVersion || '1.x'}
                 </summary>
-                <div style={{padding:12,background:SURFACE,border:`1px solid ${BORDER}`,borderRadius:10,marginTop:4}}>
+                <div style={{padding:'6px 0 0'}}>
                   {Object.entries(manifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => (
                     <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:SUB,marginBottom:4,gap:12}}>
                       <span style={{color:DIM}}>{k}</span><span style={{color:SUB,fontWeight:500}}>{v}</span>
@@ -3485,21 +3406,16 @@ export default function MobileApp() {
           )
         })()}
 
-        {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
-          <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:4}}>Concern pathways are based on correlation of field observations, measurements, and occupant reports. They support, but do not confirm, root-cause determination.</div>
-          {causalChains.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="chain" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No concern pathways identified</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No correlated multi-factor findings in this assessment.</div></div>
+        {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
+          <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5, marginBottom:6}}>Pathways correlate field observations, measurements and occupant reports. They support, but do not confirm, root-cause determination.</div>
+          {causalChains.length===0?<div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No concern pathways identified — no correlated multi-factor findings in this assessment.</div>
           :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High':ch.confidence==='Moderate'?'Moderate':'Possible';const cc=confColor(ch.confidence);return(
-            <div key={i} style={{padding:'16px 16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12}}>
-              {/* ── Canonical two-up: PATHWAY + CONFIDENCE ── */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:14,alignItems:'flex-start'}}>
-                <div>
-                  <div style={CARD_LABEL}>Pathway</div>
-                  <div style={{color:TEXT,fontWeight:700,fontSize:15,lineHeight:1.35}}>{ch.type}</div>
-                </div>
-                <div>
-                  <div style={CARD_LABEL}>Confidence</div>
-                  <span style={{padding:'3px 10px',background:`${cc}1F`,border:`1px solid ${cc}59`,borderRadius:5,fontSize:11,fontWeight:700,color:cc,letterSpacing:'0.4px',whiteSpace:'nowrap'}}>{confLabel}</span>
-                </div>
+            <div key={i} style={RS_SECTION}>
+              {/* Pathway and its confidence on one line: the confidence is a
+                  word in its colour, not a tinted tag. */}
+              <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:14,alignItems:'baseline'}}>
+                <div style={{color:TEXT,fontWeight:700,fontSize:16,lineHeight:1.35}}>{ch.type}</div>
+                <span style={{...V3.T.caption, color:cc, whiteSpace:'nowrap'}}>{confLabel} confidence</span>
               </div>
               {/* ── ZONE — plain bold white, not cyan/monospace ── */}
               <div style={{marginBottom:14}}>
@@ -3527,20 +3443,15 @@ export default function MobileApp() {
 
         {KG_EVIDENCE_ENABLED&&rTab==='evidence'&&isDesktop&&<Suspense fallback={LAZY_FALLBACK}><EvidenceMap zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={viewRpt?.id} /></Suspense>}
 
-        {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
-          {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:10,border:`1px solid ${BORDER}`}}><I n="flask" s={24} c={DIM} w={1.4} /><div style={{fontSize:14,fontWeight:600,marginTop:12,marginBottom:4,color:SUB}}>No sampling indicated</div><div style={{fontSize:12,color:DIM,lineHeight:1.5}}>No hypotheses requiring confirmatory sampling.</div></div>
+        {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
+          {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No sampling indicated — no hypotheses requiring confirmatory sampling.</div>
           :<>{samplingPlan.plan.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';const priLabel=p.priority.charAt(0).toUpperCase()+p.priority.slice(1);return(
-            <div key={i} style={{padding:'18px 18px 20px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:12}}>
-              {/* ── Canonical two-up: SAMPLE TYPE + PRIORITY ── */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:14,alignItems:'flex-start'}}>
-                <div>
-                  <div style={CARD_LABEL}>Sample type</div>
-                  <div style={{color:TEXT,fontWeight:700,fontSize:15,lineHeight:1.35}}>{p.type}</div>
-                </div>
-                <div>
-                  <div style={CARD_LABEL}>Priority</div>
-                  <span style={{padding:'3px 10px',background:`${pc}1F`,border:`1px solid ${pc}59`,borderRadius:5,fontSize:11,fontWeight:700,color:pc,letterSpacing:'0.4px',whiteSpace:'nowrap'}}>{priLabel}</span>
-                </div>
+            <div key={i} style={RS_SECTION}>
+              {/* Sample type and its priority on one line; the priority is a
+                  word in its colour. */}
+              <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:14,alignItems:'baseline'}}>
+                <div style={{color:TEXT,fontWeight:700,fontSize:16,lineHeight:1.35}}>{p.type}</div>
+                <span style={{...V3.T.caption, color:pc, whiteSpace:'nowrap'}}>{priLabel} priority</span>
               </div>
               {/* ── ZONE — plain bold white ── */}
               <div style={{marginBottom:14}}>
@@ -3561,32 +3472,28 @@ export default function MobileApp() {
                 <div style={{color:DIM,fontSize:12,lineHeight:1.5}}>{p.standard}</div>
               </div>}
             </div>
-          )})}{samplingPlan.outdoorGaps?.length>0&&<div style={{padding:16,background:'#FBBF2410',border:`1px solid #FBBF2428`,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:'#FBBF24',marginBottom:10}}>Outdoor Control Gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}</>}
+          )})}{samplingPlan.outdoorGaps?.length>0&&<div style={RS_SECTION}><div style={{...RS_HEAD, color:WARN}}>Outdoor control gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}</>}
         </div>}
 
         {rTab==='narrative'&&<div>
-          {!narrative&&!narrativeLoading&&<div style={{padding:32,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
-            <I n="report" s={28} c={DIM} w={1.4} />
-            <div style={{fontSize:15,fontWeight:600,marginTop:14,marginBottom:4,color:TEXT}}>Findings Narrative</div>
-            <div style={{fontSize:12,color:SUB,lineHeight:1.6,marginBottom:6}}>Generate a professional findings narrative from your assessment data.</div>
-            <div style={{fontSize:10,color:DIM,lineHeight:1.5,marginBottom:20}}>Output is generated from deterministic scoring results — not from raw AI interpretation. You review and approve before delivery.</div>
-            <button onClick={requestNarrative} style={{padding:'12px 28px',background:ACCENT,border:'none',borderRadius:8,color:ON_ACCENT,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Generate Narrative</button>
-            <div style={{fontSize:9,color:DIM,marginTop:10}}>Costs 3 credits</div>
+          {/* Empty state: a heading, one line, the action — on the page. */}
+          {!narrative&&!narrativeLoading&&<div style={{textAlign:'center',padding:'48px 20px 0'}}>
+            <div style={{...V3.T.h2, marginBottom:6}}>Findings narrative</div>
+            <div style={{...V3.T.bodyDim, maxWidth:380, margin:'0 auto 20px'}}>Written from the deterministic findings, not from a free reading of the data. You review and approve before delivery.</div>
+            <TactileButton variant="primary" size="sm" pill onClick={requestNarrative}>Generate narrative</TactileButton>
+            <div style={{...V3.T.captionDim, marginTop:10}}>3 credits</div>
           </div>}
-          {narrativeLoading&&<div style={{padding:44,textAlign:'center',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}><div style={{width:36,height:36,margin:'0 auto 14px',borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite'}} /><div style={{fontSize:12,color:SUB}}>Generating narrative from assessment data...</div></div>}
-          {narrative&&<div style={{padding:18,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10}}>
+          {narrativeLoading&&<div style={{padding:'48px 20px 0',textAlign:'center'}}><div style={{width:28,height:28,margin:'0 auto 14px',borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite'}} /><div style={V3.T.bodyDim}>Generating narrative from assessment data…</div></div>}
+          {narrative&&<div style={RS_SECTION}>
             <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:12,flexWrap:'wrap'}}>
-              <div style={{fontSize:14,fontWeight:600,color:TEXT}}>Findings Narrative</div>
+              <div style={RS_HEAD}>Findings narrative</div>
               <div style={{display:'flex',alignItems:'center',gap:4}}>
-                <span style={{fontSize:11,color:DIM,fontWeight:500}}>AI-generated · Review required</span>
+                <span style={{...V3.T.caption, color:WARN}}>AI-generated · review required</span>
                 <FeedbackButton label="Flag" onClick={()=>openFeedback('AI narrative')} />
               </div>
             </div>
-            <Markdown style={{fontSize:13,color:SUB,lineHeight:1.8}}>{narrative}</Markdown>
-            <div style={{marginTop:14,padding:'10px 12px',background:`${mix('warn', 3)}`,border:`1px solid ${mix('warn', 9)}`,borderRadius:10}}>
-              <div style={{fontSize:11,color:WARN,fontWeight:600,marginBottom:3}}>Professional review required</div>
-              <div style={{fontSize:11,color:DIM,lineHeight:1.5}}>This narrative was generated from deterministic scoring output. Review, edit, and approve before including in any client deliverable or report.</div>
-            </div>
+            <Markdown style={{fontSize:14,color:TEXT,lineHeight:1.75}}>{narrative}</Markdown>
+            <div style={{...V3.T.caption, fontWeight:400, marginTop:14, lineHeight:1.5}}>Generated from deterministic findings. Review, edit and approve before it goes into any client deliverable.</div>
             {/* Share the narrative as a lightweight DOCX so the
                 reviewing IH can hand it off as an editable draft
                 (Mail, Slack, Files) without bundling the full
@@ -3599,8 +3506,8 @@ export default function MobileApp() {
           </div>}
         </div>}
 
-        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
-          <div style={{fontSize:11,color:DIM,lineHeight:1.5,marginBottom:2}}>Recommendations are tiered by urgency and type. Review and adapt for site-specific conditions before implementation.</div>
+        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
+          <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5, marginBottom:6}}>Tiered by urgency and type. Review and adapt for site conditions before implementation.</div>
           {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{
             if(!recs[cat.k]?.length)return null
             const knownZones=(zones||[]).map(z=>z.zn).filter(Boolean)
@@ -3614,17 +3521,12 @@ export default function MobileApp() {
             // color so the priority hierarchy reads at a glance when
             // scrolling. Card padding bumped to 16px and the left edge
             // gets extra to clear the stripe.
-            return(<div key={cat.k} style={{padding:'16px 16px 16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderLeft:`3px solid ${cat.c}`,borderRadius:10}}>
-            {/* ── Canonical two-up: TIER + TIMEFRAME ── */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:16,alignItems:'flex-start'}}>
-              <div>
-                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Tier</div>
-                <div style={{color:cat.c,fontWeight:700,fontSize:15,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div style={{fontSize:9,color:DIM,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:3}}>Timeframe</div>
-                <div style={{color:SUB,fontWeight:500,fontSize:13,lineHeight:1.4}}>{cat.s}</div>
-              </div>
+            // A tier is a section: its name in the tier colour, the timeframe
+            // beside it in secondary ink. No card, no stripe.
+            return(<div key={cat.k} style={RS_SECTION}>
+            <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:12,alignItems:'baseline'}}>
+              <div style={{color:cat.c,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
+              <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{cat.s}</div>
             </div>
             {/* ── Group header (zone / equipment / building-wide) + bulleted action list ── */}
             {groups.map((g, gi) => {
@@ -5130,7 +5032,7 @@ export default function MobileApp() {
           )}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='tools'&&<ToolsHub onOpen={openTool} attachedTo={draftOpen ? (bldg?.fn || 'the open assessment') : null} />}
+        {view==='tools'&&<ToolsHub onOpen={openTool} />}
         {view==='sampling-forms'&&<Suspense fallback={LAZY_FALLBACK}><SamplingFormsView profile={profile} onBack={nav.back} /></Suspense>}
         {view==='ventilation'&&<Suspense fallback={LAZY_FALLBACK}><VentilationTool /></Suspense>}
         {/* A tool carries the project it was opened from as its params

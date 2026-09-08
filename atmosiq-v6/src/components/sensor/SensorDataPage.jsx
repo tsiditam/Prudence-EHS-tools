@@ -18,6 +18,7 @@ import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
 import SegmentedControl from '../ui/SegmentedControl'
+import AssessmentSegmentedPillNav from '../ui/AssessmentSegmentedPillNav'
 import Chip from '../ui/Chip'
 import CollapsibleCard from '../ui/CollapsibleCard'
 import GhostButton from '../ui/GhostButton'
@@ -47,7 +48,7 @@ const csvToRows = (text) => text.split(/\r\n?|\n/).filter((l) => l.trim().length
 
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024 // 8 MB
-const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 
 const QUALITY_TONE = { ok: V3.STATUS.ready, minor: '#FBBF24', uncertain: '#FBBF24', review: V3.DANGER }
 
@@ -141,14 +142,16 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
   // when there is one, is a status pill at the top-right — status colour
   // with a label, never colour alone — and the sparkline is a real trend
   // (wash + end-dot) rather than a 76px squiggle beside the label.
+  // A reading is a block on the page parting from the next with a
+  // hairline, not a card. The flag is a word in its status colour.
   return (
-    <GlassCard style={{ marginTop: 10, padding: '14px 16px 14px' }}>
+    <div style={{ padding: '14px 0 16px', borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-          <span style={{ ...V3.T.micro, color: SUB, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{spec?.label || param}</span>
+          <span style={{ ...V3.T.caption, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{spec?.label || param}</span>
         </div>
-        {exc.level && <StatusPill tone={EXC_TONE[exc.level]} dim style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, fontSize: 10.5 }}>{EXC_LABEL[exc.level]}</StatusPill>}
+        {exc.level && <span style={{ ...V3.T.caption, color: EXC_TONE[exc.level], whiteSpace: 'nowrap' }}>{EXC_LABEL[exc.level]}</span>}
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, marginTop: 8 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
@@ -165,7 +168,7 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
         {ref.limit != null && <span>reference {fmtAvg(ref.limit)}</span>}
       </div>
       {ref.refs.length > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+        <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5 }}>{ref.refs.join(' · ')}</div>
           {exc.level && (
             <div style={{ fontSize: 12, fontWeight: 500, color: TEXT, marginTop: 5, lineHeight: 1.45 }}>
@@ -177,7 +180,7 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
           )}
         </div>
       )}
-    </GlassCard>
+    </div>
   )
 }
 
@@ -186,23 +189,18 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
 // sentence, then the flagged parameters as series-keyed tags.
 function ThresholdBanner({ items }) {
   if (!items.length) return null
+  // One sentence under the heading. The count carries the colour; the
+  // parameters are named in plain ink — no tinted box, no tags.
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '12px 14px', marginTop: 14, borderRadius: V3.R.lg, background: 'color-mix(in srgb, var(--danger) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 22%, transparent)' }}>
-      <I n="alert" s={15} c={V3.DANGER} w={2} />
-      <span style={{ ...V3.T.bodyStrong, fontSize: 13 }}>
-        <span style={{ color: V3.DANGER }}>{items.length}</span> parameter{items.length === 1 ? '' : 's'} above a reference
-      </span>
-      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 6, marginLeft: 'auto' }}>
-        {items.map((it) => (
-          <span key={it.param} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: TEXT, padding: '3px 9px', borderRadius: 999, background: CARD, border: `1px solid ${BORDER}` }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: seriesColor(it.param) }} />
-            {it.label}
-          </span>
-        ))}
-      </span>
+    <div style={{ ...V3.T.body, marginTop: 4 }}>
+      <span style={{ color: V3.DANGER, fontWeight: 600 }}>{items.length} parameter{items.length === 1 ? '' : 's'} above a reference</span>
+      <span style={{ color: SUB }}> · {items.map((it) => it.label).join(', ')}</span>
     </div>
   )
 }
+
+// A text action beside a heading or meta line — no button chrome.
+const TEXT_ACTION = { background: 'transparent', border: 'none', padding: 0, fontSize: 13, fontWeight: 500, color: 'var(--accent)', fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }
 
 // Factual stat row under an Analysis chart: mean, peak (flagged occupied
 // when occupancy windows exist), % of readings over the screening
@@ -223,7 +221,7 @@ function ChartStatRow({ stats, unit, reference }) {
   // A hairline-topped strip of stat cells: label above, value below, unit
   // beside it — the same tile contract the Overview uses, at chart scale.
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cells.length, 4)}, minmax(0, 1fr))`, gap: 12, padding: '12px 18px 14px', borderTop: `1px solid ${BORDER}` }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cells.length, 4)}, minmax(0, 1fr))`, gap: 12, padding: '12px 0 14px' }}>
       {cells.map((c, i) => (
         <div key={i} style={{ minWidth: 0 }}>
           <div style={{ ...V3.T.micro, fontSize: 10, letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</div>
@@ -246,23 +244,18 @@ const ANALYZE_STATUS = ['Parsing readings…', 'Computing averages…', 'Prepari
 
 function AnalyzingCard({ fileName, phase }) {
   return (
-    <GlassCard style={{ marginTop: 16, padding: '40px 24px', textAlign: 'center', animation: 'fadeUp .3s ease' }}>
-      <style>{`
-        @keyframes sdPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.09);opacity:.82} }
-        @keyframes sdScan { 0%{transform:translateX(-110%)} 100%{transform:translateX(320%)} }
-      `}</style>
-      <div style={{ width: 60, height: 60, borderRadius: 16, margin: '0 auto 18px', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'sdPulse 1.4s ease-in-out infinite' }}>
-        <I n="chartLine" s={26} c={ACCENT} w={1.8} />
-      </div>
-      <div style={{ ...V3.T.h3, marginBottom: 6 }}>Analyzing logger data</div>
+    <div style={{ padding: '72px 24px 0', textAlign: 'center' }}>
+      <style>{`@keyframes sdScan { 0%{transform:translateX(-110%)} 100%{transform:translateX(320%)} }`}</style>
+      <div style={{ ...V3.T.h2, marginBottom: 6 }}>Analyzing logger data</div>
       <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto 20px', minHeight: 20 }}>
         {ANALYZE_STATUS[Math.min(phase, ANALYZE_STATUS.length - 1)]}
       </div>
-      <div style={{ position: 'relative', height: 4, maxWidth: 280, margin: '0 auto', borderRadius: 2, background: 'var(--surface)', overflow: 'hidden' }}>
+      {/* The one moving thing on the screen: a scanning bar. */}
+      <div style={{ position: 'relative', height: 3, maxWidth: 240, margin: '0 auto', borderRadius: 2, background: 'var(--surface)', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, bottom: 0, width: '35%', borderRadius: 2, background: ACCENT, animation: 'sdScan 1.2s ease-in-out infinite' }} />
       </div>
       {fileName && <div style={{ ...V3.T.captionDim, marginTop: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>}
-    </GlassCard>
+    </div>
   )
 }
 
@@ -593,9 +586,9 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
   }
 
   const emptyCharts = (
-    <GlassCard style={{ textAlign: 'center', padding: '28px 20px', marginTop: 14 }}>
-      <div style={V3.T.bodyDim}>No chartable IAQ parameters detected. Use “Adjust column mapping” in Overview to map your columns.</div>
-    </GlassCard>
+    <div style={{ ...V3.T.bodyDim, textAlign: 'center', padding: '40px 20px 0' }}>
+      No chartable IAQ parameters detected. Use “Adjust column mapping” in Overview to map your columns.
+    </div>
   )
 
   return (
@@ -605,40 +598,30 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
           screen (it routes to the tool's origin via toolReturn); the
           in-body home button duplicated it and pushed the title off the
           left edge every other page title sits on. */}
-      <div style={{ marginBottom: 6 }}>
-        <div style={{ ...V3.T.h1, marginBottom: 2 }}>Logger Studio</div>
-        <div style={V3.T.h1Sub}>Upload logger data for report-ready IAQ visuals.</div>
-      </div>
+      <div style={{ ...V3.T.h1, marginBottom: 6 }}>Logger Studio</div>
 
       {/* Single hidden file input; pendingTarget decides where the file lands. */}
       <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
 
+      {/* Empty state: a line, the action, and the alternative — on the open
+          page. The upload button is the one accent on the screen. */}
       {!data && (
-        <GlassCard style={{ marginTop: 16, padding: '28px 24px', textAlign: 'center', animation: 'fadeUp .3s ease' }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', background: `color-mix(in srgb, var(--accent) 10%, transparent)`, border: `1px solid color-mix(in srgb, var(--accent) 22%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <I n="upload" s={22} c={ACCENT} w={1.8} />
-          </div>
-          <div style={{ ...V3.T.h3, marginBottom: 6 }}>Upload Logger Data</div>
-          <div style={{ ...V3.T.bodyDim, maxWidth: 460, margin: '0 auto 18px' }}>
-            CSV or XLSX exports from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings, and most loggers. AtmosFlow detects timestamp, CO₂, temperature, RH, PM, TVOC and CO columns automatically.
+        <div style={{ textAlign: 'center', padding: '72px 24px 0' }}>
+          <div style={{ ...V3.T.h2, marginBottom: 6 }}>Upload logger data</div>
+          <div style={{ ...V3.T.bodyDim, maxWidth: 400, margin: '0 auto 20px' }}>
+            CSV or XLSX from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings and most loggers.
           </div>
           {error && <InlineError style={{ marginBottom: 14 }}>{error}</InlineError>}
-          {/* Standard accent primary, the same pill as "New project" on the
-              Projects empty state. It used to be a red --danger fill: the
-              only red CTA in the app, on the one action here that is not
-              destructive, so it read as a warning rather than the way in. */}
-          <TactileButton variant="primary" size="sm" pill bubble disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} icon={<I n="upload" s={14} c="var(--on-accent-fill)" w={2} />}>
+          <TactileButton variant="primary" size="sm" pill disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>
             {busy ? 'Reading…' : 'Upload data'}
           </TactileButton>
-          <div style={{ marginTop: 12 }}>
-            <GhostButton disabled={busy} onClick={() => pickProjectFor({ role: 'indoor', label: 'Indoor' })} style={{ minHeight: 36 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <I n="bldg" s={13} c="var(--accent)" w={1.8} /> Load from project
-              </span>
-            </GhostButton>
+          <div style={{ marginTop: 14 }}>
+            <button type="button" disabled={busy} onClick={() => pickProjectFor({ role: 'indoor', label: 'Indoor' })}
+              style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: 'var(--accent)', fontFamily: 'inherit', cursor: 'pointer' }}>
+              Load from a project
+            </button>
           </div>
-          <div style={{ ...V3.T.captionDim, marginTop: 8 }}>Or import a CSV/XLSX already saved to a project&apos;s Documents.</div>
-        </GlassCard>
+        </div>
       )}
 
       {data && analyzing && <AnalyzingCard fileName={data.fileName} phase={phase} />}
@@ -647,8 +630,10 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
         <>
           {error && <InlineError style={{ marginTop: 14 }}>{error}</InlineError>}
 
-          <SegmentedControl ariaLabel="Logger Studio view" value={mode} onChange={setMode} style={{ marginTop: 14 }}
-            options={[{ value: 'overview', label: 'Overview' }, { value: 'analysis', label: 'Analysis' }, { value: 'report', label: 'Report', badge: includedReportCount || undefined }]} />
+          {/* The view switcher is the same text-tab row the results screen
+              and Projects use — words with a rule under the active one. */}
+          <AssessmentSegmentedPillNav ariaLabel="Logger Studio view" active={mode} onChange={setMode} style={{ marginTop: 10, marginBottom: 0 }}
+            tabs={[{ id: 'overview', label: 'Overview' }, { id: 'analysis', label: 'Analysis' }, { id: 'report', label: 'Report', badge: includedReportCount || undefined }]} />
 
           {mode === 'overview' && (
             <>
@@ -657,12 +642,13 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
               small pills. The page title already says "Logger Studio", so
               the strip carries no heading of its own; the section heading
               below names what the cards are. */}
-          <GlassCard style={{ marginTop: 14, padding: '14px 16px', animation: 'fadeUp .3s ease' }}>
+          {/* The dataset's identity as a block on the page, not a card: name,
+              range, size, and its two housekeeping actions as text. */}
+          <div style={{ marginTop: 18, paddingBottom: 14, borderBottom: `1px solid ${V3.BORDER_SUBTLE}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <RoleBadge role={data.role || 'indoor'}>{data.label || 'Indoor'}</RoleBadge>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ ...V3.T.bodyStrong, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'}</div>
-                <div style={{ ...V3.T.captionDim, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmtRange(data.summary.start, data.summary.end)}</div>
+                <div style={{ ...V3.T.h3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'}</div>
+                <div style={{ ...V3.T.caption, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.label || 'Indoor'} · {fmtRange(data.summary.start, data.summary.end)}</div>
               </div>
               {hasTemp && tempNative && (
                 <SegmentedControl
@@ -674,23 +660,23 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                 />
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
               <div style={{ ...V3.T.captionDim, whiteSpace: 'nowrap' }}>
                 {data.summary.count.toLocaleString()} readings · {fmtInterval(data.summary.intervalSec)} interval · {data.params.length} parameters{data.summary.emptyRows ? ` · ${data.summary.emptyRows} empty` : ''}
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ minHeight: 30, padding: '5px 11px', fontSize: 12, borderRadius: 999 }}>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <button type="button" onClick={() => setMapOpen((v) => !v)} style={TEXT_ACTION}>
                   {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
-                </GhostButton>
-                <GhostButton onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} style={{ minHeight: 30, padding: '5px 11px', fontSize: 12, borderRadius: 999 }}>Replace</GhostButton>
+                </button>
+                <button type="button" onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} style={TEXT_ACTION}>Replace</button>
               </div>
             </div>
             {mapOpen && sourceRows && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
-          </GlassCard>
+          </div>
 
           {/* The heading the tests and the reader both look for — a section
-              title above the tiles, not an h1 inside a card. */}
-          <div style={{ ...V3.T.h2, marginTop: 22 }}>Session Averages</div>
+              title above the readings, not an h1 inside a card. */}
+          <div style={{ ...V3.T.h2, marginTop: 24 }}>Session Averages</div>
 
           {/* Session averages — grouped by category, each card gauged
               against its screening reference. */}
@@ -709,8 +695,8 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                   const ps = data.params.filter((p) => data.summary.stats[p] && categoryOf(p) === cat.id)
                   if (!ps.length) return null
                   return (
-                    <div key={cat.id} style={{ marginTop: 18 }}>
-                      <div style={{ ...V3.T.micro, color: SUB, marginBottom: 0 }}>{cat.label}</div>
+                    <div key={cat.id} style={{ marginTop: 20 }}>
+                      <div style={{ ...V3.T.micro, marginBottom: 8 }}>{cat.label}</div>
                       {ps.map((p) => (
                         <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} hchoSourceUnit={data.units.hchoSource} tvocSourceUnit={data.units.tvocSource} calibrationGas={calGas} />
                       ))}
@@ -724,9 +710,8 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                     missing feature rather than an unmet precondition. */}
                 {!!onApplyAverages && (
                   <>
-                    <TactileButton variant="secondary" fullWidth size="md" disabled={!canSendAverages}
-                      onClick={() => setSendOpen(true)}
-                      icon={<I n="report" s={16} c={ACCENT} />} style={{ marginTop: 16 }}>
+                    <TactileButton variant="secondary" size="sm" pill disabled={!canSendAverages}
+                      onClick={() => setSendOpen(true)} style={{ marginTop: 20 }}>
                       Send averages to a report
                     </TactileButton>
                     {!canSendAverages && (
@@ -741,27 +726,24 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
             )
           })()}
 
-          {/* Data quality */}
-          <div style={{ ...V3.T.micro, color: SUB, marginTop: 22 }}>Data quality</div>
-          <GlassCard style={{ marginTop: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <I n={data.quality.level === 'ok' ? 'check' : 'alert'} s={16} c={QUALITY_TONE[data.quality.level]} w={2} />
-              <div style={{ ...V3.T.bodyStrong }}>{data.quality.status}</div>
-            </div>
+          {/* Data quality — a heading, the verdict in its colour, the flags. */}
+          <div style={{ ...V3.T.micro, marginTop: 24, marginBottom: 8 }}>Data quality</div>
+          <div style={{ paddingTop: 12, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
+            <div style={{ ...V3.T.bodyStrong, color: data.quality.level === 'ok' ? TEXT : QUALITY_TONE[data.quality.level] }}>{data.quality.status}</div>
             {data.quality.flags.length > 0 && (
-              <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
+              <ul style={{ margin: '6px 0 0', paddingLeft: 16 }}>
                 {data.quality.flags.map((f, i) => (
                   <li key={i} style={{ fontSize: 12, color: SUB, lineHeight: 1.7 }}>{f.msg}</li>
                 ))}
               </ul>
             )}
             <div style={{ ...V3.T.captionDim, marginTop: 12, lineHeight: 1.5 }}>
-              Graphs are provided for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
+              Figures are for documentation and interpretation, to be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
             </div>
-          </GlassCard>
+          </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                <GhostButton onClick={clear} style={{ color: V3.DANGER, borderColor: 'color-mix(in srgb, var(--danger) 30%, transparent)', borderRadius: 999 }}>Remove logger data</GhostButton>
+              <div style={{ marginTop: 24 }}>
+                <button type="button" onClick={clear} style={{ ...TEXT_ACTION, color: V3.DANGER }}>Remove logger data</button>
               </div>
             </>
           )}
@@ -773,7 +755,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                   as three hairline-divided rows in ONE card. They used to be
                   three stacked cards with wrapping titles, which pushed the
                   chart — the point of this tab — below the first screen. */}
-              <GlassCard style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
+              <div style={{ marginTop: 6, borderBottom: `1px solid ${V3.BORDER_SUBTLE}` }}>
                 {availableRefs.length > 0 && (
                   <CollapsibleCard flat title="Reference lines" summary={`${availableRefs.filter((d) => refs[d.key]).length} of ${availableRefs.length} on`} defaultOpen={false}>
                     <div style={{ ...V3.T.captionDim, marginBottom: 10 }}>Labelled advisory / context values, not compliance limits.</div>
@@ -796,18 +778,15 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                 <div style={{ borderTop: (availableRefs.length > 0 || occRange) ? `1px solid ${BORDER}` : 'none' }}>
                   <DatasetManager datasets={datasets} onPickFor={pickFor} onPickProjectFor={pickProjectFor} onRemove={removeDataset} busy={busy} />
                 </div>
-              </GlassCard>
+              </div>
 
               {chartTabs.length === 0 ? emptyCharts : (
                 <>
-                  <div style={{ ...V3.T.micro, margin: '22px 2px 8px' }}>Charts</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                    {chartTabs.map((t) => (
-                      <Chip key={t.key} selected={t.key === activeChart?.key} onClick={() => setActiveChartKey(t.key)} style={{ padding: '7px 13px', minHeight: 32, fontSize: 12 }}>
-                        {t.label}
-                      </Chip>
-                    ))}
-                  </div>
+                  {/* Which chart — a section heading over the same text-tab
+                      row, one level down. */}
+                  <div style={{ ...V3.T.micro, margin: '22px 0 2px' }}>Charts</div>
+                  <AssessmentSegmentedPillNav ariaLabel="Chart" active={activeChart?.key} onChange={setActiveChartKey} style={{ marginBottom: 4 }}
+                    tabs={chartTabs.map((t) => ({ id: t.key, label: t.label }))} />
                   {renderChartBlock(activeChart, 'analysis')}
                 </>
               )}
@@ -825,16 +804,13 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                   an option that silently vanishes reads as a missing feature,
                   and the user never learns that a one-click column mapping is
                   all that stands between them and the report. */}
-              <GlassCard style={{ marginTop: 14 }}>
-                <div style={V3.T.micro}>Standalone deliverable</div>
-                <div style={{ ...V3.T.bodyStrong, marginTop: 6 }}>Indoor Environmental Monitoring Report</div>
-                <div style={{ ...V3.T.captionDim, marginTop: 4, lineHeight: 1.5 }}>
-                  A report from this logger data alone — summary statistics, figures, the event log and your
-                  selected references. No assessment or score required.
+              <div style={{ marginTop: 20, paddingBottom: 20 }}>
+                <div style={V3.T.h3}>Indoor Environmental Monitoring Report</div>
+                <div style={{ ...V3.T.caption, marginTop: 2, lineHeight: 1.5, fontWeight: 400 }}>
+                  From this logger data alone: summary statistics, figures, the event log and your selected references.
                 </div>
-                <TactileButton variant="primary" fullWidth size="md" disabled={!data.hasTimestamps}
-                  onClick={() => setIemrOpen(true)}
-                  icon={<I n="report" s={16} c="var(--on-accent-fill)" />} style={{ marginTop: 12 }}>
+                <TactileButton variant="primary" size="sm" pill disabled={!data.hasTimestamps}
+                  onClick={() => setIemrOpen(true)} style={{ marginTop: 14 }}>
                   Generate report
                 </TactileButton>
                 {!data.hasTimestamps && (
@@ -852,10 +828,10 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                     and it will appear.
                   </div>
                 )}
-              </GlassCard>
+              </div>
 
               {chartTabs.length === 0 ? emptyCharts : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
                   {chartTabs.map((t) => <div key={t.key}>{renderChartBlock(t, 'report')}</div>)}
                 </div>
               )}
@@ -995,12 +971,12 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
   const exportPng = () => { setBusy(true); setCapture('export') }
   const exportSvg = () => { setBusy(true); setCapture('export-svg') }
 
+  // A figure on the page: title row, the plot, its stat strip, and the
+  // caption and export actions beneath — no card. The include switch sits
+  // beside the title and never wraps beneath it.
   return (
-    <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
-      {/* Title block takes the row; the include switch sits beside it and
-          never wraps beneath (it used to drop to its own line on a phone,
-          leaving a control floating between the caption and the plot). */}
-      <div style={{ padding: '16px 18px 4px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+    <div style={{ paddingTop: 16, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
+      <div style={{ padding: '0 0 4px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={V3.T.bodyStrong}>{def.title}</div>
           <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}{def.series.length > 1 ? ` · ${def.series.join(' / ')}` : ''}</div>
@@ -1016,21 +992,21 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
           </span>
         </label>
       </div>
-      <div style={{ padding: '8px 8px 6px 4px', background: CARD }}>
+      <div style={{ padding: '8px 0 6px', marginLeft: -8 }}>
         <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
       {stats && <ChartStatRow stats={stats} unit={data.units[statParam] || ''} reference={statRef} />}
       {mode !== 'analysis' && (
-        <div style={{ padding: '0 18px 16px', borderTop: stats ? 'none' : `1px solid ${BORDER}`, paddingTop: stats ? 0 : 14 }}>
+        <div style={{ padding: '0 0 16px', paddingTop: stats ? 0 : 12 }}>
           <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"
-            rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <GhostButton onClick={exportPng} disabled={busy} style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px', fontSize: 12 }}>
-              <I n="download" s={13} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
-            </GhostButton>
-            <GhostButton onClick={exportSvg} disabled={busy} style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px', fontSize: 12 }}>
-              <I n="download" s={13} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
-            </GhostButton>
+            rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
+          <div style={{ display: 'flex', gap: 18, marginTop: 10, flexWrap: 'wrap' }}>
+            <button type="button" onClick={exportPng} disabled={busy} style={{ ...TEXT_ACTION, opacity: busy ? 0.6 : 1 }}>
+              {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
+            </button>
+            <button type="button" onClick={exportSvg} disabled={busy} style={{ ...TEXT_ACTION, opacity: busy ? 0.6 : 1 }}>
+              {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
+            </button>
           </div>
         </div>
       )}
@@ -1039,7 +1015,7 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
           <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} {...chartProps} />
         </div>
       )}
-    </GlassCard>
+    </div>
   )
 }
 
