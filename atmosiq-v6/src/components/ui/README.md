@@ -237,7 +237,7 @@ Tokens live in `src/styles/jasper-tokens.js`.
 | Primitive | File | Purpose |
 |---|---|---|
 | `<JasperContextChip>` | `JasperContextChip.jsx` | Small pill that surfaces what the AI assistant knows about the user's situation. Three tones (`accent` / `warn` / `success`) keyed off `JASPER_CHIP_TONES`. |
-| `<JasperSuggestionCard>` | `JasperSuggestionCard.jsx` | Empty-state suggestion card with tinted icon tile + uppercase category label + question body. Hover/focus lifts 1px and adds a soft cyan glow. |
+| `<JasperPromptPill>` | `JasperPromptPill.jsx` | Empty-state prompt pill (icon + short bold label on a neutral tile) for the horizontally scrolling row above the composer. Replaced the stacked suggestion cards in the Grok-style chat pass. |
 
 Token surface (`src/styles/jasper-tokens.js`):
 

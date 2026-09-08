@@ -33,7 +33,7 @@ import { STD } from '../constants/standards'
 // file so JasperWatchPanel and other future AI surfaces can adopt the
 // same feel without re-copying inline styles.
 import JasperContextChip from './ui/JasperContextChip'
-import JasperSuggestionCard from './ui/JasperSuggestionCard'
+import JasperPromptPill from './ui/JasperPromptPill'
 import JasperFeedbackRow from './ui/JasperFeedbackRow'
 import JasperMessageActions from './ui/JasperMessageActions'
 import Markdown from './Markdown'
@@ -48,9 +48,19 @@ import {
   jasperComposerFocusShadow,
   JASPER_KEYFRAMES_CSS,
 } from '../styles/jasper-tokens'
-import { VH_UNIT } from '../styles/tokens'
 
 const INTRO_FLAG_KEY = 'jasper_intro_v1'
+
+// Header control: a 36px round ghost button; `on` tints it accent (the
+// history toggle while the panel is open).
+const HEADER_BTN = (on) => ({
+  width: 36, height: 36, borderRadius: 18,
+  background: on ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'transparent',
+  border: `1px solid ${on ? 'var(--accent)' : 'transparent'}`,
+  color: on ? 'var(--accent)' : 'var(--sub)',
+  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  fontFamily: 'inherit', flexShrink: 0, WebkitTapHighlightColor: 'transparent',
+})
 
 const CARD = 'var(--card)'
 const SURFACE = 'var(--surface)'
@@ -99,15 +109,18 @@ const THINKING_PHRASES = [
 // spans/blocks keep their monospace (Markdown sets that itself).
 const RESPONSE_SERIF = "ui-serif, 'New York', Georgia, Cambria, 'Times New Roman', serif"
 
-// Phase 1 redesign: suggestion cards carry a category label + icon so
-// the empty state reads as a curated launchpad (Claude / ChatGPT
-// pattern) rather than a flat list of strings. Categories are
-// IAQ-tailored — Measurement / Sampling / Standards — and map to the
-// three most common opening questions.
+// Empty-state prompt row (Grok / ChatGPT capability-pill pattern): a
+// horizontally scrolling row of short labels just above the composer.
+// `label` is what the pill says. A pill either sends `text` as the
+// first message, or opens the attach picker (`attach: true`) — lab
+// results and photos are read from the file, so the question is the
+// file. The verbs are the assessor's own jobs on the open assessment
+// (draft, recommend, analyze), not sample IAQ trivia.
 const SUGGESTIONS = [
-  { category: 'Measurement', icon: 'gauge',    text: 'CO₂ is 1,400 ppm in an office. What should I check next?' },
-  { category: 'Sampling',    icon: 'flask',    text: 'When is TVOC sampling warranted?' },
-  { category: 'Standards',   icon: 'guidance', text: 'How does ASHRAE 62.1 apply to office ventilation?' },
+  { icon: 'notes',    label: 'Draft report',       text: 'Draft the report narrative for this assessment: the findings, what they indicate, and the limitations.' },
+  { icon: 'findings', label: 'Recommendations',    text: 'What recommendations should this assessment make, and where should each one apply?' },
+  { icon: 'flask',    label: 'Analyze lab report', attach: true },
+  { icon: 'image',    label: 'Analyze a photo',    attach: true },
 ]
 
 /**
@@ -204,15 +217,19 @@ export function MessageBubble({
   // change to the question state). Assistant goes edge-to-edge,
   // no bubble, no border, no fill — same pattern as Claude.ai /
   // ChatGPT where the response IS the page.
+  // The user's turn is a neutral capsule on the right (Grok / iMessage
+  // received-bubble tone): a step of the surface ladder with a hairline,
+  // no accent — the accent is for controls, not for what the assessor
+  // typed.
   const userStyle = {
     maxWidth: '85%',
-    padding: '10px 14px',
-    borderRadius: 14,
-    background: mix('accent', 14),
-    border: `1px solid ${mix('accent', 25)}`,
+    padding: '10px 16px',
+    borderRadius: 20,
+    background: SURFACE,
+    border: `1px solid ${BORDER}`,
     color: TEXT,
-    fontSize: 14,
-    lineHeight: 1.55,
+    fontSize: 15,
+    lineHeight: 1.5,
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
   }
@@ -1023,6 +1040,13 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
     }
   }, [context, overrideAssessment])
   const contextChips = useMemo(() => buildContextChips(effectiveContext), [effectiveContext])
+  // The facility chip is the user's entry point to switch which
+  // assessment Jasper is talking about; it lives in the composer. The
+  // rest are read-only signals shown above the transcript.
+  const facilityChip = contextChips.find((c) => c.id === 'facility') || null
+  const signalChips = contextChips.filter((c) => c.id !== 'facility')
+  // Nothing said yet: the open canvas with the watermark and prompt row.
+  const isEmptyCanvas = introAccepted && messages.length === 0 && !sending
 
   // Every intake route — paperclip, drop, paste — funnels through the
   // same call, so a CSV behaves identically however it arrived.
@@ -1257,12 +1281,10 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         className="jasper-backdrop"
         style={{
           position: 'fixed', inset: 0,
-          background: 'rgba(0, 0, 0, 0.60)',
-          // Blur stays (it is what makes the page behind read as a
-          // defocused hint rather than a hard cut); the saturate() is
-          // gone with the rest of the glass tinting.
-          WebkitBackdropFilter: 'blur(8px)',
-          backdropFilter: 'blur(8px)',
+          // The sheet is a page now (full height on a phone), so the
+          // scrim only shows beside the 640px column on wide screens.
+          // Plain dim, no blur — nothing to defocus.
+          background: 'rgba(0, 0, 0, 0.55)',
           zIndex: 260,
           animation: 'jasperBackdropIn 280ms ease-out both',
         }}
@@ -1280,6 +1302,14 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         className="jasper-sheet"
         style={{
           position: 'fixed',
+          // Sheet-as-page: pinned to every edge of the viewport, the way
+          // the app's own fixed header is (top:0 + safe-area padding),
+          // rather than a height computed from the viewport unit and
+          // anchored at the bottom — that arithmetic put the header
+          // under the iPhone status bar in Safari. The padding, not the
+          // position, keeps the wordmark clear of the notch / Dynamic
+          // Island; with no inset it is a plain 10px.
+          top: 0,
           bottom: 0,
           left: 'env(safe-area-inset-left, 0px)',
           right: 'env(safe-area-inset-right, 0px)',
@@ -1295,22 +1325,18 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           fontFamily: 'var(--font-jasper)',
           // Atmospheric surface — token-driven (jasper-tokens.js).
           // The same gradient is available to any future AI surface.
-          background: jasperAtmosphere(),
+          // The page tone, not the card tone: on a phone the sheet IS the
+          // screen now, and the composer / pills sit on it as surfaces.
+          background: jasperAtmosphere('var(--bg)'),
           border: `1px solid ${BORDER}`, borderBottom: 'none',
-          borderRadius: '18px 18px 0 0',
-          padding: '12px 16px',
-          paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+          borderRadius: 0,
+          padding: '10px 16px',
+          paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
+          paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
           // Motion + depth — token-driven so the iOS spring + sheet
           // shadow are tuned in one place.
           animation: `jasperSheetIn ${JASPER_DURATION.sheet}ms ${JASPER_SPRING} both`,
           boxShadow: JASPER_SHEET_SHADOW,
-          // 88% of the DYNAMIC viewport, less the status-bar inset. With
-          // `vh` the sheet was sized against the full-height viewport, so
-          // opening the keyboard left an 88vh sheet anchored to bottom:0
-          // with its header pushed up under the status bar and the title
-          // unreadable. `dvh` shrinks with the keyboard; the env() term
-          // keeps the top clear of the notch / Dynamic Island either way.
-          maxHeight: `calc(88${VH_UNIT} - env(safe-area-inset-top, 0px))`,
           display: 'flex', flexDirection: 'column',
           boxSizing: 'border-box',
           overflow: 'hidden',
@@ -1343,30 +1369,17 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           </div>
         )}
 
-        {/* Drag handle — Phase-3: brightened from BORDER to SUB
-            with a 5px height and a subtle drop shadow so the
-            affordance reads at a glance instead of disappearing
-            into the sheet's gradient header. */}
-        <div style={{
-          width: 40, height: 5, borderRadius: 3, background: SUB,
-          margin: '0 auto 10px', opacity: 0.55,
-        }} />
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <JasperBrainIcon size={24} />
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>AtmosFlow AI</div>
-              <div style={{
-                fontSize: 11, color: SUB, lineHeight: 1.3, marginTop: 1,
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              }}>
-                Indoor air quality assistant
-              </div>
-            </div>
+        {/* Header — a wordmark on the left (mark + name, no subtitle:
+            the page is the product now, the way Grok's header is just
+            "Grok"), and the three controls on the right as round ghost
+            buttons. No drag handle: a page is dismissed with its close
+            control, not dragged away. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 8px', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
+            <JasperBrainIcon size={26} />
+            <div style={{ fontSize: 19, fontWeight: 700, color: TEXT, lineHeight: 1.2, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>AtmosFlow AI</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             {/* New chat — only meaningful when the current transcript
                 has at least one turn, otherwise the button is a no-op
                 that just re-resets empty state. Hidden in that case
@@ -1376,13 +1389,8 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                 onClick={() => { newConversation(); setHistoryOpen(false) }}
                 aria-label="Start a new conversation"
                 title="New chat"
-                style={{
-                  background: 'transparent', border: `1px solid ${BORDER}`, borderRadius: 8,
-                  width: 32, height: 32, cursor: 'pointer', color: SUB,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'inherit',
-                }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                style={HEADER_BTN(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
               </button>
@@ -1403,35 +1411,21 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               }}
               aria-label={historyOpen ? 'Back to chat' : 'View past conversations'}
               title={historyOpen ? 'Back to chat' : 'History'}
-              style={{
-                background: historyOpen ? `${ACCENT}22` : 'transparent',
-                border: `1px solid ${historyOpen ? ACCENT : BORDER}`,
-                borderRadius: 8, width: 32, height: 32, cursor: 'pointer',
-                color: historyOpen ? ACCENT : SUB,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'inherit',
-              }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              style={HEADER_BTN(historyOpen)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" />
                 <polyline points="12 7 12 12 15 14" />
               </svg>
             </button>
-            {/* Close — given a filled surface + brighter foreground so it
-                reads unmistakably as the dismiss control, distinct from
-                the transparent ghost history / new-chat buttons beside
-                it. A crisp stroked X replaces the "×" text glyph (which
-                renders inconsistently across platforms). */}
+            {/* Close — a filled circle so it reads as the dismiss control
+                beside the ghost history / new-chat buttons. A crisp
+                stroked X (the "×" text glyph renders inconsistently). */}
             <button
               onClick={onClose}
               aria-label="Close AtmosFlow AI"
               title="Close"
-              style={{
-                background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8,
-                width: 32, height: 32, cursor: 'pointer', color: TEXT,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'inherit', flexShrink: 0,
-              }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              style={{ ...HEADER_BTN(false), background: SURFACE, color: TEXT }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
             </button>
@@ -1446,33 +1440,25 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             elevated, humidity high, etc.). The user can see at a
             glance what Jasper knows about their current situation.
             Hidden while the history panel is open. */}
-        {!historyOpen && !pickerOpen && contextChips.length > 0 && (
+        {/* The facility chip moved into the composer's toolbar (the slot
+            Grok gives its mode chip) — it is the one chip the user acts
+            on. The informational chips (status, zone, elevated
+            readings) stay here. */}
+        {!historyOpen && !pickerOpen && signalChips.length > 0 && (
           <div
             aria-label="AtmosFlow AI context"
             style={{
               display: 'flex', flexWrap: 'wrap', gap: 6,
-              marginBottom: 10, minWidth: 0,
+              marginBottom: 8, minWidth: 0,
             }}>
-            {contextChips.map((c, i) => {
-              // The facility chip is the user's entry point to
-              // switch which assessment Jasper is talking about.
-              // Other chips stay informational (read-only).
-              const isFacility = c.id === 'facility'
-              return (
-                <span
-                  key={c.id}
-                  className="jasper-chip-in"
-                  style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
-                  <JasperContextChip
-                    label={c.label}
-                    tone={c.tone}
-                    icon={c.icon}
-                    onClick={isFacility ? openAssessmentPicker : undefined}
-                    ariaLabel={isFacility ? `${c.label}: tap to switch assessment` : undefined}
-                  />
-                </span>
-              )
-            })}
+            {signalChips.map((c, i) => (
+              <span
+                key={c.id}
+                className="jasper-chip-in"
+                style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
+                <JasperContextChip label={c.label} tone={c.tone} icon={c.icon} />
+              </span>
+            ))}
           </div>
         )}
 
@@ -1862,54 +1848,24 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           ref={scrollRef}
           style={{
             flex: 1, overflowY: 'auto', overflowX: 'hidden',
-            padding: '8px 2px', minHeight: 200,
+            padding: '8px 2px', minHeight: 120,
             minWidth: 0, boxSizing: 'border-box', wordBreak: 'break-word',
+            // Empty canvas: centre the watermark. Flex only in that state
+            // so a transcript still flows from the top.
+            ...(isEmptyCanvas ? { display: 'flex', alignItems: 'center', justifyContent: 'center' } : {}),
           }}>
           {!introAccepted && (
             <JasperIntroPanel onAccept={acceptIntro} onNavigate={onNavigate} />
           )}
 
-          {introAccepted && messages.length === 0 && !sending && (
-            <div style={{ padding: '20px 4px 12px' }}>
-              {/* Typography hierarchy — a real headline anchors the
-                  empty state instead of a single body paragraph.
-                  Subtitle carries the screening-only positioning so
-                  the user sees the boundary on the very first frame. */}
-              <div className="jasper-stagger"
-                style={{
-                  fontSize: 20, fontWeight: 700, color: TEXT,
-                  lineHeight: 1.25, letterSpacing: '-0.2px', marginBottom: 6,
-                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '0ms',
-                }}>
-                How can I help with this assessment?
-              </div>
-              <div className="jasper-stagger"
-                style={{
-                  color: SUB, fontSize: 13, lineHeight: 1.55, marginBottom: 18,
-                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '250ms',
-                }}>
-                Ask about standards, readings, sampling, or likely next steps.
-                Scoring stays with the assessment engine.
-              </div>
-              <div className="jasper-stagger"
-                style={{
-                  fontSize: 11, fontWeight: 600, color: DIM,
-                  textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10,
-                  animation: 'jasperReveal 500ms ease-out both', animationDelay: '500ms',
-                }}>
-                Try one of these
-              </div>
-              {SUGGESTIONS.map((s, i) => (
-                <JasperSuggestionCard
-                  key={s.text}
-                  category={s.category}
-                  icon={s.icon}
-                  text={s.text}
-                  disabled={sending}
-                  onClick={() => sendMessage(s.text, effectiveContext)}
-                  revealDelayMs={900 + i * 180}
-                />
-              ))}
+          {/* Empty canvas — a faint, still mark in the middle of an open
+              page (Grok's watermark). The headline, body copy and "Try
+              one of these" label are gone: the prompt row above the
+              composer says what to ask, and the composer says where. */}
+          {isEmptyCanvas && (
+            <div aria-hidden="true" className="jasper-stagger"
+              style={{ opacity: 0.22, filter: 'grayscale(1)', animation: 'jasperReveal 600ms ease-out both', animationDelay: '120ms' }}>
+              <JasperBrainIcon size={72} animate={false} />
             </div>
           )}
 
@@ -2006,27 +1962,56 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           </div>
         )}
 
-        {/* Unified Claude-style composer. One rounded surface holds
-            three stacked regions: attached-photo chips at the top,
-            the textarea in the middle, and an action toolbar at the
-            bottom (paperclip + mic on the left, send on the right).
-            Borders on individual children removed — the container
-            border is the only visible boundary, and it brightens to
-            ACCENT with a soft glow on focus-within. AtmosFlow colors
-            throughout: SURFACE background, ACCENT focus / send-fill,
-            DIM idle icon foreground. */}
+        {/* Prompt row — the Grok capability pills. One horizontally
+            scrolling line just above the composer, empty canvas only:
+            once a conversation exists the row goes and the transcript
+            has the page. Bleeds to the sheet edges so the last pill
+            peeks in from the right, which is what says "scrolls". */}
+        {isEmptyCanvas && (
+          <div
+            aria-label="Suggested prompts"
+            className="jasper-prompt-row"
+            style={{
+              display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'hidden',
+              margin: '0 -16px', padding: '4px 16px 10px',
+              scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+              flexShrink: 0,
+            }}>
+            {SUGGESTIONS.map((s, i) => (
+              <JasperPromptPill
+                key={s.label}
+                icon={s.icon}
+                label={s.label}
+                disabled={sending || (s.attach && attachSlotsFull)}
+                onClick={s.attach
+                  ? () => fileInputRef.current?.click()
+                  : () => sendMessage(s.text, effectiveContext)}
+                revealDelayMs={200 + i * 70}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Composer — Grok's two-row surface. Row one is the text;
+            row two is a toolbar: [+] and the facility chip on the left
+            (the slot Grok gives its "Fast" mode chip — ours says which
+            assessment the AI is talking about), and on the right the
+            primary capsule: "Speak" (dictation) while the box is empty,
+            the accent send circle once there is text, Stop while
+            streaming. One rounded surface; the container owns the
+            border, which turns accent on focus-within. */}
         <div
           style={{
-            marginTop: 10,
+            marginTop: 2,
             background: SURFACE,
             border: `1px solid ${composerFocused ? ACCENT : BORDER}`,
-            borderRadius: 14,
+            borderRadius: 24,
             transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
             boxShadow: composerFocused
               ? jasperComposerFocusShadow()
-              : '0 1px 2px rgba(0,0,0,0.04)',
+              : '0 2px 12px rgba(0,0,0,0.06)',
             opacity: introAccepted ? 1 : 0.55,
-            minWidth: 0, boxSizing: 'border-box',
+            minWidth: 0, boxSizing: 'border-box', flexShrink: 0,
           }}
         >
           {/* L4 — staged photo chips. Sit inside the composer at the
@@ -2228,14 +2213,14 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             onFocus={() => setComposerFocused(true)}
             onBlur={() => setComposerFocused(false)}
             disabled={sending || !introAccepted}
-            placeholder={introAccepted ? 'Ask AtmosFlow AI…' : 'Tap "Start Chatting" above to begin'}
+            placeholder={introAccepted ? 'Ask AI' : 'Tap "Start Chatting" above to begin'}
             rows={1}
             style={{
               width: '100%',
-              padding: '11px 16px 4px',
+              padding: '14px 18px 4px',
               background: 'transparent',
               border: 'none',
-              color: TEXT, fontSize: 15, fontFamily: 'inherit', boxSizing: 'border-box',
+              color: TEXT, fontSize: 17, fontFamily: 'inherit', boxSizing: 'border-box',
               // The rounded container above owns the focus affordance: it
               // draws a 1.5px ACCENT border and a glow while `composerFocused`,
               // which is what satisfies WCAG 2.4.7 here. The global
@@ -2248,16 +2233,13 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             }}
           />
 
-          {/* Action toolbar — paperclip + mic on the left as ghost
-              icon buttons, send on the right as a small accent
-              circle that lights up only when there's content. Sits
-              inside the same rounded container so the whole thing
-              reads as one surface. */}
+          {/* Toolbar row. Left: the attach circle and the facility chip.
+              Right: the one primary capsule. */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '2px 8px 6px',
+            padding: '6px 10px 10px', gap: 8,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -2267,45 +2249,53 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                 aria-label="Attach photo or file"
                 title="Attach a photo, report (DOCX/PDF), logger export, or lab results"
                 style={{
-                  width: 36, height: 36, borderRadius: 10,
-                  background: 'transparent', border: 'none',
+                  width: 40, height: 40, borderRadius: 20,
+                  background: CARD, border: `1px solid ${BORDER}`,
                   cursor: sending || !introAccepted || attachSlotsFull ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontFamily: 'inherit', flexShrink: 0,
                   opacity: sending || !introAccepted ? 0.55 : 1,
                   WebkitTapHighlightColor: 'transparent',
                 }}>
-                <I n="paperclip" s={18} c={attachedPhotos.length > 0 ? ACCENT : SUB} w={1.8} />
+                <I n="plus" s={20} c={attachedPhotos.length > 0 || attachments.length > 0 ? ACCENT : TEXT} w={2} />
               </button>
-              {/* Voice dictation — same hook as before, but the
-                  button is rendered as a ghost (no border, no
-                  background) so it sits flush with the paperclip
-                  inside the composer container. The pulse +
-                  listening fill from the component itself still
-                  fire as expected. */}
-              <VoiceInputButton
-                ariaLabel="Dictate message"
-                disabled={sending || !introAccepted}
-                size={36}
-                style={{ border: 'none', borderRadius: 10, background: 'transparent' }}
-                idleBorder="transparent"
-                onTranscript={(text) => setInput((v) => appendWithSpace(v, text))}
-              />
+              {/* Which assessment the AI is talking about — tap to switch.
+                  A neutral capsule with the facility name; the accent is
+                  reserved for the primary control beside it. */}
+              {facilityChip && (
+                <button
+                  type="button"
+                  onClick={openAssessmentPicker}
+                  aria-label={`${facilityChip.label}: tap to switch assessment`}
+                  title="Switch assessment"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    height: 40, padding: '0 12px 0 11px', borderRadius: 20,
+                    background: CARD, border: `1px solid ${BORDER}`,
+                    color: TEXT, fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+                    cursor: 'pointer', minWidth: 0, maxWidth: 180,
+                    WebkitTapHighlightColor: 'transparent',
+                  }}>
+                  <I n="bldg" s={15} c={SUB} w={2} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{facilityChip.label}</span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={SUB} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              )}
             </div>
-            {/* Send / Stop toggle. While the agent is streaming
-                (sending=true) the same circle holds a Stop glyph
-                that aborts the in-flight request. After Stop the
-                partial assistant turn already on screen stays
-                visible so the user can read what was produced
-                before they interrupted. Modern AI chat pattern —
-                ChatGPT, Claude, Gemini, Granola all do this. */}
+            {/* Primary capsule. While the agent is streaming it is Stop
+                (the partial answer stays on screen); with text in the box
+                it is the accent send circle; otherwise "Speak" — the
+                dictation button as a labelled capsule, Grok's standing
+                voice affordance. */}
             {sending ? (
               <button
                 onClick={stop}
                 aria-label="Stop generating"
                 title="Stop generating"
                 style={{
-                  width: 36, height: 36, borderRadius: 18,
+                  width: 40, height: 40, borderRadius: 20,
                   background: 'var(--accent-fill)',
                   border: 'none',
                   cursor: 'pointer',
@@ -2315,66 +2305,65 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                   WebkitTapHighlightColor: 'transparent',
                   animation: 'faStopIn 140ms cubic-bezier(0.16, 1, 0.3, 1)',
                 }}>
-                {/* Filled square — universal "stop" glyph in AI
-                    chat UIs. Sized to read at 36px. */}
+                {/* Filled square — universal "stop" glyph in AI chat UIs. */}
                 <span style={{
-                  display: 'block', width: 12, height: 12, borderRadius: 2,
+                  display: 'block', width: 13, height: 13, borderRadius: 3,
                   background: 'var(--on-accent-fill)',
                 }} />
               </button>
-            ) : (
+            ) : input.trim() ? (
               <button
                 onClick={submit}
-                disabled={!input.trim() || !introAccepted}
+                disabled={!introAccepted}
                 aria-label="Send"
                 style={{
-                  width: 36, height: 36, borderRadius: 18,
-                  background: input.trim() && introAccepted ? 'var(--accent-fill)' : CARD,
+                  width: 40, height: 40, borderRadius: 20,
+                  background: 'var(--accent-fill)',
                   border: 'none',
-                  cursor: input.trim() && introAccepted ? 'pointer' : 'not-allowed',
+                  cursor: introAccepted ? 'pointer' : 'not-allowed',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontFamily: 'inherit', flexShrink: 0,
                   transition: 'background 0.15s, transform 0.1s',
                   WebkitTapHighlightColor: 'transparent',
                 }}>
-                {/* Chunky up-arrow glyph — matches the
-                    Claude / ChatGPT / Gemini send-button convention.
-                    StrokeWidth bumped to 2.6 so the arrow reads as
-                    bold against the small (16px) icon size. */}
-                <I n="arrowUp" s={18} c={input.trim() && introAccepted ? 'var(--on-accent-fill)' : DIM} w={2.6} />
+                <I n="arrowUp" s={20} c="var(--on-accent-fill)" w={2.6} />
               </button>
+            ) : (
+              <VoiceInputButton
+                label="Speak"
+                ariaLabel="Speak your question"
+                disabled={sending || !introAccepted}
+                size={40}
+                onTranscript={(text) => setInput((v) => appendWithSpace(v, text))}
+              />
             )}
           </div>
         </div>
         </>)}
 
-        {/* Footer. This is a tool inside the assessment workflow, not a
-            standalone chatbot product, so the legal links are kept one
-            tap away but visually recessive (DIM, tiny). The screening-
-            only review note carries the defensibility positioning and
-            is the more legible of the two. */}
+        {/* Footer — one recessive line. The review note carries the
+            positioning; the legal links stay one tap away. */}
         <div style={{
-          marginTop: 8, paddingTop: 8, borderTop: `1px solid ${BORDER}`,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          fontSize: 10, color: DIM, gap: 8, flexWrap: 'wrap',
-          minWidth: 0, boxSizing: 'border-box',
+          marginTop: 8,
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          fontSize: 10.5, color: DIM, gap: 8, flexWrap: 'wrap',
+          minWidth: 0, boxSizing: 'border-box', lineHeight: 1.3,
         }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => onNavigate?.('tos')}
-              style={{ background: 'transparent', border: 'none', padding: 0, color: DIM, fontFamily: 'inherit', fontSize: 10, cursor: 'pointer' }}>
-              Terms
-            </button>
-            <span aria-hidden="true" style={{ color: DIM }}>·</span>
-            <button
-              type="button"
-              onClick={() => onNavigate?.('privacy')}
-              style={{ background: 'transparent', border: 'none', padding: 0, color: DIM, fontFamily: 'inherit', fontSize: 10, cursor: 'pointer' }}>
-              Privacy
-            </button>
-          </div>
-          <span style={{ color: SUB, fontSize: 10, letterSpacing: '0.2px' }}>AI output requires professional review</span>
+          <span style={{ color: SUB, letterSpacing: '0.2px' }}>AI output requires professional review</span>
+          <span aria-hidden="true">·</span>
+          <button
+            type="button"
+            onClick={() => onNavigate?.('tos')}
+            style={{ background: 'transparent', border: 'none', padding: 0, color: DIM, fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer' }}>
+            Terms
+          </button>
+          <span aria-hidden="true">·</span>
+          <button
+            type="button"
+            onClick={() => onNavigate?.('privacy')}
+            style={{ background: 'transparent', border: 'none', padding: 0, color: DIM, fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer' }}>
+            Privacy
+          </button>
         </div>
 
         {/* Quota footer — only shown after the first response when the
