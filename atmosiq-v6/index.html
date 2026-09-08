@@ -112,6 +112,14 @@
         --surface-deep:#050505;
         --raised:#1E1E1E;
         --border:#262626;
+        /* Border ladder (UI consistency pass, 2026-09). tokens.js used to
+           hard-code these as white-alpha (rgba(255,255,255,.04/.07/.12)),
+           which is invisible on a white page — in light mode every
+           V3.panel / SettingsList group lost its edge and read as loose
+           text. Subtle is for dividers inside a panel, --border for panel
+           edges, strong for emphasised edges / selected tracks. */
+        --border-subtle:#1C1C1C;
+        --border-strong:#333333;
         /* Restrained primary cyan — darker and a touch less saturated
            than the old #22D3EE aqua, so header controls, icon outlines,
            text accents, and default active states read technical and
@@ -182,7 +190,13 @@
            5.78:1 on --bg, 4.69:1 on --surface and 5.17:1 on --raised,
            so accent text passes AA on every light surface it sits on. */
         --bg:#FFFFFF;
-        --surface:#E4E8EC;
+        /* Surface tier sits one step below a white card, not four: the
+           previous #E4E8EC was a mid grey that turned every var(--surface)
+           control (AI suggestion cards, composer, chips, segmented
+           controls, stat tiles) into heavy slate slabs on an otherwise
+           white sheet. #F3F5F7 reads as a grouped area and still sits
+           visibly under a white card. */
+        --surface:#F3F5F7;
         --card:#FFFFFF;
         --surface-deep:#FFFFFF;
         /* Light-mode raised surface for "selected" / "focused" rows.
@@ -197,6 +211,8 @@
            cyan-outlined. Cyan still carries active/selected states via
            --accent and the pale --raised tint. */
         --border:#D6DBE1;
+        --border-subtle:#E6EAEE;
+        --border-strong:#C2C9D2;
         --accent:#0C6F86;
         --accent-dim:#155E75;
         --text:#0F172A;

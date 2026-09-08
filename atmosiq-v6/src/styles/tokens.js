@@ -98,10 +98,13 @@ export const RAISED = 'var(--raised)'
 // semantic emphasis (active states, key links). Subtle is for
 // dividers within a panel; default is for panel edges; strong is
 // for top-of-card emphasis or selected tab underline tracks.
-export const BORDER_SUBTLE  = 'rgba(255,255,255,0.04)'
-export const BORDER_DEFAULT = 'rgba(255,255,255,0.07)'
-export const BORDER_STRONG  = 'rgba(255,255,255,0.12)'
-export const BORDER_ACCENT  = 'rgba(34,211,238,0.35)'
+// Theme-aware (index.html --border-subtle / --border / --border-strong).
+// These were white-alpha literals, which vanish on a white page: in
+// light mode every panel drawn with them had no edge at all.
+export const BORDER_SUBTLE  = 'var(--border-subtle)'
+export const BORDER_DEFAULT = 'var(--border)'
+export const BORDER_STRONG  = 'var(--border-strong)'
+export const BORDER_ACCENT  = 'color-mix(in srgb, var(--accent) 35%, transparent)'
 
 // Text ladder. Primary for body and titles; secondary for supporting
 // labels; tertiary for metadata; muted for legal-fine-print and

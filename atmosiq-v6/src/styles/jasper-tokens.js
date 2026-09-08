@@ -89,9 +89,11 @@ export const JASPER_CHIP_TONES = {
     bd: 'color-mix(in srgb, var(--warn) 30%, transparent)',
   },
   success: {
-    fg: 'var(--ok)',
-    bg: 'color-mix(in srgb, var(--ok) 12%, transparent)',
-    bd: 'color-mix(in srgb, var(--ok) 30%, transparent)',
+    // --success is the theme token; --ok was never declared, so this tone
+    // rendered with no colour at all.
+    fg: 'var(--success)',
+    bg: 'color-mix(in srgb, var(--success) 12%, transparent)',
+    bd: 'color-mix(in srgb, var(--success) 30%, transparent)',
   },
 }
 

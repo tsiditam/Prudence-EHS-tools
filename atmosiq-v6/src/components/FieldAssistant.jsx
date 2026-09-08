@@ -1784,7 +1784,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                         fontFamily: 'inherit', color: TEXT,
                         WebkitTapHighlightColor: 'transparent',
                       }}>
-                      <I n="check" s={14} c={isPicked ? ACCENT : 'var(--ok)'} w={2} />
+                      <I n="check" s={14} c={isPicked ? ACCENT : 'var(--success)'} w={2} />
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{
                           display: 'block', fontSize: 13.5, fontWeight: 600,

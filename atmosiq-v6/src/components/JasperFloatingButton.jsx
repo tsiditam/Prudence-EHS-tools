@@ -6,8 +6,8 @@
  * JasperFloatingButton — the AtmosFlow AI launcher, detached from the
  * bottom dock and free to sit anywhere on screen.
  *
- *   • Liquid-glass circular pill (matches AtmosFlowFloatingDock material),
- *     dark glass in dark mode, white capsule in light mode.
+ *   • Flat circular control in the dock's material (card tone, hairline
+ *     edge, lifted shadow) — theme tokens carry the light-mode flip.
  *   • Instagram-style scroll response: full size at the top / when
  *     scrolling up, shrinks while scrolling down so it stays out of the
  *     way while reading, then grows back. Calms under reduced-motion.
@@ -59,10 +59,14 @@ if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   const s = document.createElement('style')
   s.id = 'jfb-style'
   s.textContent =
-    '@keyframes jfbBreathe{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(.84) rotate(0deg)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.26) rotate(180deg)}}' +
-    '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 8px 28px rgba(0,0,0,0.34)!important;}' +
-    // Light mode: flip the dark glass to a white capsule, matching the dock.
-    '[data-theme="light"] .jfb-btn{background:rgba(255,255,255,0.92)!important;border-color:rgba(15,23,42,0.10)!important;box-shadow:0 0 0 1px rgba(15,23,42,0.09),0 2px 8px rgba(15,23,42,0.18),0 10px 24px rgba(15,23,42,0.24),inset 0 1px 0 rgba(255,255,255,0.7)!important;}' +
+    // Quiet breathe: the accent halo swells and fades behind the mark. It is
+    // the one piece of motion that says "assistant" — kept, but in the
+    // brand cyan only (the purple sweep it replaced was the only purple in
+    // the app).
+    '@keyframes jfbBreathe{0%,100%{opacity:.18;transform:translate(-50%,-50%) scale(.9)}50%{opacity:.42;transform:translate(-50%,-50%) scale(1.12)}}' +
+    '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 8px 24px rgba(0,0,0,0.34)!important;}' +
+    // Light mode: theme tokens flip the fill and edge; only the shadow softens.
+    '[data-theme="light"] .jfb-btn{box-shadow:0 8px 24px rgba(15,23,42,0.16),0 1px 2px rgba(15,23,42,0.08)!important;}' +
     '@media (prefers-reduced-motion: reduce){.jfb-glow{animation:none!important}.jfb-btn{transition:none!important}}'
   document.head.appendChild(s)
 }
@@ -185,13 +189,11 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
         justifyContent: 'center',
         padding: 0,
         cursor: 'pointer',
-        // No visible ring: transparent border keeps the 1px geometry (so the
-        // light-mode hairline override still applies) without the white outline.
-        border: '1px solid transparent',
-        background: 'rgba(255,255,255,0.04)',
-        backdropFilter: 'blur(14px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(14px) saturate(200%)',
-        boxShadow: '0 8px 28px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 1px rgba(0,0,0,0.10)',
+        // Same flat material as the dock beside it: card tone, hairline
+        // edge, one lifted shadow. No blur, no specular inset.
+        border: '1px solid var(--border)',
+        background: 'var(--card)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30)',
         // Only size animates. left/top are deliberately untransitioned so the
         // button tracks the pointer exactly instead of easing behind it.
         transition: 'width 280ms cubic-bezier(.22,1,.36,1), height 280ms cubic-bezier(.22,1,.36,1)',
@@ -215,13 +217,9 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
           // breathe animation is disabled under reduced-motion (the keyframe
           // otherwise owns the translate).
           transform: 'translate(-50%, -50%)',
-          // Two-tone aura — cyan ↔ purple swept around the disc (conic), then
-          // faded to nothing at the edge with a radial mask so it still reads as
-          // a soft glow, not a hard ring. Cyan at both ends of the sweep so the
-          // 0°/360° wrap is seamless. The brain glyph itself stays neon cyan.
-          background: 'conic-gradient(from 0deg, #22E0F2, #A855F7, #22E0F2)',
-          WebkitMaskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
-          maskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
+          // Single-hue accent halo, fading to nothing well inside the disc so
+          // it reads as a soft glow behind the mark rather than a ring.
+          background: 'radial-gradient(circle, var(--accent) 0%, transparent 62%)',
           // Slower, calmer breathe — cool but not distracting.
           animation: 'jfbBreathe 5.4s ease-in-out infinite',
         }}

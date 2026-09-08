@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import STO from '../utils/storage'
 import { FAQ_SECTIONS } from '../constants/faq'
 import { I } from './Icons'
-import { mix } from '../utils/theme'
+import * as V3 from '../styles/tokens'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
@@ -144,8 +144,8 @@ export default function SearchView({ index, onOpenReport, onResumeDraft, onOpenI
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 720, margin: '0 auto' }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: TEXT, margin: 0, letterSpacing: '-0.3px' }}>Search</h2>
-      <div style={{ fontSize: 12, color: SUB, marginTop: 4, marginBottom: 14 }}>Reports, incidents, settings, help</div>
+      <h2 style={{ ...V3.T.h1, margin: 0 }}>Search</h2>
+      <div style={{ ...V3.T.h1Sub, marginTop: 4, marginBottom: 14 }}>Reports, incidents, settings, help</div>
 
       {/* Search bar with two clear-affordances:
             - X button INSIDE the input on the right (only renders
@@ -188,8 +188,10 @@ export default function SearchView({ index, onOpenReport, onResumeDraft, onOpenI
               width: '100%',
               padding: q.length > 0 ? '13px 44px 13px 40px' : '13px 16px 13px 40px',
               background: CARD,
+              // Focus = the 1px accent edge alone; the 4px halo on top of it
+              // drew a double ring, unlike every other focused field.
               border: `1px solid ${focused ? ACCENT : BORDER}`,
-              boxShadow: focused ? `0 0 0 4px ${mix('accent', 12)}` : 'none',
+              boxShadow: 'none',
               borderRadius: 10, color: TEXT, fontSize: 15,
               fontFamily: 'inherit', boxSizing: 'border-box', minHeight: 46,
               transition: 'border-color 0.15s ease, box-shadow 0.15s ease, padding-right 0.18s ease',

@@ -12,14 +12,15 @@ import { useEffect, useState } from 'react'
 import { clickable } from './ui/a11y'
 import { formatShortDateTime } from '../utils/formatDate'
 import STO from '../utils/storage'
-import { mix } from '../utils/theme'
 import { generateIncidentDocx } from './IncidentDocxReport'
 import { I } from './Icons'
+import * as V3 from '../styles/tokens'
+import TactileButton from './ui/TactileButton'
+import Chip from './ui/Chip'
 
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
 const ACCENT = 'var(--accent)'
-const WARN = 'var(--warn)'
 const DANGER = 'var(--danger)'
 const SUCCESS = 'var(--success)'
 const TEXT = 'var(--text)'
@@ -47,7 +48,9 @@ const STATUS_LABEL = {
 // the year (the list is recent-first) and uses the device locale.
 const fmtDate = (iso) => formatShortDateTime(iso, { fallback: iso || '' })
 
-export default function IncidentLog({ profile, onBack, onNewIncident, onView }) {
+// `onBack` is still passed by the shell; the header back pill handles it
+// now, so the view no longer renders its own.
+export default function IncidentLog({ profile, onNewIncident, onView }) {
   const [incidents, setIncidents] = useState([])
   const [filter, setFilter] = useState('open')
   const [exportingId, setExportingId] = useState(null)
@@ -76,38 +79,49 @@ export default function IncidentLog({ profile, onBack, onNewIncident, onView }) 
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 720, margin: '0 auto' }}>
-      <div style={{ marginBottom: 8 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Home</button>
-      </div>
+      {/* The shell header's back pill is the single back affordance; the
+          in-body "← Home" link duplicated it. Title + subtitle use the same
+          scale as Projects / Reports / Settings. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12 }}>
-        <div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: TEXT, margin: 0, letterSpacing: '-0.3px' }}>Incidents</h2>
-          <div style={{ fontSize: 12, color: SUB, marginTop: 4 }}>Indoor air events documented for the record. Not a substitute for emergency services.</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={{ ...V3.T.h1, margin: 0 }}>Incidents</h2>
+          <div style={{ ...V3.T.h1Sub, marginTop: 4 }}>Indoor air events documented for the record. Not a substitute for emergency services.</div>
         </div>
-        <button onClick={onNewIncident} style={{ padding: '10px 14px', background: WARN, border: 'none', borderRadius: 8, color: 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', minHeight: 40 }}>+ Report</button>
+        {/* Accent primary, like every other create action. This was a
+            --warn (amber) fill — the only amber button in the app, and it
+            read as a caution badge rather than the way to add a record. */}
+        <TactileButton variant="primary" size="sm" pill bubble onClick={onNewIncident} icon={<I n="plus" s={14} c="var(--on-accent-fill)" w={2.2} />} style={{ flexShrink: 0 }}>
+          Report
+        </TactileButton>
       </div>
 
-      {/* Status filter chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-        {STATUS_FILTERS.map(s => (
-          <button key={s.id} onClick={() => setFilter(s.id)} style={{
-            padding: '7px 12px', borderRadius: 6,
-            background: filter === s.id ? `${mix('accent', 7)}` : 'transparent',
-            border: `1px solid ${filter === s.id ? `${mix('accent', 25)}` : BORDER}`,
-            color: filter === s.id ? ACCENT : SUB,
-            fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 32,
-          }}>
-            {s.label} <span style={{ color: filter === s.id ? ACCENT : DIM, fontFamily: 'var(--font-mono)', marginLeft: 4 }}>{counts[s.id] || 0}</span>
-          </button>
-        ))}
+      {/* Status filter chips — the shared pill Chip, matching the Projects
+          filter strip, instead of a local 6px-radius rectangle. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        {STATUS_FILTERS.map(s => {
+          const on = filter === s.id
+          return (
+            <Chip key={s.id} selected={on} onClick={() => setFilter(s.id)} style={{ padding: '7px 13px', minHeight: 32, fontSize: 12 }}>
+              {s.label} <span style={{ color: on ? ACCENT : DIM, fontFamily: 'var(--font-mono)', marginLeft: 4 }}>{counts[s.id] || 0}</span>
+            </Chip>
+          )
+        })}
       </div>
 
       {/* List */}
       {filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: 40, color: DIM, fontSize: 13 }}>
-          {incidents.length === 0
-            ? 'No incidents reported yet. Tap "+ Report" to document one.'
-            : `No ${STATUS_LABEL[filter]?.toLowerCase() || ''} incidents.`}
+        <div style={{ ...V3.panel(), textAlign: 'center', padding: '36px 24px' }}>
+          <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
+            <I n="alert" s={24} c={ACCENT} w={1.8} />
+          </div>
+          <div style={{ ...V3.T.h3, marginBottom: 6 }}>
+            {incidents.length === 0 ? 'No incidents recorded' : `No ${STATUS_LABEL[filter]?.toLowerCase() || ''} incidents`}
+          </div>
+          <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto' }}>
+            {incidents.length === 0
+              ? 'Document an indoor air event and it will be listed here, with a Word export for the record.'
+              : 'Try a different status filter.'}
+          </div>
         </div>
       )}
       {filtered.map(inc => (

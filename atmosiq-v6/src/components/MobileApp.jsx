@@ -266,13 +266,16 @@ function mapInstrumentCalStatus(inst) {
 // In-app FAQ — same FAQ_SECTIONS data as the public landing page so the
 // public answer and the in-app answer cannot drift apart. One question
 // open at a time across the entire list.
-function HelpView({ onBack }) {
+function HelpView() {
   const [openId, setOpenId] = useState(null)
   return (
     <div style={{paddingTop:24,paddingBottom:120}}>
-      <button onClick={onBack} style={{background:'none',border:'none',color:ACCENT,fontSize:15,fontWeight:500,cursor:'pointer',padding:'0 4px',marginBottom:16,fontFamily:'inherit'}}>← Settings</button>
-      <h2 style={{fontSize:22,fontWeight:700,marginBottom:6,color:TEXT,letterSpacing:'-0.3px',fontFamily:'inherit'}}>Help &amp; FAQ</h2>
-      <div style={{fontSize:12,color:DIM,marginBottom:20,lineHeight:1.55}}>Common questions about AtmosFlow methodology, scoring, workflow, and limitations.</div>
+      {/* The shell header's back pill is the single back affordance; the
+          in-body "← Settings" link duplicated it (and pointed somewhere
+          else, which is how a screen ends up with two backs). Title +
+          subtitle on the shared scale. */}
+      <h2 style={{...V3.T.h1,marginBottom:4}}>Help &amp; FAQ</h2>
+      <div style={{...V3.T.h1Sub,marginBottom:20}}>Common questions about AtmosFlow methodology, scoring, workflow, and limitations.</div>
       {FAQ_SECTIONS.map(section => (
         <div key={section.title} style={{marginTop:24}}>
           <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.8px',padding:'0 4px 8px'}}>{section.title}</div>
@@ -330,10 +333,20 @@ export const TrashView = ({ onRecover, onDelete }) => {
   const [items, setItems] = useState([])
   useEffect(() => { Backup.listTrash().then(setItems) }, [])
   return (
-    <div style={{paddingTop:28,paddingBottom:100}}>
-      <h2 style={{fontSize:22,fontWeight:700,marginBottom:8,color:TEXT}}>Trash</h2>
-      <div style={{fontSize:13,color:SUB,marginBottom:20,lineHeight:1.6}}>Deleted items are kept for 30 days, then permanently removed.</div>
-      {items.length===0?<div style={{padding:36,textAlign:'center',background:CARD,borderRadius:14,border:`1px solid ${BORDER}`,color:SUB,fontSize:14}}>Trash is empty</div>
+    <div style={{paddingTop:24,paddingBottom:120}}>
+      <h2 style={{...V3.T.h1,marginBottom:4}}>Trash</h2>
+      <div style={{...V3.T.h1Sub,marginBottom:20}}>Deleted items are kept for 30 days, then permanently removed.</div>
+      {items.length===0?(
+        // Same empty-state shape as Projects / Reports / Incidents: icon
+        // tile, title, one line of body — not a bare sentence in a box.
+        <div style={{...V3.panel(),textAlign:'center',padding:'36px 24px'}}>
+          <div style={{width:52,height:52,borderRadius:14,margin:'0 auto 14px',display:'flex',alignItems:'center',justifyContent:'center',background:'color-mix(in srgb, var(--accent) 8%, transparent)',border:'1px solid color-mix(in srgb, var(--accent) 22%, transparent)'}}>
+            <I n="trash" s={24} c="var(--accent)" w={1.8} />
+          </div>
+          <div style={{...V3.T.h3,marginBottom:6}}>Trash is empty</div>
+          <div style={{...V3.T.bodyDim,maxWidth:360,margin:'0 auto'}}>Deleted reports and drafts wait here for 30 days before they are removed for good.</div>
+        </div>
+      )
       :items.map(t=>(
         <div key={t.id} style={{padding:'16px 18px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:14,marginBottom:8,display:'flex',alignItems:'center',gap:14}}>
           <div style={{flex:1}}>
@@ -5463,24 +5476,22 @@ export default function MobileApp() {
            menu opens. position:relative is kept for stacking; the transform /
            transition / filter all come from the inline style. */
         .af-menu-trigger{position:relative;}
-        /* ── Shared glass control ──
-           Same liquid-glass language as the bottom dock (AtmosFlowFloatingDock):
-           near-clear translucent fill + light blur + a bright specular rim in
-           dark mode, flipping to a white capsule in light mode. Applied to the
-           header controls (back/title pill, hamburger, kebab) so the header and
-           the nav speak one material. Shape (border-radius) is left to each
-           control's inline style. */
+        /* ── Shared header control ──
+           The same flat material as the bottom dock (AtmosFlowFloatingDock)
+           and every card: solid card tone, hairline edge, one soft contact
+           shadow. Applied to the header controls (back/title pill,
+           hamburger, kebab) so header, nav and content speak one material.
+           Shape (border-radius) is left to each control's inline style.
+           (UI consistency pass, 2026-09: the translucent fill, blur and
+           bright specular rim went — they were the brightest edges on
+           screen once the cards went flat.) */
         .af-glass-control{
-          background:rgba(255,255,255,0.05);
-          -webkit-backdrop-filter:blur(14px) saturate(200%);
-          backdrop-filter:blur(14px) saturate(200%);
-          border:1px solid rgba(255,255,255,0.22);
-          box-shadow:0 4px 16px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.42), inset 0 0 0 1px rgba(255,255,255,0.04);
+          background:var(--card);
+          border:1px solid var(--border);
+          box-shadow:0 1px 2px rgba(0,0,0,0.30);
         }
         [data-theme="light"] .af-glass-control{
-          background:rgba(255,255,255,0.92);
-          border-color:rgba(15,23,42,0.10);
-          box-shadow:0 4px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7);
+          box-shadow:0 1px 2px rgba(15,23,42,0.08);
         }
         /* ── Liquid-glass "bubble" button (iOS-26 tactile control) ──
            A reusable, token-driven surface for primary CTAs, filter / nav
@@ -5554,7 +5565,7 @@ export default function MobileApp() {
         }
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         button{font-family:inherit;-webkit-tap-highlight-color:transparent;}
-        input::placeholder,textarea::placeholder{color:#525A6A;}
+        input::placeholder,textarea::placeholder{color:var(--dim);}
         input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;}
         input[type=number]{-moz-appearance:textfield;}
         select option{background:${CARD};color:${SUB};}

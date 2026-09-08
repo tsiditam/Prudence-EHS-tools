@@ -7,12 +7,11 @@
  * assessment result tabs. Speaks the same design language as the bottom
  * navigation dock (AtmosFlowFloatingDock):
  *
- *   • Each tab is a glass control — near-clear translucent fill + light
- *     blur + a bright specular rim in dark mode, flipping to a white
- *     capsule in light mode.
- *   • Active tab → glass pill with a cyan accent ring, showing icon +
- *     label, both in cyan (var(--accent-fill)). Inactive tabs → icon-only
- *     glass circles with a grey glyph (#A1A1AA), matching the dock.
+ *   • Each tab is a flat control — card tone + hairline edge, the same
+ *     material as the dock and the header controls, in both themes.
+ *   • Active tab → accent-tinted pill with an accent ring, showing icon +
+ *     label, both in var(--accent). Inactive tabs → icon-only circles
+ *     with a var(--sub) glyph, matching the dock.
  *   • Capsule shapes (border-radius 999px); no underline / boxy selected
  *     state / bottom indicator. Horizontally scrollable on mobile.
  *
@@ -35,10 +34,13 @@ if (typeof document !== 'undefined' && !document.getElementById('aspn-style')) {
   s.id = 'aspn-style'
   s.textContent =
     '.aspn-scroll::-webkit-scrollbar{display:none}' +
-    '.aspn-tab{background:rgba(255,255,255,0.05);-webkit-backdrop-filter:blur(14px) saturate(200%);backdrop-filter:blur(14px) saturate(200%);border:1px solid rgba(255,255,255,0.18);box-shadow:inset 0 1px 0 rgba(255,255,255,0.38);}' +
-    '.aspn-tab-on{background:linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05));box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.42);}' +
-    '[data-theme="light"] .aspn-tab{background:rgba(255,255,255,0.9);border-color:rgba(15,23,42,0.10);box-shadow:0 2px 8px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.7);}' +
-    '[data-theme="light"] .aspn-tab-on{background:color-mix(in srgb, var(--accent) 12%, #ffffff);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);}' +
+    // Flat material, shared with the dock and header controls: card tone +
+    // hairline edge at rest; the active tab is the same accent tint + ring
+    // the side menu uses for its selected row. Theme tokens carry the
+    // light-mode flip, so there is no per-theme override.
+    '.aspn-tab{background:var(--card);border:1px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,0.20);}' +
+    '.aspn-tab-on{background:color-mix(in srgb, var(--accent) 12%, var(--card));border-color:color-mix(in srgb, var(--accent) 30%, transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);}' +
+    '[data-theme="light"] .aspn-tab{box-shadow:0 1px 2px rgba(15,23,42,0.06);}' +
     '@media (prefers-reduced-motion: reduce){.aspn-tab{transition:none !important;}}'
   document.head.appendChild(s)
 }
@@ -88,7 +90,10 @@ export default function AssessmentSegmentedPillNav({
       {(tabs || []).map((t) => {
         const on = active === t.id
         const labelled = on || showLabels
-        const fg = on ? 'var(--accent-fill)' : '#A1A1AA'
+        // Active in the restrained accent (the fill cyan is for filled CTAs);
+        // inactive on the theme's --sub so it reads in light mode too — the
+        // old literal #A1A1AA was a dark-mode grey on a white pill.
+        const fg = on ? 'var(--accent)' : 'var(--sub)'
         const press = (e) => { e.currentTarget.style.transform = 'scale(0.95)' }
         const release = (e) => { e.currentTarget.style.transform = 'scale(1)' }
         return (

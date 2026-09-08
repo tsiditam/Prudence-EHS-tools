@@ -15,6 +15,7 @@
 
 import { useState, Suspense } from 'react'
 import { I } from './Icons'
+import * as V3 from '../styles/tokens'
 import { generateMoldCoCBlob, MOLD_COC_FILENAME_PREFIX } from './forms/MoldCoCForm'
 import { generateTvocCoCBlob, TVOC_COC_FILENAME_PREFIX } from './forms/TvocCoCForm'
 import { deliverFile } from './forms/deliverFile'
@@ -68,7 +69,9 @@ function buildFilename(prefix, profile) {
   return `${prefix}-${who}-${todayIso()}.pdf`
 }
 
-export default function SamplingFormsView({ profile, onBack }) {
+// `onBack` is still passed by the shell; the header back pill handles it
+// now, so the view no longer renders its own.
+export default function SamplingFormsView({ profile }) {
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
   const [subView, setSubView] = useState('picker') // 'picker' | 'lab-import'
@@ -93,19 +96,13 @@ export default function SamplingFormsView({ profile, onBack }) {
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 720, margin: '0 auto' }}>
-      <div style={{ marginBottom: 8 }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: 'none', border: 'none', color: ACCENT,
-            fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0,
-          }}>← Home</button>
-      </div>
-
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: TEXT, margin: 0, letterSpacing: '-0.3px' }}>
+      {/* The shell header's back pill is the single back affordance; the
+          in-body "← Home" link duplicated it. Title + subtitle use the same
+          scale as Projects / Reports / Settings. */}
+      <h2 style={{ ...V3.T.h1, margin: 0 }}>
         Sampling Forms
       </h2>
-      <div style={{ fontSize: 12, color: SUB, marginTop: 4, marginBottom: 20, lineHeight: 1.55 }}>
+      <div style={{ ...V3.T.h1Sub, marginTop: 4, marginBottom: 20 }}>
         Print-ready Chain of Custody forms for field sampling. Your assessor identity
         and instrument calibration are pre-filled; sample-specific rows are blank for
         hand-completion at the time of collection.
