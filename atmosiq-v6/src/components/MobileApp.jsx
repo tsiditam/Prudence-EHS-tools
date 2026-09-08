@@ -3320,9 +3320,10 @@ export default function MobileApp() {
         {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
           {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No sampling indicated — no hypotheses requiring confirmatory sampling.</div>
           :<>{samplingPlan.plan.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';const priLabel=p.priority.charAt(0).toUpperCase()+p.priority.slice(1);return(
-            <div key={i} style={RS_SECTION}>
+            <div key={i} style={i===0?undefined:RS_SECTION}>
               {/* Sample type and its priority on one line; the priority is a
-                  word in its colour. */}
+                  word in its colour. The first sits under the tab strip's
+                  rule and draws none of its own. */}
               <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:14,alignItems:'baseline'}}>
                 <div style={{color:TEXT,fontWeight:700,fontSize:16,lineHeight:1.35}}>{p.type}</div>
                 <span style={{...V3.T.caption, color:pc, whiteSpace:'nowrap'}}>{priLabel} priority</span>
@@ -3381,9 +3382,10 @@ export default function MobileApp() {
         </div>}
 
         {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
-          <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5, marginBottom:6}}>Tiered by urgency and type. Review and adapt for site conditions before implementation.</div>
-          {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].map(cat=>{
-            if(!recs[cat.k]?.length)return null
+          {/* No caption over the tiers: the tier names and their timeframes
+              say how the list is ordered, and "review before implementing"
+              is the assessor's job description, not a note they need. */}
+          {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].filter(cat=>recs[cat.k]?.length).map((cat,ci)=>{
             const knownZones=(zones||[]).map(z=>z.zn).filter(Boolean)
             // Engine v2.8+ emits RecommendationAction[] objects; reports
             // finalized pre-v2.8 stored string[] — groupActions normalizes
@@ -3396,8 +3398,10 @@ export default function MobileApp() {
             // scrolling. Card padding bumped to 16px and the left edge
             // gets extra to clear the stripe.
             // A tier is a section: its name in the tier colour, the timeframe
-            // beside it in secondary ink. No card, no stripe.
-            return(<div key={cat.k} style={RS_SECTION}>
+            // beside it in secondary ink. No card, no stripe. The first tier
+            // sits directly under the tab strip's rule, so it draws no rule
+            // of its own.
+            return(<div key={cat.k} style={ci===0?undefined:RS_SECTION}>
             <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:12,alignItems:'baseline'}}>
               <div style={{color:cat.c,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
               <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{cat.s}</div>

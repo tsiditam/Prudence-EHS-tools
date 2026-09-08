@@ -87,6 +87,30 @@ describe('JasperFloatingButton', () => {
     expect(btn.style.width).toBe('60px')
   })
 
+  // The app's content scrolls inside a fixed element, not the window. Scroll
+  // events do not bubble, so a window-only listener never heard them and the
+  // launcher stayed full-size over the text it was meant to clear.
+  it('responds to a scroll container that is not the window', () => {
+    const scroller = document.createElement('div')
+    document.body.appendChild(scroller)
+    render(<JasperFloatingButton onClick={() => {}} />)
+    const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
+
+    scroller.scrollTop = 240; fireEvent.scroll(scroller)
+    expect(btn.style.width).toBe('46px')
+
+    scroller.scrollTop = 120; fireEvent.scroll(scroller)
+    expect(btn.style.width).toBe('60px')
+    scroller.remove()
+  })
+
+  it('has no gradient aura behind the glyph', () => {
+    const { container } = render(<JasperFloatingButton onClick={() => {}} />)
+    expect(container.querySelector('.jfb-glow')).toBeNull()
+    const styles = Array.from(container.querySelectorAll('*')).map((el) => el.getAttribute('style') || '')
+    expect(styles.some((s) => /gradient/.test(s))).toBe(false)
+  })
+
   describe('free placement', () => {
     it('rests at the bottom-right anchor until it is dragged', () => {
       render(<JasperFloatingButton onClick={() => {}} bottomOffset={78} />)
