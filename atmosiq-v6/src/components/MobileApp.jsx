@@ -880,9 +880,12 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
-  // Which secondary side-menu groups (Tools/Resources/Support) are expanded.
-  // Collapsed by default so the menu opens calm — just the primaries + Trash.
-  const [menuGroupsOpen, setMenuGroupsOpen] = useState({ tools: false, resources: false, support: false })
+  // Which secondary groups (Tools/Resources/Support) are expanded on the
+  // DESKTOP rail, which keeps its toggles. The phone side menu no longer
+  // collapses anything — every destination is visible under a static
+  // section label — so this state only reaches DesktopSidebar. Open by
+  // default there too, so the two surfaces show the same list.
+  const [menuGroupsOpen, setMenuGroupsOpen] = useState({ tools: true, resources: true, support: true })
   // Project switcher (top of the side menu). Loads the project list each
   // time the menu opens so the recents are fresh; `menuSwitcherOpen`
   // expands the inline recents list under the chip.
@@ -3701,17 +3704,17 @@ export default function MobileApp() {
         onClick={() => go(item.onClick)}
         aria-current={active ? 'page' : undefined}
         style={{
-          // Active row: cyan-tinted glass pill (colors unchanged per request).
+          // Active row: a flat accent tint with a hairline edge (UI pass,
+          // 2026-09 — the blur + inset highlight went with the rest of the
+          // glass; the tint alone reads as selected on the flat menu).
           width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
           margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
           color: active ? 'var(--accent)' : 'var(--text)',
-          background: active ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'transparent',
+          background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'transparent',
           boxShadow: active
-            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent), inset 0 1px 0 var(--m-inset)'
+            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent)'
             : 'none',
-          WebkitBackdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
-          backdropFilter: active ? 'blur(12px) saturate(160%)' : 'none',
           WebkitTapHighlightColor:'transparent',
         }}>
         {/* Accent discipline (Rule 2): cyan marks the active row only; inactive
@@ -3725,28 +3728,23 @@ export default function MobileApp() {
     )
   }
 
-  // Collapsible section header (Tools / Resources / Support) — uppercase
-  // label + a chevron that rotates open. Toggles the group's expanded state.
-  const sideMenuGroupHeader = (g) => {
-    const open = menuGroupsOpen[g.key]
-    return (
-      <button
-        key={`h-${g.key}`}
-        onClick={() => setMenuGroupsOpen(m => ({ ...m, [g.key]: !m[g.key] }))}
-        aria-expanded={open}
-        style={{
-          width:'100%', display:'flex', alignItems:'center', gap:8, padding:'11px 14px 7px',
-          marginTop:6, background:'transparent', border:'none', cursor:'pointer', textAlign:'left',
-          fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
-        }}>
-        <span style={{flex:1, fontSize:11, fontWeight:700, letterSpacing:'0.6px', textTransform:'uppercase', color:'var(--sub)'}}>{g.label}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-          style={{transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 180ms cubic-bezier(.22,1,.36,1)'}}>
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </button>
-    )
-  }
+  // Section label (Tools / Resources / Support). A static uppercase label
+  // — not a control. The groups used to collapse behind a chevron, which
+  // meant the phone menu opened as three rows and a lot of empty column,
+  // and every secondary destination was a tap further away than it needed
+  // to be. Every destination is now visible; the column scrolls if it
+  // ever needs to.
+  const sideMenuSectionLabel = (g) => (
+    <div
+      key={`h-${g.key}`}
+      role="heading" aria-level={2}
+      style={{
+        padding:'16px 14px 6px', fontSize:11, fontWeight:700, letterSpacing:'0.6px',
+        textTransform:'uppercase', color:'var(--sub)',
+      }}>
+      {g.label}
+    </div>
+  )
 
   return (
     <>
@@ -3837,8 +3835,8 @@ export default function MobileApp() {
           {sideMenuPrimary.map(sideMenuRow)}
           {sideMenuGroups.map(g => (
             <div key={g.key}>
-              {sideMenuGroupHeader(g)}
-              {menuGroupsOpen[g.key] && g.items.map(sideMenuRow)}
+              {sideMenuSectionLabel(g)}
+              {g.items.map(sideMenuRow)}
             </div>
           ))}
         </div>
@@ -5351,7 +5349,10 @@ export default function MobileApp() {
            card when it transforms. */
         .af-sidemenu{
           position:fixed; top:0; left:0; bottom:0; width:280px; z-index:1;
-          background:#070809; display:flex; flex-direction:column;
+          /* --surface-deep is defined in index.html FOR this menu (its
+             comment says so) and flips to white in light mode; the rule
+             used to hardcode #070809 and carry its own light override. */
+          background:var(--surface-deep); display:flex; flex-direction:column;
           padding:calc(env(safe-area-inset-top, 0px) + 20px) 14px calc(env(safe-area-inset-bottom, 0px) + 18px);
           overflow:hidden;
           /* Menu-scoped glass tokens — kept dark by default; the light-theme
@@ -5361,14 +5362,15 @@ export default function MobileApp() {
           --m-hair:rgba(255,255,255,0.07);
           --m-border:rgba(255,255,255,0.14);
           --m-ctl:rgba(255,255,255,0.06);
-          --m-inset:rgba(255,255,255,0.10);
+          /* Inset highlight retired with the flat pass; kept as a token so
+             the call sites need no change. */
+          --m-inset:transparent;
         }
         [data-theme="light"] .af-sidemenu{
-          background:#FFFFFF;
           --m-hair:rgba(15,23,42,0.08);
           --m-border:rgba(15,23,42,0.12);
           --m-ctl:rgba(15,23,42,0.045);
-          --m-inset:rgba(15,23,42,0.04);
+          --m-inset:transparent;
         }
         .af-content-surface{
           position:fixed; inset:0; z-index:2; overflow-y:auto;
