@@ -111,13 +111,16 @@ const RESPONSE_SERIF = "ui-serif, 'New York', Georgia, Cambria, 'Times New Roman
 
 // Empty-state prompt row (Grok / ChatGPT capability-pill pattern): a
 // horizontally scrolling row of short labels just above the composer.
-// `label` is what the pill says; `text` is the question it sends. The
-// three IAQ openers — measurement / sampling / standards — map to the
-// most common first questions.
+// `label` is what the pill says. A pill either sends `text` as the
+// first message, or opens the attach picker (`attach: true`) — lab
+// results and photos are read from the file, so the question is the
+// file. The verbs are the assessor's own jobs on the open assessment
+// (draft, recommend, analyze), not sample IAQ trivia.
 const SUGGESTIONS = [
-  { icon: 'gauge',    label: 'CO₂ next steps',  text: 'CO₂ is 1,400 ppm in an office. What should I check next?' },
-  { icon: 'flask',    label: 'TVOC sampling',   text: 'When is TVOC sampling warranted?' },
-  { icon: 'guidance', label: 'ASHRAE 62.1',     text: 'How does ASHRAE 62.1 apply to office ventilation?' },
+  { icon: 'notes',    label: 'Draft report',       text: 'Draft the report narrative for this assessment: the findings, what they indicate, and the limitations.' },
+  { icon: 'findings', label: 'Recommendations',    text: 'What recommendations should this assessment make, and where should each one apply?' },
+  { icon: 'flask',    label: 'Analyze lab report', attach: true },
+  { icon: 'image',    label: 'Analyze a photo',    attach: true },
 ]
 
 /**
@@ -1976,21 +1979,16 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             }}>
             {SUGGESTIONS.map((s, i) => (
               <JasperPromptPill
-                key={s.text}
+                key={s.label}
                 icon={s.icon}
                 label={s.label}
-                disabled={sending}
-                onClick={() => sendMessage(s.text, effectiveContext)}
+                disabled={sending || (s.attach && attachSlotsFull)}
+                onClick={s.attach
+                  ? () => fileInputRef.current?.click()
+                  : () => sendMessage(s.text, effectiveContext)}
                 revealDelayMs={200 + i * 70}
               />
             ))}
-            <JasperPromptPill
-              icon="image"
-              label="Analyze a photo"
-              disabled={sending || attachSlotsFull}
-              onClick={() => fileInputRef.current?.click()}
-              revealDelayMs={200 + SUGGESTIONS.length * 70}
-            />
           </div>
         )}
 
