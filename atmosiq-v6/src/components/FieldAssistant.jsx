@@ -48,7 +48,6 @@ import {
   jasperComposerFocusShadow,
   JASPER_KEYFRAMES_CSS,
 } from '../styles/jasper-tokens'
-import { VH_UNIT } from '../styles/tokens'
 
 const INTRO_FLAG_KEY = 'jasper_intro_v1'
 
@@ -1300,6 +1299,14 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         className="jasper-sheet"
         style={{
           position: 'fixed',
+          // Sheet-as-page: pinned to every edge of the viewport, the way
+          // the app's own fixed header is (top:0 + safe-area padding),
+          // rather than a height computed from the viewport unit and
+          // anchored at the bottom — that arithmetic put the header
+          // under the iPhone status bar in Safari. The padding, not the
+          // position, keeps the wordmark clear of the notch / Dynamic
+          // Island; with no inset it is a plain 10px.
+          top: 0,
           bottom: 0,
           left: 'env(safe-area-inset-left, 0px)',
           right: 'env(safe-area-inset-right, 0px)',
@@ -1319,21 +1326,14 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           // screen now, and the composer / pills sit on it as surfaces.
           background: jasperAtmosphere('var(--bg)'),
           border: `1px solid ${BORDER}`, borderBottom: 'none',
-          borderRadius: '20px 20px 0 0',
+          borderRadius: 0,
           padding: '10px 16px',
+          paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
           paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
           // Motion + depth — token-driven so the iOS spring + sheet
           // shadow are tuned in one place.
           animation: `jasperSheetIn ${JASPER_DURATION.sheet}ms ${JASPER_SPRING} both`,
           boxShadow: JASPER_SHEET_SHADOW,
-          // Sheet-as-page: the full DYNAMIC viewport less the status-bar
-          // inset, so on a phone the chat reads as its own screen (Grok /
-          // ChatGPT) rather than a tray over the assessment. `dvh` shrinks
-          // with the keyboard; with `vh` an 88vh sheet used to be pushed
-          // up under the status bar when the keyboard opened. The env()
-          // term keeps the top clear of the notch / Dynamic Island.
-          height: `calc(100${VH_UNIT} - env(safe-area-inset-top, 0px))`,
-          maxHeight: `calc(100${VH_UNIT} - env(safe-area-inset-top, 0px))`,
           display: 'flex', flexDirection: 'column',
           boxSizing: 'border-box',
           overflow: 'hidden',
@@ -2215,7 +2215,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             onFocus={() => setComposerFocused(true)}
             onBlur={() => setComposerFocused(false)}
             disabled={sending || !introAccepted}
-            placeholder={introAccepted ? 'Ask anything' : 'Tap "Start Chatting" above to begin'}
+            placeholder={introAccepted ? 'Ask AI' : 'Tap "Start Chatting" above to begin'}
             rows={1}
             style={{
               width: '100%',

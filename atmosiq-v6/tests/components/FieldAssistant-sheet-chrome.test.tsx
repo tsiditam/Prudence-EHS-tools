@@ -49,26 +49,28 @@ import FieldAssistant from '../../src/components/FieldAssistant'
 import { VH_UNIT } from '../../src/styles/tokens'
 
 describe('FieldAssistant sheet chrome', () => {
-  it('caps the sheet against the dynamic viewport and reserves the top inset', () => {
+  it('pins the sheet to every viewport edge and pads the top by the safe-area inset', () => {
     const { container } = render(<FieldAssistant onClose={() => {}} context={{}} />)
     const sheet = container.querySelector('.jasper-sheet') as HTMLElement
     expect(sheet).toBeTruthy()
 
-    const maxHeight = sheet.style.maxHeight
-    // Never a bare `vh` cap: that is what put the header under the status
-    // bar once the keyboard claimed part of the viewport. The sheet is a
-    // page now (100 of the dynamic viewport, Grok-style), still less the
-    // top inset.
-    expect(maxHeight).not.toMatch(/^\d+vh$/)
-    expect(maxHeight).toContain('100')
-    expect(maxHeight).toContain('safe-area-inset-top')
-    expect(sheet.style.height).toBe(maxHeight)
+    // The sheet is a page: fixed, top:0 and bottom:0, no height computed
+    // from a viewport unit. A height of `88vh` (the large viewport) put
+    // the header under the status bar once the keyboard opened, and a
+    // height of `100dvh - inset` anchored at the bottom put it there in
+    // Safari before any keyboard. The app's own fixed header uses the
+    // same rule: position at 0, pad by env(safe-area-inset-top).
+    expect(sheet.style.position).toBe('fixed')
+    expect(sheet.style.top).toBe('0px')
+    expect(sheet.style.bottom).toBe('0px')
+    expect(sheet.style.height).toBe('')
+    expect(sheet.style.maxHeight).toBe('')
+    expect(sheet.style.paddingTop).toContain('safe-area-inset-top')
   })
 
-  it('resolves the viewport unit to dvh where the engine supports it', () => {
+  it('still exposes a dynamic viewport unit token for surfaces that size by height', () => {
     // jsdom's CSS.supports returns false, so the token falls back to vh —
-    // the assertion that matters is that the token is one of the two and
-    // that the sheet is built from it rather than from a hardcoded unit.
+    // the assertion that matters is that the token is one of the two.
     expect(['dvh', 'vh']).toContain(VH_UNIT)
   })
 
