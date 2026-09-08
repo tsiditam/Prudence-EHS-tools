@@ -5130,7 +5130,7 @@ export default function MobileApp() {
           )}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='tools'&&<ToolsHub onOpen={openTool} attachedTo={draftOpen ? (bldg?.fn || 'the open assessment') : null} />}
+        {view==='tools'&&<ToolsHub onOpen={openTool} />}
         {view==='sampling-forms'&&<Suspense fallback={LAZY_FALLBACK}><SamplingFormsView profile={profile} onBack={nav.back} /></Suspense>}
         {view==='ventilation'&&<Suspense fallback={LAZY_FALLBACK}><VentilationTool /></Suspense>}
         {/* A tool carries the project it was opened from as its params

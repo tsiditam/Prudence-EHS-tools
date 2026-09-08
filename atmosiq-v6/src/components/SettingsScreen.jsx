@@ -13,7 +13,6 @@ import { VER, BUILD_SHA } from '../constants/standards'
 import { mix } from '../utils/theme'
 import * as V3 from '../styles/tokens'
 import { Group, Row, ExceptionPill } from './settings/SettingsList'
-import Chip from './ui/Chip'
 import SiteLibraryPanel from './settings/SiteLibraryPanel'
 import ReportTemplatesPanel from './settings/ReportTemplatesPanel'
 import { isMoldModuleEnabled } from '../utils/featureFlags'
@@ -23,7 +22,6 @@ import { isMoldModuleEnabled } from '../utils/featureFlags'
 // page re-renders without color changes when the toggle flips — the
 // browser swaps the resolved palette via the cascade.
 const BG = 'var(--bg)'
-const SURFACE = 'var(--surface)'
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
 const ACCENT = 'var(--accent)'
@@ -88,11 +86,8 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
   const dataOk = !health || health.healthy
 
   return (
-    <div style={{paddingTop:24,paddingBottom:120}}>
-      <div style={{marginBottom:20}}>
-        <div style={{...V3.T.h1, marginBottom:4}}>Settings</div>
-        <div style={V3.T.bodyDim}>Data, methodology, and preferences</div>
-      </div>
+    <div style={{paddingTop:16,paddingBottom:120}}>
+      <div style={{...V3.T.h1, marginBottom:4}}>Settings</div>
 
       {/* Account, Instruments, Bluetooth Sensors, and the account Danger
           zone (sign out / delete account) moved to the dedicated Account
@@ -110,21 +105,12 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
       )}
 
       {/* ── Methodology ── */}
+      {/* The standards as a sentence, not a row of chips; the empty
+          "Data center standards" disclosure is gone. */}
       <Group title="Methodology">
-        <div style={{padding:'14px 16px'}}>
-          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
-            {['ASHRAE 62.1-2025','ASHRAE 55-2023','OSHA PELs','NIOSH RELs','EPA NAAQS','WHO AQG','AIHA'].map(s => (
-              <Chip key={s}>{s}</Chip>
-            ))}
-          </div>
-          <details>
-            <summary style={{fontSize:10,fontWeight:600,color:DIM,cursor:'pointer',listStyle:'none',display:'flex',alignItems:'center',gap:4}}>
-              <span style={{fontSize:8}}>▶</span> Data center standards
-            </summary>
-            <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>
-            </div>
-          </details>
-          <div style={{fontSize:10,color:DIM,marginTop:10,lineHeight:1.5}}>Scoring informed by, not certified by, these standards. Thresholds update with each app release.</div>
+        <div style={{padding:'12px 0 2px'}}>
+          <div style={{...V3.T.body}}>ASHRAE 62.1-2025 · ASHRAE 55-2023 · OSHA PELs · NIOSH RELs · EPA NAAQS · WHO AQG · AIHA</div>
+          <div style={{...V3.T.caption, fontWeight:400, marginTop:6}}>Findings are informed by, not certified against, these standards. Thresholds update with each release.</div>
         </div>
       </Group>
 
@@ -146,11 +132,11 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
         </label>
         {trashCount > 0 && <Row label="Trash" value={`${trashCount}`} action={() => onNavigate?.('trash')} />}
       </Group>
-      {importMsg && <div style={{padding:'8px 14px',background:mix('accent', 3),border:`1px solid ${mix('accent', 9)}`,borderRadius:8,marginTop:8,fontSize:11,color:ACCENT}}>{importMsg}</div>}
+      {importMsg && <div style={{...V3.T.caption, marginTop:8, color:ACCENT}}>{importMsg}</div>}
       {!dataOk && health?.issues?.length > 0 && (
-        <div style={{marginTop:8,padding:'10px 14px',background:mix('warn', 3),border:`1px solid ${mix('warn', 14)}`,borderRadius:8}}>
+        <div style={{marginTop:8}}>
           {health.issues.map((issue, i) => (
-            <div key={i} style={{fontSize:11,color:issue.level==='critical'?DANGER:WARN,marginBottom:i<health.issues.length-1?4:0}}>{issue.msg}</div>
+            <div key={i} style={{...V3.T.caption, color:issue.level==='critical'?DANGER:WARN, marginBottom:i<health.issues.length-1?4:0}}>{issue.msg}</div>
           ))}
         </div>
       )}
@@ -175,7 +161,7 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
           them with no way to rename, pause or delete any of it — which is
           what shipped while this section was unmounted. */}
       <Group title="Sites">
-        <div style={{padding:'14px 16px'}}>
+        <div style={{paddingTop:12}}>
           <SiteLibraryPanel />
         </div>
       </Group>
@@ -198,7 +184,9 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
           from reachable is the shadow-artifact trap CLAUDE.md describes, and
           it now asserts this mount. */}
       <Group title="Reports">
-        <ReportTemplatesPanel />
+        <div style={{paddingTop:12}}>
+          <ReportTemplatesPanel />
+        </div>
       </Group>
 
 
@@ -220,12 +208,12 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
             if (next >= 5 && !adminActive) setShowAdminInput(true)
             setTimeout(() => setAdminTaps(0), 3000)
           }}
-          style={{width:'100%',padding:'14px 16px',background:'transparent',border:'none',cursor:'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:52}}>
+          style={{width:'100%',padding:'13px 0',background:'transparent',border:'none',cursor:'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:48}}>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:14,fontWeight:600,color:TEXT}}>AtmosFlow</div>
-            <div style={{fontSize:11,color:DIM,marginTop:2}}>Prudence EHS · Gaithersburg, MD</div>
+            <div style={{...V3.T.bodyStrong, fontSize:15}}>AtmosFlow</div>
+            <div style={{...V3.T.caption, fontWeight:400, marginTop:1}}>Prudence EHS · Gaithersburg, MD</div>
           </div>
-          <span style={{fontSize:10,color:DIM,fontFamily:"var(--font-mono)",padding:'3px 8px',borderRadius:6,background:SURFACE,border:`1px solid ${BORDER}`,flexShrink:0}}>v{VER} · {BUILD_SHA}</span>
+          <span style={{fontSize:12,color:SUB,fontFamily:"var(--font-mono)",flexShrink:0}}>v{VER} · {BUILD_SHA}</span>
         </button>
         {/* "What is a credit?" mirror removed in billing-architecture
             Phase 1 along with the credit-definition mini-sheet on
