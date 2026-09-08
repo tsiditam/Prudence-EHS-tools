@@ -1257,9 +1257,12 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         className="jasper-backdrop"
         style={{
           position: 'fixed', inset: 0,
-          background: 'rgba(2, 6, 10, 0.55)',
-          WebkitBackdropFilter: 'blur(8px) saturate(120%)',
-          backdropFilter: 'blur(8px) saturate(120%)',
+          background: 'rgba(0, 0, 0, 0.60)',
+          // Blur stays (it is what makes the page behind read as a
+          // defocused hint rather than a hard cut); the saturate() is
+          // gone with the rest of the glass tinting.
+          WebkitBackdropFilter: 'blur(8px)',
+          backdropFilter: 'blur(8px)',
           zIndex: 260,
           animation: 'jasperBackdropIn 280ms ease-out both',
         }}
@@ -1294,7 +1297,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           // The same gradient is available to any future AI surface.
           background: jasperAtmosphere(),
           border: `1px solid ${BORDER}`, borderBottom: 'none',
-          borderRadius: '20px 20px 0 0',
+          borderRadius: '18px 18px 0 0',
           padding: '12px 16px',
           paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
           // Motion + depth — token-driven so the iOS spring + sheet
@@ -2016,8 +2019,8 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           style={{
             marginTop: 10,
             background: SURFACE,
-            border: `1.5px solid ${composerFocused ? ACCENT : BORDER}`,
-            borderRadius: 18,
+            border: `1px solid ${composerFocused ? ACCENT : BORDER}`,
+            borderRadius: 14,
             transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
             boxShadow: composerFocused
               ? jasperComposerFocusShadow()

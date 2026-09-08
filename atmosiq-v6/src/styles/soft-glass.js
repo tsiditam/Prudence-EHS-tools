@@ -39,53 +39,30 @@ import { BORDER_DEFAULT, BORDER_SUBTLE, CARD, R, SURFACE, TEXT_PRIMARY } from '.
 // shadow that increases with elevation. The blur stays modest (8/14/22
 // px) so legibility doesn't degrade in low-light field conditions.
 
+// UI pass, 2026-09: the three tiers are now FLAT. The blur, saturate,
+// meniscus inset and layered shadows are gone; each tier is a solid
+// card tone, a hairline edge and — for the two raised tiers — one soft
+// ambient shadow that scales with elevation. The tier names and the
+// call sites are unchanged, so the surface can be re-glazed from this
+// one file if the direction is reversed.
 export const GLASS = {
-  // In-content glass — used for inline pills, micro-cards, banners
-  // inside a parent card. Lightest blur, lightest shadow.
-  // v3.3.1: opacity bumped 78→88% so chips read clearly against any
-  // background; the prior value washed out over photo thumbnails and
-  // photo-backed body panels.
+  // In-content — inline pills, micro-cards, banners inside a card.
   subtle: {
-    background: 'color-mix(in srgb, var(--card) 88%, transparent)',
-    backdropFilter: 'blur(8px) saturate(140%)',
-    WebkitBackdropFilter: 'blur(8px) saturate(140%)',
+    background: 'var(--card)',
     border: `1px solid ${BORDER_SUBTLE}`,
-    boxShadow:
-      'inset 0 1px 0 rgba(255,255,255,0.04), ' +
-      '0 1px 2px rgba(0,0,0,0.18)',
+    boxShadow: 'none',
   },
-  // Standard glass — the workhorse soft-glass card. Used for the
-  // result hero, next-steps panel, recommendation groups. Has the
-  // meniscus highlight + a layered outer shadow.
-  // v3.3.1: opacity bumped 82→93% — the previous level read as a
-  // ghosted overlay rather than a confident card surface, and the
-  // page text behind it bled through enough to hurt legibility.
+  // Standard — the workhorse card (result hero, next steps, groups).
   card: {
-    background: 'color-mix(in srgb, var(--card) 93%, transparent)',
-    backdropFilter: 'blur(14px) saturate(150%)',
-    WebkitBackdropFilter: 'blur(14px) saturate(150%)',
+    background: 'var(--card)',
     border: `1px solid ${BORDER_DEFAULT}`,
-    boxShadow:
-      'inset 0 1px 0 rgba(255,255,255,0.05), ' +
-      '0 1px 2px rgba(0,0,0,0.22), ' +
-      '0 8px 24px rgba(0,0,0,0.32)',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.25)',
   },
-  // Elevated glass — floating bottom sheets, modal panels, the docx
-  // picker. Heavier blur, heavier shadow so it sits visually above
-  // the page content.
-  // v3.3.1: opacity bumped 88→96% — modals over a busy page (assessment
-  // form / dash content) were transmitting too much background colour
-  // and reading as hazy. 96% still picks up enough through-color to
-  // feel like a layer, not a flat block.
+  // Elevated — floating sheets, modal panels, the docx picker.
   elevated: {
-    background: 'color-mix(in srgb, var(--card) 96%, transparent)',
-    backdropFilter: 'blur(22px) saturate(160%)',
-    WebkitBackdropFilter: 'blur(22px) saturate(160%)',
+    background: 'var(--card)',
     border: `1px solid ${BORDER_DEFAULT}`,
-    boxShadow:
-      'inset 0 1px 0 rgba(255,255,255,0.06), ' +
-      '0 2px 6px rgba(0,0,0,0.25), ' +
-      '0 24px 48px rgba(0,0,0,0.45)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
   },
 }
 
@@ -117,8 +94,8 @@ export const SPRING = {
 
 export const RADII = {
   ...R,
-  card:  20,
-  sheet: 24,
+  card:  14,
+  sheet: 18,
 }
 
 // ── Spacing rhythm ───────────────────────────────────────────────────
@@ -139,10 +116,7 @@ export const RHYTHM = {
 // behind it. The upward-pointing shadow gives it the "floating above
 // the page" cue.
 
-export const FLOATING_BAR_SHADOW =
-  '0 -10px 32px rgba(0,0,0,0.45), ' +
-  '0 -2px 6px rgba(0,0,0,0.22), ' +
-  'inset 0 1px 0 rgba(255,255,255,0.05)'
+export const FLOATING_BAR_SHADOW = '0 -4px 16px rgba(0,0,0,0.30)'
 
 // ── Tap feedback ─────────────────────────────────────────────────────
 // Returned as inline-style props so consumers can spread them onto

@@ -56,21 +56,20 @@ export const JASPER_STAGGER_MS = 60
 // center, fading into the consumer's base (default CARD). Used by
 // the sheet container; can also be applied to any panel that wants
 // the "breath of atmosphere" feel.
-export const jasperAtmosphere = (base = 'var(--card)', strengthPct = 7) =>
-  `radial-gradient(140% 90% at 50% 0%, color-mix(in srgb, var(--accent) ${strengthPct}%, ${base}) 0%, ${base} 55%)`
+// UI pass, 2026-09: the cyan halo is retired — the sheet is a flat
+// card tone. The signature is kept (base, strength) so callers and
+// future AI surfaces are unaffected; strength is now ignored.
+export const jasperAtmosphere = (base = 'var(--card)', _strengthPct = 7) => base
 
-// Top-anchored elevation shadow — designed for a sheet pinned to
-// the bottom of the viewport. The accent halo on the top edge
-// reinforces the rounded corner as a "lift" rather than a paint job.
-export const JASPER_SHEET_SHADOW =
-  '0 -20px 60px -10px rgba(0, 0, 0, 0.45),' +
-  '0 -8px 24px -8px rgba(0, 0, 0, 0.30),' +
-  '0 -1px 0 color-mix(in srgb, var(--accent) 22%, transparent)'
+// Top-anchored elevation shadow for a sheet pinned to the bottom of
+// the viewport. One soft ambient shadow; the accent hairline that used
+// to sit on the top edge is gone with the rest of the glow.
+export const JASPER_SHEET_SHADOW = '0 -8px 32px rgba(0, 0, 0, 0.40)'
 
-// Composer focus ring — soft cyan halo + 1px outer ring. Single
-// source so the textarea ring matches any future composer surfaces.
-export const jasperComposerFocusShadow = () =>
-  '0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent), 0 1px 2px rgba(0,0,0,0.06)'
+// Composer focus — the container's own 1px accent border is the
+// indicator now; there is no halo. Kept as a function so the call
+// site and any future composer surface share one definition.
+export const jasperComposerFocusShadow = () => 'none'
 
 // ── Chip tones ────────────────────────────────────────────────────
 
@@ -137,12 +136,7 @@ export const JASPER_KEYFRAMES_CSS = `
 .jasper-suggestion:hover:not(:disabled),
 .jasper-suggestion:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 45%, transparent) !important;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
-    0 8px 24px -12px color-mix(in srgb, var(--accent) 55%, transparent),
-    0 2px 6px rgba(0,0,0,0.06);
-  transform: translateY(-1px);
-  background: color-mix(in srgb, var(--accent) 4%, var(--surface)) !important;
+  background: var(--raised) !important;
 }
 .jasper-suggestion:focus-visible {
   outline: none;

@@ -21,10 +21,13 @@ export const CSS = {
   danger: 'var(--danger)',
   warn: 'var(--warn)',
   success: 'var(--success)',
-  cardGlass: 'rgba(12, 16, 23, 0.7)',
-  cardGlassBorder: 'rgba(34, 211, 238, 0.08)',
-  surfaceHover: '#0F1520',
-  glowAccent: '0 0 20px rgba(34,211,238,0.15)',
+  // Flat surfaces (UI pass, 2026-09): the legacy glass card is now the
+  // plain card tone with a neutral edge, and the resting accent glow is
+  // gone — emphasis comes from --accent-fill on the control itself.
+  cardGlass: 'var(--card)',
+  cardGlassBorder: 'var(--border)',
+  surfaceHover: 'var(--raised)',
+  glowAccent: 'none',
   shadow1: '0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)',
   shadow2: '0 4px 14px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.2)',
   shadow3: '0 10px 30px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.25)',
@@ -201,8 +204,10 @@ export const N = {
   sm:      { fontFamily: FONT_SYSTEM, fontFeatureSettings: NUM_FEATURES, fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
 }
 
-// Radii.
-export const R = { sm: 6, md: 10, lg: 14, xl: 18, pill: 999 }
+// Radii. Tightened one step across the scale (UI pass, 2026-09) so
+// cards and controls read as crisp panels rather than soft capsules;
+// pills are unchanged.
+export const R = { sm: 6, md: 8, lg: 12, xl: 14, pill: 999 }
 
 // ── v3 primitives ─────────────────────────────────────────────────
 

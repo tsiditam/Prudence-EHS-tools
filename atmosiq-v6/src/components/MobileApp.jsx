@@ -5496,8 +5496,11 @@ export default function MobileApp() {
           background:var(--bubble-bg) !important;
           border:1px solid var(--bubble-border) !important;
           box-shadow:var(--bubble-shadow), var(--bubble-inset) !important;
-          -webkit-backdrop-filter:blur(16px) saturate(180%);
-          backdrop-filter:blur(16px) saturate(180%);
+          /* Blur and sheen are token-driven so the theme decides whether a
+             control is glass or flat; the fallbacks are the original glass
+             values, for any context that does not set them. */
+          -webkit-backdrop-filter:var(--bubble-blur, blur(16px) saturate(180%));
+          backdrop-filter:var(--bubble-blur, blur(16px) saturate(180%));
           -webkit-tap-highlight-color:transparent; touch-action:manipulation;
           transform:translateZ(0);
         }
@@ -5505,7 +5508,7 @@ export default function MobileApp() {
            keeps it above the fill but below the label/icon. */
         .bubble-btn::before{
           content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
-          background:radial-gradient(120% 100% at 26% 12%, rgba(255,255,255,0.22), transparent 46%);
+          background:var(--bubble-sheen, radial-gradient(120% 100% at 26% 12%, rgba(255,255,255,0.22), transparent 46%));
           pointer-events:none;
         }
         /* Cyan tap-glow — expands from centre on press, fades fast. */
