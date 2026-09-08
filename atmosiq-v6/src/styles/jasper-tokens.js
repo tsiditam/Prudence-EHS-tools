@@ -135,21 +135,15 @@ export const JASPER_KEYFRAMES_CSS = `
   display: inline-flex;
   animation: jasperChipIn ${JASPER_DURATION.enter}ms ${JASPER_EASE_OUT} both;
 }
-.jasper-suggestion:hover:not(:disabled),
-.jasper-suggestion:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent) !important;
+.jasper-prompt-pill:hover:not(:disabled),
+.jasper-prompt-pill:focus-visible {
   background: var(--raised) !important;
+  border-color: var(--border-strong) !important;
 }
-.jasper-suggestion:focus-visible {
-  outline: none;
+.jasper-prompt-pill:active:not(:disabled) {
+  transform: scale(0.97);
 }
-.jasper-suggestion:hover:not(:disabled) .jasper-suggestion__icon,
-.jasper-suggestion:focus-visible .jasper-suggestion__icon {
-  background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
-}
-.jasper-suggestion:active:not(:disabled) {
-  transform: translateY(0);
-}
+.jasper-prompt-row::-webkit-scrollbar { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .jasper-stagger,
   .jasper-msg-in,
@@ -160,9 +154,7 @@ export const JASPER_KEYFRAMES_CSS = `
     opacity: 1 !important;
     transform: none !important;
   }
-  .jasper-suggestion:hover:not(:disabled),
-  .jasper-suggestion:focus-visible,
-  .jasper-suggestion:active:not(:disabled) {
+  .jasper-prompt-pill:active:not(:disabled) {
     transform: none !important;
   }
 }

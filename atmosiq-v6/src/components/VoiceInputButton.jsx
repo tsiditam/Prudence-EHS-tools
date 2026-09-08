@@ -71,6 +71,11 @@ export default function VoiceInputButton({
   activeColor = 'var(--on-accent-fill)',
   activeBackground = 'var(--accent-fill)',
   unsupportedColor = 'var(--dim)',
+  // Pill variant: a text label beside the glyph ("Speak"). The button
+  // becomes a full-radius capsule sized by its content instead of a
+  // square, and — since a labelled capsule is a primary control — fills
+  // with the accent while idle and inverts while listening.
+  label = null,
 } = {}) {
   const { supported, listening, interim, error, start, stop } = useVoiceTranscription({
     onResult: (text) => {
@@ -113,13 +118,21 @@ export default function VoiceInputButton({
       : shownError ? (ERROR_MESSAGES[shownError] || `Voice input error: ${shownError}`)
       : (listening ? 'Stop dictation' : ariaLabel)
 
+  const pill = !!label
   const baseStyle = {
-    width: size,
+    width: pill ? 'auto' : size,
     height: size,
-    borderRadius: 8,
-    border: `1px solid ${listening ? 'transparent' : idleBorder}`,
-    background: listening ? activeBackground : 'transparent',
-    color: !supported ? unsupportedColor : (listening ? activeColor : idleColor),
+    padding: pill ? '0 18px 0 14px' : 0,
+    gap: pill ? 8 : 0,
+    borderRadius: pill ? 999 : 8,
+    border: `1px solid ${listening || pill ? 'transparent' : idleBorder}`,
+    background: pill
+      ? (listening ? 'var(--danger)' : activeBackground)
+      : (listening ? activeBackground : 'transparent'),
+    color: pill
+      ? (!supported ? unsupportedColor : activeColor)
+      : (!supported ? unsupportedColor : (listening ? activeColor : idleColor)),
+    fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
     cursor: effectivelyDisabled ? 'not-allowed' : 'pointer',
     fontFamily: 'inherit',
     display: 'flex',
@@ -147,21 +160,33 @@ export default function VoiceInputButton({
         else start()
       }}
       style={baseStyle}>
-      <svg
-        width={Math.round(size * 0.45)}
-        height={Math.round(size * 0.45)}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true">
-        <rect x="9" y="2" width="6" height="12" rx="3" />
-        <path d="M5 11a7 7 0 0 0 14 0" />
-        <line x1="12" y1="18" x2="12" y2="22" />
-      </svg>
-      {listening && (
+      {pill ? (
+        // Waveform glyph for the capsule — "speak" rather than "record".
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+          <line x1="4" y1="10" x2="4" y2="14" />
+          <line x1="8" y1="6" x2="8" y2="18" />
+          <line x1="12" y1="3" x2="12" y2="21" />
+          <line x1="16" y1="7" x2="16" y2="17" />
+          <line x1="20" y1="10" x2="20" y2="14" />
+        </svg>
+      ) : (
+        <svg
+          width={Math.round(size * 0.45)}
+          height={Math.round(size * 0.45)}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true">
+          <rect x="9" y="2" width="6" height="12" rx="3" />
+          <path d="M5 11a7 7 0 0 0 14 0" />
+          <line x1="12" y1="18" x2="12" y2="22" />
+        </svg>
+      )}
+      {pill && <span>{listening ? 'Listening' : label}</span>}
+      {listening && !pill && (
         <span
           aria-hidden="true"
           style={{

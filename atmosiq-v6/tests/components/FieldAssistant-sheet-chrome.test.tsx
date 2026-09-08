@@ -56,10 +56,13 @@ describe('FieldAssistant sheet chrome', () => {
 
     const maxHeight = sheet.style.maxHeight
     // Never a bare `vh` cap: that is what put the header under the status
-    // bar once the keyboard claimed part of the viewport.
-    expect(maxHeight).not.toBe('88vh')
-    expect(maxHeight).toContain('88')
+    // bar once the keyboard claimed part of the viewport. The sheet is a
+    // page now (100 of the dynamic viewport, Grok-style), still less the
+    // top inset.
+    expect(maxHeight).not.toMatch(/^\d+vh$/)
+    expect(maxHeight).toContain('100')
     expect(maxHeight).toContain('safe-area-inset-top')
+    expect(sheet.style.height).toBe(maxHeight)
   })
 
   it('resolves the viewport unit to dvh where the engine supports it', () => {
