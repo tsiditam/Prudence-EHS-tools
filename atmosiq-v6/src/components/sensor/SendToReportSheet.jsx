@@ -15,7 +15,7 @@ import TactileButton from '../ui/TactileButton'
 import Select from '../ui/Select'
 import STO from '../../utils/storage'
 import { SENSOR_FIELDS } from '../../constants/questions'
-import { SENSOR_PARAMS, sensorAveragesToFields, parseCalibrationGas } from '../../utils/sensorParser'
+import { sensorAveragesToFields, parseCalibrationGas } from '../../utils/sensorParser'
 import { mix } from '../../utils/theme'
 import { paramLabel } from './sensorHelpers'
 

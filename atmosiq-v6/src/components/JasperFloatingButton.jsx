@@ -11,7 +11,9 @@
  *   • Instagram-style scroll response: full size at the top / when
  *     scrolling up, shrinks while scrolling down so it stays out of the
  *     way while reading, then grows back. Calms under reduced-motion.
- *   • Breathing accent glow so the assistant reads as "alive".
+ *   • Breathing two-tone (cyan ↔ purple) aura so the assistant reads as
+ *     "alive". The launcher is the identity mark, so this glow is
+ *     deliberately outside the flat token pass that neutralised the chrome.
  *   • Draggable anywhere in the viewport. It rests at the bottom-right
  *     until the user moves it; from then on the chosen spot is remembered
  *     (localStorage) and re-clamped on resize so a rotation or a smaller
@@ -59,11 +61,12 @@ if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   const s = document.createElement('style')
   s.id = 'jfb-style'
   s.textContent =
-    // Quiet breathe: the accent halo swells and fades behind the mark. It is
-    // the one piece of motion that says "assistant" — kept, but in the
-    // brand cyan only (the purple sweep it replaced was the only purple in
-    // the app).
-    '@keyframes jfbBreathe{0%,100%{opacity:.18;transform:translate(-50%,-50%) scale(.9)}50%{opacity:.42;transform:translate(-50%,-50%) scale(1.12)}}' +
+    // The breathe: the aura swells, brightens and rotates a half turn, so
+    // the two-tone sweep below reads as moving light rather than a static
+    // ring. This is the one piece of motion that says "assistant", and it
+    // is deliberately exempt from the flat token pass — the launcher is the
+    // app's identity mark, not chrome.
+    '@keyframes jfbBreathe{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(.84) rotate(0deg)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.26) rotate(180deg)}}' +
     '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 8px 24px rgba(0,0,0,0.34)!important;}' +
     // Light mode: theme tokens flip the fill and edge; only the shadow softens.
     '[data-theme="light"] .jfb-btn{box-shadow:0 8px 24px rgba(15,23,42,0.16),0 1px 2px rgba(15,23,42,0.08)!important;}' +
@@ -217,9 +220,13 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
           // breathe animation is disabled under reduced-motion (the keyframe
           // otherwise owns the translate).
           transform: 'translate(-50%, -50%)',
-          // Single-hue accent halo, fading to nothing well inside the disc so
-          // it reads as a soft glow behind the mark rather than a ring.
-          background: 'radial-gradient(circle, var(--accent) 0%, transparent 62%)',
+          // Two-tone aura — cyan ↔ purple swept around the disc (conic), then
+          // faded to nothing at the edge with a radial mask so it still reads as
+          // a soft glow, not a hard ring. Cyan at both ends of the sweep so the
+          // 0°/360° wrap is seamless. The brain glyph itself stays neon cyan.
+          background: 'conic-gradient(from 0deg, #22E0F2, #A855F7, #22E0F2)',
+          WebkitMaskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
+          maskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
           // Slower, calmer breathe — cool but not distracting.
           animation: 'jfbBreathe 5.4s ease-in-out infinite',
         }}

@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import * as V3 from '../../styles/tokens'
-import { RHYTHM, stack as sgStack } from '../../styles/soft-glass'
+import { stack as sgStack } from '../../styles/soft-glass'
 import GlassCard from '../ui/GlassCard'
 import StatusPill from '../ui/StatusPill'
 import TactileButton from '../ui/TactileButton'
