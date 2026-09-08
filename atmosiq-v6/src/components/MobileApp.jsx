@@ -39,7 +39,7 @@ import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
 import PricingSheet from './pricing/PricingSheet'
-import { I, iconForEmoji } from './Icons'
+import { I } from './Icons'
 import { isOtherChoice } from '../utils/choiceOther'
 import * as V3 from '../styles/tokens'
 import Markdown from './Markdown'
@@ -233,7 +233,7 @@ const CARD_LABEL = { fontSize: 10, color: DIM, textTransform: 'uppercase', lette
 // over content that parts from the previous section with a hairline — no
 // card, no icon tile, no tinted pill. Every result tab uses the same two
 // styles, so the screen reads as one document rather than a dashboard.
-const RS_SECTION = { paddingTop: 16, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
+const RS_SECTION = { paddingTop: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
 const RS_HEAD = { ...V3.T.micro, marginBottom: 10 }
 const RS_LINK = { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }
 
@@ -2394,16 +2394,19 @@ export default function MobileApp() {
     const canJumpTo = (targetIdx) => targetIdx >= 0 && (targetIdx <= qIdx || visQs.slice(0, targetIdx).every(answeredReq))
     return (
       <div style={{paddingTop:12,paddingBottom:120}}>
-        <div style={{marginBottom:20}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-            <span style={{fontSize:13,color:SUB,fontFamily:"var(--font-mono)"}}>{qIdx + 1} of {visQs.length}</span>
-            <span style={{fontSize:13,color:ACCENT,fontFamily:"var(--font-mono)",fontWeight:600}}>{progress}%</span>
-          </div>
-          <div style={{height:4,background:BORDER,borderRadius:2,overflow:'hidden'}}>
-            <div style={{height:'100%',width:`${progress}%`,background:`linear-gradient(90deg,#0891B2,${ACCENT})`,borderRadius:2,transition:'width .4s ease'}} />
+        {/* Progress: a caption and a thin accent bar. The bar says how far;
+            a percentage beside it said the same thing twice. */}
+        <div style={{marginBottom:14}}>
+          <div style={{...V3.T.caption, marginBottom:8}}>Question {qIdx + 1} of {visQs.length}</div>
+          <div style={{height:2,background:V3.BORDER_SUBTLE,borderRadius:1,overflow:'hidden'}}>
+            <div style={{height:'100%',width:`${progress}%`,background:ACCENT,borderRadius:1,transition:'width .4s ease'}} />
           </div>
         </div>
-        <div style={{display:'flex',gap:6,marginBottom:24,flexWrap:'wrap'}}>
+        {/* Sections as the same text-tab row the rest of the app uses.
+            Reachable sections are jump targets; the ones ahead of the
+            walkthrough sit in tertiary ink until their required answers
+            are in. */}
+        <div style={{display:'flex',gap:20,marginBottom:24,overflowX:'auto',scrollbarWidth:'none',borderBottom:`1px solid ${V3.BORDER_SUBTLE}`}}>
           {secs.map((s,i)=>{
             const targetIdx = sectionTarget(s)
             const reachable = canJumpTo(targetIdx)
@@ -2413,19 +2416,19 @@ export default function MobileApp() {
               <button key={s} type="button" disabled={!reachable}
                 aria-current={isActive?'step':undefined}
                 onClick={()=>{ if(tappable){ haptic('light'); goTo(targetIdx) } }}
-                style={{padding:'8px 16px',borderRadius:20,fontSize:12,fontWeight:600,fontFamily:"var(--font-mono)",minHeight:36,display:'inline-flex',alignItems:'center',background:isActive?`${mix('accent', 8)}`:'transparent',color:isActive?ACCENT:i<secIdx?SUB:DIM,border:`1px solid ${isActive?mix('accent', 19):'transparent'}`,cursor:tappable?'pointer':'default',opacity:reachable?1:0.55,WebkitTapHighlightColor:'transparent'}}>{s}</button>
+                style={{flexShrink:0,padding:'6px 0 9px',background:'transparent',border:'none',borderBottom:`2px solid ${isActive?V3.TEXT_PRIMARY:'transparent'}`,marginBottom:-1,fontSize:14,fontWeight:isActive?600:500,letterSpacing:'-0.01em',fontFamily:'inherit',color:isActive?V3.TEXT_PRIMARY:reachable?V3.TEXT_SECONDARY:V3.TEXT_TERTIARY,cursor:tappable?'pointer':'default',whiteSpace:'nowrap',WebkitTapHighlightColor:'transparent'}}>{s}</button>
             )
           })}
         </div>
         <div key={q.id+'-'+curZone} style={{animation:'fadeUp .4s cubic-bezier(.22,1,.36,1)'}}>
-          <div style={{width:48,height:48,borderRadius:12,background:`${mix('accent', 3)}`,border:`1px solid ${mix('accent', 8)}`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>{iconForEmoji(q.ic) ? <I n={iconForEmoji(q.ic)} s={22} c={ACCENT} w={1.6} /> : <span style={{fontSize:22}}>{q.ic}</span>}</div>
-          <h2 style={{fontSize:26,fontWeight:700,lineHeight:1.3,margin:0,marginBottom:10,letterSpacing:'-0.3px',color:TEXT}}>{q.q}</h2>
-          {q.ref&&<div style={{display:'inline-flex',gap:7,padding:'8px 14px',background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,marginBottom:20,marginTop:6}}><span style={{fontSize:13,color:SUB,fontFamily:"var(--font-mono)",lineHeight:1.4}}>{q.ref}</span></div>}
-          {!q.ref&&<div style={{height:16}} />}
+          {/* The question leads. The icon tile that sat above it is gone. */}
+          <h2 style={{fontSize:24,fontWeight:700,lineHeight:1.3,margin:0,marginBottom:8,letterSpacing:'-0.3px',color:TEXT}}>{q.q}</h2>
+          {q.ref&&<div style={{...V3.T.caption, fontWeight:400, marginBottom:18, lineHeight:1.5}}>{q.ref}</div>}
+          {!q.ref&&<div style={{height:14}} />}
 
           {extraTop}
 
-          {q.t==='text'&&<><input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id, q.ac==='street-address' ? e.target.value.replace(/[^A-Za-z0-9\s,.#/'&-]/g,'') : e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id]&&!addrInvalid)goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${addrInvalid?WARN:BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=addrInvalid?WARN:ACCENT} onBlur={e=>e.target.style.borderColor=addrInvalid?WARN:BORDER} />{addrInvalid&&<div style={{fontSize:13,color:WARN,marginTop:8,fontFamily:'inherit'}}>Enter a valid address: letters required (e.g. a street name or campus ID).</div>}</>}
+          {q.t==='text'&&<><input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id, q.ac==='street-address' ? e.target.value.replace(/[^A-Za-z0-9\s,.#/'&-]/g,'') : e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id]&&!addrInvalid)goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${addrInvalid?WARN:BORDER}`,borderRadius:12,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box',outline:'none'}} onFocus={e=>e.target.style.borderColor=addrInvalid?WARN:ACCENT} onBlur={e=>e.target.style.borderColor=addrInvalid?WARN:BORDER} />{addrInvalid&&<div style={{fontSize:13,color:WARN,marginTop:8,fontFamily:'inherit'}}>Enter a valid address: letters required (e.g. a street name or campus ID).</div>}</>}
           {q.t==='num'&&(() => {
             // Map wizard field id → canonical BLE metric. Only the
             // CO2 fields wire to BLE in this PR; adding RH / temp /
@@ -2445,7 +2448,7 @@ export default function MobileApp() {
               <div>
                 <div style={{display:'flex',alignItems:'stretch',gap:8}}>
                   <div style={{position:'relative',flex:1,minWidth:0}}>
-                    <input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+                    <input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box',outline:'none'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
                     {q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}
                   </div>
                   {/* BLE sensor pair button — sits to the right of
@@ -2519,13 +2522,13 @@ export default function MobileApp() {
               />
             </div>
           </div>}
-          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(o==='Other'?isOtherChoice(q.opts,data[q.id]):(data[q.id]===o));return(<button key={o} onClick={()=>{haptic('light');if(o==='Other'&&q.other){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:14,color:sel?ACCENT:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54,animation:`fadeUp .3s ${i*.04}s cubic-bezier(.22,1,.36,1) both`}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span></button>)})}
+          {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(o==='Other'?isOtherChoice(q.opts,data[q.id]):(data[q.id]===o));return(<button key={o} onClick={()=>{haptic('light');if(o==='Other'&&q.other){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:12,color:sel?ACCENT:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span></button>)})}
             {q.other&&isOtherChoice(q.opts,data[q.id])&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:4}} />}
           </div>}
           {q.t==='multi'&&q.opts&&(()=>{const arr=data[q.id]||[];const exclusiveSel=arr.find(isExclusiveMultiOpt)||null;return(<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const optExclusive=isExclusiveMultiOpt(o);
             // When an exclusive choice is active, every other option is
             // locked (and shown unchecked) until it's deselected.
-            const locked=exclusiveSel&&o!==exclusiveSel;const sel=exclusiveSel?o===exclusiveSel:arr.includes(o);const onClick=()=>{if(locked)return;if(optExclusive){setField(q.id,sel?[]:[o]);return}setField(q.id,sel?arr.filter(x=>x!==o):[...arr.filter(x=>!isExclusiveMultiOpt(x)),o])};return(<button key={o} disabled={!!locked} aria-disabled={!!locked} onClick={onClick} style={{padding:'12px 18px',borderRadius:24,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1,transition:'opacity .15s',minHeight:44,animation:`fadeUp .25s ${i*.03}s cubic-bezier(.22,1,.36,1) both`}}>{sel?'✓ ':''}{o}</button>)})}</div>)})()}
+            const locked=exclusiveSel&&o!==exclusiveSel;const sel=exclusiveSel?o===exclusiveSel:arr.includes(o);const onClick=()=>{if(locked)return;if(optExclusive){setField(q.id,sel?[]:[o]);return}setField(q.id,sel?arr.filter(x=>x!==o):[...arr.filter(x=>!isExclusiveMultiOpt(x)),o])};return(<button key={o} disabled={!!locked} aria-disabled={!!locked} onClick={onClick} style={{padding:'12px 18px',borderRadius:999,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1,transition:'opacity .15s',minHeight:44}}>{sel?'✓ ':''}{o}</button>)})}</div>)})()}
           {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
           {q.t==='sensors'&&<>
             <SensorScreen data={data} onChange={setField} sensorData={sensorData} isDesktop={false} showOutdoor={curZone === 0} />
@@ -2558,13 +2561,16 @@ export default function MobileApp() {
             onClear={()=>setPhotoOverrides(prev=>{const n={...prev};delete n[zones[curZone].zn];return n})}
           />}
         </div>
+        {/* Back and Skip are text; Continue / Finish is the app's one
+            primary capsule (accent fill), not a gradient — and not green
+            for Finish: green is the safe / severity colour. */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:32}}>
-          <button onClick={goPrev} disabled={qIdx===0} style={{background:'none',border:'none',color:qIdx===0?DIM:SUB,fontSize:16,fontWeight:500,cursor:qIdx===0?'default':'pointer',fontFamily:'inherit',padding:'12px 16px',minHeight:48,minWidth:48}}>← Back</button>
-          <div style={{display:'flex',gap:10}}>
-            {q.sk&&<button onClick={goNext} style={{padding:'14px 22px',background:'transparent',border:`1.5px solid ${BORDER}`,borderRadius:12,color:SUB,fontSize:15,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Skip</button>}
+          <button onClick={goPrev} disabled={qIdx===0} style={{background:'none',border:'none',color:qIdx===0?DIM:SUB,fontSize:15,fontWeight:500,cursor:qIdx===0?'default':'pointer',fontFamily:'inherit',padding:'12px 0',minHeight:48}}>Back</button>
+          <div style={{display:'flex',gap:18,alignItems:'center'}}>
+            {q.sk&&<button onClick={goNext} style={{background:'transparent',border:'none',padding:'12px 0',color:SUB,fontSize:15,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Skip</button>}
             {qIdx===visQs.length-1
-              ? <button onClick={onFinish} style={{padding:'14px 28px',background:'linear-gradient(135deg,#059669,#22C55E)',border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>{finishLabel}</button>
-              : (q.t!=='ch' || (q.other&&isOtherChoice(q.opts,data[q.id]))) ? <button onClick={()=>{if(addrInvalid)return;goNext()}} style={{padding:'14px 28px',background:`linear-gradient(135deg,#0891B2,${ACCENT})`,border:'none',borderRadius:12,color:'#fff',fontSize:16,fontWeight:600,cursor:addrInvalid?'not-allowed':'pointer',fontFamily:'inherit',opacity:((!q.req||(q.t==='ch'?(data[q.id]&&data[q.id]!=='Other'):data[q.id]))&&!addrInvalid)?1:.3,minHeight:48}}>Continue →</button> : null}
+              ? <button onClick={onFinish} style={{padding:'0 24px',background:'var(--accent-fill)',border:'none',borderRadius:999,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:46}}>{finishLabel}</button>
+              : (q.t!=='ch' || (q.other&&isOtherChoice(q.opts,data[q.id]))) ? <button onClick={()=>{if(addrInvalid)return;goNext()}} style={{padding:'0 24px',background:'var(--accent-fill)',border:'none',borderRadius:999,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:addrInvalid?'not-allowed':'pointer',fontFamily:'inherit',opacity:((!q.req||(q.t==='ch'?(data[q.id]&&data[q.id]!=='Other'):data[q.id]))&&!addrInvalid)?1:.35,minHeight:46}}>Continue</button> : null}
           </div>
         </div>
       </div>
@@ -3112,180 +3118,40 @@ export default function MobileApp() {
               : keySev === 'high' ? 'High Concern'
                 : keySev === 'medium' ? 'Moderate Concern'
                   : 'Within Range'
-          const keyDescMap = {
-            Ventilation: 'CO₂ and outdoor-air delivery indicators inform ventilation effectiveness, not air quality contamination.',
-            Contaminants: 'Combined exposure indicators across particulate, VOC, and other measured contaminants.',
-            HVAC: 'Mechanical system condition, maintenance, and operational reliability indicators.',
-            Environment: 'Thermal and moisture indicators relative to recognized comfort and dewpoint ranges.',
-            Complaints: 'Occupant-reported symptom patterns. Indicates impact, not cause.',
-          }
-          const keyDesc = keyCat ? (keyDescMap[keyCat.l] || 'Category-level severity indicator.') : ''
-
           return (
-            <div style={{display:'flex',flexDirection:'column',gap:16}}>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
 
-              {/* ── Two-up: Professional Assessment + Key Indicator ─── */}
-              <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1.1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16}}>
-                {/* Professional Assessment.
-                    Inner grid uses minmax(0,1fr) so long engine output
-                    like "HVAC system deficiency" wraps inside its cell
-                    instead of forcing 2 lines via column starvation;
-                    at the narrowest of the iPad-portrait two-column
-                    split we collapse Primary driver / Complaint pattern
-                    to a single column for breathing room. ── */}
-                <div style={RS_SECTION}>
-                  <div style={RS_HEAD}>Professional assessment</div>
-                  <div style={{display:'grid',gridTemplateColumns:isTabletLand?'minmax(0,1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:isTabletLand?14:10,marginBottom:expertCause||expertComplaint?14:0}}>
-                    {expertDriver && (
-                      <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-                        <div style={{minWidth:0,flex:1}}>
-                          <div style={V3.T.captionDim}>Primary driver</div>
-                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>{expertDriver}</div>
-                        </div>
-                      </div>
-                    )}
-                    {expertComplaint && (
-                      <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-                        <div style={{minWidth:0,flex:1}}>
-                          <div style={V3.T.captionDim}>Complaint pattern</div>
-                          <div style={{...V3.T.bodyStrong, marginTop:3, lineHeight:'18px'}}>Occupant symptoms reported</div>
-                        </div>
-                      </div>
-                    )}
+              {/* At a glance — the reasoning behind the verdict as one
+                  key/value list: driver, contributing cause, complaint
+                  pattern, the worst zone's key indicator, measurement
+                  confidence (comp.confidence — the worst zone's, which is
+                  what the report prints under the same label), the
+                  assessment basis, the evidence census and the data-gap
+                  count. It replaced four sections (Professional assessment,
+                  Key indicator, Data gaps, Evidence) that said the same
+                  things at four times the height. The verdict is stated
+                  once, above; nothing here restates it. */}
+              <div style={RS_SECTION}>
+                <div style={RS_HEAD}>At a glance</div>
+                {[
+                  expertDriver && ['Primary driver', <span style={{fontWeight:600}}>{expertDriver}</span>],
+                  expertCause && ['Contributing cause', expertCause],
+                  expertComplaint && ['Complaint pattern', 'Occupant symptoms reported'],
+                  keyCat && ['Key indicator', <>{keyCat.l} <span style={{color:keyTone}}>· {keyConcernLabel}</span></>],
+                  ['Confidence', <span style={{color:confTone, fontWeight:600}}>{comp?.confidence || measConf?.overall || 'Pending'}</span>],
+                  ['Basis', describeAssessmentBasis({ sensorData, labResults: viewRpt?.labResults })],
+                  ['Evidence', `${evCount.meas} measurements · ${evCount.obs} observations · ${evCount.occ} occupant reports · ${photoCount} photo${photoCount===1?'':'s'}`],
+                  ['Data gaps', dataGaps.length === 0
+                    ? 'None identified'
+                    : <><span style={{color:WARN, fontWeight:600}}>{dataGaps.length}</span> <button onClick={()=>{ haptic('light'); setRTab('readiness') }} style={{...RS_LINK, marginLeft:8}}>Review <span aria-hidden="true">›</span></button></>],
+                ].filter(Boolean).map(([k, v]) => (
+                  <div key={k} style={{display:'flex', gap:14, padding:'6px 0', alignItems:'baseline'}}>
+                    <div style={{...V3.T.captionDim, width:120, flexShrink:0}}>{k}</div>
+                    <div style={{...V3.T.body, flex:1, minWidth:0, lineHeight:'20px'}}>{v}</div>
                   </div>
-                  {expertCause && (
-                    <div style={{padding:'14px 0',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,display:'flex',gap:10,alignItems:'flex-start'}}>
-                      <div style={{minWidth:0,flex:1}}>
-                        <div style={V3.T.captionDim}>Likely contributing cause</div>
-                        {/* The cause is stated in full. It used to be sliced at 137 characters
-                            and suffixed with an ellipsis, which cut the sentence mid-word
-                            ("...is a common c…") and left the reader without the one thing
-                            the row exists to say. The cause strings in causalChains.js are
-                            written short — the cause only, with the remedy left to the
-                            recommendations — so there is nothing here to clamp. */}
-                        <div style={{...V3.T.body, marginTop:3, lineHeight:'19px'}}>{expertCause}</div>
-                      </div>
-                    </div>
-                  )}
-                  {/* An "Overall assessment" row stood here. It ran a 30/50/70
-                      ladder over `comp.tot` — a seventh set of thresholds, and
-                      the only one to survive the composite's removal, because it
-                      read a field that is simply gone: every comparison against
-                      `undefined` is false, so it fell through to "consistent
-                      with expected baseline" for an assessment with critical
-                      findings in it.
-
-                      Pointing it at `verdict.prose` fixed the fallthrough and
-                      created a worse problem — the identical sentence rendered
-                      twice on one scroll, once in the hero card above and again
-                      here. The verdict is stated ONCE, at the top. This panel
-                      carries the reasoning behind it (driver, complaint pattern,
-                      contributing cause, confidence, basis), not a second copy
-                      of the conclusion. */}
-                  <div style={V3.divider()} />
-                  <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:16}}>
-                    <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
-                      <div style={{minWidth:0}}>
-                        <div style={V3.T.captionDim}>Measurement confidence</div>
-                        {/* comp.confidence — the WORST zone's confidence, which
-                            is what PrintReport prints under this same label.
-                            measConf.overall counts how many parameters were
-                            captured; showing that here made the app and the
-                            report disagree while claiming to measure the same
-                            thing. measConf still drives its own advisory below. */}
-                        <div style={{...V3.T.bodyStrong, color:confTone, marginTop:2}}>{comp?.confidence || measConf?.overall || 'Pending'}</div>
-                      </div>
-                    </div>
-                    <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
-                      <div style={{minWidth:0}}>
-                        {/* Was a hardcoded "Screening (Non-compliance)" chip —
-                            the retired label, and the same for four spot readings
-                            as for a logger deployment with lab results. It states
-                            the evidence behind the assessment now, which is both a
-                            fact and the thing a reader actually wants here. */}
-                        <div style={V3.T.captionDim}>Assessment basis</div>
-                        <div style={{...V3.T.body, marginTop:2}}>{describeAssessmentBasis({ sensorData, labResults: viewRpt?.labResults })}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Key Indicator.
-                    Title row left, the worst zone's category right. A 32 px
-                    mono percentage and a full-width gauge bar sat on that
-                    right-hand side, both of them the category's share of its
-                    points; the severity-tinted concern label is what is left,
-                    over the category's own findings. ── */}
-                <div style={RS_SECTION}>
-                  <div style={RS_HEAD}>Key indicator · worst zone</div>
-                  {keyCat ? (
-                    <>
-                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:18}}>
-                        <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0,flex:1}}>
-                          <div style={{...V3.T.bodyStrong, fontSize:17, lineHeight:'22px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{keyCat.l}</div>
-                        </div>
-                        {/* A 32pt category percentage, its label and a 0–100
-                            gauge sat here. All three were the category's share
-                            of its points. The category's own findings are
-                            listed below, which is what the gauge summarized. */}
-                        <div style={{textAlign:'right',flexShrink:0}}>
-                          <div style={{...V3.T.caption, color:keyTone, textAlign:'right'}}>{keyConcernLabel}</div>
-                        </div>
-                      </div>
-                      <div style={V3.divider()} />
-                      <div style={V3.T.captionDim}>Why this matters</div>
-                      <div style={{...V3.T.body, marginTop:4, lineHeight:'20px'}}>{keyDesc}</div>
-                    </>
-                  ) : (
-                    <div style={V3.T.bodyDim}>No category assessed yet. Capture field data to surface the worst-zone indicator.</div>
-                  )}
-                </div>
+                ))}
               </div>
 
-              {/* ── Two-up: Data Gaps + Evidence Summary ─── */}
-              <div style={{display:'grid',gridTemplateColumns:isTablet?'minmax(0,1fr) minmax(0,1fr)':'minmax(0,1fr)',gap:16}}>
-                {/* Data Gaps */}
-                <div style={RS_SECTION}>
-                  <div style={RS_HEAD}>Data gaps{dataGaps.length > 0 ? <span style={{color:WARN}}> · {dataGaps.length}</span> : null}</div>
-                  {dataGaps.length === 0 ? (
-                    <div style={V3.T.bodyDim}>No defensibility-blocking gaps identified for this assessment.</div>
-                  ) : (
-                    <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                      {dataGaps.map((g, i) => (
-                        <div key={i} style={{...V3.T.body, lineHeight:'19px'}}>{g}</div>
-                      ))}
-                    </div>
-                  )}
-                  {dataGaps.length > 0 && (
-                    <button onClick={()=>{ haptic('light'); setRTab('readiness') }} style={{...RS_LINK, marginTop:12}}>
-                      View all gaps and assumptions <span aria-hidden="true">›</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Evidence Summary */}
-                <div style={RS_SECTION}>
-                  <div style={RS_HEAD}>Evidence{evTotal > 0 ? ` · ${evTotal} finding${evTotal===1?'':'s'}` : ''}</div>
-                  <div style={{display:'flex',flexDirection:'column'}}>
-                    {[
-                      ['Measurements',     evCount.meas],
-                      ['Observations',     evCount.obs],
-                      ['Occupant feedback',evCount.occ],
-                      ['Photos',           photoCount],
-                    ].map(([k, v], i, arr) => (
-                      <div key={k} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 0',borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
-                        <div style={{...V3.T.body, flex:1, minWidth:0}}>{k}</div>
-                        <div style={{...V3.N.md, color: v > 0 ? V3.TEXT_PRIMARY : V3.TEXT_MUTED}}>{v}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Assessed Zones table — click row to focus that zone
-                  for the detailed drilldown below. Current focus is
-                  visually called out with a Current focus sub-label
-                  and a raised background on the row. ── */}
               {/* Zones as rows: name, finding count, and the focused zone
                   named as such. Tap a row to focus it for the findings below. */}
               <div id="result-zones-anchor" style={RS_SECTION}>
@@ -3334,16 +3200,23 @@ export default function MobileApp() {
             // expressed against the findings rather than the points.
             const SEV_RANK={critical:0,high:1,medium:2,low:3,info:4,pass:5};
             const catHasConcern = cat.r.some(r => r.sev==='critical'||r.sev==='high'||r.sev==='medium');
-            const findings=cat.r.filter(r => !(r.sev === 'pass' && catHasConcern)).sort((a,b)=>(SEV_RANK[a.sev]??9)-(SEV_RANK[b.sev]??9));return(
-            <div key={cat.l} style={{padding:'12px 0 14px', borderTop: ci === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
-              {/* Category header — single row, mono score + concern
-                  text inline, with a thin progress bar below. Replaces
-                  the legacy "Category | Score" two-up grid that double-
-                  printed the cat label and used two micro headings. */}
-              <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:userMode==='fm'?12:8}}>
-                <div style={{...V3.T.bodyStrong, fontSize:15}}>{cat.l}</div>
-                <span style={V3.T.captionDim}>{findings.length} {findings.length===1?'finding':'findings'}</span>
-              </div>
+            const findings=cat.r.filter(r => !(r.sev === 'pass' && catHasConcern)).sort((a,b)=>(SEV_RANK[a.sev]??9)-(SEV_RANK[b.sev]??9));
+            // A category is a disclosure row: name, one dot per finding in
+            // its severity colour, the count, a chevron. Categories with a
+            // critical or high finding open by default; the rest fold, so
+            // the screen shows the shape of the findings before their text.
+            const catOpen = findings.some(r => r.sev==='critical' || r.sev==='high');
+            return(
+            <details key={cat.l} className="rs-cat" open={catOpen} style={{borderTop: ci === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+              <summary style={{display:'flex',alignItems:'center',gap:10,padding:'13px 0',cursor:'pointer',listStyle:'none',WebkitTapHighlightColor:'transparent'}}>
+                <span style={{...V3.T.bodyStrong, fontSize:15, flex:1, minWidth:0}}>{cat.l}</span>
+                <span aria-hidden="true" style={{display:'inline-flex',gap:3,flexShrink:0}}>
+                  {findings.slice(0,8).map((r,i)=><span key={i} style={{width:6,height:6,borderRadius:'50%',background:sv(r.sev).c}} />)}
+                </span>
+                <span style={{...V3.T.captionDim, whiteSpace:'nowrap'}}>{findings.length}</span>
+                <span className="rs-chev" aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1,display:'inline-block'}}>›</span>
+              </summary>
+              <div style={{paddingBottom:14}}>
               {/* Findings are sorted most-severe-first and the per-row
                   severity text pill (HIGH/MEDIUM/CRITICAL/INFO) is replaced
                   by a small colour-coded dot — less label noise, easier to
@@ -3358,7 +3231,8 @@ export default function MobileApp() {
                   </div>
                 </div>
               )})}
-            </div>
+              </div>
+            </details>
           )})}
           {/* The "OSHA-Relevant Conditions" advisory card was removed per
               product direction — it is no longer surfaced on any report.
@@ -4793,14 +4667,14 @@ export default function MobileApp() {
 
           {/* Continue / Skip */}
           <div style={{display:'flex',gap:10,marginTop:18}}>
-            <button onClick={()=>{setView('quickstart'); setQsqi(qsVis.length-1)}} style={{flex:0,padding:'14px 22px',background:'transparent',border:`1px solid ${BORDER}`,borderRadius:10,color:SUB,fontSize:14,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>← Back</button>
-            <button onClick={finishEquipment} style={{flex:1,padding:'14px 22px',background:ACCENT,border:'none',borderRadius:10,color:ON_ACCENT,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>{(equipment||[]).length === 0 ? 'Skip, Continue to Zones →' : 'Continue to Zones →'}</button>
+            <button onClick={()=>{setView('quickstart'); setQsqi(qsVis.length-1)}} style={{background:'transparent',border:'none',padding:'12px 0',color:SUB,fontSize:15,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:46}}>Back</button>
+            <button onClick={finishEquipment} style={{marginLeft:'auto',padding:'0 24px',background:'var(--accent-fill)',border:'none',borderRadius:999,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:46}}>{(equipment||[]).length === 0 ? 'Skip to zones' : 'Continue to zones'}</button>
           </div>
         </div>}
 
         {view==='zone'&&zcq&&<div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingTop:16,marginBottom:-8}}>
-            <div style={{fontSize:12,fontWeight:600,color:ACCENT,fontFamily:"var(--font-mono)"}}>Zone {curZone+1}: {zData.zn||'New Zone'}</div>
+            <div style={V3.T.caption}>Zone {curZone+1} · <span style={{color:V3.TEXT_PRIMARY,fontWeight:600}}>{zData.zn||'New zone'}</span></div>
             <div style={{display:'flex',gap:8}}>
               {zones.length>1&&curZone>0&&<button onClick={()=>{setCurZone(curZone-1);setZqi(0)}} style={{fontSize:14,color:SUB,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 12px',minHeight:44}}>‹ Prev</button>}
               {curZone<zones.length-1&&<button onClick={()=>{setCurZone(curZone+1);setZqi(0)}} style={{fontSize:14,color:SUB,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 12px',minHeight:44}}>Next ›</button>}
@@ -4811,17 +4685,19 @@ export default function MobileApp() {
               triggers the building-scoped fallback in genRecs. */}
           {zqi === 0 && (() => {
             const sel = Array.isArray(zData.servingEquipmentIds) ? zData.servingEquipmentIds : []
+            // Served-by mapping as a line on the page, not a tinted box: a
+            // micro heading, then the equipment as neutral toggles.
             return (
-              <div style={{marginTop:12,padding:'12px 14px',background:`${mix('accent', 2)}`,border:`1px solid ${mix('accent', 13)}`,borderRadius:10}}>
-                <div style={{fontSize:11,fontWeight:600,color:DIM,textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:8}}>Served by HVAC equipment</div>
+              <div style={{marginTop:14,paddingBottom:12,borderBottom:`1px solid ${V3.BORDER_SUBTLE}`}}>
+                <div style={{...V3.T.micro, marginBottom:8}}>Served by HVAC equipment</div>
                 {(equipment||[]).length === 0 ? (
-                  <div style={{fontSize:12,color:SUB,lineHeight:1.5}}>No equipment captured. Recommendations for this zone will surface as building-wide actions until equipment is identified. <button onClick={()=>setView('equipment')} style={{background:'none',border:'none',color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0,textDecoration:'underline'}}>Add equipment →</button></div>
+                  <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5}}>No equipment captured; recommendations for this zone will be building-wide until it is. <button onClick={()=>setView('equipment')} style={{background:'none',border:'none',color:ACCENT,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>Add equipment ›</button></div>
                 ) : (
                   <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                     {equipment.map(e => {
                       const on = sel.includes(e.id)
                       return (
-                        <button key={e.id} onClick={()=>toggleZoneEquipment(curZone, e.id)} style={{padding:'6px 12px',borderRadius:6,background:on?`${mix('accent', 9)}`:'transparent',border:`1px solid ${on?ACCENT:BORDER}`,color:on?ACCENT:SUB,fontSize:12,fontWeight:on?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
+                        <button key={e.id} onClick={()=>toggleZoneEquipment(curZone, e.id)} style={{padding:'6px 12px',borderRadius:999,background:on?V3.RAISED:'transparent',border:`1px solid ${on?V3.BORDER_STRONG:BORDER}`,color:on?TEXT:SUB,fontSize:12,fontWeight:on?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
                           {on && <span style={{marginRight:4}}>✓</span>}{e.label}
                         </button>
                       )
@@ -4832,7 +4708,7 @@ export default function MobileApp() {
                       // servingEquipmentIds as fallback-trigger.
                       setZones(prev => { const next = [...prev]; next[curZone] = { ...(next[curZone]||{}), servingEquipmentIds: [] }; return next })
                       setEquipment(prev => prev.map(e => ({ ...e, servedZoneIds: (e.servedZoneIds||[]).filter(zid => zid !== zData.zid) })))
-                    }} style={{padding:'6px 12px',borderRadius:6,background:sel.length===0?`${mix('dim', 9)}`:'transparent',border:`1px solid ${sel.length===0?DIM:BORDER}`,color:sel.length===0?TEXT:SUB,fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
+                    }} style={{padding:'6px 12px',borderRadius:999,background:sel.length===0?V3.RAISED:'transparent',border:`1px solid ${sel.length===0?V3.BORDER_STRONG:BORDER}`,color:sel.length===0?TEXT:SUB,fontSize:12,fontWeight:sel.length===0?600:500,cursor:'pointer',fontFamily:'inherit',minHeight:32}}>
                       {sel.length === 0 && <span style={{marginRight:4}}>✓</span>}Unknown
                     </button>
                   </div>
@@ -4845,10 +4721,10 @@ export default function MobileApp() {
 
         {view==='details'&&dtcq&&renderQuestion(dtcq,mergedData,setQSField,dqi,dtVis,()=>{if(dqi<dtVis.length-1)setDqi(dqi+1)},()=>{if(dqi>0)setDqi(dqi-1)},(i)=>setDqi(Math.max(0,Math.min(i,dtVis.length-1))),finishDetails,'Done ✓',dtSecs,
           dtcq.id==='ps_inst_iaq' && savedInstruments.length>0 ? (
-            <button onClick={()=>setInstPickerOpen(true)} style={{width:'100%',padding:'12px 16px',marginBottom:16,background:mix('accent',6),border:`1px solid ${mix('accent',18)}`,borderRadius:14,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:10,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
-              <I n="gear" s={16} c={ACCENT} w={1.8} />
+            <button onClick={()=>setInstPickerOpen(true)} style={{width:'100%',padding:'12px 0',marginBottom:14,background:'transparent',border:'none',borderBottom:`1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:10,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
               <span style={{flex:1,...V3.T.bodyStrong,color:ACCENT}}>Use a saved instrument</span>
               <span style={V3.T.captionDim}>{savedInstruments.length}</span>
+              <span aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1}}>›</span>
             </button>
           ) : null)}
 
@@ -5334,6 +5210,10 @@ export default function MobileApp() {
           --m-ctl:rgba(15,23,42,0.045);
           --m-inset:transparent;
         }
+        /* Results screen disclosure rows (findings by category). */
+        .rs-cat > summary::-webkit-details-marker{display:none}
+        .rs-cat > summary .rs-chev{transition:transform .15s ease}
+        .rs-cat[open] > summary .rs-chev{transform:rotate(90deg)}
         .af-content-surface{
           position:fixed; inset:0; z-index:2; overflow-y:auto;
           /* NOTE: deliberately NO -webkit-overflow-scrolling:touch here.

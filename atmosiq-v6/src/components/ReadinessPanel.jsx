@@ -5,14 +5,22 @@
  *
  * ReadinessPanel — surfaces the readiness verdict produced by the
  * engines/readiness-verdict orchestrator. Renders in the results-view
- * tab strip between Findings and Pathways.
+ * tab strip as "Review".
  *
  * Sections, top to bottom:
- *   1. Status pill (Ready / Defensibility gaps / Cannot finalize yet)
- *   2. Finalization blockers — hard, red, must clear before export
- *   3. Defensibility gaps — soft, amber, resolve or disclose
- *   4. Finalization warnings — soft, dim, informational
- *   5. Confidence breakdown — high / medium / low / qualitative-only counts
+ *   1. Status — the verdict as a word in its colour, then the summary
+ *   2. Finalization blockers — hard, must clear before export
+ *   3. Recommended before sign-off — dismissible
+ *   4. Defensibility gaps — resolve or disclose
+ *   5. Warnings — informational
+ *   6. Confidence breakdown — high / medium / low / qualitative-only
+ *
+ * Restraint pass (2026-09): the tinted status box with its icon circle,
+ * the stripe-edged item cards, the mono count pills and the boxed
+ * warnings are gone. Each section is a heading with its count, and each
+ * item is a row parting from the next with a hairline; the colour lives
+ * in the words (the status, a section heading, a severity, a "Fix" link),
+ * not in boxes.
  *
  * Engine-sacred boundary: this component reads the assessment via the
  * readiness-verdict orchestrator. It does not import scoring or
@@ -20,46 +28,28 @@
  */
 
 import { useMemo } from 'react'
+import * as V3 from '../styles/tokens'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { I } from './Icons'
 import FeedbackButton from './ui/FeedbackButton'
 
-const CARD = 'var(--card)'
-const SURFACE = 'var(--surface)'
-const BORDER = 'var(--border)'
 const TEXT = 'var(--text)'
 const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
-const ACCENT = 'var(--accent)'
+
+const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
 
 const STATUS_TONES = {
-  ready:   { color: '#22C55E', label: 'Ready for sign-off',     icon: 'check' },
-  gaps:    { color: '#FB923C', label: 'Defensibility gaps',     icon: 'alert' },
-  blocked: { color: '#EF4444', label: 'Cannot finalize yet',    icon: 'alert' },
+  ready:   { color: '#22C55E', label: 'Ready for sign-off' },
+  gaps:    { color: '#FB923C', label: 'Defensibility gaps' },
+  blocked: { color: '#EF4444', label: 'Cannot finalize yet' },
 }
 
-function StatusPill({ status, summary }) {
+function Status({ status, summary }) {
   const tone = STATUS_TONES[status] || STATUS_TONES.blocked
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-      background: `${tone.color}15`, border: `1px solid ${tone.color}40`,
-      borderRadius: 10, marginBottom: 16,
-    }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 18, background: `${tone.color}25`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
-        <I n={tone.icon} s={18} c={tone.color} w={2.2} />
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: tone.color, marginBottom: 2 }}>
-          {tone.label}
-        </div>
-        <div style={{ fontSize: 12, color: SUB, lineHeight: 1.4 }}>
-          {summary}
-        </div>
-      </div>
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ fontSize: 17, fontWeight: 700, color: tone.color, lineHeight: '24px' }}>{tone.label}</div>
+      <div style={{ ...V3.T.bodyDim, marginTop: 4 }}>{summary}</div>
     </div>
   )
 }
@@ -67,116 +57,71 @@ function StatusPill({ status, summary }) {
 function Section({ title, count, color, children }) {
   if (count === 0) return null
   return (
-    <div style={{ marginBottom: 18 }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: color || DIM, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-          {title}
-        </div>
-        <div style={{
-          fontSize: 11, fontWeight: 700, color: color || DIM,
-          background: `${color || DIM}15`, padding: '1px 7px', borderRadius: 10,
-          fontFamily: 'var(--font-mono)',
-        }}>
-          {count}
-        </div>
+    <div style={{ marginTop: 22 }}>
+      <div style={{ ...V3.T.micro, color: color || V3.TEXT_TERTIARY, paddingBottom: 6, borderBottom: HAIRLINE }}>
+        {title} · {count}
       </div>
       {children}
     </div>
   )
 }
 
-// Renders a structured finalization item ({ id, field, label, message,
-// location }) for both hard blockers (red) and dismissible items (amber).
-// `tone` drives the accent; `text` is a back-compat fallback when only a
-// plain string is available. When `onFix` is supplied and the item carries a
-// location, the card becomes a button that jumps to the field that fixes it.
-function FinalizationCard({ item, text, tone, onFix }) {
+// A structured finalization item ({ id, field, label, message, location })
+// as a row. `tone` colours the Fix link; `text` is a back-compat fallback
+// when only a plain string is available. With `onFix` and a location the
+// row is a button that jumps to the field that fixes it.
+function FinalizationRow({ item, text, tone, onFix, first }) {
   const label = item?.label
   const message = item?.message ?? text
   const location = item?.location
   const canFix = !!(onFix && item && location)
-  const baseStyle = {
-    padding: '11px 14px', background: CARD, border: `1px solid ${tone}40`,
-    borderLeft: `3px solid ${tone}`, borderRadius: 8, marginBottom: 6,
+  const rowStyle = {
     display: 'block', width: '100%', textAlign: 'left', boxSizing: 'border-box',
+    padding: '12px 0', borderTop: first ? 'none' : HAIRLINE,
+    background: 'transparent', border: 'none', borderTopStyle: first ? 'none' : 'solid',
   }
   const body = (
     <>
-      {label && (
-        <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 3 }}>
-          {label}
-        </div>
-      )}
-      <div style={{ fontSize: 13, lineHeight: 1.5, color: label ? SUB : TEXT }}>
-        {message}
-      </div>
+      {label && <div style={{ ...V3.T.bodyStrong, fontSize: 15, color: TEXT }}>{label}</div>}
+      <div style={{ ...V3.T.body, color: label ? SUB : TEXT, marginTop: label ? 2 : 0, lineHeight: '20px' }}>{message}</div>
       {location && (
-        <div style={{
-          marginTop: 7, fontSize: 11, color: canFix ? tone : SUB, fontWeight: 700, lineHeight: 1.4,
-        }}>
-          <span style={{ color: tone }}>→ </span>{canFix ? 'Fix' : 'Fix in'}: {location}
+        <div style={{ ...V3.T.caption, marginTop: 6, color: canFix ? tone : SUB, fontWeight: 600 }}>
+          {canFix ? 'Fix' : 'Fix in'}: {location}{canFix ? ' ›' : ''}
         </div>
       )}
     </>
   )
   if (canFix) {
     return (
-      <button type="button" onClick={() => onFix(item)} style={{ ...baseStyle, cursor: 'pointer', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}>
+      <button type="button" onClick={() => onFix(item)} style={{ ...rowStyle, cursor: 'pointer', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}>
         {body}
       </button>
     )
   }
-  return <div style={baseStyle}>{body}</div>
+  return <div style={rowStyle}>{body}</div>
 }
 
-function GapCard({ gap }) {
+function GapRow({ gap, first }) {
   const tone = gap.severity === 'warn' ? '#FB923C' : '#3B82F6'
+  const meta = [
+    Array.isArray(gap.zones) && gap.zones.length > 0 ? `Zones: ${gap.zones.join(', ')}` : null,
+    typeof gap.count === 'number' ? `Count: ${gap.count}` : null,
+  ].filter(Boolean).join(' · ')
   return (
-    <div style={{
-      padding: '12px 14px', background: CARD, border: `1px solid ${tone}40`,
-      borderLeft: `3px solid ${tone}`, borderRadius: 8, marginBottom: 8,
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 4, gap: 8,
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>
-          {humanizeKind(gap.kind)}
-        </div>
-        <div style={{
-          fontSize: 10, fontWeight: 700, color: tone, fontFamily: 'var(--font-mono)',
-          textTransform: 'uppercase', letterSpacing: '0.4px',
-        }}>
-          {gap.severity}
-        </div>
+    <div style={{ padding: '12px 0', borderTop: first ? 'none' : HAIRLINE }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+        <div style={{ ...V3.T.bodyStrong, fontSize: 15 }}>{humanizeKind(gap.kind)}</div>
+        <div style={{ ...V3.T.caption, color: tone, whiteSpace: 'nowrap' }}>{gap.severity === 'warn' ? 'Warning' : 'Note'}</div>
       </div>
-      {Array.isArray(gap.zones) && gap.zones.length > 0 && (
-        <div style={{ fontSize: 11, color: SUB, marginBottom: 6, lineHeight: 1.4 }}>
-          Zones: {gap.zones.join(', ')}
-        </div>
-      )}
-      {typeof gap.count === 'number' && (
-        <div style={{ fontSize: 11, color: SUB, marginBottom: 6, lineHeight: 1.4 }}>
-          Count: {gap.count}
-        </div>
-      )}
-      <div style={{ fontSize: 12, color: SUB, lineHeight: 1.5 }}>
-        {gap.why}
-      </div>
+      {meta && <div style={{ ...V3.T.caption, marginTop: 2 }}>{meta}</div>}
+      <div style={{ ...V3.T.body, color: SUB, marginTop: 4, lineHeight: '20px' }}>{gap.why}</div>
     </div>
   )
 }
 
-function WarningRow({ text }) {
+function WarningRow({ text, first }) {
   return (
-    <div style={{
-      padding: '8px 12px', background: SURFACE, border: `1px solid ${BORDER}`,
-      borderRadius: 8, marginBottom: 5, fontSize: 12, color: SUB, lineHeight: 1.5,
-    }}>
-      {text}
-    </div>
+    <div style={{ ...V3.T.body, color: SUB, padding: '10px 0', borderTop: first ? 'none' : HAIRLINE, lineHeight: '20px' }}>{text}</div>
   )
 }
 
@@ -187,22 +132,18 @@ function ConfidenceBar({ confidence }) {
     { label: 'High',    n: confidence.high,            color: '#22C55E' },
     { label: 'Medium',  n: confidence.medium,          color: '#FBBF24' },
     { label: 'Low',     n: confidence.low,             color: '#FB923C' },
-    { label: 'Qual.',   n: confidence.qualitative_only, color: '#94A3B8' },
+    { label: 'Qualitative', n: confidence.qualitative_only, color: '#94A3B8' },
   ]
   return (
-    <Section title="Confidence breakdown" count={total} color={SUB}>
-      <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 8, background: SURFACE }}>
+    <Section title="Confidence" count={total}>
+      <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', margin: '12px 0 8px', background: 'var(--surface)' }}>
         {segs.map((s) => s.n > 0 && (
           <div key={s.label} style={{ flex: s.n, background: s.color }} title={`${s.label}: ${s.n}`} />
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: SUB }}>
-        {segs.map((s) => (
-          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, display: 'inline-block' }} />
-            <span style={{ fontWeight: 600, color: TEXT }}>{s.n}</span>
-            <span>{s.label}</span>
-          </div>
+      <div style={{ ...V3.T.caption, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        {segs.filter((s) => s.n > 0).map((s) => (
+          <span key={s.label}><span style={{ color: s.color, fontWeight: 600 }}>{s.n}</span> {s.label}</span>
         ))}
       </div>
     </Section>
@@ -226,41 +167,41 @@ export default function ReadinessPanel({ assessment, onFeedback, onFix }) {
   const verdict = useMemo(() => buildReadinessVerdict(assessment || {}), [assessment])
 
   return (
-    <div style={{ paddingTop: 8, paddingBottom: 16 }}>
-      <StatusPill status={verdict.status} summary={verdict.summary} />
+    <div style={{ paddingTop: 4, paddingBottom: 16 }}>
+      <Status status={verdict.status} summary={verdict.summary} />
 
       <Section title="Finalization blockers" count={verdict.finalization_blockers.length} color="#EF4444">
         {(verdict.finalization_blocker_details && verdict.finalization_blocker_details.length > 0
-          ? verdict.finalization_blocker_details.map((item) => (
-              <FinalizationCard key={item.id} item={item} tone="#EF4444" onFix={onFix} />
+          ? verdict.finalization_blocker_details.map((item, i) => (
+              <FinalizationRow key={item.id} item={item} tone="#EF4444" onFix={onFix} first={i === 0} />
             ))
           : verdict.finalization_blockers.map((text, i) => (
-              <FinalizationCard key={i} text={text} tone="#EF4444" />
+              <FinalizationRow key={i} text={text} tone="#EF4444" first={i === 0} />
             )))}
       </Section>
 
-      <Section title="Recommended before sign-off (dismissible)" count={(verdict.finalization_dismissible || []).length} color="#FB923C">
-        {(verdict.finalization_dismissible || []).map((item) => (
-          <FinalizationCard key={item.id} item={item} tone="#FB923C" onFix={onFix} />
+      <Section title="Recommended before sign-off" count={(verdict.finalization_dismissible || []).length} color="#FB923C">
+        {(verdict.finalization_dismissible || []).map((item, i) => (
+          <FinalizationRow key={item.id} item={item} tone="#FB923C" onFix={onFix} first={i === 0} />
         ))}
       </Section>
 
       <Section title="Defensibility gaps" count={verdict.defensibility_gaps.length} color="#FB923C">
         {verdict.defensibility_gaps.map((gap, i) => (
-          <GapCard key={`${gap.kind}-${i}`} gap={gap} />
+          <GapRow key={`${gap.kind}-${i}`} gap={gap} first={i === 0} />
         ))}
       </Section>
 
       <Section title="Warnings" count={verdict.finalization_warnings.length} color={DIM}>
         {verdict.finalization_warnings.map((text, i) => (
-          <WarningRow key={i} text={text} />
+          <WarningRow key={i} text={text} first={i === 0} />
         ))}
       </Section>
 
       <ConfidenceBar confidence={verdict.confidence} />
 
       {onFeedback && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+        <div style={{ marginTop: 18 }}>
           <FeedbackButton label="Flag a finding" onClick={onFeedback} />
         </div>
       )}
