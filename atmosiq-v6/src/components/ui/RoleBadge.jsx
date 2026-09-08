@@ -8,12 +8,16 @@
  */
 const BORDER = 'var(--border)', SUB = 'var(--sub)'
 
-export const ROLE_TONE = { indoor: 'var(--accent)', outdoor: '#EA7A2B', zone: '#7C3AED' }
+// Outdoor / zone tones follow the validated chart series steps (temp orange,
+// PM2.5 violet) so a dataset tag and the trace it belongs to agree.
+export const ROLE_TONE = { indoor: 'var(--accent)', outdoor: '#d95926', zone: '#9085e9' }
 
 export default function RoleBadge({ role, children }) {
   const tone = ROLE_TONE[role] || SUB
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: tone, border: `1px solid ${ROLE_TONE[role] || BORDER}`, borderRadius: 6, padding: '2px 6px', flexShrink: 0, background: 'transparent', whiteSpace: 'nowrap' }}>
+    // Pill, like every other tag in the app (pill pass, 2026-09); a
+    // low-alpha tint instead of a bare outline so it sits with StatusPill.
+    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: tone, border: `1px solid color-mix(in srgb, ${ROLE_TONE[role] || BORDER} 45%, transparent)`, borderRadius: 999, padding: '3px 8px', flexShrink: 0, background: `color-mix(in srgb, ${ROLE_TONE[role] || SUB} 10%, transparent)`, whiteSpace: 'nowrap' }}>
       {children}
     </span>
   )

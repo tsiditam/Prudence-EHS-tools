@@ -32,7 +32,8 @@ import ProjectSpreadsheetPicker from './ProjectSpreadsheetPicker'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
 import { dataUrlToText, dataUrlToFile } from '../../utils/dataUrl'
-import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE, SERIES, currentPalette } from './SensorCharts'
+import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, DARK_PALETTE, currentPalette } from './SensorCharts'
+import StatusPill from '../ui/StatusPill'
 import { fmtRange, paramLabel } from './sensorHelpers'
 import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
 import { chartStats, chartPrimaryParam } from '../../utils/sensorAnalytics'
@@ -114,6 +115,11 @@ const tvocSourceLabel = (mean, sourceUnit) => {
 // Exceedance tones reuse the app's risk palette (danger red / caution
 // amber) rather than the parameter hue, so a flag reads as a real cue.
 const EXC_TONE = { danger: V3.DANGER, warn: '#FB923C' }
+const EXC_LABEL = { danger: 'Above reference', warn: 'Near reference' }
+
+// The series hue for the live theme — the dot beside a stat, its
+// sparkline and its trace in the chart are the same validated colour.
+const seriesColor = (param) => currentPalette().series[param] || 'var(--accent)'
 
 // One Overview parameter card: identity dot + sparkline, the mean in
 // tabular numerals, a gauge against the screening reference, the observed
@@ -121,7 +127,7 @@ const EXC_TONE = { danger: V3.DANGER, warn: '#FB923C' }
 // values sit above a reference. Screening only — never a determination.
 function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceUnit, calibrationGas }) {
   const spec = SENSOR_PARAMS.find((s) => s.key === param)
-  const color = SERIES[param] || 'var(--accent)'
+  const color = seriesColor(param)
   const ref = paramReference(param, { unit, ts, calibrationGas })
   const exc = exceedance(param, stats, ref)
   // TVOC shows its isobutylene equivalent, plus the source unit when the
@@ -131,35 +137,43 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
     ? [tvocEquivLabel(stats.mean, unit, calibrationGas), tvocSourceLabel(stats.mean, tvocSourceUnit)].filter(Boolean).join(' · ')
       || null
     : param === 'hcho' ? hchoSourceLabel(stats.mean, hchoSourceUnit) : null
+  // Stat-tile contract: label → value → trend → meter → range. The flag,
+  // when there is one, is a status pill at the top-right — status colour
+  // with a label, never colour alone — and the sparkline is a real trend
+  // (wash + end-dot) rather than a 76px squiggle beside the label.
   return (
-    <GlassCard style={{ marginTop: 10 }}>
+    <GlassCard style={{ marginTop: 10, padding: '14px 16px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-          <span style={{ ...V3.T.micro, color: SUB }}>{spec?.label || param}</span>
+          <span style={{ ...V3.T.micro, color: SUB, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{spec?.label || param}</span>
         </div>
-        <Sparkline values={points} color={color} />
+        {exc.level && <StatusPill tone={EXC_TONE[exc.level]} dim style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, fontSize: 10.5 }}>{EXC_LABEL[exc.level]}</StatusPill>}
       </div>
-      <div style={{ marginTop: 8, fontSize: 20, fontWeight: 700, color: TEXT, fontFamily: 'var(--font-mono)', letterSpacing: '-0.3px' }}>
-        {fmtAvg(stats.mean)} <span style={{ fontSize: 11, fontWeight: 600, color: DIM }}>{unit}</span>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
+          <span style={{ fontSize: 26, lineHeight: '30px', fontWeight: 600, color: TEXT, letterSpacing: '-0.5px' }}>{fmtAvg(stats.mean)}</span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: DIM }}>{unit}</span>
+        </div>
+        <Sparkline values={points} color={color} width={124} height={34} area endDot />
       </div>
-      <div style={{ marginTop: 8 }}>
+      <div style={{ marginTop: 12 }}>
         <GaugeBar min={stats.min} max={stats.max} value={stats.mean} limit={ref.limit} band={ref.band} color={color} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8, fontSize: 11, color: DIM, fontFamily: 'var(--font-mono)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 10, fontSize: 11, color: DIM, fontVariantNumeric: 'tabular-nums' }}>
         <span>{fmtAvg(stats.min)}–{fmtAvg(stats.max)} {unit} · n={stats.n}</span>
-        {ref.limit != null && <span>limit {fmtAvg(ref.limit)}</span>}
+        {ref.limit != null && <span>reference {fmtAvg(ref.limit)}</span>}
       </div>
       {ref.refs.length > 0 && (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
           <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5 }}>{ref.refs.join(' · ')}</div>
           {exc.level && (
-            <div style={{ fontSize: 12, fontWeight: 600, color: EXC_TONE[exc.level], marginTop: 5, lineHeight: 1.45 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, color: TEXT, marginTop: 5, lineHeight: 1.45 }}>
               {exc.message}{equiv ? ` · ${equiv}` : ''}
             </div>
           )}
           {ref.note && (
-            <div style={{ fontSize: 10, color: DIM, marginTop: 6, lineHeight: 1.5, fontStyle: 'italic' }}>{ref.note}</div>
+            <div style={{ fontSize: 10.5, color: DIM, marginTop: 6, lineHeight: 1.5 }}>{ref.note}</div>
           )}
         </div>
       )}
@@ -167,25 +181,26 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
   )
 }
 
-// Top-of-Overview banner summarizing how many parameters sit above a
-// screening reference (mirrors the per-card flags).
+// Top-of-Overview status line summarizing how many parameters sit above a
+// reference (mirrors the per-card flags): one row — alert glyph, the
+// sentence, then the flagged parameters as series-keyed tags.
 function ThresholdBanner({ items }) {
   if (!items.length) return null
   return (
-    <GlassCard style={{ marginTop: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: V3.DANGER, fontFamily: 'var(--font-mono)' }}>{items.length}</span>
-        <span style={{ ...V3.T.bodyStrong }}>parameter{items.length === 1 ? '' : 's'} above a reference</span>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '12px 14px', marginTop: 14, borderRadius: V3.R.lg, background: 'color-mix(in srgb, var(--danger) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 22%, transparent)' }}>
+      <I n="alert" s={15} c={V3.DANGER} w={2} />
+      <span style={{ ...V3.T.bodyStrong, fontSize: 13 }}>
+        <span style={{ color: V3.DANGER }}>{items.length}</span> parameter{items.length === 1 ? '' : 's'} above a reference
+      </span>
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 6, marginLeft: 'auto' }}>
         {items.map((it) => (
-          <span key={it.param} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: SUB }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: SERIES[it.param] || 'var(--accent)' }} />
+          <span key={it.param} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: TEXT, padding: '3px 9px', borderRadius: 999, background: CARD, border: `1px solid ${BORDER}` }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: seriesColor(it.param) }} />
             {it.label}
           </span>
         ))}
-      </div>
-    </GlassCard>
+      </span>
+    </div>
   )
 }
 
@@ -205,13 +220,17 @@ function ChartStatRow({ stats, unit, reference }) {
   if (stats.deltaOccNoc != null) {
     cells.push({ label: 'Δ occ−noc', value: `${stats.deltaOccNoc >= 0 ? '+' : ''}${fmtAvg(stats.deltaOccNoc)}`, sub: unit })
   }
+  // A hairline-topped strip of stat cells: label above, value below, unit
+  // beside it — the same tile contract the Overview uses, at chart scale.
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 20px', padding: '0 18px 12px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cells.length, 4)}, minmax(0, 1fr))`, gap: 12, padding: '12px 18px 14px', borderTop: `1px solid ${BORDER}` }}>
       {cells.map((c, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: SUB }}>{c.label}</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: c.tone || TEXT, fontFamily: 'var(--font-mono)' }}>{c.value}</span>
-          {c.sub && <span style={{ fontSize: 10, color: DIM }}>{c.sub}</span>}
+        <div key={i} style={{ minWidth: 0 }}>
+          <div style={{ ...V3.T.micro, fontSize: 10, letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 3 }}>
+            <span style={{ fontSize: 16, fontWeight: 600, color: c.tone || TEXT, letterSpacing: '-0.2px', fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
+            {c.sub && <span style={{ fontSize: 10.5, color: DIM, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.sub}</span>}
+          </div>
         </div>
       ))}
     </div>
@@ -633,38 +652,45 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
 
           {mode === 'overview' && (
             <>
-          {/* Session header — eyebrow + title + quiet metadata. Identity
-              (role / file / range) sits as a subdued line so it reads as
-              context, not the headline. */}
-          <GlassCard style={{ marginTop: 14, animation: 'fadeUp .3s ease' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div style={V3.T.micro}>Logger Studio · Averages</div>
+          {/* Source strip — the dataset's identity (role, file, range,
+              size) as one quiet card, with its two housekeeping actions as
+              small pills. The page title already says "Logger Studio", so
+              the strip carries no heading of its own; the section heading
+              below names what the cards are. */}
+          <GlassCard style={{ marginTop: 14, padding: '14px 16px', animation: 'fadeUp .3s ease' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <RoleBadge role={data.role || 'indoor'}>{data.label || 'Indoor'}</RoleBadge>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ ...V3.T.bodyStrong, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'}</div>
+                <div style={{ ...V3.T.captionDim, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmtRange(data.summary.start, data.summary.end)}</div>
+              </div>
               {hasTemp && tempNative && (
                 <SegmentedControl
                   ariaLabel="Temperature display unit"
-                  style={{ padding: 3, gap: 2, width: 104, flex: '0 0 auto' }}
+                  style={{ padding: 2, gap: 2, width: 92, flex: '0 0 auto' }}
                   value={tempDisplay}
                   onChange={(u) => onChange({ ...env, tempDisplay: u })}
                   options={[{ value: '°C', label: '°C' }, { value: '°F', label: '°F' }]}
                 />
               )}
             </div>
-            <div style={{ ...V3.T.h1, marginTop: 8 }}>Session Averages</div>
-            <div style={{ ...V3.T.captionDim, marginTop: 4 }}>
-              {data.summary.count.toLocaleString()} readings · {fmtInterval(data.summary.intervalSec)} interval · {data.params.length} parameters{data.summary.emptyRows ? ` · ${data.summary.emptyRows} empty` : ''}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <RoleBadge role={data.role || 'indoor'}>{data.label || 'Indoor'}</RoleBadge>
-                <div style={{ ...V3.T.captionDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.fileName || 'Logger data'} · {fmtRange(data.summary.start, data.summary.end)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <div style={{ ...V3.T.captionDim, whiteSpace: 'nowrap' }}>
+                {data.summary.count.toLocaleString()} readings · {fmtInterval(data.summary.intervalSec)} interval · {data.params.length} parameters{data.summary.emptyRows ? ` · ${data.summary.emptyRows} empty` : ''}
               </div>
-              <GhostButton onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>Replace</GhostButton>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ minHeight: 30, padding: '5px 11px', fontSize: 12, borderRadius: 999 }}>
+                  {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
+                </GhostButton>
+                <GhostButton onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })} style={{ minHeight: 30, padding: '5px 11px', fontSize: 12, borderRadius: 999 }}>Replace</GhostButton>
+              </div>
             </div>
-            <GhostButton onClick={() => setMapOpen((v) => !v)} style={{ marginTop: 14, width: '100%', justifyContent: 'center' }}>
-              {mapOpen ? 'Hide column mapping' : 'Adjust column mapping'}
-            </GhostButton>
             {mapOpen && sourceRows && <MappingPanel columns={data.columns} onApply={(m) => { reparse(m); setMapOpen(false) }} />}
           </GlassCard>
+
+          {/* The heading the tests and the reader both look for — a section
+              title above the tiles, not an h1 inside a card. */}
+          <div style={{ ...V3.T.h2, marginTop: 22 }}>Session Averages</div>
 
           {/* Session averages — grouped by category, each card gauged
               against its screening reference. */}
@@ -683,8 +709,8 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                   const ps = data.params.filter((p) => data.summary.stats[p] && categoryOf(p) === cat.id)
                   if (!ps.length) return null
                   return (
-                    <div key={cat.id} style={{ marginTop: 16 }}>
-                      <div style={{ ...V3.T.micro, color: SUB, marginBottom: 2 }}>{cat.label}</div>
+                    <div key={cat.id} style={{ marginTop: 18 }}>
+                      <div style={{ ...V3.T.micro, color: SUB, marginBottom: 0 }}>{cat.label}</div>
                       {ps.map((p) => (
                         <ParamCard key={p} param={p} stats={data.summary.stats[p]} unit={data.units[p] || ''} points={data.points.map((pt) => pt[p])} ts={data.summary.start} hchoSourceUnit={data.units.hchoSource} tvocSourceUnit={data.units.tvocSource} calibrationGas={calGas} />
                       ))}
@@ -716,10 +742,11 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
           })()}
 
           {/* Data quality */}
-          <GlassCard style={{ marginTop: 14 }}>
+          <div style={{ ...V3.T.micro, color: SUB, marginTop: 22 }}>Data quality</div>
+          <GlassCard style={{ marginTop: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <I n={data.quality.level === 'ok' ? 'check' : 'alert'} s={16} c={QUALITY_TONE[data.quality.level]} w={2} />
-              <div style={{ ...V3.T.bodyStrong, color: QUALITY_TONE[data.quality.level] }}>{data.quality.status}</div>
+              <div style={{ ...V3.T.bodyStrong }}>{data.quality.status}</div>
             </div>
             {data.quality.flags.length > 0 && (
               <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
@@ -733,36 +760,50 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
             </div>
           </GlassCard>
 
-              <GhostButton onClick={clear} style={{ marginTop: 18, color: V3.DANGER, borderColor: 'color-mix(in srgb, var(--danger) 30%, transparent)' }}>Remove logger data</GhostButton>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                <GhostButton onClick={clear} style={{ color: V3.DANGER, borderColor: 'color-mix(in srgb, var(--danger) 30%, transparent)', borderRadius: 999 }}>Remove logger data</GhostButton>
+              </div>
             </>
           )}
 
           {mode === 'analysis' && (
             <>
-              {availableRefs.length > 0 && (
-                <CollapsibleCard title="Reference lines" summary={`${availableRefs.filter((d) => refs[d.key]).length} of ${availableRefs.length} on`} defaultOpen={false}>
-                  <div style={{ ...V3.T.captionDim, marginBottom: 10 }}>Labelled advisory / context values, not compliance limits.</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {availableRefs.map((d) => (
-                      <Chip key={d.key} selected={!!refs[d.key]} onClick={() => toggleRef(d.key)} title={d.std} checkmark>
-                        {d.label}
-                      </Chip>
-                    ))}
+              {/* Chart settings — the controls that scope every chart below
+                  (reference lines, occupancy shading, comparison datasets)
+                  as three hairline-divided rows in ONE card. They used to be
+                  three stacked cards with wrapping titles, which pushed the
+                  chart — the point of this tab — below the first screen. */}
+              <GlassCard style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
+                {availableRefs.length > 0 && (
+                  <CollapsibleCard flat title="Reference lines" summary={`${availableRefs.filter((d) => refs[d.key]).length} of ${availableRefs.length} on`} defaultOpen={false}>
+                    <div style={{ ...V3.T.captionDim, marginBottom: 10 }}>Labelled advisory / context values, not compliance limits.</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {availableRefs.map((d) => (
+                        <Chip key={d.key} selected={!!refs[d.key]} onClick={() => toggleRef(d.key)} title={d.std} checkmark>
+                          {d.label}
+                        </Chip>
+                      ))}
+                    </div>
+                  </CollapsibleCard>
+                )}
+                {/* Occupancy — tag occupied / unoccupied periods that shade every chart. */}
+                {occRange && (
+                  <div style={{ borderTop: availableRefs.length > 0 ? `1px solid ${BORDER}` : 'none' }}>
+                    <OccupancyEditor windows={occWindows} range={occRange} onChange={setOccupancy} />
                   </div>
-                </CollapsibleCard>
-              )}
+                )}
+                {/* Compare datasets — add an outdoor baseline or named zones. */}
+                <div style={{ borderTop: (availableRefs.length > 0 || occRange) ? `1px solid ${BORDER}` : 'none' }}>
+                  <DatasetManager datasets={datasets} onPickFor={pickFor} onPickProjectFor={pickProjectFor} onRemove={removeDataset} busy={busy} />
+                </div>
+              </GlassCard>
 
-              {/* Compare datasets — add an outdoor baseline or named zones. */}
-              <DatasetManager datasets={datasets} onPickFor={pickFor} onPickProjectFor={pickProjectFor} onRemove={removeDataset} busy={busy} />
-
-              {/* Occupancy — tag occupied / unoccupied periods that shade every chart. */}
-              {occRange && <OccupancyEditor windows={occWindows} range={occRange} onChange={setOccupancy} />}
               {chartTabs.length === 0 ? emptyCharts : (
                 <>
-                  <div style={{ ...V3.T.micro, margin: '20px 2px 8px' }}>Charts</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  <div style={{ ...V3.T.micro, margin: '22px 2px 8px' }}>Charts</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                     {chartTabs.map((t) => (
-                      <Chip key={t.key} selected={t.key === activeChart?.key} onClick={() => setActiveChartKey(t.key)}>
+                      <Chip key={t.key} selected={t.key === activeChart?.key} onClick={() => setActiveChartKey(t.key)} style={{ padding: '7px 13px', minHeight: 32, fontSize: 12 }}>
                         {t.label}
                       </Chip>
                     ))}
@@ -793,7 +834,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                 </div>
                 <TactileButton variant="primary" fullWidth size="md" disabled={!data.hasTimestamps}
                   onClick={() => setIemrOpen(true)}
-                  icon={<I n="report" s={16} c="#FFFFFF" />} style={{ marginTop: 12 }}>
+                  icon={<I n="report" s={16} c="var(--on-accent-fill)" />} style={{ marginTop: 12 }}>
                   Generate report
                 </TactileButton>
                 {!data.hasTimestamps && (
@@ -956,13 +997,18 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
 
   return (
     <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ padding: '16px 18px 8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
+      {/* Title block takes the row; the include switch sits beside it and
+          never wraps beneath (it used to drop to its own line on a phone,
+          leaving a control floating between the caption and the plot). */}
+      <div style={{ padding: '16px 18px 4px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={V3.T.bodyStrong}>{def.title}</div>
           <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}{def.series.length > 1 ? ` · ${def.series.join(' / ')}` : ''}</div>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
-          <span style={{ ...V3.T.caption, color: state.include ? ACCENT : SUB }}>{busy && capture === 'include' ? 'Preparing…' : 'Include in report'}</span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0, paddingTop: 2 }}>
+          {/* "In report" — the same short label the results tab uses for the
+              same switch; the long form pushed the date range onto two lines. */}
+          <span style={{ ...V3.T.caption, fontSize: 11, whiteSpace: 'nowrap', color: state.include ? ACCENT : SUB }}>{busy && capture === 'include' ? 'Preparing…' : 'In report'}</span>
           <span onClick={toggleInclude} role="switch" aria-checked={!!state.include} aria-label="Include graph in report" tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleInclude() } }}
             style={{ width: 40, height: 24, borderRadius: 12, background: state.include ? ACCENT : 'var(--surface)', border: `1px solid ${state.include ? ACCENT : BORDER}`, position: 'relative', transition: 'background .2s, border-color .2s', flexShrink: 0 }}>
@@ -970,20 +1016,20 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
           </span>
         </label>
       </div>
-      <div style={{ padding: '4px 8px 12px', background: CARD }}>
+      <div style={{ padding: '8px 8px 6px 4px', background: CARD }}>
         <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
       {stats && <ChartStatRow stats={stats} unit={data.units[statParam] || ''} reference={statRef} />}
       {mode !== 'analysis' && (
-        <div style={{ padding: '0 18px 16px' }}>
+        <div style={{ padding: '0 18px 16px', borderTop: stats ? 'none' : `1px solid ${BORDER}`, paddingTop: stats ? 0 : 14 }}>
           <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"
             rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <GhostButton onClick={exportPng} disabled={busy}>
-              <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
+            <GhostButton onClick={exportPng} disabled={busy} style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px', fontSize: 12 }}>
+              <I n="download" s={13} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
             </GhostButton>
-            <GhostButton onClick={exportSvg} disabled={busy}>
-              <I n="download" s={14} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
+            <GhostButton onClick={exportSvg} disabled={busy} style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px', fontSize: 12 }}>
+              <I n="download" s={13} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
             </GhostButton>
           </div>
         </div>
@@ -1066,9 +1112,9 @@ function OccupancyEditor({ windows, range, onChange }) {
   const remove = (id) => onChange(list.filter((w) => w.id !== id))
 
   const inStyle = { padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }
-  const summary = list.length ? `${list.length} period${list.length > 1 ? 's' : ''}` : 'None yet. Mark occupied / unoccupied windows'
+  const summary = list.length ? `${list.length} period${list.length > 1 ? 's' : ''}` : 'None yet'
   return (
-    <CollapsibleCard title="Occupancy periods" summary={summary} defaultOpen={list.length > 0}>
+    <CollapsibleCard flat title="Occupancy periods" summary={summary} defaultOpen={list.length > 0}>
       {list.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
           {list.map((w) => (
@@ -1116,9 +1162,9 @@ function DatasetManager({ datasets, onPickFor, onPickProjectFor, onRemove, busy 
   const targetFor = () => ({ role, label: role === 'outdoor' ? 'Outdoor' : (label.trim() || 'Zone') })
   const add = () => { onPickFor(targetFor()); setLabel('') }
   const addFromProject = () => { onPickProjectFor && onPickProjectFor(targetFor()); setLabel('') }
-  const summary = extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only. Add outdoor baseline or zones'
+  const summary = extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only'
   return (
-    <CollapsibleCard title="Compare datasets" summary={summary} defaultOpen={extras.length > 0}>
+    <CollapsibleCard flat title="Compare datasets" summary={summary} defaultOpen={extras.length > 0}>
       {extras.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
           {extras.map((d) => (
