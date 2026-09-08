@@ -89,6 +89,9 @@ export default function AssessmentSegmentedPillNav({
             }}
           >
             {t.label}
+            {/* Optional count beside the label ("Report · 2"), in secondary
+                ink; the accessible name stays the label alone. */}
+            {t.badge ? <span aria-hidden="true" style={{ color: V3.TEXT_TERTIARY, fontWeight: 500 }}> · {t.badge}</span> : null}
           </button>
         )
       })}

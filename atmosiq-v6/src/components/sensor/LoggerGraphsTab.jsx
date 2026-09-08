@@ -18,19 +18,16 @@
  */
 
 import * as V3 from '../../styles/tokens'
-import GlassCard from '../ui/GlassCard'
 import { normalizeSensorData, primaryDataset } from '../../utils/sensorParser'
 import { GRAPH_DEFS, MultiParameterChart, currentPalette } from './SensorCharts'
 import { fmtRange, paramLabel } from './sensorHelpers'
 
 
-const CARD = 'var(--card)', BORDER = 'var(--border)', SUB = 'var(--sub)', ACCENT = 'var(--accent)', SURFACE = 'var(--surface)'
+const BORDER = 'var(--border)', SUB = 'var(--sub)', ACCENT = 'var(--accent)', SURFACE = 'var(--surface)'
 
 function EmptyNote() {
   return (
-    <GlassCard style={{ textAlign: 'center', padding: '28px 20px' }}>
-      <div style={V3.T.bodyDim}>No logger readings to display.</div>
-    </GlassCard>
+    <div style={{ ...V3.T.bodyDim, textAlign: 'center', padding: '40px 20px 0' }}>No logger readings to display.</div>
   )
 }
 
@@ -90,10 +87,12 @@ export default function LoggerGraphsTab({ sensorData, onToggleInclude }) {
   if (!cards.length) return <EmptyNote />
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* Each graph is a figure on the page — title row, plot, caption —
+          parting from the next with a hairline; no card. */}
       {cards.map(({ id, title, series, caption, node, inReport }) => (
-        <GlassCard key={id} style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '16px 18px 8px' }}>
+        <div key={id} style={{ paddingTop: 16, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
+          <div style={{ padding: '0 0 8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={V3.T.bodyStrong}>{title}</div>
               {onToggleInclude ? (
@@ -110,21 +109,21 @@ export default function LoggerGraphsTab({ sensorData, onToggleInclude }) {
                   </span>
                 </label>
               ) : inReport ? (
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase', color: ACCENT, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)', borderRadius: 999, padding: '3px 8px', flexShrink: 0 }}>In report</span>
+                <span style={{ ...V3.T.caption, color: ACCENT, flexShrink: 0 }}>In report</span>
               ) : null}
             </div>
             <div style={{ ...V3.T.captionDim, marginTop: 2 }}>
               {range}{series && series.length > 1 ? ` · ${series.join(' / ')}` : ''}
             </div>
           </div>
-          <div style={{ padding: '4px 8px 12px', background: CARD }}>{node}</div>
+          <div style={{ padding: '4px 0 12px', marginLeft: -8 }}>{node}</div>
           {caption && (
-            <div style={{ ...V3.T.captionDim, padding: '0 18px 14px', lineHeight: 1.5 }}>{caption}</div>
+            <div style={{ ...V3.T.captionDim, padding: '0 0 14px', lineHeight: 1.5 }}>{caption}</div>
           )}
-        </GlassCard>
+        </div>
       ))}
-      <div style={{ ...V3.T.captionDim, padding: '12px 4px 2px', lineHeight: 1.5, borderTop: `1px solid ${BORDER}` }}>
-        Graphs are provided for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
+      <div style={{ ...V3.T.captionDim, padding: '12px 0 2px', lineHeight: 1.5, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
+        Figures are for documentation and interpretation, to be reviewed by a qualified IAQ professional. AtmosFlow does not make compliance determinations.
       </div>
     </div>
   )

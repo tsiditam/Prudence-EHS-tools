@@ -18,6 +18,7 @@ import { I } from '../Icons'
 import GlassCard from '../ui/GlassCard'
 import TactileButton from '../ui/TactileButton'
 import SegmentedControl from '../ui/SegmentedControl'
+import AssessmentSegmentedPillNav from '../ui/AssessmentSegmentedPillNav'
 import Chip from '../ui/Chip'
 import CollapsibleCard from '../ui/CollapsibleCard'
 import GhostButton from '../ui/GhostButton'
@@ -47,7 +48,7 @@ const csvToRows = (text) => text.split(/\r\n?|\n/).filter((l) => l.trim().length
 
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024 // 8 MB
-const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
+const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 
 const QUALITY_TONE = { ok: V3.STATUS.ready, minor: '#FBBF24', uncertain: '#FBBF24', review: V3.DANGER }
 
@@ -220,7 +221,7 @@ function ChartStatRow({ stats, unit, reference }) {
   // A hairline-topped strip of stat cells: label above, value below, unit
   // beside it — the same tile contract the Overview uses, at chart scale.
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cells.length, 4)}, minmax(0, 1fr))`, gap: 12, padding: '12px 18px 14px', borderTop: `1px solid ${BORDER}` }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cells.length, 4)}, minmax(0, 1fr))`, gap: 12, padding: '12px 0 14px' }}>
       {cells.map((c, i) => (
         <div key={i} style={{ minWidth: 0 }}>
           <div style={{ ...V3.T.micro, fontSize: 10, letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</div>
@@ -629,8 +630,10 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
         <>
           {error && <InlineError style={{ marginTop: 14 }}>{error}</InlineError>}
 
-          <SegmentedControl ariaLabel="Logger Studio view" value={mode} onChange={setMode} style={{ marginTop: 14 }}
-            options={[{ value: 'overview', label: 'Overview' }, { value: 'analysis', label: 'Analysis' }, { value: 'report', label: 'Report', badge: includedReportCount || undefined }]} />
+          {/* The view switcher is the same text-tab row the results screen
+              and Projects use — words with a rule under the active one. */}
+          <AssessmentSegmentedPillNav ariaLabel="Logger Studio view" active={mode} onChange={setMode} style={{ marginTop: 10, marginBottom: 0 }}
+            tabs={[{ id: 'overview', label: 'Overview' }, { id: 'analysis', label: 'Analysis' }, { id: 'report', label: 'Report', badge: includedReportCount || undefined }]} />
 
           {mode === 'overview' && (
             <>
@@ -779,14 +782,11 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
 
               {chartTabs.length === 0 ? emptyCharts : (
                 <>
-                  <div style={{ ...V3.T.micro, margin: '22px 2px 8px' }}>Charts</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                    {chartTabs.map((t) => (
-                      <Chip key={t.key} selected={t.key === activeChart?.key} onClick={() => setActiveChartKey(t.key)} style={{ padding: '7px 13px', minHeight: 32, fontSize: 12 }}>
-                        {t.label}
-                      </Chip>
-                    ))}
-                  </div>
+                  {/* Which chart — a section heading over the same text-tab
+                      row, one level down. */}
+                  <div style={{ ...V3.T.micro, margin: '22px 0 2px' }}>Charts</div>
+                  <AssessmentSegmentedPillNav ariaLabel="Chart" active={activeChart?.key} onChange={setActiveChartKey} style={{ marginBottom: 4 }}
+                    tabs={chartTabs.map((t) => ({ id: t.key, label: t.label }))} />
                   {renderChartBlock(activeChart, 'analysis')}
                 </>
               )}
@@ -804,7 +804,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                   an option that silently vanishes reads as a missing feature,
                   and the user never learns that a one-click column mapping is
                   all that stands between them and the report. */}
-              <div style={{ marginTop: 20, paddingBottom: 20, borderBottom: `1px solid ${V3.BORDER_SUBTLE}` }}>
+              <div style={{ marginTop: 20, paddingBottom: 20 }}>
                 <div style={V3.T.h3}>Indoor Environmental Monitoring Report</div>
                 <div style={{ ...V3.T.caption, marginTop: 2, lineHeight: 1.5, fontWeight: 400 }}>
                   From this logger data alone: summary statistics, figures, the event log and your selected references.
@@ -831,7 +831,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
               </div>
 
               {chartTabs.length === 0 ? emptyCharts : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
                   {chartTabs.map((t) => <div key={t.key}>{renderChartBlock(t, 'report')}</div>)}
                 </div>
               )}
@@ -971,12 +971,12 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
   const exportPng = () => { setBusy(true); setCapture('export') }
   const exportSvg = () => { setBusy(true); setCapture('export-svg') }
 
+  // A figure on the page: title row, the plot, its stat strip, and the
+  // caption and export actions beneath — no card. The include switch sits
+  // beside the title and never wraps beneath it.
   return (
-    <GlassCard style={{ padding: 0, overflow: 'hidden' }}>
-      {/* Title block takes the row; the include switch sits beside it and
-          never wraps beneath (it used to drop to its own line on a phone,
-          leaving a control floating between the caption and the plot). */}
-      <div style={{ padding: '16px 18px 4px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+    <div style={{ paddingTop: 16, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
+      <div style={{ padding: '0 0 4px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={V3.T.bodyStrong}>{def.title}</div>
           <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtRange(data.summary.start, data.summary.end)}{def.series.length > 1 ? ` · ${def.series.join(' / ')}` : ''}</div>
@@ -992,21 +992,21 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
           </span>
         </label>
       </div>
-      <div style={{ padding: '8px 8px 6px 4px', background: CARD }}>
+      <div style={{ padding: '8px 0 6px', marginLeft: -8 }}>
         <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
       {stats && <ChartStatRow stats={stats} unit={data.units[statParam] || ''} reference={statRef} />}
       {mode !== 'analysis' && (
-        <div style={{ padding: '0 18px 16px', borderTop: stats ? 'none' : `1px solid ${BORDER}`, paddingTop: stats ? 0 : 14 }}>
+        <div style={{ padding: '0 0 16px', paddingTop: stats ? 0 : 12 }}>
           <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"
-            rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <GhostButton onClick={exportPng} disabled={busy} style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px', fontSize: 12 }}>
-              <I n="download" s={13} c={SUB} w={1.8} /> {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
-            </GhostButton>
-            <GhostButton onClick={exportSvg} disabled={busy} style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px', fontSize: 12 }}>
-              <I n="download" s={13} c={SUB} w={1.8} /> {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
-            </GhostButton>
+            rows={2} style={{ width: '100%', padding: '10px 12px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
+          <div style={{ display: 'flex', gap: 18, marginTop: 10, flexWrap: 'wrap' }}>
+            <button type="button" onClick={exportPng} disabled={busy} style={{ ...TEXT_ACTION, opacity: busy ? 0.6 : 1 }}>
+              {busy && capture === 'export' ? 'Exporting…' : 'Export PNG'}
+            </button>
+            <button type="button" onClick={exportSvg} disabled={busy} style={{ ...TEXT_ACTION, opacity: busy ? 0.6 : 1 }}>
+              {busy && capture === 'export-svg' ? 'Exporting…' : 'Export SVG'}
+            </button>
           </div>
         </div>
       )}
@@ -1015,7 +1015,7 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
           <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} {...chartProps} />
         </div>
       )}
-    </GlassCard>
+    </div>
   )
 }
 
