@@ -106,6 +106,7 @@ const FieldAssistant = lazySafe(() => import('./FieldAssistant'))
 const EvidenceMap = lazySafe(() => import('./EvidenceMap'))
 const MoldModeScreen = lazySafe(() => import('./MoldModeScreen'))
 const SamplingFormsView = lazySafe(() => import('./SamplingFormsView'))
+const VentilationTool = lazySafe(() => import('./VentilationTool'))
 // Suspense fallback for the lazy screens — the brand splash in its fast
 // (400 ms) form. `onDone` is a no-op: Suspense unmounts it when the chunk
 // lands.
@@ -3677,6 +3678,7 @@ export default function MobileApp() {
     { key: 'tools', label: 'Tools', items: [
       { label: 'Logger Studio',  icon: 'chartLine', view: 'sensor-data',    onClick: () => { setToolReturn(null); setView('sensor-data') } },
       { label: 'Sampling forms', icon: 'flask',     view: 'sampling-forms', onClick: () => { setToolReturn(null); setView('sampling-forms') } },
+      { label: 'Ventilation',    icon: 'wind',      view: 'ventilation',    onClick: () => { setToolReturn(null); setView('ventilation') } },
       { label: 'Incidents',      icon: 'alert',     view: 'incident-log',   onClick: () => setView('incident-log') },
       { label: 'Search',         icon: 'search',    view: 'search',         onClick: () => setView('search') },
     ] },
@@ -3912,7 +3914,7 @@ export default function MobileApp() {
                 avoid two stacked back affordances. */}
             {profile && view!=='dash' && view!=='projects' && view!=='project-detail' && (
               <button
-                onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
+                onClick={()=>{ if ((view==='sensor-data'||view==='sampling-forms'||view==='ventilation') && toolReturn) { setView(toolReturn); setToolReturn(null) } else { setView('projects'); setViewRpt(null) } }}
                 {...triggerPress('back')}
                 aria-label="Back"
                 className="af-glass-control af-menu-trigger"
@@ -3921,7 +3923,7 @@ export default function MobileApp() {
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{
                   ((isAssessing || view==='results' || view==='report') && bldg?.fn)
                     ? bldg.fn
-                    : ({dash:'Home',history:'Reports',settings:'Settings',account:'Account','sensor-data':'Logger Studio',properties:'Buildings','incident-log':'Incidents','incident-form':'New Incident','incident-detail':'Incident','project-detail':'Project',trash:'Trash',search:'Search',help:'Help','sampling-forms':'Sampling Forms','instrument-edit':'Instruments',equipment:'Instruments',spatial:'Floor Plan',tos:'Terms of Service',privacy:'Privacy Policy',admin:'Admin',results:'Assessment',report:'Report'}[view] || 'Projects')
+                    : ({dash:'Home',history:'Reports',settings:'Settings',account:'Account','sensor-data':'Logger Studio',properties:'Buildings','incident-log':'Incidents','incident-form':'New Incident','incident-detail':'Incident','project-detail':'Project',trash:'Trash',search:'Search',help:'Help','sampling-forms':'Sampling Forms',ventilation:'Ventilation','instrument-edit':'Instruments',equipment:'Instruments',spatial:'Floor Plan',tos:'Terms of Service',privacy:'Privacy Policy',admin:'Admin',results:'Assessment',report:'Report'}[view] || 'Projects')
                 }</span>
               </button>
             )}
@@ -5092,6 +5094,7 @@ export default function MobileApp() {
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='sampling-forms'&&<Suspense fallback={LAZY_FALLBACK}><SamplingFormsView profile={profile} onBack={exitTool} /></Suspense>}
+        {view==='ventilation'&&<Suspense fallback={LAZY_FALLBACK}><VentilationTool /></Suspense>}
         {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={toolReturn==='project-detail' ? activeProjectId : null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={()=>{ if (toolReturn) { exitTool() } else if (comp) { setView('results') } else { goHome() } }} /></Suspense>}
         {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setProjectBackView('projects');setActiveProjectId(pid);setView('project-detail')}} />}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={()=>setView(projectBackView)} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>{setToolReturn('project-detail');setView('sensor-data')}} onOpenSampling={()=>{setToolReturn('project-detail');setView('sampling-forms')}} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}

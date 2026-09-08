@@ -57,6 +57,7 @@ export const ROUTES = {
   search: { label: 'Search', reachedBy: ['hamburger'], restore: true },
   trash: { label: 'Trash', reachedBy: ['hamburger'], restore: true },
   'sampling-forms': { label: 'Sampling forms', reachedBy: ['hamburger'], restore: true },
+  ventilation: { label: 'Ventilation calculator', reachedBy: ['hamburger'], restore: true },
   'sensor-data': { label: 'Sensor data', reachedBy: ['hamburger', 'flow'], restore: true },
   projects: { label: 'Projects / site folders', reachedBy: ['hamburger'], restore: true },
   account: { label: 'Account / profile', reachedBy: ['bottom-nav', 'hamburger'], restore: true },
