@@ -10,10 +10,15 @@
  *     edge, lifted shadow) — theme tokens carry the light-mode flip.
  *   • Instagram-style scroll response: full size at the top / when
  *     scrolling up, shrinks while scrolling down so it stays out of the
- *     way while reading, then grows back. Calms under reduced-motion.
- *   • Breathing two-tone (cyan ↔ purple) aura so the assistant reads as
- *     "alive". The launcher is the identity mark, so this glow is
- *     deliberately outside the flat token pass that neutralised the chrome.
+ *     way while reading, then grows back. The app scrolls inside
+ *     `.af-content-surface` (a fixed, overflow-y:auto element), not the
+ *     window, so the listener watches every scroll target — a
+ *     window-only listener never fired and the launcher sat full-size
+ *     over the text it was meant to clear. Calms under reduced-motion.
+ *   • The glyph is the mark. The rotating cyan ↔ purple aura that used
+ *     to breathe behind it was removed in the restraint pass: a glowing
+ *     gradient orb is the one element that says "built by AI" louder
+ *     than anything else on the screen.
  *   • Draggable anywhere in the viewport. It rests at the bottom-right
  *     until the user moves it; from then on the chosen spot is remembered
  *     (localStorage) and re-clamped on resize so a rotation or a smaller
@@ -61,17 +66,18 @@ if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   const s = document.createElement('style')
   s.id = 'jfb-style'
   s.textContent =
-    // The breathe: the aura swells, brightens and rotates a half turn, so
-    // the two-tone sweep below reads as moving light rather than a static
-    // ring. This is the one piece of motion that says "assistant", and it
-    // is deliberately exempt from the flat token pass — the launcher is the
-    // app's identity mark, not chrome.
-    '@keyframes jfbBreathe{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(.84) rotate(0deg)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.26) rotate(180deg)}}' +
     '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 8px 24px rgba(0,0,0,0.34)!important;}' +
     // Light mode: theme tokens flip the fill and edge; only the shadow softens.
     '[data-theme="light"] .jfb-btn{box-shadow:0 8px 24px rgba(15,23,42,0.16),0 1px 2px rgba(15,23,42,0.08)!important;}' +
-    '@media (prefers-reduced-motion: reduce){.jfb-glow{animation:none!important}.jfb-btn{transition:none!important}}'
+    '@media (prefers-reduced-motion: reduce){.jfb-btn{transition:none!important}}'
   document.head.appendChild(s)
+}
+
+// The vertical offset of whatever just scrolled: an element's scrollTop,
+// or the window's scrollY when the document itself scrolls.
+function scrollOffsetOf(target) {
+  if (target && typeof target.scrollTop === 'number' && target !== document) return target.scrollTop
+  return window.scrollY || document.documentElement.scrollTop || 0
 }
 
 export default function JasperFloatingButton({ onClick, active, label = 'AtmosFlow AI', bottomOffset = 78 }) {
@@ -80,18 +86,32 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
   const [shrunk, setShrunk] = useState(false)
   const lastY = useRef(0)
   const rafRef = useRef(0)
+  const pendingY = useRef(0)
   useEffect(() => {
     const apply = () => {
       rafRef.current = 0
-      const y = window.scrollY || document.documentElement.scrollTop || 0
+      const y = pendingY.current
       if (y < 56) setShrunk(false)
       else if (y > lastY.current + 4) setShrunk(true)   // scrolling down
       else if (y < lastY.current - 4) setShrunk(false)  // scrolling up
       lastY.current = y
     }
-    const onScroll = () => { if (!rafRef.current) rafRef.current = requestAnimationFrame(apply) }
+    const onScroll = (e) => {
+      pendingY.current = scrollOffsetOf(e.target)
+      if (!rafRef.current) rafRef.current = requestAnimationFrame(apply)
+    }
+    // Scroll events do not bubble, so a listener on the window only hears
+    // the document scrolling. The app's content scrolls inside a fixed
+    // element; the capture-phase listener on the document hears that one
+    // (and any other scroll container), and the window listener keeps the
+    // document-scroll case. The two never fire for the same event.
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => { window.removeEventListener('scroll', onScroll); if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      document.removeEventListener('scroll', onScroll, { capture: true })
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
   }, [])
 
   const size = shrunk ? 46 : 60
@@ -205,34 +225,8 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
         touchAction: 'none',
       }}
     >
-      <span
-        aria-hidden="true"
-        className="jfb-glow"
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          pointerEvents: 'none',
-          // Base centering transform so the glow stays put even when the
-          // breathe animation is disabled under reduced-motion (the keyframe
-          // otherwise owns the translate).
-          transform: 'translate(-50%, -50%)',
-          // Two-tone aura — cyan ↔ purple swept around the disc (conic), then
-          // faded to nothing at the edge with a radial mask so it still reads as
-          // a soft glow, not a hard ring. Cyan at both ends of the sweep so the
-          // 0°/360° wrap is seamless. The brain glyph itself stays neon cyan.
-          background: 'conic-gradient(from 0deg, #22E0F2, #A855F7, #22E0F2)',
-          WebkitMaskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
-          maskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
-          // Slower, calmer breathe — cool but not distracting.
-          animation: 'jfbBreathe 5.4s ease-in-out infinite',
-        }}
-      />
       <span style={{ position: 'relative', display: 'inline-flex' }}>
-        <JasperBrainIcon size={glyph} />
+        <JasperBrainIcon size={glyph} animate={false} color="var(--accent)" />
       </span>
     </button>
   )
