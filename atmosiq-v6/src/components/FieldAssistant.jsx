@@ -32,7 +32,6 @@ import { STD } from '../constants/standards'
 // Phase 4 — design-system primitives + tokens extracted out of this
 // file so JasperWatchPanel and other future AI surfaces can adopt the
 // same feel without re-copying inline styles.
-import JasperContextChip from './ui/JasperContextChip'
 import JasperPromptPill from './ui/JasperPromptPill'
 import JasperFeedbackRow from './ui/JasperFeedbackRow'
 import JasperMessageActions from './ui/JasperMessageActions'
@@ -42,7 +41,6 @@ import { splitTrailingDisclaimer } from '../utils/jasperDisclaimer'
 import {
   JASPER_SPRING,
   JASPER_DURATION,
-  JASPER_STAGGER_MS,
   jasperAtmosphere,
   JASPER_SHEET_SHADOW,
   jasperComposerFocusShadow,
@@ -117,11 +115,14 @@ const RESPONSE_SERIF = "ui-serif, 'New York', Georgia, Cambria, 'Times New Roman
 // file. The verbs are the assessor's own jobs on the open assessment
 // (draft, recommend, analyze), not sample IAQ trivia.
 const SUGGESTIONS = [
-  { icon: 'notes',    label: 'Draft report',       text: 'Draft the report narrative for this assessment: the findings, what they indicate, and the limitations.' },
-  { icon: 'findings', label: 'Recommendations',    text: 'What recommendations should this assessment make, and where should each one apply?' },
-  { icon: 'flask',    label: 'Analyze lab report', attach: true },
-  { icon: 'image',    label: 'Analyze a photo',    attach: true },
+  { label: 'Draft report',       text: 'Draft the report narrative for this assessment: the findings, what they indicate, and the limitations.' },
+  { label: 'Recommendations',    text: 'What recommendations should this assessment make, and where should each one apply?' },
+  { label: 'Analyze lab report', attach: true },
+  { label: 'Analyze a photo',    attach: true },
 ]
+
+// The one caption style on the surface: secondary ink, 13px.
+const jasperCaption = { fontSize: 13, lineHeight: '18px', color: 'var(--sub)' }
 
 /**
  * Phase-2 context awareness — derives a short list of chips from the
@@ -1440,23 +1441,17 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             elevated, humidity high, etc.). The user can see at a
             glance what Jasper knows about their current situation.
             Hidden while the history panel is open. */}
-        {/* The facility chip moved into the composer's toolbar (the slot
-            Grok gives its mode chip) — it is the one chip the user acts
-            on. The informational chips (status, zone, elevated
-            readings) stay here. */}
+        {/* What the AI knows about the situation, as one quiet line —
+            "Draft assessment · Room 101 · CO₂ elevated" — not a row of
+            tinted chips. The facility itself is the chip in the composer,
+            the one the user acts on. A warn-toned signal keeps its colour;
+            the rest is secondary ink. */}
         {!historyOpen && !pickerOpen && signalChips.length > 0 && (
-          <div
-            aria-label="AtmosFlow AI context"
-            style={{
-              display: 'flex', flexWrap: 'wrap', gap: 6,
-              marginBottom: 8, minWidth: 0,
-            }}>
+          <div aria-label="AtmosFlow AI context" style={{ ...jasperCaption, marginBottom: 6, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {signalChips.map((c, i) => (
-              <span
-                key={c.id}
-                className="jasper-chip-in"
-                style={{ animationDelay: `${120 + i * JASPER_STAGGER_MS}ms` }}>
-                <JasperContextChip label={c.label} tone={c.tone} icon={c.icon} />
+              <span key={c.id}>
+                {i > 0 && <span aria-hidden="true"> · </span>}
+                <span style={c.tone === 'warn' ? { color: 'var(--warn)' } : undefined}>{c.label}</span>
               </span>
             ))}
           </div>
@@ -1863,8 +1858,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               one of these" label are gone: the prompt row above the
               composer says what to ask, and the composer says where. */}
           {isEmptyCanvas && (
-            <div aria-hidden="true" className="jasper-stagger"
-              style={{ opacity: 0.22, filter: 'grayscale(1)', animation: 'jasperReveal 600ms ease-out both', animationDelay: '120ms' }}>
+            <div aria-hidden="true" style={{ opacity: 0.22, filter: 'grayscale(1)' }}>
               <JasperBrainIcon size={72} animate={false} />
             </div>
           )}
@@ -1977,16 +1971,14 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
               flexShrink: 0,
             }}>
-            {SUGGESTIONS.map((s, i) => (
+            {SUGGESTIONS.map((s) => (
               <JasperPromptPill
                 key={s.label}
-                icon={s.icon}
                 label={s.label}
                 disabled={sending || (s.attach && attachSlotsFull)}
                 onClick={s.attach
                   ? () => fileInputRef.current?.click()
                   : () => sendMessage(s.text, effectiveContext)}
-                revealDelayMs={200 + i * 70}
               />
             ))}
           </div>
