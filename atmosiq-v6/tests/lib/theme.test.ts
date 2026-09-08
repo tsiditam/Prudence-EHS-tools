@@ -56,6 +56,57 @@ describe('theme module', () => {
     })
   })
 
+  describe('applyTheme — <meta name="theme-color">', () => {
+    /**
+     * From a field screenshot: the light theme was framed in black — a
+     * hard strip beside the white side menu and a band along the bottom.
+     * theme-color was a hardcoded dark hex that never changed with the
+     * theme, so iOS tinted the status bar and safe areas dark under a
+     * white page. It now tracks the live --bg; jsdom has no stylesheet,
+     * so the computed token is empty here and the fallback pair is what
+     * these assert. The invariant is the direction: light gets a light
+     * tint, dark gets a dark one.
+     */
+    const lum = (hex: string) => {
+      const n = parseInt(hex.replace('#', ''), 16)
+      return ((n >> 16) & 255) + ((n >> 8) & 255) + (n & 255)
+    }
+    let meta: HTMLMetaElement
+
+    beforeEach(() => {
+      document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove())
+      meta = document.createElement('meta')
+      meta.setAttribute('name', 'theme-color')
+      meta.setAttribute('content', '#1C1B19') // the stale value the bug shipped with
+      document.head.appendChild(meta)
+    })
+
+    it('tints light for the light theme', () => {
+      applyTheme('light')
+      const c = meta.getAttribute('content') || ''
+      expect(c).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(lum(c)).toBeGreaterThan(600) // near-white, not the old charcoal
+    })
+
+    it('tints dark for the dark theme', () => {
+      applyTheme('dark')
+      const c = meta.getAttribute('content') || ''
+      expect(c).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(lum(c)).toBeLessThan(120)
+    })
+
+    it('never leaves the stale default behind after a theme change', () => {
+      applyTheme('light')
+      expect(meta.getAttribute('content')).not.toBe('#1C1B19')
+    })
+
+    it('is a no-op, not a crash, when the meta tag is absent', () => {
+      meta.remove()
+      expect(() => applyTheme('light')).not.toThrow()
+      expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+    })
+  })
+
   describe('setTheme', () => {
     it('persists to localStorage and applies the attribute', () => {
       setTheme('light')

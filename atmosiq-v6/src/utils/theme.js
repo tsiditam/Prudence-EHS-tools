@@ -29,11 +29,27 @@ export function getTheme() {
   }
 }
 
+// Fallback per theme when the computed --bg is unavailable (jsdom, or a
+// document that has not loaded index.html's stylesheet). Kept in step
+// with the :root / [data-theme="light"] values in index.html.
+const THEME_COLOR_FALLBACK = { dark: '#0A0A0A', light: '#FFFFFF' }
+
 export function applyTheme(mode) {
   if (typeof document === 'undefined') return
   const html = document.documentElement
   if (mode === 'light') html.setAttribute('data-theme', 'light')
   else html.removeAttribute('data-theme')
+
+  // Keep <meta name="theme-color"> on the live --bg. iOS uses it to tint
+  // the status bar and safe areas of a standalone PWA, and Safari tints
+  // its chrome with it; left at the dark default it framed the light
+  // theme in black. Read the computed token rather than restating the
+  // palette here, so a palette change in index.html carries through.
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (!meta) return
+  let bg = ''
+  try { bg = getComputedStyle(html).getPropertyValue('--bg').trim() } catch { /* jsdom */ }
+  meta.setAttribute('content', bg || THEME_COLOR_FALLBACK[mode === 'light' ? 'light' : 'dark'])
 }
 
 export function setTheme(mode) {

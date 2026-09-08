@@ -17,7 +17,11 @@
          (WCAG 2.1 SC 1.4.4 Resize text). iOS auto-zoom on focus is prevented
          by the 16px input floor below, not by locking the viewport. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#1C1B19" />
+    <!-- Matches --bg for the default (dark) theme. src/utils/theme.js
+         rewrites this to the live --bg whenever the theme changes, so the
+         iOS status-bar / safe-area tint follows light mode instead of
+         staying dark. -->
+    <meta name="theme-color" content="#0A0A0A" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AtmosFlow" />
@@ -227,6 +231,17 @@
         --bubble-sheen:none;
         --bubble-press-scale:0.97;
       }
+      /* The page canvas — html is what iOS paints into the safe areas and
+         behind anything the app moves out of the way (the side menu slides
+         the whole content surface right and scales it, exposing the canvas
+         along its left edge and at the bottom). With no background here the
+         UA default showed through, which under black-translucent status-bar
+         styling is BLACK — a hard black strip beside a white light-mode
+         menu. color-scheme is declared per theme so the UA canvas, native
+         form controls and scrollbars follow the app rather than the OS. */
+      :root{color-scheme:dark;}
+      [data-theme="light"]{color-scheme:light;}
+      html,body{background:var(--bg);min-height:100%;}
       body{
         font-family:var(--font-sans);
         /* OpenType features: cv11 = single-storey 'a' (Inter), ss03 =
