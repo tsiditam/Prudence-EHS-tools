@@ -900,6 +900,31 @@ export default function MobileApp() {
   // gear icon in the Home header; Settings is now one entry inside the
   // dropdown.
   const [showHomeMenu, setShowHomeMenu] = useState(false)
+  // Whether content has scrolled beneath the fixed top bar. At the top of
+  // a screen the bar is transparent and the page reads as one sheet; once
+  // anything passes under it the bar takes the --chrome-glass tint, blurs
+  // what is behind it and draws a hairline, so the back control and the
+  // overflow glyph never sit over moving text. The app scrolls inside
+  // .af-content-surface, not the window, and scroll events do not bubble,
+  // so this listens in the capture phase on the document (the same reason
+  // JasperFloatingButton does) and reads the surface's own scrollTop.
+  const [chromeScrolled, setChromeScrolled] = useState(false)
+  useEffect(() => {
+    let raf = 0
+    let last = false
+    const onScroll = (e) => {
+      const t = e.target
+      if (!t || !t.classList || !t.classList.contains('af-content-surface')) return
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        const next = t.scrollTop > 2
+        if (next !== last) { last = next; setChromeScrolled(next) }
+      })
+    }
+    document.addEventListener('scroll', onScroll, true)
+    return () => { document.removeEventListener('scroll', onScroll, true); if (raf) cancelAnimationFrame(raf) }
+  }, [])
   // Which secondary groups (Tools/Resources/Support) are expanded on the
   // DESKTOP rail, which keeps its toggles. The phone side menu no longer
   // collapses anything — every destination is visible under a static
@@ -3597,7 +3622,20 @@ export default function MobileApp() {
           sync time; this banner is the binary "are we connected"
           signal. */}
       <OfflineBanner />
-      <header style={{position:'fixed',top:0,left: profile && isDesktop ? SIDEBAR_W : 0,right:0,zIndex:100,background:'transparent',paddingTop:'env(safe-area-inset-top, 0px)'}}>
+      <header
+        data-scrolled={chromeScrolled ? 'true' : undefined}
+        style={{
+          position:'fixed', top:0, left: profile && isDesktop ? SIDEBAR_W : 0, right:0, zIndex:100,
+          paddingTop:'env(safe-area-inset-top, 0px)',
+          // Transparent at rest; a tinted, blurred bar with a hairline foot
+          // once content scrolls beneath it (see chromeScrolled). The blur
+          // is declared at rest too so the transition is only the tint —
+          // toggling backdrop-filter itself flickers on iOS.
+          background: chromeScrolled ? 'var(--chrome-glass)' : 'transparent',
+          boxShadow: chromeScrolled ? '0 1px 0 var(--chrome-hair)' : '0 1px 0 transparent',
+          backdropFilter:'blur(10px) saturate(130%)', WebkitBackdropFilter:'blur(10px) saturate(130%)',
+          transition:'background 180ms ease, box-shadow 180ms ease',
+        }}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           {/* Left cluster — hamburger menu (with its dropdown) followed
               by the "AtmosFlow" wordmark to its right. The hamburger is
