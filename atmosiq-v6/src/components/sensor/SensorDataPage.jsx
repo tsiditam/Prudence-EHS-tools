@@ -155,7 +155,7 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, marginTop: 8 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0 }}>
-          <span style={{ fontSize: 26, lineHeight: '30px', fontWeight: 600, color: TEXT, letterSpacing: '-0.5px' }}>{fmtAvg(stats.mean)}</span>
+          <span style={V3.N.lg}>{fmtAvg(stats.mean)}</span>
           <span style={{ fontSize: 12, fontWeight: 500, color: DIM }}>{unit}</span>
         </div>
         <Sparkline values={points} color={color} width={124} height={34} area endDot />

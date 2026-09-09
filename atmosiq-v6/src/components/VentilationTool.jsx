@@ -71,7 +71,7 @@ function Stat({ label, value, unit, sub }) {
     <div style={{ minWidth: 0 }}>
       <div style={{ ...V3.T.captionDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-        <span style={{ fontSize: 22, fontWeight: 600, color: TEXT, letterSpacing: '-0.3px', fontVariantNumeric: 'tabular-nums' }}>{value == null ? '—' : value}</span>
+        <span style={V3.N.lg}>{value == null ? '—' : value}</span>
         {unit && <span style={{ ...V3.T.captionDim, whiteSpace: 'nowrap' }}>{unit}</span>}
       </div>
       {sub && <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{sub}</div>}
@@ -248,13 +248,13 @@ export default function VentilationTool() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginTop: 14 }}>
               <div>
                 <div style={V3.T.captionDim}>Delivered · est.</div>
-                <div style={{ fontSize: 28, fontWeight: 600, color: TEXT, letterSpacing: '-0.5px', lineHeight: '32px', fontVariantNumeric: 'tabular-nums' }}>{deliveredPerPerson}</div>
+                <div style={V3.N.lg}>{deliveredPerPerson}</div>
                 <div style={V3.T.captionDim}>cfm/person</div>
               </div>
               <div style={{ fontSize: 22, color: DIM }}>/</div>
               <div>
                 <div style={V3.T.captionDim}>Required · 62.1</div>
-                <div style={{ fontSize: 28, fontWeight: 600, color: TEXT, letterSpacing: '-0.5px', lineHeight: '32px', fontVariantNumeric: 'tabular-nums' }}>{required.perPerson}</div>
+                <div style={V3.N.lg}>{required.perPerson}</div>
                 <div style={V3.T.captionDim}>cfm/person</div>
               </div>
             </div>

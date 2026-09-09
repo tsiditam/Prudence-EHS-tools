@@ -177,6 +177,10 @@ export const T = {
   display:    { fontSize: 32, lineHeight: '40px', fontWeight: 700, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
   h1:         { fontSize: 28, lineHeight: '34px', fontWeight: 700, letterSpacing: '-0.6px', color: TEXT_PRIMARY },
   h1Sub:      { fontSize: 13, lineHeight: '18px', fontWeight: 400, color: TEXT_SECONDARY },
+  // A statement inside a screen — the results headline, a walkthrough
+  // question — between h1 and h2. Added (2026-09) so those call sites stop
+  // carrying their own 22px and 24px; one scale, no off-scale sizes.
+  title:      { fontSize: 22, lineHeight: '28px', fontWeight: 600, letterSpacing: '-0.3px', color: TEXT_PRIMARY, textWrap: 'pretty' },
   h2:         { fontSize: 18, lineHeight: '26px', fontWeight: 600, letterSpacing: '-0.2px', color: TEXT_PRIMARY },
   h3:         { fontSize: 15, lineHeight: '22px', fontWeight: 600, color: TEXT_PRIMARY },
   body:       { fontSize: 14, lineHeight: '20px', fontWeight: 400, color: TEXT_PRIMARY },

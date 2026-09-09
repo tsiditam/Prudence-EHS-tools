@@ -262,7 +262,6 @@ const ON_ACCENT = 'var(--on-accent)'
 // the app's sans (var(--font-sans), Inter) so the result acard + Home
 // co-pilot headings read consistently with the rest of the glass/cyan UI
 // rather than as an editorial outlier.
-const SERIF = 'var(--font-sans)'
 
 // Map a saved profile instrument's coarse calStatus → the assessment's
 // calibration-status option. Best-guess only — the assessor confirms it
@@ -2428,7 +2427,7 @@ export default function MobileApp() {
         </div>
         <div key={q.id+'-'+curZone} style={{animation:'fadeUp .4s cubic-bezier(.22,1,.36,1)'}}>
           {/* The question leads. The icon tile that sat above it is gone. */}
-          <h2 style={{fontSize:24,fontWeight:700,lineHeight:1.3,margin:0,marginBottom:8,letterSpacing:'-0.3px',color:TEXT}}>{q.q}</h2>
+          <h2 style={{...V3.T.title, margin:0, marginBottom:8}}>{q.q}</h2>
           {q.ref&&<div style={{...V3.T.caption, fontWeight:400, marginBottom:18, lineHeight:1.5}}>{q.ref}</div>}
           {!q.ref&&<div style={{height:14}} />}
 
@@ -2809,7 +2808,7 @@ export default function MobileApp() {
           {/* Property name in the editorial serif (matches the v3
               prototype's Lora .prop-name) so the lead screen reads as a
               consultant document, not a dashboard. */}
-          <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:600, fontSize:28, lineHeight:'34px', letterSpacing:'-0.5px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
+          <div style={{...V3.T.h1, marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
           {bldg.fl && <div style={{...V3.T.h1Sub}}>{bldg.fl}</div>}
           {/* Senior-design metadata row: semantic status dot + counts.
               The report is persisted on this view, so the dot reads
@@ -2892,7 +2891,7 @@ export default function MobileApp() {
                       Assessment panel, where it is labelled and in context. */}
                   {/* Serif diagnosis — the screening indicator named in the
                       editorial serif (matches the prototype's Lora .diag). */}
-                  <div style={{fontFamily:SERIF, fontSize:22, fontWeight:600, lineHeight:'28px', color:V3.TEXT_PRIMARY, textWrap:'pretty'}}>{headline}</div>
+                  <div style={V3.T.title}>{headline}</div>
                 </div>
               </div>
               <div style={{...V3.T.bodyDim, lineHeight:'21px', marginTop:10}}>
@@ -4421,8 +4420,8 @@ export default function MobileApp() {
                     <I n="airflow" s={18} c="var(--accent)" w={1.8} />
                     <div style={V3.T.micro}>AtmosFlow · Field co-pilot</div>
                   </div>
-                  <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:700, marginBottom:6}}>Ready to start a survey?</div>
-                  <div style={{...V3.T.bodyDim, fontFamily:SERIF, fontWeight:400, maxWidth:560, marginBottom:20}}>
+                  <div style={{...V3.T.h1, marginBottom:6}}>Ready to start a survey?</div>
+                  <div style={{...V3.T.bodyDim, maxWidth:560, marginBottom:20}}>
                     Capture field observations, instrument readings, and zone notes.
                     AtmosFlow organizes them into a professional
                     assessment with severity, confidence, and recommended actions.

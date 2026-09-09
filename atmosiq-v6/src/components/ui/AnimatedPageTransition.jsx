@@ -36,8 +36,12 @@
  */
 import { useState, useRef, useLayoutEffect } from 'react'
 
-const ENTER_MS = 300
-const EXIT_MS = 260
+// Motion as confirmation (2026-09): a push slides in, a pop slides out,
+// a tab crossfades — 240 ms in, 200 ms out, and nothing scales. The
+// 300 ms glide with a 0.985 scale on every page read as a flourish on
+// each tap; a slide alone says "you went somewhere" and stops.
+const ENTER_MS = 240
+const EXIT_MS = 200
 
 if (typeof document !== 'undefined' && !document.getElementById('affp-style')) {
   const s = document.createElement('style')
@@ -49,22 +53,22 @@ if (typeof document !== 'undefined' && !document.getElementById('affp-style')) {
 
 .affp-in.affp-forward { animation-name: affpInForward; }
 .affp-in.affp-back    { animation-name: affpInBack; }
-.affp-in.affp-tab     { animation-name: affpInTab; animation-duration: 260ms; }
-.affp-in.affp-up      { animation-name: affpInUp; animation-duration: 260ms; }
+.affp-in.affp-tab     { animation-name: affpInTab; animation-duration: 200ms; }
+.affp-in.affp-up      { animation-name: affpInUp; animation-duration: 200ms; }
 
 .affp-out.affp-forward { animation-name: affpOutForward; }
 .affp-out.affp-back    { animation-name: affpOutBack; }
 .affp-out.affp-tab     { animation-name: affpOutTab; }
 .affp-out.affp-up      { animation-name: affpOutUp; }
 
-@keyframes affpInForward { from { opacity: 0; transform: translate3d(22px,0,0) scale(0.985); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
-@keyframes affpInBack    { from { opacity: 0; transform: translate3d(-22px,0,0) scale(0.985); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
-@keyframes affpInTab     { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: scale(1); } }
-@keyframes affpInUp      { from { opacity: 0; transform: translate3d(0,10px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
+@keyframes affpInForward { from { opacity: 0; transform: translate3d(24px,0,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
+@keyframes affpInBack    { from { opacity: 0; transform: translate3d(-24px,0,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
+@keyframes affpInTab     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes affpInUp      { from { opacity: 0; transform: translate3d(0,8px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
 
-@keyframes affpOutForward { from { opacity: 1; transform: translate3d(0,0,0) scale(1); } to { opacity: 0; transform: translate3d(-16px,0,0) scale(0.99); } }
-@keyframes affpOutBack    { from { opacity: 1; transform: translate3d(0,0,0) scale(1); } to { opacity: 0; transform: translate3d(16px,0,0) scale(0.99); } }
-@keyframes affpOutTab     { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.99); } }
+@keyframes affpOutForward { from { opacity: 1; transform: translate3d(0,0,0); } to { opacity: 0; transform: translate3d(-16px,0,0); } }
+@keyframes affpOutBack    { from { opacity: 1; transform: translate3d(0,0,0); } to { opacity: 0; transform: translate3d(16px,0,0); } }
+@keyframes affpOutTab     { from { opacity: 1; } to { opacity: 0; } }
 @keyframes affpOutUp      { from { opacity: 1; transform: translate3d(0,0,0); } to { opacity: 0; transform: translate3d(0,-6px,0); } }
 
 @media (prefers-reduced-motion: reduce) {
