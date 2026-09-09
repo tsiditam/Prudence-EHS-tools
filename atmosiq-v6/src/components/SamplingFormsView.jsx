@@ -20,7 +20,7 @@ import { generateMoldCoCBlob, MOLD_COC_FILENAME_PREFIX } from './forms/MoldCoCFo
 import { generateTvocCoCBlob, TVOC_COC_FILENAME_PREFIX } from './forms/TvocCoCForm'
 import { deliverFile } from './forms/deliverFile'
 import { lazySafe } from './ui/lazySafe'
-import Loading from './Loading'
+import { LazyPlaceholder } from './LaunchFrame'
 // Lazy: the CSV importer (parser + templates) only loads when opened.
 const LabResultsImport = lazySafe(() => import('./LabResultsImport'))
 
@@ -77,7 +77,7 @@ export default function SamplingFormsView({ profile }) {
   const [subView, setSubView] = useState('picker') // 'picker' | 'lab-import'
 
   if (subView === 'lab-import') {
-    return <Suspense fallback={<Loading fast onDone={() => {}} />}><LabResultsImport onBack={() => setSubView('picker')} /></Suspense>
+    return <Suspense fallback={<LazyPlaceholder />}><LabResultsImport onBack={() => setSubView('picker')} /></Suspense>
   }
 
   const handleGenerate = async (form) => {

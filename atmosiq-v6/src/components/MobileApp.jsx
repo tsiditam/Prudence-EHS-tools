@@ -56,7 +56,7 @@ import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
-import Loading from './Loading'
+import LaunchFrame, { LazyPlaceholder } from './LaunchFrame'
 import PhotoCapture, { PhotoThumb } from './PhotoCapture'
 import { expandPhotos, rekeyPhotos } from '../utils/photoCompaction'
 import { reportStorageWrite } from './ui/storageToast'
@@ -110,10 +110,10 @@ const EvidenceMap = lazySafe(() => import('./EvidenceMap'))
 const MoldModeScreen = lazySafe(() => import('./MoldModeScreen'))
 const SamplingFormsView = lazySafe(() => import('./SamplingFormsView'))
 const VentilationTool = lazySafe(() => import('./VentilationTool'))
-// Suspense fallback for the lazy screens — the brand splash in its fast
-// (400 ms) form. `onDone` is a no-op: Suspense unmounts it when the chunk
-// lands.
-const LAZY_FALLBACK = <Loading fast onDone={() => {}} />
+// Suspense fallback for the lazy screens — a quiet caption in place, in
+// the theme's ink. It used to be the brand splash in a 400 ms form: a
+// full-screen black canvas on every first open of a lazy screen.
+const LAZY_FALLBACK = <LazyPlaceholder />
 import { DEMO_CLEAN_PRESURVEY, DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES, DEMO_CLEAN_EQUIPMENT } from '../constants/demoDataClean'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_FINDINGS_PRESURVEY, DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT } from '../constants/demoDataFindings'
@@ -701,9 +701,6 @@ export default function MobileApp() {
   // ── Local UI state (truly component-local; not shared) ──
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
-  // Plays the 7 s brand intro exactly once per browser cache, on the
-  // first *interactive* sign-in (see handleLogin + the render gate).
-  const [welcomeAnim, setWelcomeAnim] = useState(false)
   const [welcomeDone, setWelcomeDone] = useState(!!sessionStorage.getItem('aiq_welcomed'))
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
@@ -1215,11 +1212,8 @@ export default function MobileApp() {
   }
 
   const handleLogin = async (userOrProfile) => {
-    // First interactive sign-in per browser cache plays the brand intro
-    // once. The flag lives in localStorage, so clearing the cache replays
-    // it; returning users with a cached session are auto-resolved in the
-    // bootstrap effect (never reaching handleLogin), so they never see it.
-    if (!(await STO.get('aiq_intro_seen'))) setWelcomeAnim(true)
+    // No brand intro on sign-in (removed 2026-09; see LaunchFrame). The
+    // app's first screen is the welcome.
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
       const p = await Storage.getProfile()
@@ -2332,17 +2326,16 @@ export default function MobileApp() {
   const dtSecs = [...new Set(dtVis.map(q=>q.sec))]
   const zSecs = [...new Set(zVis.map(q=>q.sec))]
 
-  // Brief neutral cover while the cached session resolves — no brand
-  // animation here. The intro plays only on first interactive sign-in
-  // (welcomeAnim gate below), so returning users don't sit through it.
-  if (loading) return <div style={{position:'fixed',inset:0,background:'#000',zIndex:9999}} aria-hidden="true" />
+  // While the cached session resolves: a static frame of the first
+  // screen in the theme's colours, so the real screen draws in the same
+  // place with nothing to wait through. The brand intro that used to
+  // follow a first sign-in is gone (see LaunchFrame for the reasoning).
+  if (loading) return <LaunchFrame heading={homeView(userMode) === 'projects' ? 'Projects' : null} padX={padX} contentMax={contentMax} />
   // Auth gate: Supabase login when configured, local profiles when not
   if (profileChecked && !profile) {
     if (supabase) return <AuthScreen onAuth={handleLogin} />
     return <ProfileScreen onLogin={handleLogin} />
   }
-  // First interactive sign-in per cache → 7 s brand intro, then the app.
-  if (welcomeAnim) return <Loading onDone={() => { STO.set('aiq_intro_seen', '1'); setWelcomeAnim(false) }} />
   // Mode selection — FM mode paused; auto-select IH for all users
   const hasModeSet = localStorage.getItem(KEYS.userMode)
   if (profile && (!hasModeSet || hasModeSet === 'fm')) {
