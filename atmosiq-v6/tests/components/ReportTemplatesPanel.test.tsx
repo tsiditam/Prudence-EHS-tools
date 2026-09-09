@@ -114,20 +114,22 @@ describe('ReportTemplatesPanel', () => {
   })
 })
 
-describe('Settings reaches the report templates panel', () => {
-  it('has a Report templates row that opens its screen, and that screen mounts the panel', async () => {
+describe('The report templates screen', () => {
+  it('mounts the panel with its content', async () => {
     mockFetch((body) =>
       body.action === 'list'
         ? { json: { templates: TEMPLATES } }
         : { json: { sites: [] } })
-    const opened: string[] = []
-    withProvider(<SettingsScreen onNavigate={(v: string) => opened.push(v)} />)
-    fireEvent.click(screen.getByText('Report templates'))
-    expect(opened).toEqual(['report-templates'])
-    cleanup()
     // Panel content, not just a heading — a heading with no panel is the
-    // exact state this test exists to prevent.
+    // exact state this test exists to prevent. (The Settings row that led
+    // here was removed by product decision, 2026-09; the screen stays.)
     withProvider(<ReportTemplatesScreen />)
     expect(await screen.findByText('Upload a template')).toBeTruthy()
+  })
+
+  it('is no longer a row on Settings', () => {
+    mockFetch(() => ({ json: { templates: [] } }))
+    withProvider(<SettingsScreen />)
+    expect(screen.queryByText('Report templates')).toBeNull()
   })
 })

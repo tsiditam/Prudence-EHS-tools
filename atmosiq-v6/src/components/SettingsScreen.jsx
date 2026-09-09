@@ -11,9 +11,10 @@
  * report templates, each with its own paragraph, sign-in notice, dashed
  * empty state and accent button — are rows now ("Sites ›", "Report
  * templates ›") that open their own screens, SitesScreen and
- * ReportTemplatesScreen below. The methodology paragraph is a row with
- * the standards as its sub-line and the one sentence that matters as the
- * group's caption.
+ * ReportTemplatesScreen below. Product decision (2026-09): the Methodology
+ * group and the Sites / Report templates rows were removed from this
+ * screen; Settings keeps Assessment mode, Data & Backup, Help, Legal and
+ * About.
  */
 
 import { useState, useEffect } from 'react'
@@ -40,12 +41,13 @@ const DIM = 'var(--dim)'
 const WARN = 'var(--warn)'
 const DANGER = 'var(--danger)'
 
-const STANDARDS = 'ASHRAE 62.1-2025 · ASHRAE 55-2023 · OSHA PELs · NIOSH RELs · EPA NAAQS · WHO AQG · AIHA'
-
-// The site library on its own screen, reached from the Sites row. It is
-// the only management surface for records the app creates on its own:
+// The site library on its own screen (`sites` route). It is the only
+// management surface for records the app creates on its own:
 // SaveSitePrompt writes a site at finalize, and the re-assessment cron
-// emails against it.
+// emails against it. Product decision (2026-09): the Settings screen no
+// longer carries a row to it — Methodology, Sites and Report templates
+// were removed from Settings. The screen and its route remain so the
+// panel is mountable; it currently has no entry point in the app.
 export function SitesScreen() {
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120 }}>
@@ -55,10 +57,11 @@ export function SitesScreen() {
   )
 }
 
-// Report templates on their own screen, reached from the Report templates
-// row. Uploading a .docx here is the only way to get a template into the
+// Report templates on their own screen (`report-templates` route).
+// Uploading a .docx here is the only way to get a template into the
 // account; `generate_report` can only ever answer `no_templates_saved`
-// without it, and its failure message points the assessor here.
+// without it. Same product decision as SitesScreen: no row in Settings,
+// and no entry point in the app at present.
 export function ReportTemplatesScreen() {
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120 }}>
@@ -144,10 +147,6 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
         </Group>
       )}
 
-      <Group title="Methodology" footer="Findings are informed by, not certified against, these standards. Thresholds update with each release.">
-        <Row label="Standards applied" sub={STANDARDS} />
-      </Group>
-
       <Group
         title="Data & Backup"
         right={!dataOk ? <ExceptionPill tone="warn" text="Issues found" /> : null}
@@ -163,11 +162,6 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
         {trashCount > 0 && <Row label="Trash" value={`${trashCount}`} action={() => onNavigate?.('trash')} />}
       </Group>
       <input id="settings-import" type="file" accept=".json" onChange={handleImport} style={{display:'none'}} aria-label="Restore from backup file" />
-
-      <Group title="Library">
-        <Row label="Sites" sub="Saved buildings, re-assessment reminders" action={() => onNavigate?.('sites')} />
-        <Row label="Report templates" sub="Word templates the AI fills from an assessment" action={() => onNavigate?.('report-templates')} />
-      </Group>
 
       {/* ── Admin (only when activated) ── */}
       {adminActive && (
