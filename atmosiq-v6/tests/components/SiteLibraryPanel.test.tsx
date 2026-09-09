@@ -13,7 +13,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react'
 import SiteLibraryPanel from '../../src/components/settings/SiteLibraryPanel'
-import SettingsScreen from '../../src/components/SettingsScreen'
+import SettingsScreen, { SitesScreen } from '../../src/components/SettingsScreen'
 import { StorageProvider } from '../../src/contexts/StorageContext'
 
 const SITES = [
@@ -110,13 +110,19 @@ describe('SiteLibraryPanel', () => {
   })
 })
 
-describe('Settings mounts the site library', () => {
-  it('renders the Sites group with the panel inside it', async () => {
+describe('The sites screen', () => {
+  it('mounts the panel with its content', async () => {
+    mockFetch(() => ({ json: { sites: SITES } }))
+    // Panel content, not just a heading — a heading with no panel is the
+    // exact state this test exists to prevent. (The Settings row that led
+    // here was removed by product decision, 2026-09; the screen stays.)
+    withProvider(<SitesScreen />)
+    expect(await screen.findByText('Lakeside Medical')).toBeTruthy()
+  })
+
+  it('is no longer a row on Settings', () => {
     mockFetch(() => ({ json: { sites: SITES } }))
     withProvider(<SettingsScreen />)
-    expect(screen.getByText('Sites')).toBeTruthy()
-    // Panel content, not just the heading — a heading with no panel is the
-    // exact state this test exists to prevent.
-    expect(await screen.findByText('Lakeside Medical')).toBeTruthy()
+    expect(screen.queryByText('Sites')).toBeNull()
   })
 })

@@ -56,7 +56,7 @@ import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
-import Loading from './Loading'
+import LaunchFrame, { LazyPlaceholder } from './LaunchFrame'
 import PhotoCapture, { PhotoThumb } from './PhotoCapture'
 import { expandPhotos, rekeyPhotos } from '../utils/photoCompaction'
 import { reportStorageWrite } from './ui/storageToast'
@@ -81,7 +81,7 @@ import ProjectsScreen from './projects/ProjectsScreen'
 import ProjectDetail from './projects/ProjectDetail'
 import { getOrCreateProjectByName } from '../utils/projectStore'
 import { KEYS } from '../utils/storageKeys'
-import SettingsScreen from './SettingsScreen'
+import SettingsScreen, { SitesScreen, ReportTemplatesScreen } from './SettingsScreen'
 import AccountScreen from './AccountScreen'
 import { getInitials } from './ProfileAvatar'
 import FeatureTour from './FeatureTour'
@@ -110,10 +110,10 @@ const EvidenceMap = lazySafe(() => import('./EvidenceMap'))
 const MoldModeScreen = lazySafe(() => import('./MoldModeScreen'))
 const SamplingFormsView = lazySafe(() => import('./SamplingFormsView'))
 const VentilationTool = lazySafe(() => import('./VentilationTool'))
-// Suspense fallback for the lazy screens — the brand splash in its fast
-// (400 ms) form. `onDone` is a no-op: Suspense unmounts it when the chunk
-// lands.
-const LAZY_FALLBACK = <Loading fast onDone={() => {}} />
+// Suspense fallback for the lazy screens — a quiet caption in place, in
+// the theme's ink. It used to be the brand splash in a 400 ms form: a
+// full-screen black canvas on every first open of a lazy screen.
+const LAZY_FALLBACK = <LazyPlaceholder />
 import { DEMO_CLEAN_PRESURVEY, DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES, DEMO_CLEAN_EQUIPMENT } from '../constants/demoDataClean'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_FINDINGS_PRESURVEY, DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT } from '../constants/demoDataFindings'
@@ -244,7 +244,11 @@ const RESULT_TAB_ALIASES = {
 // styles, so the screen reads as one document rather than a dashboard.
 const RS_SECTION = { paddingTop: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
 const RS_HEAD = { ...V3.T.micro, marginBottom: 10 }
-const RS_LINK = { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }
+// A text action / link: the primary ink, weight 600, a chevron when it goes
+// somewhere. Accent discipline (2026-09): cyan is reserved for the one
+// primary action on a screen and the selected state; links stopped
+// borrowing it.
+const RS_LINK = { background: 'none', border: 'none', color: V3.TEXT_PRIMARY, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4, WebkitTapHighlightColor: 'transparent' }
 
 // Confidence tones for the results cards. High = green (confident),
 // Moderate = amber, Possible = a cool slate-blue — deliberately lower-
@@ -258,7 +262,6 @@ const ON_ACCENT = 'var(--on-accent)'
 // the app's sans (var(--font-sans), Inter) so the result acard + Home
 // co-pilot headings read consistently with the rest of the glass/cyan UI
 // rather than as an editorial outlier.
-const SERIF = 'var(--font-sans)'
 
 // Map a saved profile instrument's coarse calStatus → the assessment's
 // calibration-status option. Best-guess only — the assessor confirms it
@@ -514,7 +517,7 @@ function PhotoNotFeasible({ existing, onSave, onClear }) {
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState((existing && existing.reason) || '')
   const marked = !!(existing && typeof existing.reason === 'string' && existing.reason.trim())
-  const link = { background:'none', border:'none', padding:0, color:'var(--accent)', fontSize:12, fontFamily:'inherit', cursor:'pointer', textDecoration:'underline' }
+  const link = { background:'none', border:'none', padding:0, color:V3.TEXT_PRIMARY, fontWeight:600, fontSize:12, fontFamily:'inherit', cursor:'pointer', textDecoration:'underline' }
   if (marked) {
     return (
       <div style={{marginTop:10, fontSize:12, color:'var(--sub)', lineHeight:1.5}}>
@@ -701,9 +704,6 @@ export default function MobileApp() {
   // ── Local UI state (truly component-local; not shared) ──
   const [loading, setLoading] = useState(true)
   const [isReturning, setIsReturning] = useState(false)
-  // Plays the 7 s brand intro exactly once per browser cache, on the
-  // first *interactive* sign-in (see handleLogin + the render gate).
-  const [welcomeAnim, setWelcomeAnim] = useState(false)
   const [welcomeDone, setWelcomeDone] = useState(!!sessionStorage.getItem('aiq_welcomed'))
   const [userMode, setUserMode] = useState(getMode())
   const [needsModeSelect, setNeedsModeSelect] = useState(false)
@@ -1215,11 +1215,8 @@ export default function MobileApp() {
   }
 
   const handleLogin = async (userOrProfile) => {
-    // First interactive sign-in per browser cache plays the brand intro
-    // once. The flag lives in localStorage, so clearing the cache replays
-    // it; returning users with a cached session are auto-resolved in the
-    // bootstrap effect (never reaching handleLogin), so they never see it.
-    if (!(await STO.get('aiq_intro_seen'))) setWelcomeAnim(true)
+    // No brand intro on sign-in (removed 2026-09; see LaunchFrame). The
+    // app's first screen is the welcome.
     if (userOrProfile?.email && supabase) {
       trackEvent('login_completed', {})
       const p = await Storage.getProfile()
@@ -2332,17 +2329,16 @@ export default function MobileApp() {
   const dtSecs = [...new Set(dtVis.map(q=>q.sec))]
   const zSecs = [...new Set(zVis.map(q=>q.sec))]
 
-  // Brief neutral cover while the cached session resolves — no brand
-  // animation here. The intro plays only on first interactive sign-in
-  // (welcomeAnim gate below), so returning users don't sit through it.
-  if (loading) return <div style={{position:'fixed',inset:0,background:'#000',zIndex:9999}} aria-hidden="true" />
+  // While the cached session resolves: a static frame of the first
+  // screen in the theme's colours, so the real screen draws in the same
+  // place with nothing to wait through. The brand intro that used to
+  // follow a first sign-in is gone (see LaunchFrame for the reasoning).
+  if (loading) return <LaunchFrame heading={homeView(userMode) === 'projects' ? 'Projects' : null} padX={padX} contentMax={contentMax} />
   // Auth gate: Supabase login when configured, local profiles when not
   if (profileChecked && !profile) {
     if (supabase) return <AuthScreen onAuth={handleLogin} />
     return <ProfileScreen onLogin={handleLogin} />
   }
-  // First interactive sign-in per cache → 7 s brand intro, then the app.
-  if (welcomeAnim) return <Loading onDone={() => { STO.set('aiq_intro_seen', '1'); setWelcomeAnim(false) }} />
   // Mode selection — FM mode paused; auto-select IH for all users
   const hasModeSet = localStorage.getItem(KEYS.userMode)
   if (profile && (!hasModeSet || hasModeSet === 'fm')) {
@@ -2431,7 +2427,7 @@ export default function MobileApp() {
         </div>
         <div key={q.id+'-'+curZone} style={{animation:'fadeUp .4s cubic-bezier(.22,1,.36,1)'}}>
           {/* The question leads. The icon tile that sat above it is gone. */}
-          <h2 style={{fontSize:24,fontWeight:700,lineHeight:1.3,margin:0,marginBottom:8,letterSpacing:'-0.3px',color:TEXT}}>{q.q}</h2>
+          <h2 style={{...V3.T.title, margin:0, marginBottom:8}}>{q.q}</h2>
           {q.ref&&<div style={{...V3.T.caption, fontWeight:400, marginBottom:18, lineHeight:1.5}}>{q.ref}</div>}
           {!q.ref&&<div style={{height:14}} />}
 
@@ -2812,7 +2808,7 @@ export default function MobileApp() {
           {/* Property name in the editorial serif (matches the v3
               prototype's Lora .prop-name) so the lead screen reads as a
               consultant document, not a dashboard. */}
-          <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:600, fontSize:28, lineHeight:'34px', letterSpacing:'-0.5px', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
+          <div style={{...V3.T.h1, marginBottom:4, overflow:'hidden', textOverflow:'ellipsis'}}>{bldg.fn||'Assessment'}</div>
           {bldg.fl && <div style={{...V3.T.h1Sub}}>{bldg.fl}</div>}
           {/* Senior-design metadata row: semantic status dot + counts.
               The report is persisted on this view, so the dot reads
@@ -2895,7 +2891,7 @@ export default function MobileApp() {
                       Assessment panel, where it is labelled and in context. */}
                   {/* Serif diagnosis — the screening indicator named in the
                       editorial serif (matches the prototype's Lora .diag). */}
-                  <div style={{fontFamily:SERIF, fontSize:22, fontWeight:600, lineHeight:'28px', color:V3.TEXT_PRIMARY, textWrap:'pretty'}}>{headline}</div>
+                  <div style={V3.T.title}>{headline}</div>
                 </div>
               </div>
               <div style={{...V3.T.bodyDim, lineHeight:'21px', marginTop:10}}>
@@ -3431,25 +3427,21 @@ export default function MobileApp() {
         onClick={() => go(item.onClick)}
         aria-current={active ? 'page' : undefined}
         style={{
-          // Active row: a flat accent tint with a hairline edge (UI pass,
-          // 2026-09 — the blur + inset highlight went with the rest of the
-          // glass; the tint alone reads as selected on the flat menu).
+          // Active row: the menu's neutral raised tone, the label and glyph
+          // in the primary ink — the same selected state the dock draws. It
+          // used to be an accent tint with an accent ring, an accent glyph
+          // and an accent label: four uses of the one colour on one row.
           width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
           margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
-          color: active ? 'var(--accent)' : 'var(--text)',
-          background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'transparent',
-          boxShadow: active
-            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent)'
-            : 'none',
+          color: 'var(--text)',
+          background: active ? 'var(--m-ctl)' : 'transparent',
           WebkitTapHighlightColor:'transparent',
         }}>
-        {/* Accent discipline (Rule 2): cyan marks the active row only; inactive
-            icons are muted (var(--sub)) so the selected item reads and the
-            accent keeps its meaning. Matches the dock, Trash, and the project
-            switcher, which already dim their inactive icons. renderIcon items
-            (the AtmosFlow AI brain) keep their own identity mark. */}
-        {item.renderIcon ? item.renderIcon() : <I n={item.icon} s={19} c={active ? 'var(--accent)' : 'var(--sub)'} w={1.7} />}
+        {/* Glyphs sit in the secondary ink; the active one in the primary
+            ink. renderIcon items (the AtmosFlow AI brain) keep their own
+            identity mark. */}
+        {item.renderIcon ? item.renderIcon() : <I n={item.icon} s={19} c={active ? 'var(--text)' : 'var(--sub)'} w={1.7} />}
         <span style={{flex:1}}>{item.label}</span>
       </button>
     )
@@ -3620,16 +3612,20 @@ export default function MobileApp() {
                 returns to the project workspace, "‹ Tools" to the hub. When
                 the destination is an assessment screen or a project it
                 names the facility / project rather than the generic word.
-                Hidden on the home screens (nothing beneath) and on
-                project-detail, which owns its own "Projects" control. */}
-            {profile && nav.backView && view!=='dash' && view!=='projects' && view!=='project-detail' && (
+                Hidden on the home screens (nothing beneath). The project
+                workspace used to draw its own "← Projects" and hide this
+                one; it now relies on this control like every other screen. */}
+            {profile && nav.backView && view!=='dash' && view!=='projects' && (
               <button
                 onClick={()=>{ nav.back(); setViewRpt(null) }}
                 {...triggerPress('back')}
                 aria-label={`Back to ${backLabel}`}
-                className="af-glass-control af-menu-trigger"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+                className="af-menu-trigger"
+                // Bare: a chevron and the destination in the primary ink,
+                // no capsule. The accent is for the primary action and
+                // the selected state, and the way back is neither.
+                style={{display:'flex',alignItems:'center',gap:2,height:36,padding:'0 8px 0 0',background:'transparent',border:'none',boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:V3.TEXT_PRIMARY,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{backLabel}</span>
               </button>
             )}
@@ -3642,17 +3638,16 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                className="af-glass-control af-menu-trigger"
+                className="af-menu-trigger"
                 style={{
-                  // Circular glass "bubble" button with a staggered
-                  // (descending) hamburger in cyan. Glass via .af-glass-control
-                  // so it matches the bottom dock + other header controls.
-                  width:40, height:40, borderRadius:'50%',
+                  // A bare glyph in the primary ink; no circle, no glass.
+                  width:40, height:40, marginLeft:-10,
                   padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                  background:'transparent', border:'none', color:V3.TEXT_PRIMARY,
                   boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
                   ...triggerFx('menu', 1.3),
                 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                   <line x1="4" y1="7"  x2="20" y2="7" />
                   <line x1="4" y1="12" x2="15" y2="12" />
                   <line x1="4" y1="17" x2="11" y2="17" />
@@ -3690,7 +3685,7 @@ export default function MobileApp() {
             {profile && view!=='dash' && (
               <button
                 type="button"
-                className="af-menu-trigger af-glass-control"
+                className="af-menu-trigger"
                 onClick={(e) => {
                   const r = e.currentTarget.getBoundingClientRect()
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
@@ -3701,14 +3696,16 @@ export default function MobileApp() {
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
                 style={{
-                  width:36, height:36, borderRadius:'50%',
+                  // A bare glyph in the primary ink; no circle, no glass.
+                  width:40, height:40, marginRight:-10,
                   cursor:'pointer', display:'flex',
                   alignItems:'center', justifyContent:'center',
                   padding:0, boxSizing:'border-box',
+                  background:'transparent', border:'none', color:V3.TEXT_PRIMARY,
                   WebkitTapHighlightColor:'transparent',
                   ...triggerFx('kebab', 1.3),
                 }}>
-                <I n="dots" s={20} c={ACCENT} w={2} />
+                <I n="dots" s={22} c="currentColor" w={2} />
               </button>
             )}
           </div>
@@ -3920,45 +3917,38 @@ export default function MobileApp() {
         </div>
       )}
 
-      {/* ── Pre-assessment disclaimer — bottom sheet ──
-          Four advisory panels rendered as in-sheet soft-glass cards
-          so the disclaimers feel like read-and-acknowledge items
-          rather than dense legal-form text. Tap outside dismisses
-          (the user is not committing yet); the explicit primary
+      {/* ── Pre-assessment acknowledgement — bottom sheet ──
+          Two sentences on the page, one accent action, a text action
+          to step back. It used to be four bordered cards under all-caps
+          labels, with a shield icon and a subtitle above them, and one
+          of the four described a "scoring methodology" the engine
+          retired in v3.0. The limitation is stated once — the
+          substantive boundary CLAUDE.md names — and the assessor's
+          responsibility once; neither is repeated. Tap outside
+          dismisses (the user is not committing yet); the primary
           button is the consent action. */}
       {showDisclaimer && (
         <BottomSheet
           title="Before you begin"
           onClose={()=>setShowDisclaimer(false)}
           maxWidth={460}
-          ariaLabel="Pre-assessment disclaimer"
+          ariaLabel="Pre-assessment acknowledgement"
         >
-          <div style={{display:'flex',alignItems:'center',gap:10,margin:'4px 0 14px'}}>
-            <I n="shield" s={18} c={ACCENT} w={1.6} />
-            <div style={V3.T.captionDim}>Acknowledge before starting</div>
+          <div style={{...V3.T.body, color:V3.TEXT_SECONDARY, lineHeight:'22px', margin:'4px 0 6px'}}>
+            AtmosFlow identifies indoor air quality indicators and produces a sampling plan.
+            It does not make a regulatory, compliance or medical determination.
           </div>
-          <div style={{display:'flex',flexDirection:'column',gap:10,fontSize:13,color:SUB,lineHeight:1.6,marginBottom:18}}>
-            {[
-              { label: 'Advisory use only', body: 'All outputs generated by AtmosFlow are advisory and intended to support, not replace, professional judgment by a qualified industrial hygienist or EHS professional.' },
-              { label: 'Scoring methodology', body: 'Scoring applies deterministic rules informed by recognized ventilation, comfort, and exposure standards. It does not constitute a compliance certification or regulatory determination.' },
-              { label: 'Assessor responsibility', body: 'You are responsible for interpreting findings, reviewing all generated outputs, and exercising professional judgment before any deliverable is shared with clients or used for decision-making.' },
-              { label: 'Report review', body: 'AI-generated narratives and automated findings require professional review before client delivery. AtmosFlow does not provide legal, regulatory, or medical advice.' },
-            ].map((d, i) => (
-              <div key={i} style={{...GLASS.subtle, padding:'12px 14px', borderRadius:RADII.md}}>
-                <div style={{...V3.T.micro, marginBottom:4}}>{d.label}</div>
-                <div style={{color:V3.TEXT_SECONDARY}}>{d.body}</div>
-              </div>
-            ))}
+          <div style={{...V3.T.body, color:V3.TEXT_SECONDARY, lineHeight:'22px', marginBottom:22}}>
+            You interpret the findings, review every generated output — including AI-written
+            narrative — and apply your professional judgment before anything reaches a client.
           </div>
-          <div style={{display:'flex',gap:10,flexDirection:'column'}}>
-            <TactileButton variant="primary" fullWidth size="lg" onClick={proceedAfterDisclaimer} haptic="success">
-              I understand, begin walkthrough
-            </TactileButton>
-            <TactileButton variant="ghost" fullWidth onClick={()=>setShowDisclaimer(false)}>
-              Not yet
-            </TactileButton>
+          <TactileButton variant="primary" fullWidth size="lg" pill onClick={proceedAfterDisclaimer} haptic="success">
+            I understand, begin walkthrough
+          </TactileButton>
+          <div style={{textAlign:'center', marginTop:14}}>
+            <button onClick={()=>setShowDisclaimer(false)} style={{...RS_LINK, fontSize:14}}>Not yet</button>
           </div>
-          <div style={{textAlign:'center',marginTop:10,fontSize:10,color:DIM}}>By proceeding, you acknowledge these terms for this session.</div>
+          <div style={{...V3.T.captionDim, textAlign:'center', marginTop:14}}>Acknowledged for this session.</div>
         </BottomSheet>
       )}
 
@@ -4381,7 +4371,7 @@ export default function MobileApp() {
                     <div style={{marginBottom:RHYTHM.section}}>
                       <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
                         <div style={V3.T.micro}>Other in progress · {drafts.length - 1}</div>
-                        <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>
+                        <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:V3.TEXT_PRIMARY,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all ›</button>
                       </div>
                       <div style={sgStack('tight')}>
                         {drafts.slice(1, 4).map((d) => (
@@ -4423,8 +4413,8 @@ export default function MobileApp() {
                     <I n="airflow" s={18} c="var(--accent)" w={1.8} />
                     <div style={V3.T.micro}>AtmosFlow · Field co-pilot</div>
                   </div>
-                  <div style={{...V3.T.h1, fontFamily:SERIF, fontWeight:700, marginBottom:6}}>Ready to start a survey?</div>
-                  <div style={{...V3.T.bodyDim, fontFamily:SERIF, fontWeight:400, maxWidth:560, marginBottom:20}}>
+                  <div style={{...V3.T.h1, marginBottom:6}}>Ready to start a survey?</div>
+                  <div style={{...V3.T.bodyDim, maxWidth:560, marginBottom:20}}>
                     Capture field observations, instrument readings, and zone notes.
                     AtmosFlow organizes them into a professional
                     assessment with severity, confidence, and recommended actions.
@@ -4483,7 +4473,7 @@ export default function MobileApp() {
                 <div>
                   <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
                     <div style={V3.T.micro}>Recent reports{reports.length > 0 ? ` · ${reports.length}` : ''}</div>
-                    {reports.length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
+                    {reports.length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:V3.TEXT_PRIMARY,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all ›</button>}
                   </div>
                   <div style={sgStack('tight')}>
                     {reports.slice(0, 3).map((r) => {
@@ -4672,17 +4662,15 @@ export default function MobileApp() {
           onNavigate={(v)=> v==='dash' ? goHome() : setView(v)}
         />}
 
-        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
-          {/* ── Reports header ──────────────────────────────────────
-              The "New Assessment" CTA that previously sat here was
-              removed. The clickable draft-icon in the empty-state
-              card below is now the start-an-assessment affordance
-              within the Reports tab; the Home tab also offers it. */}
-          <div style={{marginBottom:20,display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
-            <div>
-              <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
-              <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
-            </div>
+        {view==='history'&&<div style={{paddingTop:16,paddingBottom:120,maxWidth:contentMax,margin:'0 auto'}}>
+          {/* ── Reports (restraint pass, 2026-09) ─────────────────────
+              The heading and, when there is anything to roll up, the
+              Portfolio summary as a text action. The subtitle, the cards,
+              the icon tiles and the bordered empty states are gone: two
+              sections as micro headings over hairlines, rows parting with
+              hairlines, one line and one action when a section is empty. */}
+          <div style={{marginBottom:12,display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12}}>
+            <div style={V3.T.h1}>Reports</div>
             {/* Portfolio Summary — a practice-level Word rollup of every
                 finalized assessment (risk-band distribution, per-site status,
                 overdue reassessments, calibration). Aggregates the same index
@@ -4711,119 +4699,60 @@ export default function MobileApp() {
                     setPortfolioBusy(false)
                   }
                 }}
-                className="af-glass-control"
-                style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:8,padding:'9px 14px',borderRadius:V3.R.md,cursor:portfolioBusy?'default':'pointer',fontFamily:'inherit',fontSize:13,fontWeight:600,color:'var(--accent)',opacity:portfolioBusy?0.6:1,WebkitTapHighlightColor:'transparent'}}
+                style={{...RS_LINK, opacity:portfolioBusy?0.6:1, cursor:portfolioBusy?'default':'pointer'}}
               >
-                <I n="download" s={15} c="var(--accent)" w={1.7} />
-                {portfolioBusy ? 'Building…' : 'Portfolio Summary'}
+                {portfolioBusy ? 'Building…' : 'Portfolio summary'}
               </button>
             )}
           </div>
 
           {/* ── Drafts / In Progress ──────────────────────────────── */}
-          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
-            <div style={V3.T.micro}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
-          </div>
+          <div style={{...RS_HEAD, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>{userMode === 'fm' ? 'In progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
           {(index.drafts||[]).length === 0 ? (
-            // Empty state — the draft icon is the start-an-assessment
-            // affordance now that the header CTA has been removed.
-            // Rendered as a <button> for keyboard + screen-reader
-            // accessibility; visual treatment matches V3.iconBox.
-            <div style={{...V3.panel(), display:'flex',alignItems:'center',gap:14,marginBottom:24,padding:'18px 22px'}}>
-              <button
-                onClick={startNew}
-                aria-label="Start new assessment"
-                className="af-glass-control"
-                style={{width:32,height:32,flexShrink:0,borderRadius:V3.R.md,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
-              >
-                <I n="draft" s={15} c="var(--accent)" w={1.7} />
-              </button>
+            <div style={{padding:'12px 0 6px'}}>
+              <span style={V3.T.bodyDim}>None in progress. </span>
+              <button onClick={startNew} aria-label="Start new assessment" style={RS_LINK}>Start an assessment <span aria-hidden="true">›</span></button>
+            </div>
+          ) : (index.drafts||[]).map((d, i) => (
+            <div key={d.id} style={{padding:'12px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,display:'flex',alignItems:'center',gap:12}}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={V3.T.bodyStrong}>No drafts in progress</div>
-                <div style={V3.T.captionDim}>Start a new assessment to capture field observations.</div>
+                <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled assessment'}</div>
+                <div style={{...V3.T.captionDim, marginTop:2}}>{fD(d.ua||d.ts)}</div>
               </div>
+              <button onClick={()=>resumeDraft(d.id)} style={RS_LINK}>Resume <span aria-hidden="true">›</span></button>
+              <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} aria-label={`Delete draft ${d.facility||'Untitled assessment'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
+              </button>
             </div>
-          ) : (
-            <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,marginBottom:24,overflow:'hidden'}}>
-              {(index.drafts||[]).map((d, i) => (
-                <div key={d.id} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,display:'flex',alignItems:'center',gap:12}}>
-                  <div style={V3.iconBox(V3.STATUS.inProgress)}><I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} /></div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
-                    {/* "In Progress" pill removed — rows in the
-                        Drafts section are by definition in-progress,
-                        and the section header already labels them as
-                        such ("DRAFTS · N"). The Resume button to the
-                        right is the action signal. */}
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
-                      <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua||d.ts)}</span>
-                    </div>
-                  </div>
-                  <button onClick={()=>resumeDraft(d.id)} style={V3.btnPrimary}>Resume</button>
-                  <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:40,height:40,background:`${DANGER}10`,border:`1px solid ${DANGER}28`,borderRadius:V3.R.md,color:DANGER,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
-                    <I n="trash" s={14} c={DANGER} w={1.4} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          ))}
 
           {/* ── Finalized ─────────────────────────────────────────── */}
-          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
-            <div style={V3.T.micro}>Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}</div>
-          </div>
-          <div style={{display:'flex',gap:8,marginBottom:14}}>
-            <div style={{flex:1,position:'relative'}}>
-              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{width:'100%',padding:'12px 14px 12px 38px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
-              <div style={{position:'absolute',top:'50%',left:14,transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
-                <I n="search" s={14} c={V3.TEXT_TERTIARY} w={1.8} />
-              </div>
-            </div>
-            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 14px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:13,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
-              <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="findings-high">Most findings</option><option value="findings-low">Fewest findings</option>
-            </select>
-          </div>
-          {fReports.length === 0 ? (
-            <div style={{...V3.panel(), padding:'40px 24px', textAlign:'center'}}>
-              <div style={{...V3.iconBox(V3.TEXT_TERTIARY), width:48, height:48, margin:'0 auto 12px', borderRadius:V3.R.lg}}>
-                <I n="report" s={20} c={V3.TEXT_TERTIARY} w={1.6} />
-              </div>
-              <div style={{...V3.T.h3, marginBottom:6}}>No reports generated yet</div>
-              <div style={{...V3.T.bodyDim, marginBottom:hSearch?0:16}}>
-                {hSearch ? 'No reports match your search.' : 'Complete and finalize an assessment to generate your first report.'}
-              </div>
-              {!hSearch && (
-                // "View sample report" stays as the only action here —
-                // it offers a distinct value prop (preview the output)
-                // and starting a new assessment is reachable via the
-                // clickable draft icon in the Drafts empty-state above
-                // and from the Home tab.
-                <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-                  <button onClick={runDemo} style={V3.btnGhost}>View sample report</button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
-              {fReports.map((r, i) => {
-                return (
-                  <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
-                    <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="report" s={15} c={V3.TEXT_SECONDARY} w={1.6} /></div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
-                        <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</span>
-                      </div>
-                    </div>
-                    <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_TERTIARY,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
-                      <I n="trash" s={13} c={V3.TEXT_TERTIARY} w={1.4} />
-                    </button>
-                    <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
-                  </div>
-                )
-              })}
+          <div style={{...RS_HEAD, marginTop:22, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}</div>
+          {(index.reports||[]).length > 0 && (
+            <div style={{display:'flex',gap:10,padding:'12px 0 4px'}}>
+              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports" aria-label="Search finalized reports" style={{flex:1,minWidth:0,padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
+              <select value={hSort} onChange={e=>setHSort(e.target.value)} aria-label="Sort reports" style={{padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:16,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
+                <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="findings-high">Most findings</option><option value="findings-low">Fewest findings</option>
+              </select>
             </div>
           )}
+          {fReports.length === 0 ? (
+            <div style={{padding:'12px 0 6px'}}>
+              <span style={V3.T.bodyDim}>{hSearch ? 'No reports match your search.' : 'None yet. Finalize an assessment to generate a report. '}</span>
+              {!hSearch && <button onClick={runDemo} style={RS_LINK}>View a sample report <span aria-hidden="true">›</span></button>}
+            </div>
+          ) : fReports.map((r, i) => (
+            <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{padding:'12px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
+                <div style={{...V3.T.captionDim, marginTop:2}}>{fD(r.ts)}</div>
+              </div>
+              <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} aria-label={`Delete report ${r.facility||'Untitled'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
+              </button>
+              <span aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1}}>›</span>
+            </div>
+          ))}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='tools'&&<ToolsHub onOpen={openTool} />}
@@ -4837,6 +4766,8 @@ export default function MobileApp() {
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={nav.back} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>nav.navigate('sensor-data', { projectId: activeProjectId })} onOpenSampling={()=>nav.navigate('sampling-forms', { projectId: activeProjectId })} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else if(v==='mold'){handleModeSwitch('mold')}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setEditingProfile(true);setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
+        {view==='sites'&&<SitesScreen />}
+        {view==='report-templates'&&<ReportTemplatesScreen />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}

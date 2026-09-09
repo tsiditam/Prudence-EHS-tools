@@ -6,11 +6,11 @@
  */
 
 import { mix } from '../utils/theme'
+import * as V3 from '../styles/tokens'
 
 const BG = 'var(--bg)'
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
-const ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)'
 const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
@@ -29,13 +29,14 @@ function Section({ title, body, important }) {
   )
 }
 
-export function TermsOfService({ onBack }) {
+// `onBack` is still passed by the shell; the header back control handles it.
+export function TermsOfService() {
   return (
-    <div style={{ paddingTop: 28, paddingBottom: 100 }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 15, fontWeight: 500, cursor: 'pointer', padding: '0 4px', marginBottom: 16, fontFamily: 'inherit' }}>← Settings</button>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>AtmosFlow by Prudence EHS</div>
-        <h2 style={{ fontSize: 24, fontWeight: 700, color: TEXT, margin: '0 0 4px' }}>Terms of Service</h2>
+    <div style={{ paddingTop: 16, paddingBottom: 120 }}>
+      {/* The header's back control is the way back; the in-body "← Settings"
+          and the accent eyebrow above the title are gone (2026-09). */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ ...V3.T.h1, margin: '0 0 4px' }}>Terms of Service</h2>
         <p style={{ fontSize: 12, color: DIM, margin: 0 }}>Effective Date: April 7, 2026</p>
       </div>
 
@@ -57,13 +58,13 @@ export function TermsOfService({ onBack }) {
   )
 }
 
-export function PrivacyPolicy({ onBack }) {
+export function PrivacyPolicy() {
   return (
-    <div style={{ paddingTop: 28, paddingBottom: 100 }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 15, fontWeight: 500, cursor: 'pointer', padding: '0 4px', marginBottom: 16, fontFamily: 'inherit' }}>← Settings</button>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>AtmosFlow by Prudence EHS</div>
-        <h2 style={{ fontSize: 24, fontWeight: 700, color: TEXT, margin: '0 0 4px' }}>Privacy Policy</h2>
+    <div style={{ paddingTop: 16, paddingBottom: 120 }}>
+      {/* The header's back control is the way back; the in-body "← Settings"
+          and the accent eyebrow above the title are gone (2026-09). */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ ...V3.T.h1, margin: '0 0 4px' }}>Privacy Policy</h2>
         <p style={{ fontSize: 12, color: DIM, margin: 0 }}>Effective Date: April 7, 2026</p>
       </div>
 

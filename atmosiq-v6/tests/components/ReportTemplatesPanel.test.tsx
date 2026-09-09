@@ -18,7 +18,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react'
 import ReportTemplatesPanel from '../../src/components/settings/ReportTemplatesPanel'
-import SettingsScreen from '../../src/components/SettingsScreen'
+import SettingsScreen, { ReportTemplatesScreen } from '../../src/components/SettingsScreen'
 import { StorageProvider } from '../../src/contexts/StorageContext'
 
 const TEMPLATES = [
@@ -114,16 +114,22 @@ describe('ReportTemplatesPanel', () => {
   })
 })
 
-describe('Settings mounts the report templates panel', () => {
-  it('renders the Reports group with the panel inside it', async () => {
+describe('The report templates screen', () => {
+  it('mounts the panel with its content', async () => {
     mockFetch((body) =>
       body.action === 'list'
         ? { json: { templates: TEMPLATES } }
         : { json: { sites: [] } })
-    withProvider(<SettingsScreen />)
-    expect(screen.getByText('Reports')).toBeTruthy()
-    // Panel content, not just the heading — a heading with no panel is the
-    // exact state this test exists to prevent.
+    // Panel content, not just a heading — a heading with no panel is the
+    // exact state this test exists to prevent. (The Settings row that led
+    // here was removed by product decision, 2026-09; the screen stays.)
+    withProvider(<ReportTemplatesScreen />)
     expect(await screen.findByText('Upload a template')).toBeTruthy()
+  })
+
+  it('is no longer a row on Settings', () => {
+    mockFetch(() => ({ json: { templates: [] } }))
+    withProvider(<SettingsScreen />)
+    expect(screen.queryByText('Report templates')).toBeNull()
   })
 })

@@ -70,7 +70,7 @@ atmosiq-v6/
 │   │   ├── HistoryView.jsx       # Desktop report/draft history
 │   │   ├── ReportView.jsx        # Desktop report display
 │   │   ├── LandingPage.jsx       # Marketing landing page (desktop only)
-│   │   ├── Loading.jsx           # Animated loading screen
+│   │   ├── LaunchFrame.jsx       # Static first-screen frame while the session resolves; in-place lazy fallback
 │   │   ├── Particles.jsx         # Canvas particle background
 │   │   ├── PhotoCapture.jsx      # Camera capture + photo management
 │   │   ├── SensorScreen.jsx      # Instrument readings input grid

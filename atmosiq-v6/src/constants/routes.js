@@ -59,6 +59,8 @@ export const ROUTES = {
 
   // ── Settings sub-pages ──
   'instrument-edit': { label: 'Edit instruments', short: 'Instruments', reachedBy: ['settings'], parent: 'account', restore: false },
+  sites: { label: 'Site library', short: 'Sites', reachedBy: ['tools-hub'], parent: 'tools', restore: true },
+  'report-templates': { label: 'Report templates', short: 'Templates', reachedBy: ['tools-hub'], parent: 'tools', restore: true },
   help: { label: 'Help & FAQ', short: 'Help', reachedBy: ['settings', 'search', 'assistant'], parent: 'settings', restore: true },
   tos: { label: 'Terms of Service', short: 'Terms', reachedBy: ['settings', 'assistant'], parent: 'settings', restore: true },
   privacy: { label: 'Privacy Policy', short: 'Privacy', reachedBy: ['settings', 'assistant'], parent: 'settings', restore: true },

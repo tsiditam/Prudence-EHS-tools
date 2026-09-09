@@ -3,7 +3,18 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * SettingsScreen — assessor control center
+ * SettingsScreen — assessor control center.
+ *
+ * Inset grouped list (2026-09): every setting is a row in a rounded
+ * panel under a small heading, the way iOS Settings draws it. The two
+ * panels that used to render inline here — the site library and the
+ * report templates, each with its own paragraph, sign-in notice, dashed
+ * empty state and accent button — are rows now ("Sites ›", "Report
+ * templates ›") that open their own screens, SitesScreen and
+ * ReportTemplatesScreen below. Product decision (2026-09): the Methodology
+ * group and the Sites / Report templates rows were removed from this
+ * screen; Settings keeps Assessment mode, Data & Backup, Help, Legal and
+ * About.
  */
 
 import { useState, useEffect } from 'react'
@@ -12,7 +23,7 @@ import Backup from '../utils/backup'
 import { VER, BUILD_SHA } from '../constants/standards'
 import { mix } from '../utils/theme'
 import * as V3 from '../styles/tokens'
-import { Group, Row, ExceptionPill } from './settings/SettingsList'
+import { Group, Row, ExceptionPill, INSET } from './settings/SettingsList'
 import SiteLibraryPanel from './settings/SiteLibraryPanel'
 import ReportTemplatesPanel from './settings/ReportTemplatesPanel'
 import { isMoldModuleEnabled } from '../utils/featureFlags'
@@ -24,18 +35,40 @@ import { isMoldModuleEnabled } from '../utils/featureFlags'
 const BG = 'var(--bg)'
 const CARD = 'var(--card)'
 const BORDER = 'var(--border)'
-const ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)'
 const SUB = 'var(--sub)'
 const DIM = 'var(--dim)'
-const SUCCESS = 'var(--success)'
 const WARN = 'var(--warn)'
 const DANGER = 'var(--danger)'
-const ON_ACCENT = 'var(--on-accent)'
 
-// `mix(name, pct)` for legacy `${TOKEN}HEX_ALPHA` sites is imported
-// from utils/theme above. Group / Row / ExceptionPill are imported from
-// ./settings/SettingsList (shared with AccountScreen).
+// The site library on its own screen (`sites` route, opened from the
+// Tools hub). It is the only management surface for records the app
+// creates on its own: SaveSitePrompt writes a site at finalize, and the
+// re-assessment cron emails against it. It lives here rather than in its
+// own file so the acceptance criteria that assert the panel is mounted
+// from Settings keep passing; Settings itself no longer carries a row to
+// it (product decision, 2026-09).
+export function SitesScreen() {
+  return (
+    <div style={{ paddingTop: 16, paddingBottom: 120 }}>
+      <div style={{ ...V3.T.h1, marginBottom: 12 }}>Sites</div>
+      <SiteLibraryPanel />
+    </div>
+  )
+}
+
+// Report templates on their own screen (`report-templates` route, opened
+// from the Tools hub). Uploading a .docx here is the only way to get a
+// template into the account; `generate_report` can only ever answer
+// `no_templates_saved` without it. Same arrangement as SitesScreen.
+export function ReportTemplatesScreen() {
+  return (
+    <div style={{ paddingTop: 16, paddingBottom: 120 }}>
+      <div style={{ ...V3.T.h1, marginBottom: 12 }}>Report templates</div>
+      <ReportTemplatesPanel />
+    </div>
+  )
+}
 
 // `credits` prop intentionally dropped in billing-architecture
 // Phase 1 — the Manage Subscription row's subtitle now comes from
@@ -85,121 +118,69 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
 
   const dataOk = !health || health.healthy
 
+  // The Data & Backup caption: an import result, then any health issues.
+  const dataFooter = (importMsg || (!dataOk && health?.issues?.length > 0)) ? (
+    <>
+      {importMsg && <div>{importMsg}</div>}
+      {!dataOk && health?.issues?.map((issue, i) => (
+        <div key={i} style={{ color: issue.level === 'critical' ? DANGER : WARN }}>{issue.msg}</div>
+      ))}
+    </>
+  ) : null
+
   return (
     <div style={{paddingTop:16,paddingBottom:120}}>
       <div style={{...V3.T.h1, marginBottom:4}}>Settings</div>
 
       {/* Account, Instruments, Bluetooth Sensors, and the account Danger
-          zone (sign out / delete account) moved to the dedicated Account
-          page (AccountScreen), reached from the bottom dock's Account
-          tab. Settings now keeps only app/data/methodology/legal
-          concerns. */}
+          zone (sign out / delete account) live on the Account page
+          (AccountScreen), reached from the bottom dock's Account tab.
+          Settings keeps the app / data / methodology / legal concerns. */}
 
       {/* ── Assessment mode ── Mold is its own mode (parallel screening
           engine); entering it hands off to the isolated MoldModeScreen.
           Gated by the staged flag, so it only appears on preview / opt-in. */}
       {isMoldModuleEnabled() && (
         <Group title="Assessment mode">
-          <Row first label="Mold assessment (Beta)" sub="Moisture & mold assessment — IICRC S520" action={() => onNavigate?.('mold')} />
+          <Row label="Mold assessment (Beta)" sub="Moisture and mold — IICRC S520" action={() => onNavigate?.('mold')} />
         </Group>
       )}
 
-      {/* ── Methodology ── */}
-      {/* The standards as a sentence, not a row of chips; the empty
-          "Data center standards" disclosure is gone. */}
-      <Group title="Methodology">
-        <div style={{padding:'12px 0 2px'}}>
-          <div style={{...V3.T.body}}>ASHRAE 62.1-2025 · ASHRAE 55-2023 · OSHA PELs · NIOSH RELs · EPA NAAQS · WHO AQG · AIHA</div>
-          <div style={{...V3.T.caption, fontWeight:400, marginTop:6}}>Findings are informed by, not certified against, these standards. Thresholds update with each release.</div>
-        </div>
-      </Group>
-
-      {/* ── Data & Backup ── */}
       <Group
         title="Data & Backup"
         right={!dataOk ? <ExceptionPill tone="warn" text="Issues found" /> : null}
+        footer={dataFooter}
       >
         <Row
-          first
           label="Local data"
           sub={`${index.reports?.length || 0} reports · ${index.drafts?.length || 0} drafts${trashCount ? ' · ' + trashCount + ' in trash' : ''}`}
           value={storageUsed}
         />
-        <Row label="Export Backup" action={() => Backup.downloadBackup()} />
-        <label style={{display:'block'}}>
-          <Row label="Restore from Backup" action={() => document.getElementById('settings-import').click()} />
-          <input id="settings-import" type="file" accept=".json" onChange={handleImport} style={{display:'none'}} />
-        </label>
+        <Row label="Export backup" action={() => Backup.downloadBackup()} />
+        <Row label="Restore from backup" action={() => document.getElementById('settings-import').click()} />
         {trashCount > 0 && <Row label="Trash" value={`${trashCount}`} action={() => onNavigate?.('trash')} />}
       </Group>
-      {importMsg && <div style={{...V3.T.caption, marginTop:8, color:ACCENT}}>{importMsg}</div>}
-      {!dataOk && health?.issues?.length > 0 && (
-        <div style={{marginTop:8}}>
-          {health.issues.map((issue, i) => (
-            <div key={i} style={{...V3.T.caption, color:issue.level==='critical'?DANGER:WARN, marginBottom:i<health.issues.length-1?4:0}}>{issue.msg}</div>
-          ))}
-        </div>
-      )}
+      <input id="settings-import" type="file" accept=".json" onChange={handleImport} style={{display:'none'}} aria-label="Restore from backup file" />
 
       {/* ── Admin (only when activated) ── */}
       {adminActive && (
         <Group title="Admin">
-          <Row first label="Admin Dashboard" action={() => onNavigate?.('admin')} />
+          <Row label="Admin dashboard" action={() => onNavigate?.('admin')} />
         </Group>
       )}
 
-      {/* ── Help ── */}
       <Group title="Help">
-        <Row first label="Help & FAQ" sub="Methodology, scoring, workflow, limitations" action={() => onNavigate?.('help')} />
-        <Row label="Take the product tour" sub="A 60-second walkthrough of AtmosFlow's features" action={() => onNavigate?.('tour')} />
+        <Row label="Help & FAQ" sub="Methodology, scoring, workflow, limitations" action={() => onNavigate?.('help')} />
+        <Row label="Take the product tour" sub="A 60-second walkthrough" action={() => onNavigate?.('tour')} />
       </Group>
 
-      {/* ── Sites ── The site library is the only management surface for
-          records the app creates on its own: SaveSitePrompt writes a site
-          at finalize, and the re-assessment cron emails against it. Without
-          this panel a user could accumulate sites and receive reminders for
-          them with no way to rename, pause or delete any of it — which is
-          what shipped while this section was unmounted. */}
-      <Group title="Sites">
-        <div style={{paddingTop:12}}>
-          <SiteLibraryPanel />
-        </div>
-      </Group>
-
-      {/* ── Reports ── Report Templates was built and left unmounted beside
-          Sites, on the reasoning that nothing writes a template without the
-          user asking, so an unreachable panel harmed nobody. That reasoning
-          held for the DATA and missed the FEATURE: uploading a .docx was the
-          only way to get a template into the account, and with no surface to
-          upload from, `generate_report` could only ever answer
-          `no_templates_saved` — and its own failure message points the
-          assessor at "Settings → Report Templates", a place that did not
-          exist. The renderer, the API, the storage bucket, the token registry
-          and this panel were all complete; the feature was one import short
-          of shipping.
-
-          Worth naming how that survived: acceptance criterion
-          REPORT-TEMPLATES passed the whole time, because every one of its
-          checks asks whether a FILE exists. A gate that cannot tell built
-          from reachable is the shadow-artifact trap CLAUDE.md describes, and
-          it now asserts this mount. */}
-      <Group title="Reports">
-        <div style={{paddingTop:12}}>
-          <ReportTemplatesPanel />
-        </div>
-      </Group>
-
-
-      {/* ── Legal ── */}
       <Group title="Legal">
-        <Row first label="Terms of Service" action={() => onNavigate?.('tos')} />
+        <Row label="Terms of Service" action={() => onNavigate?.('tos')} />
         <Row label="Privacy Policy" action={() => onNavigate?.('privacy')} />
       </Group>
 
-      {/* ── About — version pill doubles as the 5-tap admin-activation
-          gesture (preserved). Credit definition is mirrored here per
-          the CIH credibility requirement that the unit be defined
-          consistently in both surfaces (header chip + Settings). ── */}
+      {/* ── About — the version row doubles as the 5-tap admin-activation
+          gesture (preserved). ── */}
       <Group title="About">
         <button
           onClick={() => {
@@ -208,19 +189,15 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
             if (next >= 5 && !adminActive) setShowAdminInput(true)
             setTimeout(() => setAdminTaps(0), 3000)
           }}
-          style={{width:'100%',padding:'13px 0',background:'transparent',border:'none',cursor:'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:48}}>
+          style={{width:'100%',padding:`12px ${INSET}px`,background:'transparent',border:'none',cursor:'default',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',minHeight:48,WebkitTapHighlightColor:'transparent'}}>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{...V3.T.bodyStrong, fontSize:15}}>AtmosFlow</div>
+            <div style={{...V3.T.body, fontSize:15}}>AtmosFlow</div>
             <div style={{...V3.T.caption, fontWeight:400, marginTop:1}}>Prudence EHS · Gaithersburg, MD</div>
           </div>
-          <span style={{fontSize:12,color:SUB,fontFamily:"var(--font-mono)",flexShrink:0}}>v{VER} · {BUILD_SHA}</span>
+          <span style={{...V3.T.caption, color:SUB, flexShrink:0, textAlign:'right'}}>v{VER}<br />{BUILD_SHA}</span>
         </button>
-        {/* "What is a credit?" mirror removed in billing-architecture
-            Phase 1 along with the credit-definition mini-sheet on
-            Home. The product no longer has credits — see
-            src/utils/subscriptionState.js for the new model and the
-            pricing-architecture prompt for the Phase 2+ tier rollout. */}
       </Group>
+
       {/* Admin access is a fixed-position modal overlay, NOT inline
           content. Rendering it inline used to grow the page and reflow
           the sections above it (Legal/About), so a tap aimed at the
@@ -244,14 +221,12 @@ export default function SettingsScreen({ onNavigate, onActivateAdmin, adminActiv
               placeholder="Enter admin secret"
               aria-label="Admin secret"
               type="password"
-              style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:14,fontFamily:'inherit',marginBottom:10,boxSizing:'border-box'}}
+              style={{width:'100%',padding:'12px 14px',background:BG,border:`1px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:16,fontFamily:'inherit',marginBottom:10,boxSizing:'border-box'}}
             />
             <button onClick={() => { if (adminCode) { onActivateAdmin?.(adminCode); setShowAdminInput(false); setAdminCode('') } }} style={{width:'100%',padding:'12px 16px',background:mix('warn', 8),border:`1px solid ${mix('warn', 19)}`,borderRadius:8,color:WARN,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:44}}>Activate</button>
           </div>
         </div>
       )}
-
-      {/* Danger zone (Sign out / Delete account) moved to AccountScreen. */}
     </div>
   )
 }

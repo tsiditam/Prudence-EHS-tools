@@ -3,10 +3,15 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * Picker view for AtmosFlow chain-of-custody sampling forms. Listed
- * in the hamburger menu; assessors tap to generate a print-ready PDF
- * with their identity pre-filled and ruled rows for hand-completion
- * during sample collection.
+ * Picker view for AtmosFlow chain-of-custody sampling forms. Assessors
+ * tap to generate a print-ready PDF with their identity pre-filled and
+ * ruled rows for hand-completion during sample collection.
+ *
+ * Restraint pass (2026-09): the four-line subtitle, the three cards with
+ * accent icon tiles and an accent-filled button in each are gone. Each
+ * form is a row — its name, one line on what it covers, the action as
+ * text in the primary ink — parting from the next with a hairline. The
+ * lab-results import is the last row; the versioning note is a caption.
  *
  * Designed to accept additional sampling types (Asbestos, Lead,
  * Allergen, HCHO-specific, etc.) by adding entries to the `FORMS`
@@ -14,40 +19,30 @@
  */
 
 import { useState, Suspense } from 'react'
-import { I } from './Icons'
 import * as V3 from '../styles/tokens'
 import { generateMoldCoCBlob, MOLD_COC_FILENAME_PREFIX } from './forms/MoldCoCForm'
 import { generateTvocCoCBlob, TVOC_COC_FILENAME_PREFIX } from './forms/TvocCoCForm'
 import { deliverFile } from './forms/deliverFile'
 import { lazySafe } from './ui/lazySafe'
-import Loading from './Loading'
+import { LazyPlaceholder } from './LaunchFrame'
 // Lazy: the CSV importer (parser + templates) only loads when opened.
 const LabResultsImport = lazySafe(() => import('./LabResultsImport'))
 
-const CARD = 'var(--card)'
-const BORDER = 'var(--border)'
-const ACCENT = 'var(--accent)'
-const TEXT = 'var(--text)'
-const SUB = 'var(--sub)'
-const DIM = 'var(--dim)'
-const DANGER = 'var(--danger)'
+const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
+const TEXT_ACTION = { background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: V3.TEXT_PRIMARY, cursor: 'pointer', whiteSpace: 'nowrap', WebkitTapHighlightColor: 'transparent', flexShrink: 0 }
 
 const FORMS = [
   {
     id: 'mold',
-    title: 'Mold Sampling',
-    desc:
-      'Chain of Custody for spore traps, tape lifts, swabs, bulk, surface dust, and direct-exam samples. Includes lab analyses checklist (direct exam, culturable, PCR/qPCR, ERMI).',
-    icon: 'mold',
+    title: 'Mold sampling',
+    desc: 'Spore traps, tape lifts, swabs, bulk and surface dust, with the lab analyses checklist.',
     prefix: MOLD_COC_FILENAME_PREFIX,
     generate: generateMoldCoCBlob,
   },
   {
     id: 'tvoc',
-    title: 'TVOC Sampling',
-    desc:
-      'Chain of Custody for Summa canisters, sorbent tubes (Tenax, Carbopack), passive badges, and direct-read instruments. Includes EPA TO-15 / TO-17 / aldehyde analyses checklist.',
-    icon: 'wind',
+    title: 'TVOC sampling',
+    desc: 'Summa canisters, sorbent tubes, passive badges and direct-read instruments, with the TO-15 / TO-17 checklist.',
     prefix: TVOC_COC_FILENAME_PREFIX,
     generate: generateTvocCoCBlob,
   },
@@ -69,15 +64,27 @@ function buildFilename(prefix, profile) {
   return `${prefix}-${who}-${todayIso()}.pdf`
 }
 
-// `onBack` is still passed by the shell; the header back pill handles it
-// now, so the view no longer renders its own.
+function FormRow({ title, desc, action, first }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: first ? 'none' : HAIRLINE }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={V3.T.h3}>{title}</div>
+        <div style={{ ...V3.T.caption, marginTop: 2, fontWeight: 400, lineHeight: 1.5 }}>{desc}</div>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+// `onBack` is still passed by the shell; the header back control handles
+// it, so the view renders none of its own.
 export default function SamplingFormsView({ profile }) {
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
   const [subView, setSubView] = useState('picker') // 'picker' | 'lab-import'
 
   if (subView === 'lab-import') {
-    return <Suspense fallback={<Loading fast onDone={() => {}} />}><LabResultsImport onBack={() => setSubView('picker')} /></Suspense>
+    return <Suspense fallback={<LazyPlaceholder />}><LabResultsImport onBack={() => setSubView('picker')} /></Suspense>
   }
 
   const handleGenerate = async (form) => {
@@ -96,134 +103,40 @@ export default function SamplingFormsView({ profile }) {
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 720, margin: '0 auto' }}>
-      {/* The shell header's back pill is the single back affordance; the
-          in-body "← Home" link duplicated it. Title + subtitle use the same
-          scale as Projects / Reports / Settings. */}
-      <h2 style={{ ...V3.T.h1, margin: 0 }}>
-        Sampling Forms
-      </h2>
-      <div style={{ ...V3.T.h1Sub, marginTop: 4, marginBottom: 20 }}>
-        Print-ready Chain of Custody forms for field sampling. Your assessor identity
-        and instrument calibration are pre-filled; sample-specific rows are blank for
-        hand-completion at the time of collection.
-      </div>
+      <h2 style={{ ...V3.T.h1, margin: '0 0 12px' }}>Sampling forms</h2>
 
       {error && (
-        <div style={{
-          padding: '10px 14px', marginBottom: 14,
-          background: `${DANGER}12`, border: `1px solid ${DANGER}30`,
-          borderRadius: 8, color: DANGER, fontSize: 13,
-        }}>{error}</div>
+        <div style={{ ...V3.T.caption, color: 'var(--danger)', padding: '4px 0 8px', lineHeight: 1.5 }}>{error}</div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {FORMS.map((form) => (
-          <div
+      <div>
+        {FORMS.map((form, i) => (
+          <FormRow
             key={form.id}
-            style={{
-              padding: '18px',
-              background: CARD,
-              border: `1px solid ${BORDER}`,
-              borderRadius: 12,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 8,
-                background: `color-mix(in srgb, var(--accent) 8%, transparent)`,
-                border: `1px solid color-mix(in srgb, var(--accent) 25%, transparent)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <I n={form.icon} s={20} c={ACCENT} w={1.8} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 4 }}>
-                  {form.title}
-                </div>
-                <div style={{ fontSize: 12, color: SUB, lineHeight: 1.55 }}>
-                  {form.desc}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => handleGenerate(form)}
-              disabled={busyId === form.id}
-              style={{
-                alignSelf: 'flex-start',
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '10px 18px',
-                background: 'var(--accent-fill)',
-                border: 'none', borderRadius: 8,
-                color: 'var(--on-accent-fill)',
-                fontSize: 13, fontWeight: 700,
-                cursor: busyId === form.id ? 'wait' : 'pointer',
-                fontFamily: 'inherit', minHeight: 40,
-                opacity: busyId === form.id ? 0.7 : 1,
-              }}>
-              <I n="download" s={14} c="var(--on-accent-fill)" w={2} />
-              {busyId === form.id ? 'Preparing…' : 'Generate PDF'}
-            </button>
-          </div>
+            first={i === 0}
+            title={form.title}
+            desc={form.desc}
+            action={
+              <button onClick={() => handleGenerate(form)} disabled={busyId === form.id} style={{ ...TEXT_ACTION, opacity: busyId === form.id ? 0.5 : 1, cursor: busyId === form.id ? 'wait' : 'pointer' }}>
+                {busyId === form.id ? 'Preparing…' : 'Generate PDF'}
+              </button>
+            }
+          />
         ))}
+        {/* Lab results import — closes the chain-of-custody loop: forms go
+            out above, lab CSVs come back and attach to the originating
+            assessment here. */}
+        <FormRow
+          title="Lab results"
+          desc="Import a CSV from EMSL, EMLab P&K, Eurofins or a generic lab; results attach to an assessment as an appendix."
+          action={<button onClick={() => setSubView('lab-import')} style={TEXT_ACTION}>Import CSV <span aria-hidden="true">›</span></button>}
+        />
+        <div style={{ borderTop: HAIRLINE }} />
       </div>
 
-      {/* Lab Results Import — third card. Closes the CoC loop: forms
-          go out via the Generate PDF buttons above, lab CSVs come back
-          and attach to the originating assessment via this view. */}
-      <div
-        style={{
-          padding: '18px',
-          marginTop: 12,
-          background: CARD,
-          border: `1px solid ${BORDER}`,
-          borderRadius: 12,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 8,
-            background: `color-mix(in srgb, var(--accent) 8%, transparent)`,
-            border: `1px solid color-mix(in srgb, var(--accent) 25%, transparent)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <I n="upload" s={20} c={ACCENT} w={1.8} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 4 }}>
-              Import Lab Results
-            </div>
-            <div style={{ fontSize: 12, color: SUB, lineHeight: 1.55 }}>
-              Upload a CSV from your analytical lab (EMSL, EMLab P&amp;K, Eurofins, generic).
-              Results attach to an existing assessment and render as Appendix G in the
-              consultant DOCX.
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={() => setSubView('lab-import')}
-          style={{
-            alignSelf: 'flex-start',
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '10px 18px',
-            background: 'var(--accent-fill)',
-            border: 'none', borderRadius: 8,
-            color: 'var(--on-accent-fill)',
-            fontSize: 13, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'inherit', minHeight: 40,
-          }}>
-          <I n="upload" s={14} c="var(--on-accent-fill)" w={2} />
-          Import CSV
-        </button>
-      </div>
-
-      <div style={{ marginTop: 24, fontSize: 11, color: DIM, lineHeight: 1.6 }}>
-        Forms are versioned and stamped with the generated date. Hand-write sample
-        details at collection time; the four-row transfer ladder at the bottom of
-        each form is the wet-signature chain that holds up under review.
+      <div style={{ ...V3.T.captionDim, marginTop: 16, lineHeight: 1.6 }}>
+        Your identity and instrument calibration are pre-filled; sample rows are left blank for
+        hand-completion at collection. Forms are versioned and stamped with the generated date.
       </div>
     </div>
   )
