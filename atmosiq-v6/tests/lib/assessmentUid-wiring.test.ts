@@ -31,7 +31,9 @@ describe('finalize carries the uid rather than re-deriving it', () => {
   const src = read('src/components/MobileApp.jsx')
 
   it('the finalize record carries an assessmentUid', () => {
-    const report = src.match(/const report = \{ id:rid,[^\n]*/)?.[0]
+    // `report` is declared ahead of the persistence try-block (Results waits
+    // on that block; see finishAssessment), so the literal is an assignment.
+    const report = src.match(/(?:const )?report = \{ id:rid,[^\n]*/)?.[0]
     expect(report, 'the finalize literal moved — re-point this test').toBeTruthy()
     expect(report).toContain('assessmentUid')
   })

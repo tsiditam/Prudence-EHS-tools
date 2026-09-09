@@ -16,6 +16,7 @@ import { resolveFinalizeTarget } from '../utils/finalizeTarget'
 import { ensureAssessmentUid } from '../billing/assessmentUid'
 import { hasDraftContent } from '../utils/draftContent'
 import { resolveDraftResumeView } from '../utils/resumePhase'
+import { blankZoneIndices, removeZoneAt, removeZonesAt, zoneLabel } from '../utils/zoneContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -875,6 +876,15 @@ export default function MobileApp() {
   })
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
+  // Finalize found zones with nothing recorded in them: their indices,
+  // or null when the sheet is closed. See finishAssessment.
+  const [blankZonePrompt, setBlankZonePrompt] = useState(null)
+  // "Remove this zone" confirmation on the zone screen.
+  const [confirmRemoveZone, setConfirmRemoveZone] = useState(false)
+  // Bumped after the blank-zone sheet strips zones, so finalize re-runs
+  // against the committed state (finishAssessment reads `zones` from its
+  // closure, so calling it in the same handler would score the old list).
+  const [pendingFinish, setPendingFinish] = useState(0)
   const [calWarning, setCalWarning] = useState(null)
   // Calibration acknowledgement — the record left when an assessor
   // finalizes past the instrument interrupt. See
@@ -1735,16 +1745,9 @@ export default function MobileApp() {
         sp: samplingPlan, cc: causalChains, mold: moldResults, mc: measConf,
       }
     }
-    // TODO(claude): scoreZone runs over every entry in `zones` unconditionally,
-    // including one an assessor switched away from via the zone-to-zone
-    // ‹ Prev / Next › control without answering a single question (the
-    // "+ Add zone" prompt seeds a bare `{}`). Nothing here excludes an
-    // untouched zone from the census, and there's no way to remove an
-    // accidentally-added one — worth a product decision on whether an
-    // all-blank zone should be dropped, flagged, or block finalize, and
-    // whether zone removal should exist at all. Not fixed here: it
-    // borders the engine's finding-generation contract (what counts
-    // toward the census), which needs explicit sign-off per CLAUDE.md.
+    // Every entry in `zones` is scored. finishAssessment keeps a zone with
+    // nothing recorded in it from reaching here (isBlankZone); the
+    // zone screen offers "Remove this zone" for the same reason.
     // Propagate outdoor baselines — one outdoor reading per parameter applies to all zones
     const outdoorFields = ['co2o', 'tfo', 'rho', 'pmo', 'tvo']
     const outdoorValues = {}
@@ -1783,7 +1786,19 @@ export default function MobileApp() {
     return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
   }
 
-  const finishAssessment = async (bypassCalWarning, acknowledgement) => {
+  const finishAssessment = async (bypassCalWarning, acknowledgement, opts = {}) => {
+    // Zones with nothing recorded — a "+ Add another zone" that was never
+    // filled in, or one stepped past with ‹ Prev / Next › — do not belong
+    // in the census. Stop and ask before scoring them; the sheet either
+    // strips them (then re-enters here with skipBlankCheck, see the
+    // pendingFinish effect) or takes the assessor to the first one. The
+    // ack path (bypassCalWarning) has already been through this.
+    if (!bypassCalWarning && !opts.skipBlankCheck) {
+      const blank = blankZoneIndices(zones, OUTDOOR_SENSOR_IDS)
+      if (blank.length > 0 && blank.length < zones.length) { setBlankZonePrompt(blank); return }
+      // Every zone blank: there is nothing to finalize. Send them to zone 1.
+      if (blank.length > 0) { setCurZone(0); setZqi(0); setView('zone'); toast.error('Record at least one zone before finishing.'); return }
+    }
     // Instrument metadata check — warn if missing
     if (!bypassCalWarning) {
       const missing = []
@@ -1820,27 +1835,27 @@ export default function MobileApp() {
     trackEvent('assessment_completed', { zones: zones.length, findings: composite?.findings?.total, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
-    // TODO(claude): this fixed 1.6s delay is not tied to the awaited
-    // persistence work below it (rekeyPhotos, the report STO.set/index
-    // writes, deleteAssessment, refreshIndex, setDraftId). On a slow
-    // device or a large photo set that work can outlast 1.6s, so the
-    // assessor can land on Results — live state renders fine, it doesn't
-    // read the saved record — before `draftId` has advanced to `rid`;
-    // exporting in that window would carry the stale id. Narrow in
-    // practice (both are normally fast), and re-sequencing this touches
-    // the report-id-reuse logic the comments below go to some length to
-    // get right, so flagging rather than restructuring it here.
-    setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
+    // The milestone holds for at least 1.6s so the "scoring" beat reads as
+    // a step, but Results is shown only once the LOCAL record is written
+    // and `draftId` has advanced to the report id — an export tapped
+    // before that carried the retired draft id. Cloud sync and the site
+    // refresh stay after the transition: they never touch `draftId`, and
+    // an offline queue should not hold the screen.
+    const minHold = new Promise((resolve) => setTimeout(resolve, 1600))
+    const showResults = () => { setMilestone(null); setRTab('overview'); setView('results') }
+    let report = null
+    let rid = null
+    try {
     // Reuse the existing report id when re-finalizing one that was resumed to
     // fix a defensibility gap, so it UPDATES in place instead of spawning a
     // duplicate. A brand-new assessment gets a fresh rpt- id and its source
     // draft is retired. Either way the id is dropped from the drafts list so a
     // finalized report never also lingers as a draft.
-    const { rid } = resolveFinalizeTarget({
+    rid = resolveFinalizeTarget({
       currentId: draftId,
       reportIds: (index.reports || []).map(r => r.id),
       newId: 'rpt-' + Date.now(),
-    })
+    }).rid
     // PR 1: stamp the report with the bound site_id when present
     // (deep-link hydration or a previous "Save site" finalize).
     // siteLink.findMostRecentReportForSite uses this on the next round.
@@ -1860,7 +1875,7 @@ export default function MobileApp() {
     // below purges that namespace, so copy them under the report id first.
     const { photos: reportPhotos } = await rekeyPhotos(photos, rid)
     if (reportPhotos !== photos) setPhotos(reportPhotos)
-    const report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
+    report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
     reportStorageWrite(await STO.set(rid, report), 'report')
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
@@ -1880,6 +1895,17 @@ export default function MobileApp() {
     // resumeAndFix → resumeDraft) did.
     setDraftId(rid)
     await refreshIndex()
+    } catch (e) {
+      // Live state is already scored and renders Results on its own; what
+      // failed is the saved record. Say so rather than letting the beat
+      // time out into a screen that looks finalized.
+      console.error('Finalize: local persistence failed', e)
+      report = null
+      toast.error('The report could not be saved on this device. Your results are shown, but re-finalize before exporting.')
+    }
+    await minHold
+    showResults()
+    if (!report) return
     // Sync to cloud
     if (supabase) {
       // saveAssessment never throws on a cloud failure any more; it reports
@@ -1929,6 +1955,27 @@ export default function MobileApp() {
       // First-time path — open the SaveSitePrompt over the results view.
       setSavePromptCtx({ rid, ts: report.ts })
     }
+  }
+
+  // Re-enter finalize once the blank-zone sheet's removal has committed.
+  // Counter, not boolean, and depends on the counter ALONE — same
+  // reasoning as pendingRescore above: the strip and this bump land in
+  // one handler, so the closure here already sees the shorter `zones`.
+  useEffect(() => {
+    if (pendingFinish === 0) return
+    finishAssessment(false, null, { skipBlankCheck: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFinish])
+
+  // Take the current zone out of the assessment: photos re-keyed, the
+  // equipment mapping pruned, the pointer clamped. See zoneContent.js.
+  const removeCurrentZone = () => {
+    if (zones.length <= 1) return
+    const next = removeZoneAt({ zones, photos, photoOverrides, equipment, curZone }, curZone)
+    trackEvent('zone_removed', { zone_index: curZone, zones_remaining: next.zones.length })
+    setZones(next.zones); setPhotos(next.photos); setPhotoOverrides(next.photoOverrides); setEquipment(next.equipment)
+    setCurZone(next.curZone); setZqi(0); setConfirmRemoveZone(false)
+    haptic('light')
   }
 
   const finishDetails = () => {
@@ -3968,6 +4015,55 @@ export default function MobileApp() {
         </BottomSheet>
       )}
 
+      {/* Remove-zone confirmation. The zone's photos go with it. */}
+      {confirmRemoveZone && (
+        <BottomSheet title={`Remove ${zoneLabel(zones, curZone)}?`} onClose={()=>setConfirmRemoveZone(false)} ariaLabel="Remove this zone from the assessment">
+          <div style={{...V3.T.bodyDim, margin:'4px 0 18px', lineHeight:1.6}}>
+            Everything recorded for this zone — answers, readings and photos — is removed from the assessment. The other zones are not affected.
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <TactileButton variant="danger" size="lg" fullWidth haptic="heavy" onClick={removeCurrentZone}>Remove zone</TactileButton>
+            <TactileButton variant="ghost" size="lg" onClick={()=>setConfirmRemoveZone(false)}>Cancel</TactileButton>
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* Finalize found zones with nothing recorded. Strip them and go on,
+          or go and fill the first one in. Both are the assessor's call;
+          neither is a hard block on the deliverable. */}
+      {blankZonePrompt && (
+        <BottomSheet title={blankZonePrompt.length === 1 ? 'A zone has nothing recorded' : `${blankZonePrompt.length} zones have nothing recorded`} onClose={()=>setBlankZonePrompt(null)} ariaLabel="Empty zones found before finishing">
+          <div style={{...V3.T.bodyDim, margin:'4px 0 12px', lineHeight:1.6}}>
+            {blankZonePrompt.length === 1 ? 'This zone was added but never surveyed.' : 'These zones were added but never surveyed.'} An empty zone would still count in the findings and appear in the report.
+          </div>
+          <div style={{margin:'0 0 18px'}}>
+            {blankZonePrompt.map(i => (
+              <div key={i} style={{...V3.T.bodyStrong, padding:'6px 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>{zoneLabel(zones, i)}</div>
+            ))}
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <TactileButton variant="primary" fullWidth size="lg" haptic="success" onClick={()=>{
+              const idx = blankZonePrompt
+              const next = removeZonesAt({ zones, photos, photoOverrides, equipment, curZone }, idx)
+              trackEvent('blank_zones_removed', { count: idx.length, zones_remaining: next.zones.length })
+              setZones(next.zones); setPhotos(next.photos); setPhotoOverrides(next.photoOverrides); setEquipment(next.equipment); setCurZone(next.curZone)
+              setBlankZonePrompt(null)
+              setPendingFinish(n => n + 1)
+            }}>
+              {blankZonePrompt.length === 1 ? 'Remove it and finish' : 'Remove them and finish'}
+            </TactileButton>
+            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>{
+              const first = blankZonePrompt[0]
+              setBlankZonePrompt(null)
+              setCurZone(first); setZqi(0); setView('zone')
+            }}>
+              Go to {zoneLabel(zones, blankZonePrompt[0])}
+            </TactileButton>
+            <TactileButton variant="ghost" fullWidth onClick={()=>setBlankZonePrompt(null)}>Cancel</TactileButton>
+          </div>
+        </BottomSheet>
+      )}
+
       {/* Logger Studio opened with no assessment in progress: which one
           should the logger data belong to? Listed newest first; "open
           without attaching" keeps the old behaviour for a quick look at a
@@ -4678,6 +4774,10 @@ export default function MobileApp() {
             <div style={{display:'flex',gap:8}}>
               {zones.length>1&&curZone>0&&<button onClick={()=>{setCurZone(curZone-1);setZqi(0)}} style={{fontSize:14,color:SUB,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 12px',minHeight:44}}>‹ Prev</button>}
               {curZone<zones.length-1&&<button onClick={()=>{setCurZone(curZone+1);setZqi(0)}} style={{fontSize:14,color:SUB,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 12px',minHeight:44}}>Next ›</button>}
+              {/* A zone can be taken back out — a mis-tapped "Add another
+                  zone", a duplicate — as long as one remains. Danger ink,
+                  text action, confirmed in a sheet, like "Delete project". */}
+              {zones.length>1&&<button onClick={()=>setConfirmRemoveZone(true)} aria-label="Remove this zone" style={{fontSize:14,color:'var(--danger)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 0 8px 12px',minHeight:44}}>Remove</button>}
             </div>
           </div>
           {/* Zone-equipment mapping (v2.8.0). Equipment-scoped recs
