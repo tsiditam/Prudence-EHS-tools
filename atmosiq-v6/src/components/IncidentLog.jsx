@@ -6,6 +6,13 @@
  * IncidentLog — list view of saved incidents grouped by status.
  * Replaces the FM-mode ComplaintLog. Migrates legacy complaint
  * records on first mount (via STO.getIncidents → STO._migrateComplaints).
+ *
+ * Restraint pass (2026-09): the caveat subtitle, the five bordered count
+ * chips, the empty state in a card with an icon tile, and the card per
+ * incident are gone. The status filter is the app's text-tab row with
+ * counts beside the labels; an incident is a row that parts from the
+ * next with a hairline, its severity and status as words in their
+ * colours. The one accent on the screen is "Report".
  */
 
 import { useEffect, useState } from 'react'
@@ -16,17 +23,12 @@ import { generateIncidentDocx } from './IncidentDocxReport'
 import { I } from './Icons'
 import * as V3 from '../styles/tokens'
 import TactileButton from './ui/TactileButton'
-import Chip from './ui/Chip'
-import StatusPill from './ui/StatusPill'
+import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
+import { SEVERITY_COLOR } from './incidentConstants'
 
-const CARD = 'var(--card)'
-const BORDER = 'var(--border)'
-const ACCENT = 'var(--accent)'
+const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
 const DANGER = 'var(--danger)'
 const SUCCESS = 'var(--success)'
-const TEXT = 'var(--text)'
-const SUB = 'var(--sub)'
-const DIM = 'var(--dim)'
 
 const STATUS_FILTERS = [
   { id: 'open', label: 'Open' },
@@ -36,8 +38,6 @@ const STATUS_FILTERS = [
   { id: 'all', label: 'All' },
 ]
 
-import { SEVERITY_COLOR } from './incidentConstants'
-
 const STATUS_LABEL = {
   open: 'Open',
   in_progress: 'In progress',
@@ -45,12 +45,15 @@ const STATUS_LABEL = {
   escalated: 'Escalated',
 }
 
+// Status as a word in its colour: only resolved and escalated carry one.
+const STATUS_TONE = { resolved: SUCCESS, escalated: DANGER }
+
 // src/utils/formatDate.js is the single definition; this row format drops
 // the year (the list is recent-first) and uses the device locale.
 const fmtDate = (iso) => formatShortDateTime(iso, { fallback: iso || '' })
 
-// `onBack` is still passed by the shell; the header back pill handles it
-// now, so the view no longer renders its own.
+// `onBack` is still passed by the shell; the header back control handles
+// it, so the view renders none of its own.
 export default function IncidentLog({ profile, onNewIncident, onView }) {
   const [incidents, setIncidents] = useState([])
   const [filter, setFilter] = useState('open')
@@ -80,85 +83,58 @@ export default function IncidentLog({ profile, onNewIncident, onView }) {
 
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 720, margin: '0 auto' }}>
-      {/* The shell header's back pill is the single back affordance; the
-          in-body "← Home" link duplicated it. Title + subtitle use the same
-          scale as Projects / Reports / Settings. */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ ...V3.T.h1, margin: 0 }}>Incidents</h2>
-          <div style={{ ...V3.T.h1Sub, marginTop: 4 }}>Indoor air events documented for the record. Not a substitute for emergency services.</div>
-        </div>
-        {/* Accent primary, like every other create action. This was a
-            --warn (amber) fill — the only amber button in the app, and it
-            read as a caution badge rather than the way to add a record. */}
-        <TactileButton variant="primary" size="sm" pill bubble onClick={onNewIncident} icon={<I n="plus" s={14} c="var(--on-accent-fill)" w={2.2} />} style={{ flexShrink: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+        <h2 style={{ ...V3.T.h1, margin: 0 }}>Incidents</h2>
+        <TactileButton variant="primary" size="sm" pill onClick={onNewIncident} style={{ flexShrink: 0 }}>
           Report
         </TactileButton>
       </div>
 
-      {/* Status filter chips — the shared pill Chip, matching the Projects
-          filter strip, instead of a local 6px-radius rectangle. */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-        {STATUS_FILTERS.map(s => {
-          const on = filter === s.id
-          return (
-            <Chip key={s.id} selected={on} onClick={() => setFilter(s.id)} style={{ padding: '7px 13px', minHeight: 32, fontSize: 12 }}>
-              {s.label} <span style={{ color: on ? ACCENT : DIM, fontFamily: 'var(--font-mono)', marginLeft: 4 }}>{counts[s.id] || 0}</span>
-            </Chip>
-          )
-        })}
-      </div>
+      <AssessmentSegmentedPillNav
+        tabs={STATUS_FILTERS.map(s => ({ id: s.id, label: s.label, badge: counts[s.id] || undefined }))}
+        active={filter}
+        onChange={setFilter}
+        ariaLabel="Incident status"
+        style={{ margin: '0 0 4px' }}
+      />
 
-      {/* List */}
       {filtered.length === 0 && (
-        <div style={{ ...V3.panel(), textAlign: 'center', padding: '36px 24px' }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
-            <I n="alert" s={24} c={ACCENT} w={1.8} />
-          </div>
-          <div style={{ ...V3.T.h3, marginBottom: 6 }}>
-            {incidents.length === 0 ? 'No incidents recorded' : `No ${STATUS_LABEL[filter]?.toLowerCase() || ''} incidents`}
-          </div>
-          <div style={{ ...V3.T.bodyDim, maxWidth: 360, margin: '0 auto' }}>
-            {incidents.length === 0
-              ? 'Document an indoor air event and it will be listed here, with a Word export for the record.'
-              : 'Try a different status filter.'}
-          </div>
+        <div style={{ ...V3.T.bodyDim, padding: '12px 0' }}>
+          {incidents.length === 0
+            ? 'None recorded. Document an indoor air event and it is listed here, with a Word export for the record.'
+            : `No ${STATUS_LABEL[filter]?.toLowerCase() || ''} incidents.`}
         </div>
       )}
-      {filtered.map(inc => (
+      {filtered.map((inc, i) => (
         <div key={inc.id} {...clickable(() => onView?.(inc), { label: `Open incident ${inc.location || '(no location)'}` })} style={{
-          width: '100%', textAlign: 'left', padding: '14px 16px',
-          background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10,
-          marginBottom: 8, cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', flexDirection: 'column', gap: 6,
+          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0',
+          borderTop: i === 0 ? 'none' : HAIRLINE, cursor: 'pointer', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{inc.location || '(no location)'}</div>
-            <StatusPill tone={SEVERITY_COLOR[inc.severity] || DIM} style={{ flexShrink: 0 }}>{inc.severity}</StatusPill>
-            <button
-              onClick={(e) => handleExport(e, inc)}
-              disabled={exportingId === inc.id}
-              aria-label="Export Word report"
-              style={{
-                flexShrink: 0, width: 32, height: 32, padding: 0,
-                background: 'transparent', border: `1px solid ${BORDER}`,
-                borderRadius: 6, cursor: exportingId === inc.id ? 'wait' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                opacity: exportingId === inc.id ? 0.5 : 1,
-              }}>
-              <I n="download" s={14} c={SUB} w={1.8} />
-            </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <div style={{ ...V3.T.bodyStrong, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inc.location || '(no location)'}</div>
+              <span style={{ ...V3.T.caption, color: SEVERITY_COLOR[inc.severity] || V3.TEXT_TERTIARY, fontWeight: 600, whiteSpace: 'nowrap', textTransform: 'capitalize' }}>{inc.severity}</span>
+            </div>
+            <div style={{ ...V3.T.caption, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inc.trigger_type}{inc.building_name ? ` · ${inc.building_name}` : ''}</div>
+            <div style={{ ...V3.T.captionDim, marginTop: 2 }}>
+              {inc.reporter_name} · {fmtDate(inc.reported_at)} · <span style={{ color: STATUS_TONE[inc.status] || undefined }}>{STATUS_LABEL[inc.status] || inc.status}</span>
+              {inc.medical_attention && <span style={{ color: DANGER }}> · Medical attention sought</span>}
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inc.trigger_type}{inc.building_name ? ` · ${inc.building_name}` : ''}</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: DIM, fontFamily: 'var(--font-mono)' }}>
-            <span>{inc.reporter_name} · {fmtDate(inc.reported_at)}</span>
-            <span style={{ color: inc.status === 'resolved' ? SUCCESS : inc.status === 'escalated' ? DANGER : ACCENT }}>{STATUS_LABEL[inc.status] || inc.status}</span>
-          </div>
-          {inc.medical_attention && (
-            <div style={{ fontSize: 10, color: DANGER, marginTop: 2 }}>⚠ Medical attention sought</div>
-          )}
+          <button
+            onClick={(e) => handleExport(e, inc)}
+            disabled={exportingId === inc.id}
+            aria-label="Export Word report"
+            style={{ background: 'none', border: 'none', padding: 6, cursor: exportingId === inc.id ? 'wait' : 'pointer', display: 'inline-flex', opacity: exportingId === inc.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent' }}>
+            <I n="download" s={16} c={V3.TEXT_SECONDARY} w={1.8} />
+          </button>
         </div>
       ))}
+      {filtered.length > 0 && <div style={{ borderTop: HAIRLINE }} />}
+
+      <div style={{ ...V3.T.captionDim, marginTop: 16, lineHeight: 1.6 }}>
+        Documented for the record. In an emergency, call emergency services.
+      </div>
     </div>
   )
 }

@@ -123,7 +123,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
       {onBack && (
         <div style={{ marginBottom: 8 }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Home</button>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: V3.TEXT_PRIMARY, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>‹ Home</button>
         </div>
       )}
 
@@ -172,7 +172,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
           <div style={{ ...V3.T.h2, marginBottom: 16 }}>{list.length === 0 ? 'Start with a project' : `No ${filter === 'all' ? '' : STATUS_LABEL[filter].toLowerCase() + ' '}projects`}</div>
           {list.length === 0
             ? newProjectButton
-            : <button type="button" onClick={() => setFilter('all')} style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: 'var(--accent)', fontFamily: 'inherit', cursor: 'pointer' }}>Show all</button>}
+            : <button type="button" onClick={() => setFilter('all')} style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: V3.TEXT_PRIMARY, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Show all ›</button>}
         </div>
       ) : (
         <div>
@@ -190,7 +190,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       )}
 
       {showCreate && (
-        <BottomSheet title="New project / site" tone="deep" onClose={() => setShowCreate(false)}>
+        <BottomSheet title="New project" tone="deep" onClose={() => setShowCreate(false)}>
           <ProjectForm submitLabel="Create project" onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
         </BottomSheet>
       )}

@@ -244,7 +244,11 @@ const RESULT_TAB_ALIASES = {
 // styles, so the screen reads as one document rather than a dashboard.
 const RS_SECTION = { paddingTop: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
 const RS_HEAD = { ...V3.T.micro, marginBottom: 10 }
-const RS_LINK = { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }
+// A text action / link: the primary ink, weight 600, a chevron when it goes
+// somewhere. Accent discipline (2026-09): cyan is reserved for the one
+// primary action on a screen and the selected state; links stopped
+// borrowing it.
+const RS_LINK = { background: 'none', border: 'none', color: V3.TEXT_PRIMARY, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4, WebkitTapHighlightColor: 'transparent' }
 
 // Confidence tones for the results cards. High = green (confident),
 // Moderate = amber, Possible = a cool slate-blue — deliberately lower-
@@ -514,7 +518,7 @@ function PhotoNotFeasible({ existing, onSave, onClear }) {
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState((existing && existing.reason) || '')
   const marked = !!(existing && typeof existing.reason === 'string' && existing.reason.trim())
-  const link = { background:'none', border:'none', padding:0, color:'var(--accent)', fontSize:12, fontFamily:'inherit', cursor:'pointer', textDecoration:'underline' }
+  const link = { background:'none', border:'none', padding:0, color:V3.TEXT_PRIMARY, fontWeight:600, fontSize:12, fontFamily:'inherit', cursor:'pointer', textDecoration:'underline' }
   if (marked) {
     return (
       <div style={{marginTop:10, fontSize:12, color:'var(--sub)', lineHeight:1.5}}>
@@ -3424,25 +3428,21 @@ export default function MobileApp() {
         onClick={() => go(item.onClick)}
         aria-current={active ? 'page' : undefined}
         style={{
-          // Active row: a flat accent tint with a hairline edge (UI pass,
-          // 2026-09 — the blur + inset highlight went with the rest of the
-          // glass; the tint alone reads as selected on the flat menu).
+          // Active row: the menu's neutral raised tone, the label and glyph
+          // in the primary ink — the same selected state the dock draws. It
+          // used to be an accent tint with an accent ring, an accent glyph
+          // and an accent label: four uses of the one colour on one row.
           width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
           margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
-          color: active ? 'var(--accent)' : 'var(--text)',
-          background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'transparent',
-          boxShadow: active
-            ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent)'
-            : 'none',
+          color: 'var(--text)',
+          background: active ? 'var(--m-ctl)' : 'transparent',
           WebkitTapHighlightColor:'transparent',
         }}>
-        {/* Accent discipline (Rule 2): cyan marks the active row only; inactive
-            icons are muted (var(--sub)) so the selected item reads and the
-            accent keeps its meaning. Matches the dock, Trash, and the project
-            switcher, which already dim their inactive icons. renderIcon items
-            (the AtmosFlow AI brain) keep their own identity mark. */}
-        {item.renderIcon ? item.renderIcon() : <I n={item.icon} s={19} c={active ? 'var(--accent)' : 'var(--sub)'} w={1.7} />}
+        {/* Glyphs sit in the secondary ink; the active one in the primary
+            ink. renderIcon items (the AtmosFlow AI brain) keep their own
+            identity mark. */}
+        {item.renderIcon ? item.renderIcon() : <I n={item.icon} s={19} c={active ? 'var(--text)' : 'var(--sub)'} w={1.7} />}
         <span style={{flex:1}}>{item.label}</span>
       </button>
     )
@@ -3613,16 +3613,20 @@ export default function MobileApp() {
                 returns to the project workspace, "‹ Tools" to the hub. When
                 the destination is an assessment screen or a project it
                 names the facility / project rather than the generic word.
-                Hidden on the home screens (nothing beneath) and on
-                project-detail, which owns its own "Projects" control. */}
-            {profile && nav.backView && view!=='dash' && view!=='projects' && view!=='project-detail' && (
+                Hidden on the home screens (nothing beneath). The project
+                workspace used to draw its own "← Projects" and hide this
+                one; it now relies on this control like every other screen. */}
+            {profile && nav.backView && view!=='dash' && view!=='projects' && (
               <button
                 onClick={()=>{ nav.back(); setViewRpt(null) }}
                 {...triggerPress('back')}
                 aria-label={`Back to ${backLabel}`}
-                className="af-glass-control af-menu-trigger"
-                style={{display:'flex',alignItems:'center',gap:3,height:36,padding:'0 14px 0 9px',borderRadius:999,boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:ACCENT,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+                className="af-menu-trigger"
+                // Bare: a chevron and the destination in the primary ink,
+                // no capsule. The accent is for the primary action and
+                // the selected state, and the way back is neither.
+                style={{display:'flex',alignItems:'center',gap:2,height:36,padding:'0 8px 0 0',background:'transparent',border:'none',boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:V3.TEXT_PRIMARY,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{backLabel}</span>
               </button>
             )}
@@ -3635,17 +3639,16 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                className="af-glass-control af-menu-trigger"
+                className="af-menu-trigger"
                 style={{
-                  // Circular glass "bubble" button with a staggered
-                  // (descending) hamburger in cyan. Glass via .af-glass-control
-                  // so it matches the bottom dock + other header controls.
-                  width:40, height:40, borderRadius:'50%',
+                  // A bare glyph in the primary ink; no circle, no glass.
+                  width:40, height:40, marginLeft:-10,
                   padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                  background:'transparent', border:'none', color:V3.TEXT_PRIMARY,
                   boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
                   ...triggerFx('menu', 1.3),
                 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                   <line x1="4" y1="7"  x2="20" y2="7" />
                   <line x1="4" y1="12" x2="15" y2="12" />
                   <line x1="4" y1="17" x2="11" y2="17" />
@@ -3683,7 +3686,7 @@ export default function MobileApp() {
             {profile && view!=='dash' && (
               <button
                 type="button"
-                className="af-menu-trigger af-glass-control"
+                className="af-menu-trigger"
                 onClick={(e) => {
                   const r = e.currentTarget.getBoundingClientRect()
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
@@ -3694,14 +3697,16 @@ export default function MobileApp() {
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
                 style={{
-                  width:36, height:36, borderRadius:'50%',
+                  // A bare glyph in the primary ink; no circle, no glass.
+                  width:40, height:40, marginRight:-10,
                   cursor:'pointer', display:'flex',
                   alignItems:'center', justifyContent:'center',
                   padding:0, boxSizing:'border-box',
+                  background:'transparent', border:'none', color:V3.TEXT_PRIMARY,
                   WebkitTapHighlightColor:'transparent',
                   ...triggerFx('kebab', 1.3),
                 }}>
-                <I n="dots" s={20} c={ACCENT} w={2} />
+                <I n="dots" s={22} c="currentColor" w={2} />
               </button>
             )}
           </div>
@@ -4374,7 +4379,7 @@ export default function MobileApp() {
                     <div style={{marginBottom:RHYTHM.section}}>
                       <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
                         <div style={V3.T.micro}>Other in progress · {drafts.length - 1}</div>
-                        <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>
+                        <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:V3.TEXT_PRIMARY,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all ›</button>
                       </div>
                       <div style={sgStack('tight')}>
                         {drafts.slice(1, 4).map((d) => (
@@ -4476,7 +4481,7 @@ export default function MobileApp() {
                 <div>
                   <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
                     <div style={V3.T.micro}>Recent reports{reports.length > 0 ? ` · ${reports.length}` : ''}</div>
-                    {reports.length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all</button>}
+                    {reports.length > 3 && <button onClick={()=>setView('history')} style={{background:'none',border:'none',color:V3.TEXT_PRIMARY,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',padding:0}}>View all ›</button>}
                   </div>
                   <div style={sgStack('tight')}>
                     {reports.slice(0, 3).map((r) => {
@@ -4665,17 +4670,15 @@ export default function MobileApp() {
           onNavigate={(v)=> v==='dash' ? goHome() : setView(v)}
         />}
 
-        {view==='history'&&<div style={{paddingTop:28,paddingBottom:100,maxWidth:contentMax,margin:'0 auto'}}>
-          {/* ── Reports header ──────────────────────────────────────
-              The "New Assessment" CTA that previously sat here was
-              removed. The clickable draft-icon in the empty-state
-              card below is now the start-an-assessment affordance
-              within the Reports tab; the Home tab also offers it. */}
-          <div style={{marginBottom:20,display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
-            <div>
-              <div style={{...V3.T.h1, marginBottom:4}}>Reports</div>
-              <div style={V3.T.bodyDim}>Drafts and finalized deliverables · {((index.drafts||[]).length + (index.reports||[]).length)} total</div>
-            </div>
+        {view==='history'&&<div style={{paddingTop:16,paddingBottom:120,maxWidth:contentMax,margin:'0 auto'}}>
+          {/* ── Reports (restraint pass, 2026-09) ─────────────────────
+              The heading and, when there is anything to roll up, the
+              Portfolio summary as a text action. The subtitle, the cards,
+              the icon tiles and the bordered empty states are gone: two
+              sections as micro headings over hairlines, rows parting with
+              hairlines, one line and one action when a section is empty. */}
+          <div style={{marginBottom:12,display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12}}>
+            <div style={V3.T.h1}>Reports</div>
             {/* Portfolio Summary — a practice-level Word rollup of every
                 finalized assessment (risk-band distribution, per-site status,
                 overdue reassessments, calibration). Aggregates the same index
@@ -4704,119 +4707,60 @@ export default function MobileApp() {
                     setPortfolioBusy(false)
                   }
                 }}
-                className="af-glass-control"
-                style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:8,padding:'9px 14px',borderRadius:V3.R.md,cursor:portfolioBusy?'default':'pointer',fontFamily:'inherit',fontSize:13,fontWeight:600,color:'var(--accent)',opacity:portfolioBusy?0.6:1,WebkitTapHighlightColor:'transparent'}}
+                style={{...RS_LINK, opacity:portfolioBusy?0.6:1, cursor:portfolioBusy?'default':'pointer'}}
               >
-                <I n="download" s={15} c="var(--accent)" w={1.7} />
-                {portfolioBusy ? 'Building…' : 'Portfolio Summary'}
+                {portfolioBusy ? 'Building…' : 'Portfolio summary'}
               </button>
             )}
           </div>
 
           {/* ── Drafts / In Progress ──────────────────────────────── */}
-          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
-            <div style={V3.T.micro}>{userMode === 'fm' ? 'In Progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
-          </div>
+          <div style={{...RS_HEAD, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>{userMode === 'fm' ? 'In progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
           {(index.drafts||[]).length === 0 ? (
-            // Empty state — the draft icon is the start-an-assessment
-            // affordance now that the header CTA has been removed.
-            // Rendered as a <button> for keyboard + screen-reader
-            // accessibility; visual treatment matches V3.iconBox.
-            <div style={{...V3.panel(), display:'flex',alignItems:'center',gap:14,marginBottom:24,padding:'18px 22px'}}>
-              <button
-                onClick={startNew}
-                aria-label="Start new assessment"
-                className="af-glass-control"
-                style={{width:32,height:32,flexShrink:0,borderRadius:V3.R.md,display:'inline-flex',alignItems:'center',justifyContent:'center',padding:0,cursor:'pointer',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}
-              >
-                <I n="draft" s={15} c="var(--accent)" w={1.7} />
-              </button>
+            <div style={{padding:'12px 0 6px'}}>
+              <span style={V3.T.bodyDim}>None in progress. </span>
+              <button onClick={startNew} aria-label="Start new assessment" style={RS_LINK}>Start an assessment <span aria-hidden="true">›</span></button>
+            </div>
+          ) : (index.drafts||[]).map((d, i) => (
+            <div key={d.id} style={{padding:'12px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,display:'flex',alignItems:'center',gap:12}}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={V3.T.bodyStrong}>No drafts in progress</div>
-                <div style={V3.T.captionDim}>Start a new assessment to capture field observations.</div>
+                <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled assessment'}</div>
+                <div style={{...V3.T.captionDim, marginTop:2}}>{fD(d.ua||d.ts)}</div>
               </div>
+              <button onClick={()=>resumeDraft(d.id)} style={RS_LINK}>Resume <span aria-hidden="true">›</span></button>
+              <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} aria-label={`Delete draft ${d.facility||'Untitled assessment'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
+              </button>
             </div>
-          ) : (
-            <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,marginBottom:24,overflow:'hidden'}}>
-              {(index.drafts||[]).map((d, i) => (
-                <div key={d.id} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,display:'flex',alignItems:'center',gap:12}}>
-                  <div style={V3.iconBox(V3.STATUS.inProgress)}><I n="bldg" s={15} c={V3.STATUS.inProgress} w={1.6} /></div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled Assessment'}</div>
-                    {/* "In Progress" pill removed — rows in the
-                        Drafts section are by definition in-progress,
-                        and the section header already labels them as
-                        such ("DRAFTS · N"). The Resume button to the
-                        right is the action signal. */}
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
-                      <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(d.ua||d.ts)}</span>
-                    </div>
-                  </div>
-                  <button onClick={()=>resumeDraft(d.id)} style={V3.btnPrimary}>Resume</button>
-                  <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} style={{width:40,height:40,background:`${DANGER}10`,border:`1px solid ${DANGER}28`,borderRadius:V3.R.md,color:DANGER,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0,WebkitTapHighlightColor:'transparent'}}>
-                    <I n="trash" s={14} c={DANGER} w={1.4} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          ))}
 
           {/* ── Finalized ─────────────────────────────────────────── */}
-          <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
-            <div style={V3.T.micro}>Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}</div>
-          </div>
-          <div style={{display:'flex',gap:8,marginBottom:14}}>
-            <div style={{flex:1,position:'relative'}}>
-              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search finalized reports..." style={{width:'100%',padding:'12px 14px 12px 38px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:TEXT,fontSize:14,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
-              <div style={{position:'absolute',top:'50%',left:14,transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
-                <I n="search" s={14} c={V3.TEXT_TERTIARY} w={1.8} />
-              </div>
-            </div>
-            <select value={hSort} onChange={e=>setHSort(e.target.value)} style={{padding:'12px 14px',background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:13,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
-              <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="findings-high">Most findings</option><option value="findings-low">Fewest findings</option>
-            </select>
-          </div>
-          {fReports.length === 0 ? (
-            <div style={{...V3.panel(), padding:'40px 24px', textAlign:'center'}}>
-              <div style={{...V3.iconBox(V3.TEXT_TERTIARY), width:48, height:48, margin:'0 auto 12px', borderRadius:V3.R.lg}}>
-                <I n="report" s={20} c={V3.TEXT_TERTIARY} w={1.6} />
-              </div>
-              <div style={{...V3.T.h3, marginBottom:6}}>No reports generated yet</div>
-              <div style={{...V3.T.bodyDim, marginBottom:hSearch?0:16}}>
-                {hSearch ? 'No reports match your search.' : 'Complete and finalize an assessment to generate your first report.'}
-              </div>
-              {!hSearch && (
-                // "View sample report" stays as the only action here —
-                // it offers a distinct value prop (preview the output)
-                // and starting a new assessment is reachable via the
-                // clickable draft icon in the Drafts empty-state above
-                // and from the Home tab.
-                <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-                  <button onClick={runDemo} style={V3.btnGhost}>View sample report</button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{background:CARD,border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.lg,overflow:'hidden'}}>
-              {fReports.map((r, i) => {
-                return (
-                  <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{padding:'14px 16px',background:'transparent',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit'}}>
-                    <div style={V3.iconBox(V3.TEXT_SECONDARY)}><I n="report" s={15} c={V3.TEXT_SECONDARY} w={1.6} /></div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
-                        <span style={{...V3.T.captionDim, fontFamily:'var(--font-mono)'}}>{fD(r.ts)}</span>
-                      </div>
-                    </div>
-                    <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} style={{width:36,height:36,background:'transparent',border:`1px solid ${V3.BORDER_DEFAULT}`,borderRadius:V3.R.md,color:V3.TEXT_TERTIARY,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',flexShrink:0}}>
-                      <I n="trash" s={13} c={V3.TEXT_TERTIARY} w={1.4} />
-                    </button>
-                    <span style={{color:V3.TEXT_TERTIARY,fontSize:13}}>›</span>
-                  </div>
-                )
-              })}
+          <div style={{...RS_HEAD, marginTop:22, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}</div>
+          {(index.reports||[]).length > 0 && (
+            <div style={{display:'flex',gap:10,padding:'12px 0 4px'}}>
+              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports" aria-label="Search finalized reports" style={{flex:1,minWidth:0,padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
+              <select value={hSort} onChange={e=>setHSort(e.target.value)} aria-label="Sort reports" style={{padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:16,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
+                <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="findings-high">Most findings</option><option value="findings-low">Fewest findings</option>
+              </select>
             </div>
           )}
+          {fReports.length === 0 ? (
+            <div style={{padding:'12px 0 6px'}}>
+              <span style={V3.T.bodyDim}>{hSearch ? 'No reports match your search.' : 'None yet. Finalize an assessment to generate a report. '}</span>
+              {!hSearch && <button onClick={runDemo} style={RS_LINK}>View a sample report <span aria-hidden="true">›</span></button>}
+            </div>
+          ) : fReports.map((r, i) => (
+            <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{padding:'12px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
+                <div style={{...V3.T.captionDim, marginTop:2}}>{fD(r.ts)}</div>
+              </div>
+              <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} aria-label={`Delete report ${r.facility||'Untitled'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
+              </button>
+              <span aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1}}>›</span>
+            </div>
+          ))}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='tools'&&<ToolsHub onOpen={openTool} />}

@@ -200,7 +200,9 @@ function ThresholdBanner({ items }) {
 }
 
 // A text action beside a heading or meta line — no button chrome.
-const TEXT_ACTION = { background: 'transparent', border: 'none', padding: 0, fontSize: 13, fontWeight: 500, color: 'var(--accent)', fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }
+// Text actions in the primary ink: the accent is reserved for the one
+// primary action on the screen and the selected state.
+const TEXT_ACTION = { background: 'transparent', border: 'none', padding: 0, fontSize: 13, fontWeight: 600, color: V3.TEXT_PRIMARY, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }
 
 // Factual stat row under an Analysis chart: mean, peak (flagged occupied
 // when occupancy windows exist), % of readings over the screening
@@ -617,7 +619,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
           </TactileButton>
           <div style={{ marginTop: 14 }}>
             <button type="button" disabled={busy} onClick={() => pickProjectFor({ role: 'indoor', label: 'Indoor' })}
-              style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: 'var(--accent)', fontFamily: 'inherit', cursor: 'pointer' }}>
+              style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: V3.TEXT_PRIMARY, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
               Load from a project
             </button>
           </div>
@@ -821,7 +823,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                     <button
                       type="button"
                       onClick={() => { setMode('overview'); setMapOpen(true) }}
-                      style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer' }}
+                      style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: V3.TEXT_PRIMARY, textDecoration: 'underline', cursor: 'pointer' }}
                     >
                       Set your date/time column
                     </button>{' '}

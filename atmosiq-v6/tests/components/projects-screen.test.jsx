@@ -74,15 +74,15 @@ describe('ProjectDetail', () => {
     await waitFor(() => expect(screen.getByText(/could not be found/i)).toBeTruthy())
   })
 
-  it('offers Delete project in the Overview danger zone and confirms', async () => {
+  it('offers Delete project at the end of the Overview and confirms', async () => {
     const p = await createProject({ name: 'Closable Site', status: 'active' })
     let backed = false
     render(<ProjectDetail id={p.id} profile={{ name: 'J. Smith' }} onBack={() => { backed = true }} />)
     await waitFor(() => expect(screen.getByText('Closable Site')).toBeTruthy())
 
-    // Discoverable on the default Overview tab now (not buried in Activity).
-    expect(screen.getByText('Danger zone')).toBeTruthy()
-    fireEvent.click(screen.getByText('Delete project')) // danger-zone button (unique pre-sheet)
+    // Discoverable on the default Overview tab (a text action in the danger
+    // colour at the end of the page, not a "Danger zone" card).
+    fireEvent.click(screen.getByText('Delete project')) // unique pre-sheet
     await waitFor(() => expect(screen.getByText(/Linked assessments themselves are not deleted/i)).toBeTruthy())
 
     // Sheet adds a second "Delete project" — confirm via the last one.

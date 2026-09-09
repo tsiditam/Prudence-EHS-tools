@@ -3,20 +3,29 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * ProjectDetail — the Project / Site Folder workspace. A site engagement
- * hub (not a file browser): a header identity card + status, then a
- * horizontally-scrollable tab strip across Overview · Assessments ·
- * Documents · Evidence · Notes · Activity. Documents and evidence upload
- * inline (offline-first data-URL storage with a per-file cap); in-app
+ * ProjectDetail — the Project / Site Folder workspace. The site's identity
+ * at the top of the page, a text-tab strip across Overview · Building ·
+ * Assessments · Logger · Sampling · Photos · Documents · Notes · Activity,
+ * and one accent action. Documents and photos upload inline
+ * (offline-first data-URL storage with a per-file cap); in-app
  * assessments are linked from the report index; every mutation is logged
  * to the Activity timeline.
+ *
+ * Restraint pass (2026-09). The workspace used to open on an identity
+ * card with a status-coloured rail, an in-body "← Projects" under the
+ * header's own back control, three stacked buttons with icons, a Status
+ * card of tinted pill chips, a Contents card of four icon tiles, and a
+ * "Danger zone" card. Every list beneath was a card per row with an
+ * accent icon in a tinted square. All of it is gone: the identity is
+ * type on the page; the status is a word in its colour with the text-tab
+ * row to change it; sections are micro headings over hairlines; rows part
+ * with hairlines; actions are text in the primary ink; the one accent on
+ * the screen is "New assessment". Upload lives on the Documents tab, and
+ * the AI launcher floats on every screen, so neither needs a button here.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import * as V3 from '../../styles/tokens'
-import { stack as sgStack } from '../../styles/soft-glass'
-import GlassCard from '../ui/GlassCard'
-import StatusPill from '../ui/StatusPill'
 import TactileButton from '../ui/TactileButton'
 import BottomSheet from '../ui/BottomSheet'
 import { I } from '../Icons'
@@ -29,51 +38,73 @@ import {
 } from '../../utils/projectStore'
 import ProjectForm from './ProjectForm'
 import AssessmentSegmentedPillNav from '../ui/AssessmentSegmentedPillNav'
-import { STATUS_TONE, STATUS_LABEL, fileIcon, fmtBytes, fmtDate, fmtDateTime, fileToDataUrl, downloadDataUrl } from './projectsTheme'
+import { STATUS_TONE, STATUS_LABEL, fmtBytes, fmtDate, fmtDateTime, fileToDataUrl, downloadDataUrl } from './projectsTheme'
 
-const DIM = V3.TEXT_MUTED
+const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
+const DIM = V3.TEXT_TERTIARY
 
-// Project workspace sections (projects-centric IA). Rendered as the same
-// liquid-glass pill nav the assessment results use — icon-only inactive
-// pills keep nine sections scannable on a phone.
+// Project workspace sections. The same text-tab row the results screen
+// uses; icons are accepted by the control but not drawn.
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: 'clip' },
-  { id: 'building', label: 'Building', icon: 'bldg' },
-  { id: 'assessments', label: 'Assessments', icon: 'findings' },
-  { id: 'logger', label: 'Logger', icon: 'chartLine' },
-  { id: 'sampling', label: 'Sampling', icon: 'flask' },
-  { id: 'evidence', label: 'Photos', icon: 'image' },
-  { id: 'documents', label: 'Documents', icon: 'paperclip' },
-  { id: 'notes', label: 'Notes', icon: 'notes' },
-  { id: 'activity', label: 'Activity', icon: 'clock' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'building', label: 'Building' },
+  { id: 'assessments', label: 'Assessments' },
+  { id: 'logger', label: 'Logger' },
+  { id: 'sampling', label: 'Sampling' },
+  { id: 'evidence', label: 'Photos' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'activity', label: 'Activity' },
 ]
 
-function SectionHead({ title, count, action }) {
+// A text action: primary ink, no box. The chevron says it goes somewhere;
+// without one it does something here.
+const TEXT_ACTION = { background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: V3.TEXT_PRIMARY, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', whiteSpace: 'nowrap' }
+const ICON_BUTTON = { background: 'none', border: 'none', padding: 6, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', WebkitTapHighlightColor: 'transparent' }
+
+// A section: micro heading (with an optional count and one text action)
+// over content, parting from the section above with a hairline.
+function Section({ title, count, action, first, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span style={V3.T.micro}>{title}</span>
-        {typeof count === 'number' && <span style={V3.T.captionDim}>{count}</span>}
+    <div style={{ paddingTop: first ? 4 : 18, borderTop: first ? 'none' : HAIRLINE }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+        <div style={V3.T.micro}>{title}{typeof count === 'number' ? ` · ${count}` : ''}</div>
+        {action}
       </div>
-      {action}
+      {children}
     </div>
   )
 }
 
-function EmptyHint({ children }) {
-  return <div style={{ ...V3.T.bodyDim, padding: '20px 4px', textAlign: 'center' }}>{children}</div>
+// A row in a list: hairline above every row but the first.
+function Row({ first, onClick, ariaLabel, children, style }) {
+  const base = { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: first ? 'none' : HAIRLINE, ...style }
+  if (onClick) {
+    return (
+      <div role="button" tabIndex={0} aria-label={ariaLabel} onClick={onClick}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+        style={{ ...base, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+        {children}
+      </div>
+    )
+  }
+  return <div style={base}>{children}</div>
 }
 
-function MetaRow({ label, children }) {
+function EmptyLine({ children }) {
+  return <div style={{ ...V3.T.bodyDim, padding: '12px 0 4px' }}>{children}</div>
+}
+
+function MetaRow({ label, first, children }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '10px 0', borderBottom: `1px solid ${V3.BORDER_SUBTLE}` }}>
-      <span style={{ ...V3.T.caption, color: DIM, flexShrink: 0 }}>{label}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '10px 0', borderTop: first ? 'none' : HAIRLINE }}>
+      <span style={{ ...V3.T.caption, flexShrink: 0 }}>{label}</span>
       <span style={{ ...V3.T.body, textAlign: 'right', minWidth: 0 }}>{children || '—'}</span>
     </div>
   )
 }
 
-export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAssessment, onOpenReport, onOpenLogger, onOpenSampling, onAskAI }) {
+export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAssessment, onOpenReport, onOpenLogger, onOpenSampling }) {
   const [project, setProject] = useState(null)
   const [missing, setMissing] = useState(false)
   const [tab, setTab] = useState('overview')
@@ -135,8 +166,8 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
   if (missing) {
     return (
       <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 16 }}>← Projects</button>
-        <EmptyHint>This project could not be found.</EmptyHint>
+        <div style={{ ...V3.T.bodyDim, padding: '40px 0', textAlign: 'center' }}>This project could not be found.</div>
+        <div style={{ textAlign: 'center' }}><button onClick={onBack} style={TEXT_ACTION}>Back to projects</button></div>
       </div>
     )
   }
@@ -189,74 +220,47 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
     .map(rid => reportsIndex.find(r => r.id === rid) || { id: rid, facility: 'Assessment', ts: null, missing: true })
   const linkable = reportsIndex.filter(r => !(project.linkedReportIds || []).includes(r.id))
 
+  const counts = [
+    ['Assessments', (project.linkedReportIds || []).length, 'assessments'],
+    ['Documents', (project.documents || []).length, 'documents'],
+    ['Photos', (project.evidence || []).length, 'evidence'],
+    ['Notes', (project.notes || []).length, 'notes'],
+  ]
+
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 12 }}>← Projects</button>
-
-      {/* ── Header identity card ───────────────────────────────────────
-          Compact: title + client + address only. Status shows in exactly
-          two places — this card's color-mapped top border (accent={tone},
-          mapped from project.status by STATUS_TONE: active=cyan,
-          draft=gray, follow-up=amber, closed=dim gray) and the Status
-          selector below. No standalone status badge or action buttons here,
-          so real content sits closer to the top. */}
-      <GlassCard accent={tone} style={{ padding: '15px 18px', marginBottom: 14 }}>
+      {/* Identity on the page: the name, the client, the address, and the
+          status as a word in its colour. The header's back control is the
+          one way back. */}
+      <div style={{ marginBottom: 16 }}>
         <div style={V3.T.h1}>{project.name}</div>
-        {project.client && <div style={{ ...V3.T.h1Sub, marginTop: 3, color: V3.TEXT_SECONDARY }}>{project.client}</div>}
-        {project.address && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7 }}>
-            <I n="location" s={13} c={DIM} w={1.8} />
-            {/* Contrast floor (Rule 5): address text uses --sub, not --dim. */}
-            <span style={{ ...V3.T.caption, color: V3.TEXT_TERTIARY }}>{project.address}</span>
-          </div>
-        )}
-      </GlassCard>
+        {project.client && <div style={{ ...V3.T.h1Sub, marginTop: 2 }}>{project.client}</div>}
+        <div style={{ ...V3.T.caption, marginTop: 6 }}>
+          <span style={{ color: tone, fontWeight: 600 }}>{STATUS_LABEL[project.status] || project.status}</span>
+          {project.address ? <> · {project.address}</> : null}
+        </div>
+      </div>
 
-      {/* ── Section nav — same liquid-glass pill control as the result
-          tabs, labelled here so all nine project sections are identifiable.
-          These tabs navigate WITHIN this project; the bottom floating bar is
-          GLOBAL app navigation — the two are intentionally separate. */}
+      {onNewAssessment && (
+        <div style={{ marginBottom: 6 }}>
+          <TactileButton variant="primary" size="lg" pill fullWidth haptic="success" onClick={startNewAssessment}>
+            New assessment
+          </TactileButton>
+        </div>
+      )}
+
+      {/* Section nav — these tabs navigate WITHIN this project; the bottom
+          dock is global navigation. */}
       <AssessmentSegmentedPillNav
         tabs={TABS}
         active={tab}
         onChange={setTab}
-        showLabels
         ariaLabel="Project sections"
-        style={{ margin: '0 0 12px' }}
+        style={{ margin: '10px 0 8px' }}
       />
 
-      {/* ── Primary action area — project-level actions, available across
-          tabs. Tiered: New assessment is the single full-width primary
-          (cyan); Upload + Ask AtmosFlow AI share a secondary row. Edit
-          details moved to the header ⋯ overflow menu. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-        {onNewAssessment && (
-          <TactileButton
-            variant="primary"
-            size="lg"
-            pill
-            fullWidth
-            bubble
-            haptic="success"
-            onClick={startNewAssessment}
-            icon={<I n="findings" s={15} c="var(--on-accent-fill)" />}
-          >
-            New assessment
-          </TactileButton>
-        )}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <TactileButton variant="secondary" size="md" pill bubble onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />} style={{ flex: 1, color: 'var(--accent)' }}>Upload</TactileButton>
-          {/* "Ask AtmosFlow AI" wrapped to two lines in a half-width pill,
-              which left the mic glyph floating against a two-line block and
-              read as a broken button. The destination is unambiguous from the
-              icon and the context, so the label is short enough to sit on one
-              line at 393px; the full name stays on the accessible name. */}
-          {onAskAI && <TactileButton variant="secondary" size="md" pill bubble onClick={onAskAI} icon={<I n="mic" s={14} c="var(--accent)" />} aria-label="Ask AtmosFlow AI" title="Ask AtmosFlow AI" style={{ flex: 1, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Ask AI</TactileButton>}
-        </div>
-      </div>
-
       {error && (
-        <div style={{ padding: '10px 14px', marginBottom: 14, background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 30%, transparent)', borderRadius: V3.R.md, color: 'var(--danger)', fontSize: 13 }}>{error}</div>
+        <div style={{ ...V3.T.caption, color: 'var(--danger)', padding: '8px 0 4px', lineHeight: 1.5 }}>{error}</div>
       )}
 
       {/* Hidden upload inputs */}
@@ -265,343 +269,234 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
 
       {/* ── Overview ───────────────────────────────────────────────── */}
       {tab === 'overview' && (
-        <div style={sgStack('base')}>
-          <GlassCard>
-            <SectionHead title="Status" />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {PROJECT_STATUSES.map(s => {
-                const active = project.status === s
-                const st = STATUS_TONE[s]
-                return (
-                  <button key={s} onClick={() => handleStatus(s)} style={{
-                    padding: '7px 14px', borderRadius: V3.R.pill, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
-                    background: active ? `color-mix(in srgb, ${st} 16%, transparent)` : 'transparent',
-                    border: `1px solid ${active ? `color-mix(in srgb, ${st} 45%, transparent)` : V3.BORDER_DEFAULT}`,
-                    color: active ? st : V3.TEXT_SECONDARY,
-                  }}>{STATUS_LABEL[s]}</button>
-                )
-              })}
-            </div>
-          </GlassCard>
+        <div>
+          <Section title="Status" first>
+            {/* The status is chosen the way every other choice in the app
+                is made: a text-tab row. The current status is also the
+                coloured word under the name above. */}
+            <AssessmentSegmentedPillNav
+              tabs={PROJECT_STATUSES.map(s => ({ id: s, label: STATUS_LABEL[s] }))}
+              active={project.status}
+              onChange={handleStatus}
+              ariaLabel="Project status"
+              style={{ margin: 0 }}
+            />
+          </Section>
 
           {project.description && (
-            <GlassCard>
-              <SectionHead title="Description" />
+            <Section title="Description">
               <div style={{ ...V3.T.body, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{project.description}</div>
-            </GlassCard>
+            </Section>
           )}
 
-          <GlassCard>
-            <SectionHead title="Contents" />
-            {/* Each count is a tappable target that navigates to the matching
-                section tab. Counts stay live; pressed state on pointer-down. */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {[
-                ['findings', (project.linkedReportIds || []).length, 'Assessments', 'assessments'],
-                ['paperclip', (project.documents || []).length, 'Documents', 'documents'],
-                ['image', (project.evidence || []).length, 'Photos', 'evidence'],
-                ['notes', (project.notes || []).length, 'Notes', 'notes'],
-              ].map(([icon, n, label, target]) => {
-                const press = (e) => { e.currentTarget.style.transform = 'scale(0.97)' }
-                const release = (e) => { e.currentTarget.style.transform = 'scale(1)' }
-                return (
-                  <button
-                    key={label}
-                    onClick={() => setTab(target)}
-                    aria-label={`${label}: ${n}. Open ${label}`}
-                    onPointerDown={press}
-                    onPointerUp={release}
-                    onPointerLeave={release}
-                    onPointerCancel={release}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 9, padding: '12px 14px',
-                      borderRadius: V3.R.md, background: 'var(--surface)', border: `1px solid ${V3.BORDER_DEFAULT}`,
-                      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', WebkitTapHighlightColor: 'transparent',
-                      transition: 'transform 130ms cubic-bezier(.22,1,.36,1)',
-                    }}
-                  >
-                    <I n={icon} s={16} c="var(--accent)" w={1.8} />
-                    <span style={{ ...V3.N.md }}>{n}</span>
-                    <span style={{ ...V3.T.caption, color: DIM, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-                    <span style={{ color: DIM, fontSize: 13, flexShrink: 0 }}>›</span>
-                  </button>
-                )
-              })}
-            </div>
-          </GlassCard>
+          <Section title="Contents">
+            {counts.map(([label, n, target], i) => (
+              <Row key={label} first={i === 0} onClick={() => setTab(target)} ariaLabel={`${label}: ${n}. Open ${label}`} style={{ padding: '11px 0' }}>
+                <span style={{ ...V3.T.body, flex: 1 }}>{label}</span>
+                <span style={{ ...V3.T.captionDim, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+                <span aria-hidden="true" style={{ color: DIM, fontSize: 18, lineHeight: 1 }}>›</span>
+              </Row>
+            ))}
+          </Section>
 
-          {/* ── Danger zone — delete the whole site workspace. Lives on the
-              Overview tab (the first thing you see) so it's discoverable;
-              the confirmation sheet explains that linked assessments survive. ── */}
-          <GlassCard>
-            <SectionHead title="Danger zone" />
-            <div style={{ ...V3.T.captionDim, marginBottom: 12, lineHeight: 1.5 }}>Deleting removes this site workspace and everything in it. Linked assessments are not deleted.</div>
-            <TactileButton variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} icon={<I n="trash" s={14} c="var(--danger)" />} style={{ color: 'var(--danger)' }}>Delete project</TactileButton>
-          </GlassCard>
+          {/* Deleting the workspace is a text action in the danger colour at
+              the end of the page — not a card with a warning heading. The
+              confirmation sheet explains that linked assessments survive. */}
+          <div style={{ paddingTop: 18, borderTop: HAIRLINE, marginTop: 18 }}>
+            <button onClick={() => setConfirmDelete(true)} style={{ ...TEXT_ACTION, color: 'var(--danger)' }}>Delete project</button>
+          </div>
         </div>
       )}
 
       {/* ── Building ───────────────────────────────────────────────── */}
       {tab === 'building' && (
-        <div style={sgStack('base')}>
-          <GlassCard>
-            <SectionHead title="Building information" action={
-              <TactileButton variant="ghost" size="sm" onClick={() => setShowEdit(true)} icon={<I n="draft" s={14} c={V3.TEXT_SECONDARY} />}>Edit</TactileButton>
-            } />
-            <MetaRow label="Client">{project.client}</MetaRow>
+        <div>
+          <Section title="Building information" first action={<button onClick={() => setShowEdit(true)} style={TEXT_ACTION}>Edit</button>}>
+            <MetaRow label="Client" first>{project.client}</MetaRow>
             <MetaRow label="Site type">{project.siteType}</MetaRow>
             <MetaRow label="Address">{project.address}</MetaRow>
-            <MetaRow label="Assessor(s)">{(project.assessors || []).join(', ')}</MetaRow>
+            <MetaRow label="Assessors">{(project.assessors || []).join(', ')}</MetaRow>
             <MetaRow label="Created">{fmtDate(project.createdAt)}</MetaRow>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '10px 0' }}>
-              <span style={{ ...V3.T.caption, color: DIM }}>Last updated</span>
-              <span style={{ ...V3.T.body }}>{fmtDate(project.updatedAt)}</span>
-            </div>
-          </GlassCard>
-          <GlassCard>
-            <SectionHead title="Building profile" />
+            <MetaRow label="Last updated">{fmtDate(project.updatedAt)}</MetaRow>
+          </Section>
+          <Section title="Building profile">
             <div style={V3.T.bodyDim}>
               The detailed building profile (HVAC, occupancy, envelope) is captured inside each
               assessment walkthrough and pre-fills on a follow-up visit to this site.
             </div>
-          </GlassCard>
+          </Section>
         </div>
       )}
 
       {/* ── Logger data ────────────────────────────────────────────── */}
       {tab === 'logger' && (
-        <div style={sgStack('base')}>
-          {loggerLinked === null ? (
-            <EmptyHint>Scanning linked assessments for logger data…</EmptyHint>
-          ) : loggerLinked.length > 0 && (
-            <div>
-              <SectionHead title="Logger data in this project" count={loggerLinked.length} />
-              <div style={sgStack('tight')}>
-                {loggerLinked.map(l => {
-                  const idxEntry = reportsIndex.find(r => r.id === l.id)
-                  return (
-                    <GlassCard key={l.id} dense onClick={idxEntry ? () => onOpenReport?.(idxEntry) : undefined}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <I n="chartLine" s={18} c="var(--accent)" w={1.8} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.facility}</div>
-                          <div style={V3.T.captionDim}>
-                            {l.ts ? `${fmtDate(l.ts)} · ` : ''}{l.graphCount} graph{l.graphCount === 1 ? '' : 's'}{l.includedCount ? ` · ${l.includedCount} in report` : ''}
-                          </div>
-                        </div>
-                        <span style={{ color: DIM, fontSize: 13 }}>›</span>
-                      </div>
-                    </GlassCard>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-          <GlassCard style={{ textAlign: 'center', padding: '32px 24px' }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
-              <I n="chartLine" s={24} c="var(--accent)" w={1.8} />
-            </div>
-            <div style={{ ...V3.T.h3, marginBottom: 6 }}>
-              {loggerLinked && loggerLinked.length > 0 ? 'Add more logger data' : 'Logger data'}
-            </div>
-            <div style={{ ...V3.T.bodyDim, maxWidth: 380, margin: '0 auto 16px' }}>
-              Upload logger exports in Logger Studio and send the charts and averages into this
-              site's assessments — they show up here once attached.
-            </div>
-            {onOpenLogger && (
-              <TactileButton variant="secondary" size="sm" pill onClick={onOpenLogger} icon={<I n="chartLine" s={14} c="var(--accent)" />}>
-                Open Logger Studio
-              </TactileButton>
-            )}
-          </GlassCard>
+        <div>
+          <Section title="Logger data" count={loggerLinked ? loggerLinked.length : undefined} first
+            action={onOpenLogger && <button onClick={onOpenLogger} style={TEXT_ACTION}>Open Logger Studio ›</button>}>
+            {loggerLinked === null ? (
+              <EmptyLine>Scanning linked assessments for logger data…</EmptyLine>
+            ) : loggerLinked.length === 0 ? (
+              <EmptyLine>None attached yet. Charts and averages sent from Logger Studio into this site's assessments appear here.</EmptyLine>
+            ) : loggerLinked.map((l, i) => {
+              const idxEntry = reportsIndex.find(r => r.id === l.id)
+              return (
+                <Row key={l.id} first={i === 0} onClick={idxEntry ? () => onOpenReport?.(idxEntry) : undefined}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.facility}</div>
+                    <div style={V3.T.captionDim}>
+                      {l.ts ? `${fmtDate(l.ts)} · ` : ''}{l.graphCount} graph{l.graphCount === 1 ? '' : 's'}{l.includedCount ? ` · ${l.includedCount} in report` : ''}
+                    </div>
+                  </div>
+                  <span aria-hidden="true" style={{ color: DIM, fontSize: 18, lineHeight: 1 }}>›</span>
+                </Row>
+              )
+            })}
+          </Section>
         </div>
       )}
 
       {/* ── Sampling forms ─────────────────────────────────────────── */}
       {tab === 'sampling' && (
-        <div style={sgStack('base')}>
-          <GlassCard style={{ textAlign: 'center', padding: '32px 24px' }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
-              <I n="flask" s={24} c="var(--accent)" w={1.8} />
-            </div>
-            <div style={{ ...V3.T.h3, marginBottom: 6 }}>Sampling forms</div>
-            <div style={{ ...V3.T.bodyDim, maxWidth: 380, margin: '0 auto 16px' }}>
-              Generate field sampling and chain-of-custody forms for this site's assessments.
-              Completed forms can be uploaded to Documents to keep them with the engagement.
-            </div>
-            {onOpenSampling && (
-              <TactileButton variant="secondary" size="sm" pill onClick={onOpenSampling} icon={<I n="flask" s={14} c="var(--accent)" />}>
-                Open sampling forms
-              </TactileButton>
-            )}
-          </GlassCard>
+        <div>
+          <Section title="Sampling forms" first
+            action={onOpenSampling && <button onClick={onOpenSampling} style={TEXT_ACTION}>Open sampling forms ›</button>}>
+            <EmptyLine>Chain-of-custody forms for this site's assessments. Completed forms can be uploaded to Documents to keep them with the engagement.</EmptyLine>
+          </Section>
         </div>
       )}
 
       {/* ── Assessments ────────────────────────────────────────────── */}
       {tab === 'assessments' && (
         <div>
-          <SectionHead title="Linked assessments" count={linkedReports.length} action={
-            <div style={{ display: 'flex', gap: 8 }}>
-              <TactileButton variant="secondary" size="sm" onClick={() => setShowLink(true)} icon={<I n="chain" s={14} c="var(--accent)" />}>Link</TactileButton>
-              {onNewAssessment && (
-                <TactileButton variant="primary" size="sm" onClick={startNewAssessment} icon={<I n="findings" s={14} c="var(--on-accent-fill)" />}>New</TactileButton>
-              )}
-            </div>
-          } />
-          {linkedReports.length === 0 ? (
-            <EmptyHint>No assessments yet. Tap “New” to start an assessment for this site, or “Link” to associate an existing one.</EmptyHint>
-          ) : (
-            <div style={sgStack('tight')}>
-              {linkedReports.map(r => (
-                <GlassCard key={r.id} dense onClick={r.missing ? undefined : () => onOpenReport?.(r)}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <I n="findings" s={18} c="var(--accent)" w={1.8} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.facility || 'Assessment'}</div>
-                      <div style={V3.T.captionDim}>{r.missing ? 'Assessment record' : fmtDate(r.ts)}{typeof r.score === 'number' ? ` · score ${r.score}` : ''}</div>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); unlinkReport(id, r.id).then(refresh) }} style={{ background: 'none', border: 'none', color: DIM, cursor: 'pointer', padding: 6, fontFamily: 'inherit' }}>
-                      <I n="x" s={16} c={DIM} w={2} />
-                    </button>
-                  </div>
-                </GlassCard>
-              ))}
-            </div>
-          )}
+          <Section title="Assessments" count={linkedReports.length} first
+            action={<div style={{ display: 'flex', gap: 16 }}>
+              <button onClick={() => setShowLink(true)} style={TEXT_ACTION}>Link</button>
+              {onNewAssessment && <button onClick={startNewAssessment} style={TEXT_ACTION}>New</button>}
+            </div>}>
+            {linkedReports.length === 0 ? (
+              <EmptyLine>None yet. Start an assessment for this site, or link an existing one.</EmptyLine>
+            ) : linkedReports.map((r, i) => (
+              <Row key={r.id} first={i === 0} onClick={r.missing ? undefined : () => onOpenReport?.(r)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.facility || 'Assessment'}</div>
+                  <div style={V3.T.captionDim}>{r.missing ? 'Assessment record' : fmtDate(r.ts)}</div>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); unlinkReport(id, r.id).then(refresh) }} aria-label={`Unlink ${r.facility || 'assessment'}`} style={ICON_BUTTON}>
+                  <I n="x" s={16} c={DIM} w={2} />
+                </button>
+              </Row>
+            ))}
+          </Section>
         </div>
       )}
 
       {/* ── Documents ──────────────────────────────────────────────── */}
       {tab === 'documents' && (
         <div>
-          <SectionHead title="Documents" count={(project.documents || []).length} action={
-            <TactileButton variant="secondary" size="sm" onClick={() => { setDocCategory(''); docInputRef.current?.click() }} icon={<I n="upload" s={14} c="var(--accent)" />}>Upload</TactileButton>
-          } />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-            <span style={{ ...V3.T.caption, color: DIM }}>Tag next upload as</span>
-            <select value={docCategory} onChange={e => setDocCategory(e.target.value)} style={{ padding: '6px 10px', background: 'var(--surface)', border: `1px solid ${V3.BORDER_DEFAULT}`, borderRadius: V3.R.md, color: V3.TEXT_PRIMARY, fontSize: 12, fontFamily: 'inherit' }}>
-              <option value="">No category</option>
-              {DOCUMENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          {(project.documents || []).length === 0 ? (
-            <EmptyHint>No documents yet. Upload PDFs, DOCX, lab results, HVAC docs, building plans, or prior IAQ reports. They stay tied to this site.</EmptyHint>
-          ) : (
-            <div style={sgStack('tight')}>
-              {project.documents.map(d => (
-                <GlassCard key={d.id} dense>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
-                      <I n={fileIcon(d.type, d.name)} s={17} c="var(--accent)" w={1.8} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
-                      <div style={V3.T.captionDim}>
-                        {fmtBytes(d.size)} · {fmtDate(d.uploadedAt)}{d.uploadedBy ? ` · ${d.uploadedBy}` : ''}
-                      </div>
-                      {d.category && <div style={{ marginTop: 6 }}><StatusPill tone={V3.TEXT_TERTIARY} dim>{d.category}</StatusPill></div>}
-                    </div>
-                    <button onClick={() => downloadDataUrl(d.dataUrl, d.name)} title="Open / download" style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 6, fontFamily: 'inherit' }}>
-                      <I n="download" s={17} c="var(--accent)" w={1.8} />
-                    </button>
-                    <button onClick={() => removeDocument(id, d.id).then(refresh)} title="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, fontFamily: 'inherit' }}>
-                      <I n="trash" s={16} c={DIM} w={1.8} />
-                    </button>
-                  </div>
-                </GlassCard>
-              ))}
+          <Section title="Documents" count={(project.documents || []).length} first
+            action={<button onClick={() => docInputRef.current?.click()} style={TEXT_ACTION}>Upload</button>}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0 10px' }}>
+              <span style={V3.T.caption}>Tag next upload as</span>
+              <select value={docCategory} onChange={e => setDocCategory(e.target.value)} style={{ padding: '4px 6px', background: 'transparent', border: 'none', color: V3.TEXT_PRIMARY, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+                <option value="">No category</option>
+                {DOCUMENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
-          )}
+            {(project.documents || []).length === 0 ? (
+              <EmptyLine>None yet. PDFs, Word files, lab results, HVAC documents and prior reports stay tied to this site.</EmptyLine>
+            ) : project.documents.map((d, i) => (
+              <Row key={d.id} first={i === 0}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
+                  <div style={V3.T.captionDim}>
+                    {fmtBytes(d.size)} · {fmtDate(d.uploadedAt)}{d.uploadedBy ? ` · ${d.uploadedBy}` : ''}{d.category ? ` · ${d.category}` : ''}
+                  </div>
+                </div>
+                <button onClick={() => downloadDataUrl(d.dataUrl, d.name)} aria-label={`Download ${d.name}`} style={ICON_BUTTON}>
+                  <I n="download" s={17} c={V3.TEXT_SECONDARY} w={1.8} />
+                </button>
+                <button onClick={() => removeDocument(id, d.id).then(refresh)} aria-label={`Remove ${d.name}`} style={ICON_BUTTON}>
+                  <I n="trash" s={16} c={DIM} w={1.8} />
+                </button>
+              </Row>
+            ))}
+          </Section>
         </div>
       )}
 
-      {/* ── Evidence ───────────────────────────────────────────────── */}
+      {/* ── Photos ─────────────────────────────────────────────────── */}
       {tab === 'evidence' && (
         <div>
-          <SectionHead title="Photos" count={(project.evidence || []).length} action={
-            <TactileButton variant="secondary" size="sm" onClick={() => evInputRef.current?.click()} icon={<I n="upload" s={14} c="var(--accent)" />}>Add photos</TactileButton>
-          } />
-          {(project.evidence || []).length === 0 ? (
-            <EmptyHint>No evidence photos yet. Add site photos (water damage, HVAC conditions, surfaces) kept with this engagement.</EmptyHint>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-              {project.evidence.map(ev => (
-                <div key={ev.id} style={{ position: 'relative', borderRadius: V3.R.md, overflow: 'hidden', border: `1px solid ${V3.BORDER_DEFAULT}`, background: 'var(--surface)' }}>
-                  <button onClick={() => downloadDataUrl(ev.dataUrl, ev.name)} style={{ display: 'block', width: '100%', border: 'none', padding: 0, background: 'none', cursor: 'pointer' }}>
-                    <img src={ev.dataUrl} alt={ev.caption || ev.name} style={{ display: 'block', width: '100%', height: 120, objectFit: 'cover' }} />
-                  </button>
-                  <div style={{ padding: '8px 10px' }}>
-                    <div style={{ ...V3.T.caption, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.caption || ev.name}</div>
-                    <div style={{ ...V3.T.captionDim, fontSize: 10 }}>{fmtDate(ev.uploadedAt)}</div>
+          <Section title="Photos" count={(project.evidence || []).length} first
+            action={<button onClick={() => evInputRef.current?.click()} style={TEXT_ACTION}>Add photos</button>}>
+            {(project.evidence || []).length === 0 ? (
+              <EmptyLine>None yet. Site photos (water damage, HVAC conditions, surfaces) stay with this engagement.</EmptyLine>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, paddingTop: 4 }}>
+                {project.evidence.map(ev => (
+                  <div key={ev.id} style={{ position: 'relative', borderRadius: V3.R.md, overflow: 'hidden', background: 'var(--surface)' }}>
+                    <button onClick={() => downloadDataUrl(ev.dataUrl, ev.name)} style={{ display: 'block', width: '100%', border: 'none', padding: 0, background: 'none', cursor: 'pointer' }}>
+                      <img src={ev.dataUrl} alt={ev.caption || ev.name} style={{ display: 'block', width: '100%', height: 120, objectFit: 'cover' }} />
+                    </button>
+                    <div style={{ padding: '8px 10px' }}>
+                      <div style={{ ...V3.T.caption, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.caption || ev.name}</div>
+                      <div style={{ ...V3.T.captionDim, fontSize: 10 }}>{fmtDate(ev.uploadedAt)}</div>
+                    </div>
+                    <button onClick={() => removeEvidence(id, ev.id).then(refresh)} aria-label={`Remove ${ev.caption || ev.name}`} style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 8, border: 'none', background: 'rgba(0,0,0,0.55)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <I n="trash" s={14} c="#fff" w={1.8} />
+                    </button>
                   </div>
-                  <button onClick={() => removeEvidence(id, ev.id).then(refresh)} style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 8, border: 'none', background: 'rgba(0,0,0,0.55)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <I n="trash" s={14} c="#fff" w={1.8} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </Section>
         </div>
       )}
 
       {/* ── Notes ──────────────────────────────────────────────────── */}
       {tab === 'notes' && (
         <div>
-          <SectionHead title="Notes" count={(project.notes || []).length} />
-          <GlassCard style={{ marginBottom: 14 }}>
-            <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)} placeholder="Add a note about this site…" style={{ width: '100%', boxSizing: 'border-box', minHeight: 72, resize: 'none', padding: '11px 12px', background: 'var(--surface)', border: `1px solid ${V3.BORDER_DEFAULT}`, borderRadius: V3.R.md, color: V3.TEXT_PRIMARY, fontSize: 16, fontFamily: 'inherit' }} />
-            <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
-              <TactileButton variant="primary" size="sm" disabled={!noteDraft.trim()} onClick={handleAddNote}>Add note</TactileButton>
-            </div>
-          </GlassCard>
-          {(project.notes || []).length === 0 ? (
-            <EmptyHint>No notes yet.</EmptyHint>
-          ) : (
-            <div style={sgStack('tight')}>
-              {project.notes.map(n => (
-                <GlassCard key={n.id} dense>
+          <Section title="Notes" count={(project.notes || []).length} first
+            action={<button onClick={handleAddNote} disabled={!noteDraft.trim()} style={{ ...TEXT_ACTION, opacity: noteDraft.trim() ? 1 : 0.4, cursor: noteDraft.trim() ? 'pointer' : 'default' }}>Add note</button>}>
+            <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)} placeholder="Add a note about this site…" aria-label="New note"
+              style={{ width: '100%', boxSizing: 'border-box', minHeight: 72, resize: 'none', padding: '11px 12px', background: 'var(--surface)', border: `1px solid ${V3.BORDER_SUBTLE}`, borderRadius: V3.R.md, color: V3.TEXT_PRIMARY, fontSize: 16, fontFamily: 'inherit', marginBottom: 4 }} />
+            {(project.notes || []).length === 0 ? (
+              <EmptyLine>No notes yet.</EmptyLine>
+            ) : project.notes.map((n, i) => (
+              <Row key={n.id} first={i === 0} style={{ alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ ...V3.T.body, whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{n.text}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                    <span style={V3.T.captionDim}>{n.author ? `${n.author} · ` : ''}{fmtDateTime(n.createdAt)}</span>
-                    <button onClick={() => removeNote(id, n.id).then(refresh)} style={{ background: 'none', border: 'none', color: DIM, cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}>
-                      <I n="trash" s={14} c={DIM} w={1.8} />
-                    </button>
-                  </div>
-                </GlassCard>
-              ))}
-            </div>
-          )}
+                  <div style={{ ...V3.T.captionDim, marginTop: 4 }}>{n.author ? `${n.author} · ` : ''}{fmtDateTime(n.createdAt)}</div>
+                </div>
+                <button onClick={() => removeNote(id, n.id).then(refresh)} aria-label="Remove note" style={ICON_BUTTON}>
+                  <I n="trash" s={14} c={DIM} w={1.8} />
+                </button>
+              </Row>
+            ))}
+          </Section>
         </div>
       )}
 
       {/* ── Activity ───────────────────────────────────────────────── */}
       {tab === 'activity' && (
         <div>
-          <SectionHead title="Activity / history" count={(project.activity || []).length} />
-          {(project.activity || []).length === 0 ? (
-            <EmptyHint>No activity yet.</EmptyHint>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {project.activity.map((a, i) => (
-                <div key={a.id} style={{ display: 'flex', gap: 12, paddingBottom: 16 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', marginTop: 4, flexShrink: 0 }} />
-                    {i < project.activity.length - 1 && <div style={{ width: 1, flex: 1, background: V3.BORDER_DEFAULT, marginTop: 4 }} />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
-                    <div style={V3.T.body}>{a.text}</div>
-                    <div style={V3.T.captionDim}>{fmtDateTime(a.ts)}</div>
-                  </div>
+          <Section title="Activity" count={(project.activity || []).length} first>
+            {(project.activity || []).length === 0 ? (
+              <EmptyLine>No activity yet.</EmptyLine>
+            ) : project.activity.map((a, i) => (
+              <Row key={a.id} first={i === 0} style={{ alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={V3.T.body}>{a.text}</div>
+                  <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{fmtDateTime(a.ts)}</div>
                 </div>
-              ))}
-            </div>
-          )}
+              </Row>
+            ))}
+          </Section>
         </div>
       )}
 
       {showEdit && (
-        <BottomSheet title="Edit project details" onClose={() => setShowEdit(false)}>
+        <BottomSheet title="Edit project" onClose={() => setShowEdit(false)}>
           <ProjectForm initial={project} submitLabel="Save changes" onSubmit={handleEditSave} onCancel={() => setShowEdit(false)} />
         </BottomSheet>
       )}
@@ -609,23 +504,16 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
       {showLink && (
         <BottomSheet title="Link an assessment" onClose={() => setShowLink(false)}>
           {linkable.length === 0 ? (
-            <EmptyHint>No more assessments available to link. Finalized assessments appear in your Reports list.</EmptyHint>
-          ) : (
-            <div style={sgStack('tight')}>
-              {linkable.map(r => (
-                <GlassCard key={r.id} dense onClick={() => { linkReport(id, r.id, r.facility).then(() => { setShowLink(false); refresh() }) }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <I n="findings" s={18} c="var(--accent)" w={1.8} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.facility || 'Assessment'}</div>
-                      <div style={V3.T.captionDim}>{fmtDate(r.ts)}{typeof r.score === 'number' ? ` · score ${r.score}` : ''}</div>
-                    </div>
-                    <I n="chain" s={16} c={DIM} w={1.8} />
-                  </div>
-                </GlassCard>
-              ))}
-            </div>
-          )}
+            <EmptyLine>No more assessments available to link. Finalized assessments appear in your Reports list.</EmptyLine>
+          ) : linkable.map((r, i) => (
+            <Row key={r.id} first={i === 0} onClick={() => { linkReport(id, r.id, r.facility).then(() => { setShowLink(false); refresh() }) }} ariaLabel={`Link ${r.facility || 'assessment'}`}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ ...V3.T.bodyStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.facility || 'Assessment'}</div>
+                <div style={V3.T.captionDim}>{fmtDate(r.ts)}</div>
+              </div>
+              <span aria-hidden="true" style={{ color: DIM, fontSize: 18, lineHeight: 1 }}>›</span>
+            </Row>
+          ))}
         </BottomSheet>
       )}
 

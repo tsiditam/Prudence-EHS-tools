@@ -41,8 +41,10 @@ const selectStyle = {
   backgroundPosition: 'right 12px center',
 }
 
+// Sentence case at caption size. The all-caps micro label on every field
+// read as a system console; a form is a conversation, not a console.
 function Label({ children }) {
-  return <div style={{ ...V3.T.micro, marginBottom: 6 }}>{children}</div>
+  return <div style={{ ...V3.T.caption, marginBottom: 6 }}>{children}</div>
 }
 
 export default function ProjectForm({ initial = {}, submitLabel = 'Create project', onSubmit, onCancel }) {
@@ -72,16 +74,16 @@ export default function ProjectForm({ initial = {}, submitLabel = 'Create projec
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div>
-        <Label>Project / site name *</Label>
-        <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Meridian Commerce Tower" />
+        <Label>Project name</Label>
+        <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="Meridian Commerce Tower" aria-label="Project name" />
       </div>
       <div>
-        <Label>Client / organization</Label>
-        <input style={inputStyle} value={client} onChange={e => setClient(e.target.value)} placeholder="e.g. Demo Holdings LLC" />
+        <Label>Client</Label>
+        <input style={inputStyle} value={client} onChange={e => setClient(e.target.value)} placeholder="Demo Holdings LLC" aria-label="Client" />
       </div>
       <div>
-        <Label>Address / location</Label>
-        <input style={inputStyle} value={address} onChange={e => setAddress(e.target.value)} placeholder="Street, city, state" />
+        <Label>Address</Label>
+        <input style={inputStyle} value={address} onChange={e => setAddress(e.target.value)} placeholder="Street, city, state" aria-label="Address" />
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -99,12 +101,12 @@ export default function ProjectForm({ initial = {}, submitLabel = 'Create projec
         </div>
       </div>
       <div>
-        <Label>Assigned assessor(s)</Label>
-        <input style={inputStyle} value={assessors} onChange={e => setAssessors(e.target.value)} placeholder="Comma-separated, e.g. J. Smith, CIH" />
+        <Label>Assessors</Label>
+        <input style={inputStyle} value={assessors} onChange={e => setAssessors(e.target.value)} placeholder="J. Smith, CIH" aria-label="Assessors" />
       </div>
       <div>
-        <Label>Description / notes (optional)</Label>
-        <textarea style={{ ...inputStyle, minHeight: 80, resize: 'none' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Scope, reason for engagement, context…" />
+        <Label>Notes</Label>
+        <textarea style={{ ...inputStyle, minHeight: 80, resize: 'none' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Scope, reason for engagement, context" aria-label="Notes" />
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
         <TactileButton
