@@ -477,7 +477,13 @@ function assessComp(d) {
   else                                            { r.push({ t:'Complaints reported — number of affected occupants not captured (Data Gap)', sev:'medium', dataGap: true }) }
   if (d.sr === 'Yes — clear pattern') { r.push({ t:'Symptoms resolve away from building', sev:'high' }) }
   if (d.cc === 'Yes — this zone') r.push({ t:'Symptom clustering in this zone', sev:'medium' })
-  if ((d.sy||[]).length) r.push({ t:'Symptoms: '+d.sy.join(', ').toLowerCase(), sev:'info' })
+  // The "Other" write-in (sy_other) prints here as recorded. It is an
+  // info line — countFindings never counts those — and no rule above
+  // reads it: the symptom sets are keyed to the option vocabulary because
+  // that vocabulary maps to exposure pathways; free text is reported, not
+  // interpreted.
+  const symptomText = [...(d.sy||[]).map(s => String(s).toLowerCase()), ...(d.sy_other ? [String(d.sy_other).trim()] : [])].filter(Boolean)
+  if (symptomText.length) r.push({ t:'Symptoms: '+symptomText.join(', '), sev:'info' })
   return { l: 'Complaints', r }
 }
 

@@ -92,7 +92,10 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
       if (d.ac) ev.push((d.ac) + ' occupants with symptoms')
       if (d.sr === 'Yes — clear pattern') ev.push('Symptoms resolve when away from building')
       if (d.cc === 'Yes — this zone') ev.push('Symptom clustering in this zone')
-      if ((d.sy||[]).length) ev.push('Reported: ' + d.sy.join(', '))
+      // The "Other" write-in (sy_other) rides along in the SAME evidence
+      // line: it is what the assessor recorded, so it prints, but it is not
+      // a second line of support and never matches a symptom rule.
+      if ((d.sy||[]).length || d.sy_other) ev.push('Reported: ' + [...(d.sy||[]), ...(d.sy_other ? [d.sy_other] : [])].join(', '))
       // rootCause states the CAUSE only. What to do about it — check
       // ventilation rates, check damper operation — is a recommendation, and
       // the recommendations register and the actions list both carry it. It
@@ -169,7 +172,10 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
     if (hasSrc && hasHCHO && hasIrr) {
       const ev = []
       ev.push('HCHO at ' + d.hc + ' ppm')
-      ev.push('Sources: ' + [...(d.src_internal||[]),...(d.src_adjacent||[])].filter(s => s !== 'None identified').join(', '))
+      // Write-ins (src_internal_other / src_adjacent_other) print with the
+      // sources but do not satisfy hasSrc above — a source the engine
+      // cannot classify is recorded, not inferred from.
+      ev.push('Sources: ' + [...(d.src_internal||[]),...(d.src_adjacent||[]), ...(d.src_internal_other ? [d.src_internal_other] : []), ...(d.src_adjacent_other ? [d.src_adjacent_other] : [])].filter(s => s !== 'None identified').join(', '))
       ev.push('Irritation symptoms reported')
       chains.push({ zone: zName, type: 'Chemical Exposure', rootCause: 'Contaminant source(s) producing elevated concentrations with correlated symptoms', evidence: ev, confidence: weighChain({
         measured: !!hasHCHO,

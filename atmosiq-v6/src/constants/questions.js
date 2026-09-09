@@ -267,7 +267,11 @@ export const Q_ZONE = [
   { id:'sf', sec:'Zone',        q:'Zone area?',                           t:'num',  req:1, ic:'📐', u:'sq ft' },
   { id:'oc', sec:'Zone',        q:'Occupant count?',                      t:'num',  req:1, ic:'👥' },
   { id:'cx', sec:'Complaints',  q:'Complaints in this zone?',             t:'ch',   req:1, ic:'🗣️', opts:['No complaints','Yes — complaints reported'], br:1 },
-  { id:'sy', sec:'Complaints',  q:'Symptoms reported?',                   t:'multi',       ic:'🩺', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Headache','Fatigue','Concentration issues','Eye irritation','Nasal congestion','Throat irritation','Cough','Wheezing','Skin dryness','Nausea','Dizziness'] },
+  // `other:1` on a multi-select adds an "Other" write-in. The text is
+  // stored beside the list as `<id>_other` (never inside it), so the
+  // engine's option matches are untouched; it prints in the findings and
+  // chain evidence as what the assessor recorded. See renderQuestion.
+  { id:'sy', sec:'Complaints',  q:'Symptoms reported?',                   t:'multi', other:1, ic:'🩺', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Headache','Fatigue','Concentration issues','Eye irritation','Nasal congestion','Throat irritation','Cough','Wheezing','Skin dryness','Nausea','Dizziness'] },
   { id:'sr', sec:'Complaints',  q:'Symptoms improve away from building?', t:'ch',          ic:'🏠', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Yes — clear pattern','Partially','No — persist','Unknown'] },
   { id:'ac', sec:'Complaints',  q:'How many affected?',                   t:'ch',          ic:'👥', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['1-2','3-5','6-10','More than 10','Unknown'] },
   { id:'cc', sec:'Complaints',  q:'Clustered in this zone?',              t:'ch',          ic:'📌', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Yes — this zone','Scattered','Unknown'] },
@@ -275,12 +279,12 @@ export const Q_ZONE = [
   { id:'hp', sec:'Environment', q:'Humidity?',                            t:'ch',          ic:'💧', opts:['Comfortable','Too humid / stuffy','Too dry','Variable'] },
   { id:'vd', sec:'Environment', q:'Visible dust?',                        t:'ch',          ic:'🌫️', opts:['None','Light surface dust','Airborne haze','Heavy accumulation'] },
   { id:'wd', sec:'Environment', q:'Water damage?',                        t:'ch',          ic:'🚿', opts:['None','Old staining','Active leak','Extensive damage'], br:1, photo:1 },
-  { id:'wl', sec:'Environment', q:'Water damage location?',               t:'multi',       ic:'📍', cond:{f:'wd',ne:'None'}, opts:['Ceiling','Walls','Floor','Windows','Pipes','Roof','Below grade'] },
+  { id:'wl', sec:'Environment', q:'Water damage location?',               t:'multi', other:1, ic:'📍', cond:{f:'wd',ne:'None'}, opts:['Ceiling','Walls','Floor','Windows','Pipes','Roof','Below grade'] },
   { id:'mi', sec:'Environment', q:'Mold indicators?',                     t:'ch',          ic:'🦠', opts:['None','Suspected discoloration','Small (< 10 sq ft)','Moderate (10-100 sq ft)','Extensive (> 100 sq ft)'], photo:1 },
   { id:'op', sec:'Environment', q:'Unusual odors?',                       t:'ch',          ic:'👃', opts:['None','Faint / intermittent','Moderate persistent','Strong / overpowering'], br:1 },
-  { id:'ot', sec:'Environment', q:'Odor type?',                           t:'multi',       ic:'🧪', cond:{f:'op',ne:'None'}, opts:['Chemical','Musty / Earthy','Sewage','Exhaust','Off-gassing','Sweet','Unknown'] },
-  { id:'src_adjacent',      sec:'Source ID',   q:'Adjacent to this zone?',        t:'multi',sk:1, ic:'🔎', opts:['Copier / printer room','Janitorial / chemical closet','Kitchen / break room','Restrooms','Loading dock','Parking garage','Mechanical room','Lab space','New construction / renovation area','Exterior wall (traffic side)','Roof (near exhaust)','None of concern'] },
-  { id:'src_internal',      sec:'Source ID',   q:'Sources WITHIN this zone?',     t:'multi',sk:1, ic:'🏭', opts:['New furniture / carpet / paint','Space heaters','Personal air fresheners','Stored chemicals','Aquariums / plants','Laser printers','3D printers','Cleaning in progress','Construction materials','Food preparation','None identified'] },
+  { id:'ot', sec:'Environment', q:'Odor type?',                           t:'multi', other:1, ic:'🧪', cond:{f:'op',ne:'None'}, opts:['Chemical','Musty / Earthy','Sewage','Exhaust','Off-gassing','Sweet','Unknown'] },
+  { id:'src_adjacent',      sec:'Source ID',   q:'Adjacent to this zone?',        t:'multi',sk:1, other:1, ic:'🔎', opts:['Copier / printer room','Janitorial / chemical closet','Kitchen / break room','Restrooms','Loading dock','Parking garage','Mechanical room','Lab space','New construction / renovation area','Exterior wall (traffic side)','Roof (near exhaust)','None of concern'] },
+  { id:'src_internal',      sec:'Source ID',   q:'Sources WITHIN this zone?',     t:'multi',sk:1, other:1, ic:'🏭', opts:['New furniture / carpet / paint','Space heaters','Personal air fresheners','Stored chemicals','Aquariums / plants','Laser printers','3D printers','Cleaning in progress','Construction materials','Food preparation','None identified'] },
   { id:'cfm_person',        sec:'Airflow',     q:'Measured outdoor air (cfm/person)?', t:'num', sk:1, ic:'💨', u:'cfm/person', ph:'e.g. 18', ref:'ASHRAE 62.1-2025 Table 6.2.2.1', helper:'co2_mass_balance' },
   { id:'ach',               sec:'Airflow',     q:'Air changes per hour (ACH)?',   t:'num', sk:1, ic:'🔄', u:'ACH', ph:'e.g. 4.5', ref:'≥4 office · ≥6 healthcare (CDC/ASHRAE 170)' },
   { id:'path_pressure',     sec:'Airflow',     q:'Zone pressure vs adjacent?',    t:'ch',   sk:1, ic:'🌀', opts:['Positive (pushes out)','Negative (draws in)','Neutral','Not assessed'], ref:'Use smoke pencil at doorways/gaps' },
