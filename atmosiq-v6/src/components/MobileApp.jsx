@@ -3633,7 +3633,7 @@ export default function MobileApp() {
           // toggling backdrop-filter itself flickers on iOS.
           background: chromeScrolled ? 'var(--chrome-glass)' : 'transparent',
           boxShadow: chromeScrolled ? '0 1px 0 var(--chrome-hair)' : '0 1px 0 transparent',
-          backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)',
+          backdropFilter:'blur(10px) saturate(130%)', WebkitBackdropFilter:'blur(10px) saturate(130%)',
           transition:'background 180ms ease, box-shadow 180ms ease',
         }}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
