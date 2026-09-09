@@ -81,7 +81,7 @@ import ProjectsScreen from './projects/ProjectsScreen'
 import ProjectDetail from './projects/ProjectDetail'
 import { getOrCreateProjectByName } from '../utils/projectStore'
 import { KEYS } from '../utils/storageKeys'
-import SettingsScreen from './SettingsScreen'
+import SettingsScreen, { SitesScreen, ReportTemplatesScreen } from './SettingsScreen'
 import AccountScreen from './AccountScreen'
 import { getInitials } from './ProfileAvatar'
 import FeatureTour from './FeatureTour'
@@ -4773,6 +4773,8 @@ export default function MobileApp() {
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={nav.back} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>nav.navigate('sensor-data', { projectId: activeProjectId })} onOpenSampling={()=>nav.navigate('sampling-forms', { projectId: activeProjectId })} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else if(v==='mold'){handleModeSwitch('mold')}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setEditingProfile(true);setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
+        {view==='sites'&&<SitesScreen />}
+        {view==='report-templates'&&<ReportTemplatesScreen />}
         {view==='tos'&&<TermsOfService onBack={()=>setView('settings')} />}
         {view==='privacy'&&<PrivacyPolicy onBack={()=>setView('settings')} />}
         {view==='help'&&<HelpView onBack={()=>setView('settings')} />}

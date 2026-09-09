@@ -105,6 +105,10 @@
         --bg:#0A0A0A;
         --surface:#111111;
         --card:#161616;
+        /* Inset grouped list panel (Settings / Account, 2026-09): one step
+           above the page in dark, one step below white in light — the way
+           iOS draws grouped settings on either appearance. */
+        --group:#161616;
         /* Deep surface — the near-black used by the slide-out side menu.
            Opt-in via the BottomSheet `tone="deep"` prop for sheets that
            should read as a dark stage rather than a raised card. Flips to
@@ -198,6 +202,7 @@
            visibly under a white card. */
         --surface:#F3F5F7;
         --card:#FFFFFF;
+        --group:#F3F5F7;
         --surface-deep:#FFFFFF;
         /* Light-mode raised surface for "selected" / "focused" rows.
            A pale cyan tint (the brand's light tint) so selected/active

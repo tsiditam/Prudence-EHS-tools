@@ -13,7 +13,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react'
 import SiteLibraryPanel from '../../src/components/settings/SiteLibraryPanel'
-import SettingsScreen from '../../src/components/SettingsScreen'
+import SettingsScreen, { SitesScreen } from '../../src/components/SettingsScreen'
 import { StorageProvider } from '../../src/contexts/StorageContext'
 
 const SITES = [
@@ -110,13 +110,17 @@ describe('SiteLibraryPanel', () => {
   })
 })
 
-describe('Settings mounts the site library', () => {
-  it('renders the Sites group with the panel inside it', async () => {
+describe('Settings reaches the site library', () => {
+  it('has a Sites row that opens the sites screen, and that screen mounts the panel', async () => {
     mockFetch(() => ({ json: { sites: SITES } }))
-    withProvider(<SettingsScreen />)
-    expect(screen.getByText('Sites')).toBeTruthy()
-    // Panel content, not just the heading — a heading with no panel is the
+    const opened: string[] = []
+    withProvider(<SettingsScreen onNavigate={(v: string) => opened.push(v)} />)
+    fireEvent.click(screen.getByText('Sites'))
+    expect(opened).toEqual(['sites'])
+    cleanup()
+    // Panel content, not just a heading — a heading with no panel is the
     // exact state this test exists to prevent.
+    withProvider(<SitesScreen />)
     expect(await screen.findByText('Lakeside Medical')).toBeTruthy()
   })
 })

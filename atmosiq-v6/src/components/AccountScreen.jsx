@@ -69,7 +69,7 @@ export default function AccountScreen({ profile, onEditProfile, onLogout, onNavi
           action={() => { window.location.href = 'mailto:support@prudenceehs.com?subject=AtmosFlow%20subscription' }}
         />
         {/* Theme — manual dark/light picker. In-app only. */}
-        <div style={{ padding: '14px 16px', borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 12, minHeight: 52 }}>
+        <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, minHeight: 52 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>Theme</div>
             <div style={{ fontSize: 11, color: DIM, marginTop: 2, lineHeight: 1.4 }}>In-app only · landing &amp; install screens stay dark</div>
@@ -109,7 +109,7 @@ export default function AccountScreen({ profile, onEditProfile, onLogout, onNavi
         {!showPasswordChange ? (
           <Row label="Change Password" action={() => setShowPasswordChange(true)} />
         ) : (
-          <div style={{ padding: '14px 16px', borderTop: `1px solid ${BORDER}` }}>
+          <div style={{ padding: '14px 16px' }}>
             <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New password (min 8 characters)" aria-label="New password" autoComplete="new-password" style={{ width: '100%', padding: '10px 14px', background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 16, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
             <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm new password" aria-label="Confirm new password" autoComplete="new-password" style={{ width: '100%', padding: '10px 14px', background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 16, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
             {passwordMsg && <div style={{ fontSize: 11, color: passwordMsg.includes('success') ? SUCCESS : DANGER, marginBottom: 8 }}>{passwordMsg}</div>}
@@ -204,7 +204,7 @@ export default function AccountScreen({ profile, onEditProfile, onLogout, onNavi
         {!deleteConfirm ? (
           <Row label="Delete account" tone="danger" action={() => setDeleteConfirm(true)} />
         ) : (
-          <div style={{ padding: '14px 16px', borderTop: `1px solid ${BORDER}`, background: mix('danger', 2) }}>
+          <div style={{ padding: '14px 16px', background: mix('danger', 2) }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: DANGER, marginBottom: 6 }}>Permanently delete your account?</div>
             <div style={{ fontSize: 11, color: SUB, marginBottom: 12, lineHeight: 1.5 }}>This removes all assessments, reports, credits, and profile data. This cannot be undone.</div>
             <div style={{ display: 'flex', gap: 8 }}>
