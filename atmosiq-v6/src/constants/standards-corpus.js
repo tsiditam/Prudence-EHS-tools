@@ -374,6 +374,15 @@ export const STANDARDS_CORPUS = [
     text: 'Lead in paint, dust, and soil is regulated by EPA and HUD for residential / child-occupied facilities (pre-1978 construction). EPA Renovation, Repair and Painting (RRP) rule (40 CFR 745) requires lead-safe work practices for any renovation disturbing >6 ft² interior or 20 ft² exterior of painted surface in target housing. HUD Lead Safe Housing Rule (24 CFR 35) applies to federally-assisted housing. Action levels (post-2020 EPA revision): floor dust 10 µg/ft², windowsill dust 100 µg/ft², window trough 400 µg/ft². Paint lead-based threshold: 1.0 mg/cm² by XRF or 5,000 ppm by laboratory analysis. Soil action levels: 400 ppm play area, 1200 ppm general residential. Sampling methods: NIOSH 9100 wipe (acid extraction + AAS or ICP) for surface dust; XRF (HUD-approved instrument, in-situ) for paint screening — confirmatory chip sample by NIOSH 7300 or 7082 for any near-threshold XRF result. CDC blood lead reference (2021): 3.5 µg/dL (down from 5 µg/dL). OSHA PEL for lead is 50 µg/m³ air, Action Level 30 µg/m³ (29 CFR 1910.1025), with medical removal at blood lead 50 µg/dL.',
   },
   {
+    id: 'cms-ltc-temperature',
+    title: 'Long-term care facilities — CMS temperature range',
+    citation: '42 CFR 483.10(i)(6) (CMS Requirements for Long-Term Care Facilities — resident rights, safe environment)',
+    document: 'CMS-CFR-483',
+    year: 2016,
+    tags: ['long-term care', 'nursing home', 'senior living', 'cms', 'temperature', 'thermal', '483.10', 'residents'],
+    text: 'Medicare- and Medicaid-certified long-term care (nursing) facilities are regulated under 42 CFR Part 483. Section 483.10(i)(6) requires a facility initially certified after October 1, 1990 to maintain comfortable and safe temperature levels, with a range of 71 to 81 °F. That is a regulatory range for a population that regulates body temperature less well than the general public, and it is distinct from the ASHRAE 55 comfort band the engine scores every zone against: a resident room can sit inside 71–81 °F and still be a comfort finding under ASHRAE 55, or inside the seasonal comfort band and still be outside the CMS range. AtmosFlow states the CMS range as a building-profile context finding on resident rooms (Senior Living / Long-Term Care) beside the comfort finding, never in place of it. The same Part requires an infection prevention and control program (§483.80), which is where a visible-mold observation in such a facility is routed, and CMS memorandum QSO-17-30 (2017, revised 2018) requires facilities to have a water management program addressing Legionella in their water systems.',
+  },
+  {
     id: 'combustion-sources-indoor',
     title: 'Indoor combustion sources — CO, NO₂, PM',
     citation: 'EPA IAQ Tools for Schools + ASHRAE 62.1 §5',

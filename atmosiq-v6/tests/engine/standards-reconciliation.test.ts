@@ -268,6 +268,10 @@ describe('a citation can be checked by a person', () => {
     // Methods and frameworks — no threshold the engine applies comes from these.
     'AOEC': null,
     'ATSDR-EPA': null,
+    // 42 CFR 483.10(i)(6) — the CMS long-term care temperature range. Stated as
+    // a building-profile context finding (Senior Living / Long-Term Care)
+    // beside the ASHRAE 55 band, never a registry criterion the engine scores.
+    'CMS-CFR-483': null,
     'EPA-402-K-12': null,      // A Citizen's Guide to Radon — screening guidance
     'EPA-ASHRAE': null,
     'EPA-ASTM': null,
