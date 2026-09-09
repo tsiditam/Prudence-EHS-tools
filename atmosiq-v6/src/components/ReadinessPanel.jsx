@@ -75,10 +75,13 @@ function FinalizationRow({ item, text, tone, onFix, first }) {
   const message = item?.message ?? text
   const location = item?.location
   const canFix = !!(onFix && item && location)
+  // `border: 'none'` must come BEFORE `borderTop`: the shorthand resets
+  // every side, and with the order reversed the button's default
+  // 3px currentColor top border came back as a white bar between rows.
   const rowStyle = {
     display: 'block', width: '100%', textAlign: 'left', boxSizing: 'border-box',
-    padding: '12px 0', borderTop: first ? 'none' : HAIRLINE,
-    background: 'transparent', border: 'none', borderTopStyle: first ? 'none' : 'solid',
+    padding: '12px 0', background: 'transparent',
+    border: 'none', borderTop: first ? 'none' : HAIRLINE,
   }
   const body = (
     <>

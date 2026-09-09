@@ -19,10 +19,11 @@ import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
 import Backup from '../utils/backup'
-import { groupActions } from '../utils/recFormatting'
 import { describeAssessmentBasis } from '../utils/assessmentBasis'
 import { resolvePrimaryDriver } from '../utils/primaryDriver'
-import { resolveVerdict, countFindings, hasAnyAction, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
+import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
+import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
+import { buildReadinessVerdict } from '../engines/readiness-verdict'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import {
@@ -228,7 +229,15 @@ const DANGER = 'var(--danger)'
 // larger and more tracked than inline micro-copy so the card's content
 // groups read as distinct sections and the card gets a clear vertical
 // rhythm.
-const CARD_LABEL = { fontSize: 10, color: DIM, textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 600, marginBottom: 5 }
+// Result tab keys by the names Jasper's propose_action and older call
+// sites use for them. Sampling and Actions merged into Plan, Narrative
+// and Review into Report (2026-09); the labels and the old keys still
+// resolve.
+const RESULT_TAB_ALIASES = {
+  findings: 'overview', pathways: 'rootcause',
+  sampling: 'plan', actions: 'plan',
+  narrative: 'report', readiness: 'report', review: 'report',
+}
 // Results screen (restraint pass, 2026-09): a section is a micro heading
 // over content that parts from the previous section with a hairline — no
 // card, no icon tile, no tinted pill. Every result tab uses the same two
@@ -2726,15 +2735,11 @@ export default function MobileApp() {
       (Array.isArray(loggerSd.points) && loggerSd.points.length > 0)
     ))
     const detailsFilled = Q_DETAILS.filter(q => mergedData[q.id]).length
-    const worstCat = zs?.cats?.reduce((a, b) => ((a.s/a.mx) < (b.s/b.mx) ? a : b)) || null
-    const complaintCat = zs?.cats?.find(c => c.l === 'Complaints')
-    const hasComplaints = complaintCat && complaintCat.r.some(r => r.sev === 'critical' || r.sev === 'high')
     // Primary driver is the worst NON-complaints category (complaints are a
     // symptom, not a driver). Selection AND the severity gate live in
     // src/utils/primaryDriver.js so they are unit-testable — see the module
     // header for why the gate exists.
     const driver = resolvePrimaryDriver(zs?.cats)
-    const driverCat = driver.category || worstCat
     // #4 — escalation used to be evaluated ONLY on the export path, so the
     // screen could say "continue routine monitoring" beside a report warning
     // about a combustion source. Evaluate it here too and feed the verdict.
@@ -2747,8 +2752,6 @@ export default function MobileApp() {
     const verdict = resolveVerdict({ zoneScores, escalationTriggers: screenEscalations })
     // Expert summary — IH-grade reasoning (complaints are pattern, not driver)
     const expertDriver = driver.label
-    const expertComplaint = hasComplaints ? 'Occupant symptoms reported' : null
-    const expertCause = causalChains[0] ? causalChains[0].rootCause : driver.cause
 
     // ── v3 derivations for the redesigned hero / panels ──
     // Severity headline from the one verdict — a tight headline plus a
@@ -2775,6 +2778,19 @@ export default function MobileApp() {
       // it must not read as reassurance.
       return 'Assessment complete'
     })()
+
+    // Readiness is computed once here (pure, cheap) so the Report tab's
+    // label can carry the blocker count and the panel reads the same
+    // verdict. Same inputs as buildAssessmentContext, so the panel and
+    // the context cannot show different gap sets for one assessment.
+    const readinessAssessment = {
+      assessmentMode: 'SCREENING',
+      presurvey, building: bldg, client: bldg && bldg.client ? bldg.client : {},
+      zones, zoneScores, recs, photos, photoOverrides,
+      profile: profile ? { name: profile.name } : null,
+      investigation: readinessInvestigation,
+    }
+    const readiness = buildReadinessVerdict(readinessAssessment)
 
     return (
       <div style={{paddingTop:20,paddingBottom:120,position:'relative',isolation:'isolate'}}>
@@ -2885,29 +2901,18 @@ export default function MobileApp() {
               <div style={{...V3.T.bodyDim, lineHeight:'21px', marginTop:10}}>
                 {verdict.prose}
               </div>
-              {/* Footer — the zone denominator plus the drill-in to the
-                  per-zone / per-category breakdown. FM mode keeps a plain count. */}
-              {userMode !== 'fm' ? (
-                <button
-                  onClick={()=>{
-                    haptic('light')
-                    supabase && trackEvent('findings_breakdown_open', { source: 'hero' })
-                    setRTab('overview')
-                    let reduce = false
-                    try { reduce = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { reduce = false }
-                    setTimeout(()=>{ document.getElementById('result-zones-anchor')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }) }, 60)
-                  }}
-                  aria-label="View the per-zone findings breakdown."
-                  {...pressFeedback('soft')}
-                  style={{display:'flex',alignItems:'center',gap:8,marginTop:12,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',padding:0,...pressFeedback.style}}>
-                  <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {comp.count===1?'zone':'zones'} assessed</span>
-                  <span style={{...RS_LINK}}>View breakdown <span aria-hidden="true">›</span></span>
-                </button>
-              ) : (
-                <div style={{marginTop:12,...V3.T.captionDim}}>
-                  {comp.count} area{comp.count!==1?'s':''} assessed
-                </div>
-              )}
+              {/* Footer — the zone denominator and the one link out of the
+                  hero, into the plan. The verdict answers "what is wrong";
+                  the plan answers "what next". The findings breakdown is the
+                  default tab directly below, so it needs no link of its own. */}
+              <button
+                onClick={()=>{ haptic('light'); supabase && trackEvent('plan_open', { source: 'hero' }); setRTab('plan') }}
+                aria-label="See the plan: actions and sampling."
+                {...pressFeedback('soft')}
+                style={{display:'flex',alignItems:'center',gap:8,marginTop:12,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',padding:0,...pressFeedback.style}}>
+                <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {userMode === 'fm' ? (comp.count===1?'area':'areas') : (comp.count===1?'zone':'zones')} assessed</span>
+                <span style={{...RS_LINK}}>See the plan <span aria-hidden="true">›</span></span>
+              </button>
             </div>
             {measConf?.overall === 'Low' && (
               <div style={{...V3.T.caption, color:WARN, marginTop:10, lineHeight:1.5}}>
@@ -2916,56 +2921,10 @@ export default function MobileApp() {
             )}
           </div>
 
-          {/* Next recommended steps — soft-glass card matching the
-              hero's surface vocabulary. Sits to the right on tablet,
-              stacks below on phone. */}
-          <div style={RS_SECTION}>
-            <div style={RS_HEAD}>Next steps</div>
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              {(() => {
-                const items = []
-                if (recs?.imm?.length) {
-                  recs.imm.slice(0, 3).forEach((item, idx) => {
-                    const text = typeof item === 'string' ? item : (item?.text || '')
-                    if (text) items.push({ k: `imm-${idx}`, text })
-                  })
-                }
-                // Escalations outrank everything else on this card.
-                for (const t of screenEscalations.slice(0, 3 - items.length)) {
-                  if (t?.rationale) items.push({ k: `esc-${t.rule}`, text: t.rationale })
-                }
-                if (samplingPlan?.plan?.length > 0 && items.length < 3) {
-                  items.push({ k: 'samp', text: `Targeted confirmatory sampling (${samplingPlan.plan.length} analytical method${samplingPlan.plan.length>1?'s':''})` })
-                }
-                if (items.length === 0) {
-                  // Only claim there is nothing to do once EVERY tier is
-                  // empty. Checking `imm` alone put "No immediate actions
-                  // identified. Continue routine monitoring" directly above a
-                  // "View all actions" link to the engineering and
-                  // administrative recommendations it had just denied.
-                  const anythingToDo = hasAnyAction(recs, samplingPlan, screenEscalations)
-                  return (
-                    <div style={V3.T.bodyDim}>
-                      {anythingToDo
-                        ? 'No immediate actions identified. Engineering, administrative and monitoring recommendations are listed under all actions.'
-                        : 'No actions identified. Continue routine monitoring and re-assess on the next cycle.'}
-                    </div>
-                  )
-                }
-                // Numbered in tertiary ink — an order, not a checklist of
-                // things already done (the check tiles read as done).
-                return items.map(({ k, text }, i) => (
-                  <div key={k} style={{display:'flex',alignItems:'flex-start',gap:12}}>
-                    <span style={{...V3.N.sm, width:14, flexShrink:0, marginTop:2}}>{i + 1}</span>
-                    <div style={{...V3.T.body, flex:1, minWidth:0}}>{text}</div>
-                  </div>
-                ))
-              })()}
-            </div>
-            <button onClick={()=>{ haptic('light'); setRTab('actions') }} style={{...RS_LINK, marginTop:12}}>
-              View all actions <span aria-hidden="true">›</span>
-            </button>
-          </div>
+          {/* The "Next steps" list that sat here was the Immediate tier of
+              the plan, verbatim, three lines above the tab that lists it in
+              full. The hero states the verdict once and links to the plan;
+              it no longer carries a second list. */}
         </div>
 
         {/* ── v2.1 Engine InternalReport (operator dashboard) ──
@@ -3019,41 +2978,67 @@ export default function MobileApp() {
           </button>
         )}
 
-        {/* ── Workflow tabs — v3 tabRow. State keys stay the same
-            (overview/readiness/rootcause/sampling/narrative/actions)
-            for back-compat with the setRTab call sites at lines 592,
-            707, 822; visible labels are reconciled with the workflow
-            grammar used on Home (Findings / Pathways / Sampling /
-            Narrative / Actions / Review). ── */}
+        {/* ── Workflow tabs, ordered by the assessor's questions (2026-09):
+            Findings ("what did we find"), Pathways ("why"), Plan ("what
+            next": actions and sampling), Report ("what will be written and
+            what blocks sign-off": narrative and readiness). Six tabs became
+            four; Sampling and Actions merged into Plan, Narrative and
+            Review into Report. The old keys (sampling / actions / narrative
+            / readiness) still arrive from Jasper's tab_target and are
+            mapped in RESULT_TAB_ALIASES at the propose_action site. ── */}
         <AssessmentSegmentedPillNav
           id="result-tabs-anchor"
           style={{marginBottom:16}}
           active={rTab}
           onChange={(k)=>{ setRTab(k); haptic('light') }}
           tabs={[...(userMode === 'fm'
-            ? [['overview','findings','Findings'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]
-            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['sampling','flask','Sampling'],['narrative','notes','Narrative'],['actions','check','Actions'],['readiness','shield','Review']]),
+            ? [['overview','findings','Findings'],['plan','check','Plan'],['report','notes','Report']]
+            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Plan'],['report','notes','Report']]),
             ...(hasLoggerData ? [['logger','chart','Logger']] : [])
-          ].map(([tid,icon,label])=>({ id:tid, icon, label }))}
+          ].map(([tid,icon,label])=>({ id:tid, icon, label, badge: tid === 'report' && readiness.finalization_blockers.length > 0 ? readiness.finalization_blockers.length : undefined }))}
         />
 
-        {rTab==='readiness' && (
-          <ReadinessPanel
-            assessment={{
-              assessmentMode: 'SCREENING',
-              presurvey, building: bldg, client: bldg && bldg.client ? bldg.client : {},
-              zones, zoneScores, recs, photos, photoOverrides,
-              profile: profile ? { name: profile.name } : null,
-              // The readiness verdict reads this to report explanations
-              // left live and never measured against. Supplied here as
-              // well as in buildAssessmentContext so the panel and the
-              // context cannot show different gap sets for one
-              // assessment — same pure function, same inputs.
-              investigation: readinessInvestigation,
-            }}
-            onFeedback={()=>openFeedback('Findings & readiness')}
-            onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
-          />
+        {rTab==='report' && (
+          <div>
+            {/* Sign-off first: the status word, the blockers and gaps, then
+                the narrative below it. The count of blockers rides on the
+                tab label so it is never hidden behind the tab. */}
+            <ReadinessPanel
+              assessment={readinessAssessment}
+              onFeedback={()=>openFeedback('Findings & readiness')}
+              onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
+            />
+            <div style={RS_SECTION}>
+              <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:12,flexWrap:'wrap'}}>
+                <div style={RS_HEAD}>Findings narrative</div>
+                {narrative && <div style={{display:'flex',alignItems:'center',gap:4}}>
+                  <span style={{...V3.T.caption, color:WARN}}>AI-generated · review required</span>
+                  <FeedbackButton label="Flag" onClick={()=>openFeedback('AI narrative')} />
+                </div>}
+              </div>
+              {!narrative&&!narrativeLoading&&<div>
+                <div style={{...V3.T.bodyDim, maxWidth:420, marginBottom:14}}>Written from the deterministic findings, not from a free reading of the data. You review and approve before delivery.</div>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <TactileButton variant="primary" size="sm" pill onClick={requestNarrative}>Generate narrative</TactileButton>
+                  <span style={V3.T.captionDim}>3 credits</span>
+                </div>
+              </div>}
+              {narrativeLoading&&<div style={{padding:'8px 0',display:'flex',alignItems:'center',gap:12}}><div style={{width:20,height:20,borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite',flexShrink:0}} /><div style={V3.T.bodyDim}>Generating narrative from assessment data…</div></div>}
+              {narrative&&<div>
+                <Markdown style={{fontSize:14,color:TEXT,lineHeight:1.75}}>{narrative}</Markdown>
+                <div style={{...V3.T.caption, fontWeight:400, marginTop:14, lineHeight:1.5}}>Generated from deterministic findings. Review, edit and approve before it goes into any client deliverable.</div>
+                {/* Share the narrative as a lightweight DOCX so the
+                    reviewing IH can hand it off as an editable draft
+                    (Mail, Slack, Files) without bundling the full
+                    consultant report. */}
+                <div style={{marginTop:14,display:'flex',gap:10,flexWrap:'wrap'}}>
+                  <TactileButton variant="secondary" onClick={handleShareNarrative} icon={<I n="send" s={15} c="var(--accent)" w={1.8} />}>
+                    Share narrative as Word
+                  </TactileButton>
+                </div>
+              </div>}
+            </div>
+          </div>
         )}
 
         {rTab==='logger' && <Suspense fallback={LAZY_FALLBACK}><LoggerGraphsTab sensorData={loggerSd} editable onToggleInclude={archived ? toggleArchivedLoggerInclude : toggleLoggerInclude} /></Suspense>}
@@ -3095,56 +3080,29 @@ export default function MobileApp() {
             else if (c.l === 'HVAC') evCount.obs += n
             else if (c.l === 'Complaints') evCount.occ += n
           }))
-          const evTotal = evCount.meas + evCount.obs + evCount.occ
           const photoCount = Object.keys(photos || {}).length
 
-          // Key indicator — use the primary driver category from this
-          // zone. If complaints carry the most weight, the gauge would
-          // mislead (complaints are a symptom, not a driver), so the
-          // logic mirrors line 940 above and picks the worst non-
-          // complaint category.
-          const keyCat = driverCat || zs.cats?.[0]
-          // Tone and label came from the category's percentage of its
-          // points (30/50/70). They now come from the worst finding in
-          // that category, which is what the percentage was tracking.
-          const keySev = keyCat && !keyCat.status ? worstFindingSeverity([{ cats: [keyCat] }]) : null
-          const keyTone = keyCat?.status ? V3.TEXT_TERTIARY
-            : keySev === 'critical' ? V3.SEVERITY.critical
-              : keySev === 'high' ? V3.SEVERITY.high
-                : keySev === 'medium' ? V3.SEVERITY.medium
-                  : V3.SEVERITY.pass
-          const keyConcernLabel = keyCat?.status ? 'Insufficient Data'
-            : keySev === 'critical' ? 'Critical Concern'
-              : keySev === 'high' ? 'High Concern'
-                : keySev === 'medium' ? 'Moderate Concern'
-                  : 'Within Range'
           return (
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
 
-              {/* At a glance — the reasoning behind the verdict as one
-                  key/value list: driver, contributing cause, complaint
-                  pattern, the worst zone's key indicator, measurement
-                  confidence (comp.confidence — the worst zone's, which is
-                  what the report prints under the same label), the
+              {/* At a glance — what the hero does not already say: the
+                  measurement confidence (comp.confidence — the worst zone's,
+                  which is what the report prints under the same label), the
                   assessment basis, the evidence census and the data-gap
-                  count. It replaced four sections (Professional assessment,
-                  Key indicator, Data gaps, Evidence) that said the same
-                  things at four times the height. The verdict is stated
-                  once, above; nothing here restates it. */}
-              <div style={RS_SECTION}>
+                  count. The driver, contributing cause, complaint pattern
+                  and key indicator that used to lead this list restated the
+                  headline and the first pathway in other words; the verdict
+                  is stated once, above, and the pathway on its own tab. */}
+              <div style={{...RS_SECTION, borderTop:'none', paddingTop:4}}>
                 <div style={RS_HEAD}>At a glance</div>
                 {[
-                  expertDriver && ['Primary driver', <span style={{fontWeight:600}}>{expertDriver}</span>],
-                  expertCause && ['Contributing cause', expertCause],
-                  expertComplaint && ['Complaint pattern', 'Occupant symptoms reported'],
-                  keyCat && ['Key indicator', <>{keyCat.l} <span style={{color:keyTone}}>· {keyConcernLabel}</span></>],
                   ['Confidence', <span style={{color:confTone, fontWeight:600}}>{comp?.confidence || measConf?.overall || 'Pending'}</span>],
                   ['Basis', describeAssessmentBasis({ sensorData, labResults: viewRpt?.labResults })],
                   ['Evidence', `${evCount.meas} measurements · ${evCount.obs} observations · ${evCount.occ} occupant reports · ${photoCount} photo${photoCount===1?'':'s'}`],
                   ['Data gaps', dataGaps.length === 0
                     ? 'None identified'
-                    : <><span style={{color:WARN, fontWeight:600}}>{dataGaps.length}</span> <button onClick={()=>{ haptic('light'); setRTab('readiness') }} style={{...RS_LINK, marginLeft:8}}>Review <span aria-hidden="true">›</span></button></>],
-                ].filter(Boolean).map(([k, v]) => (
+                    : <><span style={{color:WARN, fontWeight:600}}>{dataGaps.length}</span> <button onClick={()=>{ haptic('light'); setRTab('report') }} style={{...RS_LINK, marginLeft:8}}>Review <span aria-hidden="true">›</span></button></>],
+                ].map(([k, v]) => (
                   <div key={k} style={{display:'flex', gap:14, padding:'6px 0', alignItems:'baseline'}}>
                     <div style={{...V3.T.captionDim, width:120, flexShrink:0}}>{k}</div>
                     <div style={{...V3.T.body, flex:1, minWidth:0, lineHeight:'20px'}}>{v}</div>
@@ -3283,156 +3241,114 @@ export default function MobileApp() {
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
           <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5, marginBottom:6}}>Pathways correlate field observations, measurements and occupant reports. They support, but do not confirm, root-cause determination.</div>
           {causalChains.length===0?<div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No concern pathways identified — no correlated multi-factor findings in this assessment.</div>
-          :causalChains.map((ch,i)=>{const confLabel=ch.confidence==='Strong'?'High':ch.confidence==='Moderate'?'Moderate':'Possible';const cc=confColor(ch.confidence);return(
-            <div key={i} style={RS_SECTION}>
-              {/* Pathway and its confidence on one line: the confidence is a
-                  word in its colour, not a tinted tag. */}
-              <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:14,alignItems:'baseline'}}>
-                <div style={{color:TEXT,fontWeight:700,fontSize:16,lineHeight:1.35}}>{ch.type}</div>
-                <span style={{...V3.T.caption, color:cc, whiteSpace:'nowrap'}}>{confLabel} confidence</span>
+          :groupPathways(causalChains).map((g,i)=>{const confLabel=g.confidence==='Strong'?'High':g.confidence==='Moderate'?'Moderate':'Possible';const cc=confColor(g.confidence);const multi=g.byZone.length>1;return(
+            // One row per distinct pathway, folded: the name, the zones it
+            // applies to, its confidence as a word in its colour. The
+            // engine emits a chain per zone, so the same pathway used to
+            // appear once for every zone; the fold keeps every zone's
+            // hypothesis and evidence inside the row.
+            <details key={g.type} className="rs-cat" style={{borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+              <summary style={{display:'flex',alignItems:'center',gap:10,padding:'13px 0',cursor:'pointer',listStyle:'none',WebkitTapHighlightColor:'transparent'}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{...V3.T.bodyStrong, fontSize:15}}>{g.type}</div>
+                  <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{g.zones.join(' · ')}</div>
+                </div>
+                <span style={{...V3.T.caption, color:cc, whiteSpace:'nowrap'}}>{confLabel}</span>
+                <span className="rs-chev" aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1,display:'inline-block'}}>›</span>
+              </summary>
+              <div style={{paddingBottom:16}}>
+                {g.byZone.map((z, zi) => (
+                  <div key={z.zone || zi} style={{paddingTop: zi === 0 ? 0 : 12, marginTop: zi === 0 ? 0 : 12, borderTop: zi === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                    {multi && <div style={{...V3.T.captionDim, fontWeight:600, color:V3.TEXT_SECONDARY, marginBottom:6}}>{z.zone}{z.confidence !== g.confidence ? <span style={{color:confColor(z.confidence), fontWeight:500}}> · {z.confidence==='Strong'?'High':z.confidence==='Moderate'?'Moderate':'Possible'}</span> : null}</div>}
+                    <div style={{...V3.T.body, lineHeight:'20px'}}>{z.rootCause}</div>
+                    {z.evidence.length > 0 && (
+                      <div style={{marginTop:8}}>
+                        {z.evidence.map((e,j)=><div key={j} style={{...V3.T.caption, lineHeight:1.55, marginBottom:j<z.evidence.length-1?4:0}}>{e}</div>)}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-              {/* ── ZONE — plain bold white, not cyan/monospace ── */}
-              <div style={{marginBottom:14}}>
-                <div style={CARD_LABEL}>Zone</div>
-                <div style={{color:TEXT,fontWeight:600,fontSize:13,lineHeight:1.4}}>{ch.zone}</div>
-              </div>
-              {/* ── HYPOTHESIS — the primary conclusion, rendered brighter
-                  (TEXT, not SUB) than the supporting evidence below so the
-                  takeaway is scannable first. ── */}
-              <div style={{marginBottom:14}}>
-                <div style={CARD_LABEL}>Hypothesis</div>
-                <div style={{color:TEXT,fontSize:14,lineHeight:1.55}}>{ch.rootCause}</div>
-              </div>
-              {/* ── SUPPORTING EVIDENCE — separated from the interpretation
-                  above by a hairline; dimmer + roomier line spacing so the
-                  references read as a scannable list, not a wall of text.
-                  Flat list, no leading arrows (intentional). ── */}
-              <div style={{paddingTop:14,borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
-                <div style={CARD_LABEL}>Supporting evidence</div>
-                {ch.evidence.map((e,j)=><div key={j} style={{fontSize:13,color:SUB,lineHeight:1.55,marginBottom:j<ch.evidence.length-1?6:0}}>{e}</div>)}
-              </div>
-            </div>
+            </details>
           )})}
         </div>}
 
         {KG_EVIDENCE_ENABLED&&rTab==='evidence'&&isDesktop&&<Suspense fallback={LAZY_FALLBACK}><EvidenceMap zones={zones} zoneScores={zoneScores} causalChains={causalChains} recs={recs} assessmentId={viewRpt?.id} /></Suspense>}
 
-        {rTab==='sampling'&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
-          {(!samplingPlan||samplingPlan.plan.length===0)?<div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No sampling indicated — no hypotheses requiring confirmatory sampling.</div>
-          :<>{samplingPlan.plan.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';const priLabel=p.priority.charAt(0).toUpperCase()+p.priority.slice(1);return(
-            <div key={i} style={i===0?undefined:RS_SECTION}>
-              {/* Sample type and its priority on one line; the priority is a
-                  word in its colour. The first sits under the tab strip's
-                  rule and draws none of its own. */}
-              <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:14,alignItems:'baseline'}}>
-                <div style={{color:TEXT,fontWeight:700,fontSize:16,lineHeight:1.35}}>{p.type}</div>
-                <span style={{...V3.T.caption, color:pc, whiteSpace:'nowrap'}}>{priLabel} priority</span>
-              </div>
-              {/* ── ZONE — plain bold white ── */}
-              <div style={{marginBottom:14}}>
-                <div style={CARD_LABEL}>Zone</div>
-                <div style={{color:TEXT,fontWeight:600,fontSize:13,lineHeight:1.4}}>{p.zone}</div>
-              </div>
-              {/* ── HYPOTHESIS / METHOD / CONTROLS — flat label/value pairs.
-                  The hypothesis (the reason to sample) leads brighter than
-                  the method/controls detail beneath it. ── */}
-              {[{l:'Hypothesis',v:p.hypothesis},{l:'Method',v:p.method},{l:'Controls',v:p.controls}].filter(x=>x.v).map((x,xi)=><div key={x.l} style={{marginBottom:14}}>
-                <div style={CARD_LABEL}>{x.l}</div>
-                <div style={{color:xi===0?TEXT:SUB,fontSize:xi===0?14:13,lineHeight:1.55}}>{x.v}</div>
-              </div>)}
-              {/* ── REFERENCE — separated from the interpretation above by a
-                  hairline so the citation reads as a distinct reference. ── */}
-              {p.standard && <div style={{paddingTop:14,borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
-                <div style={CARD_LABEL}>Reference</div>
-                <div style={{color:DIM,fontSize:12,lineHeight:1.5}}>{p.standard}</div>
-              </div>}
-            </div>
-          )})}{samplingPlan.outdoorGaps?.length>0&&<div style={RS_SECTION}><div style={{...RS_HEAD, color:WARN}}>Outdoor control gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}</>}
-        </div>}
 
-        {rTab==='narrative'&&<div>
-          {/* Empty state: a heading, one line, the action — on the page. */}
-          {!narrative&&!narrativeLoading&&<div style={{textAlign:'center',padding:'48px 20px 0'}}>
-            <div style={{...V3.T.h2, marginBottom:6}}>Findings narrative</div>
-            <div style={{...V3.T.bodyDim, maxWidth:380, margin:'0 auto 20px'}}>Written from the deterministic findings, not from a free reading of the data. You review and approve before delivery.</div>
-            <TactileButton variant="primary" size="sm" pill onClick={requestNarrative}>Generate narrative</TactileButton>
-            <div style={{...V3.T.captionDim, marginTop:10}}>3 credits</div>
-          </div>}
-          {narrativeLoading&&<div style={{padding:'48px 20px 0',textAlign:'center'}}><div style={{width:28,height:28,margin:'0 auto 14px',borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite'}} /><div style={V3.T.bodyDim}>Generating narrative from assessment data…</div></div>}
-          {narrative&&<div style={RS_SECTION}>
-            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:12,flexWrap:'wrap'}}>
-              <div style={RS_HEAD}>Findings narrative</div>
-              <div style={{display:'flex',alignItems:'center',gap:4}}>
-                <span style={{...V3.T.caption, color:WARN}}>AI-generated · review required</span>
-                <FeedbackButton label="Flag" onClick={()=>openFeedback('AI narrative')} />
-              </div>
-            </div>
-            <Markdown style={{fontSize:14,color:TEXT,lineHeight:1.75}}>{narrative}</Markdown>
-            <div style={{...V3.T.caption, fontWeight:400, marginTop:14, lineHeight:1.5}}>Generated from deterministic findings. Review, edit and approve before it goes into any client deliverable.</div>
-            {/* Share the narrative as a lightweight DOCX so the
-                reviewing IH can hand it off as an editable draft
-                (Mail, Slack, Files) without bundling the full
-                consultant report. */}
-            <div style={{marginTop:14,display:'flex',gap:10,flexWrap:'wrap'}}>
-              <TactileButton variant="secondary" onClick={handleShareNarrative} icon={<I n="send" s={15} c="var(--accent)" w={1.8} />}>
-                Share narrative as Word
-              </TactileButton>
-            </div>
-          </div>}
-        </div>}
-
-        {rTab==='actions'&&recs&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
-          {/* No caption over the tiers: the tier names and their timeframes
-              say how the list is ordered, and "review before implementing"
-              is the assessor's job description, not a note they need. */}
-          {[{k:'imm',l:'Immediate Actions',s:'Address within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering Controls',s:'1–4 weeks',c:ACCENT},{k:'adm',l:'Administrative Controls',s:'1–3 months',c:'#FBBF24'},{k:'mon',l:'Ongoing Monitoring',s:'Continuous',c:SUB}].filter(cat=>recs[cat.k]?.length).map((cat,ci)=>{
-            const knownZones=(zones||[]).map(z=>z.zn).filter(Boolean)
-            // Engine v2.8+ emits RecommendationAction[] objects; reports
-            // finalized pre-v2.8 stored string[] — groupActions normalizes
-            // both shapes and groups by zone / equipment / building so each
-            // location header renders once with its actions as bullets
-            // (instead of repeating the location label per rule).
-            const groups = groupActions(recs[cat.k], knownZones)
-            // Mobile fit-and-finish: 3px left accent stripe in the tier
-            // color so the priority hierarchy reads at a glance when
-            // scrolling. Card padding bumped to 16px and the left edge
-            // gets extra to clear the stripe.
-            // A tier is a section: its name in the tier colour, the timeframe
-            // beside it in secondary ink. No card, no stripe. The first tier
-            // sits directly under the tab strip's rule, so it draws no rule
-            // of its own.
-            return(<div key={cat.k} style={ci===0?undefined:RS_SECTION}>
-            <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:12,alignItems:'baseline'}}>
-              <div style={{color:cat.c,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
-              <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{cat.s}</div>
-            </div>
-            {/* ── Group header (zone / equipment / building-wide) + bulleted action list ── */}
-            {groups.map((g, gi) => {
-              const isEquipment = g.scope === 'equipment'
-              const headerColor = isEquipment ? ACCENT : TEXT
-              return (
-                <div key={g.key} style={{marginBottom: gi < groups.length - 1 ? 16 : 0}}>
-                  <div style={{color:headerColor,fontWeight:600,fontSize:13,lineHeight:1.4,marginBottom:8,display:'flex',alignItems:'baseline',gap:6}}>
-                    <span>{g.label}</span>
-                  </div>
-                  <ul style={{margin:0,padding:'0 0 0 18px',listStyle:'disc',color:SUB}}>
-                    {g.actions.map((a, ai) => (
-                      <li key={ai} style={{color:SUB,fontSize:13,lineHeight:1.65,marginBottom:6}}>{a.text}</li>
+        {rTab==='plan'&&(() => {
+          // The plan answers "what next" in two parts: Do (the
+          // recommendation tiers) and Measure (the sampling plan). Both
+          // used to be tabs of their own.
+          const knownZones=(zones||[]).map(z=>z.zn).filter(Boolean)
+          const tiers = [{k:'imm',l:'Immediate',s:'Within 48 hours',c:'#EF4444'},{k:'eng',l:'Engineering controls',s:'1–4 weeks',c:TEXT},{k:'adm',l:'Administrative controls',s:'1–3 months',c:TEXT},{k:'mon',l:'Ongoing monitoring',s:'Continuous',c:TEXT}]
+            .filter(cat=>recs?.[cat.k]?.length)
+          const samples = groupSamplingPlan(samplingPlan?.plan)
+          const nothing = tiers.length === 0 && samples.length === 0
+          return (
+            <div style={{display:'flex',flexDirection:'column',gap:0}}>
+              {nothing && <div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No actions or sampling identified. Continue routine monitoring and re-assess on the next cycle.</div>}
+              {tiers.map((cat,ci)=>{
+                // An action appears once, with every location it applies to
+                // beneath it. The engine emits an action per zone, so the
+                // same sentence used to repeat under each zone heading.
+                // groupActionsByText accepts the v2.8 object shape and the
+                // legacy "Zone: text" strings of pre-v2.8 reports.
+                const rows = groupActionsByText(recs[cat.k], knownZones)
+                return (
+                  <div key={cat.k} style={ci===0?undefined:RS_SECTION}>
+                    <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:4,alignItems:'baseline'}}>
+                      <div style={{color:cat.c,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
+                      <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{cat.s}</div>
+                    </div>
+                    {rows.map((r, ri) => (
+                      <div key={r.text} style={{padding:'10px 0', borderTop: ri === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                        <div style={{...V3.T.body, lineHeight:'20px'}}>{r.text}</div>
+                        <div style={{...V3.T.captionDim, marginTop:3}}>{r.locations.join(' · ')}</div>
+                      </div>
                     ))}
-                  </ul>
-                  {isEquipment && g.affectedZoneNames && g.affectedZoneNames.length > 0 && (
-                    <div style={{color:DIM,fontSize:11,fontStyle:'italic',marginTop:6,marginLeft:18}}>Affects: {g.affectedZoneNames.join(', ')}</div>
-                  )}
+                  </div>
+                )
+              })}
+              {samples.length > 0 && (
+                <div style={tiers.length===0?undefined:RS_SECTION}>
+                  <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:4,alignItems:'baseline'}}>
+                    <div style={{color:TEXT,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>Measure</div>
+                    <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{samples.length} {samples.length===1?'method':'methods'}</div>
+                  </div>
+                  {samples.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';const priLabel=p.priority.charAt(0).toUpperCase()+p.priority.slice(1);return(
+                    // One row per method, folded: the sample type, its zones,
+                    // the priority as a word in its colour. The reason,
+                    // method, controls and reference open beneath it.
+                    <details key={`${p.type}-${i}`} className="rs-cat" style={{borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                      <summary style={{display:'flex',alignItems:'center',gap:10,padding:'11px 0',cursor:'pointer',listStyle:'none',WebkitTapHighlightColor:'transparent'}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{...V3.T.bodyStrong, fontSize:15}}>{p.type}</div>
+                          <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.zones.join(' · ')}</div>
+                        </div>
+                        <span style={{...V3.T.caption, color:pc, whiteSpace:'nowrap'}}>{priLabel}</span>
+                        <span className="rs-chev" aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1,display:'inline-block'}}>›</span>
+                      </summary>
+                      <div style={{paddingBottom:14}}>
+                        {p.hypotheses.map((h,hi)=><div key={hi} style={{...V3.T.body, lineHeight:'20px', marginBottom: hi < p.hypotheses.length-1 ? 4 : 0}}>{h}</div>)}
+                        {[{l:'Method',v:p.method},{l:'Controls',v:p.controls},{l:'Reference',v:p.standard}].filter(x=>x.v).map((x)=>(
+                          <div key={x.l} style={{display:'flex', gap:14, marginTop:10, alignItems:'baseline'}}>
+                            <div style={{...V3.T.captionDim, width:72, flexShrink:0}}>{x.l}</div>
+                            <div style={{...V3.T.caption, flex:1, minWidth:0, lineHeight:1.55}}>{x.v}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )})}
+                  {samplingPlan?.outdoorGaps?.length>0&&<div style={RS_SECTION}><div style={{...RS_HEAD, color:WARN}}>Outdoor control gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}
                 </div>
-              )
-            })}
-          </div>)})}
-          {/* The result-screen action bar (Word · Share · Map Zones ·
-              Review for discrepancies · Logger Studio) was retired from
-              this tab. Those actions now live in the header ⋯ menu so
-              the Actions tab stays focused on the recommendations
-              themselves; Logger Studio remains in the bottom nav. */}
-        </div>}
+              )}
+              {/* The result-screen action bar (Word · Share · Map Zones ·
+                  Review for discrepancies · Logger Studio) was retired from
+                  this tab. Those actions live in the header ⋯ menu. */}
+            </div>
+          )
+        })()}
         </div>
       </div>
     )
@@ -4368,10 +4284,8 @@ export default function MobileApp() {
           const stages = [
             { id: 'findings',  label: 'Findings',  icon: 'findings' },
             { id: 'pathways',  label: 'Pathways',  icon: 'chain' },
-            { id: 'sampling',  label: 'Sampling',  icon: 'flask' },
-            { id: 'narrative', label: 'Narrative', icon: 'notes' },
-            { id: 'actions',   label: 'Actions',   icon: 'check' },
-            { id: 'review',    label: 'Review',    icon: 'shield' },
+            { id: 'plan',      label: 'Plan',      icon: 'check' },
+            { id: 'report',    label: 'Report',    icon: 'notes' },
           ]
           const activeStage = activeDraft?.stage || 'findings'
 
@@ -5053,8 +4967,10 @@ export default function MobileApp() {
               if (!target) return false
               // Results view also accepts an inner tab via the
               // tab_target field. Set rTab BEFORE setView so the
-              // tab is correct when results mount.
-              if (action.tab_target) setRTab(action.tab_target)
+              // tab is correct when results mount. The model names tabs
+              // by their labels and by the pre-merge keys; both map onto
+              // the current four.
+              if (action.tab_target) setRTab(RESULT_TAB_ALIASES[action.tab_target] || action.tab_target)
               // 'dash' from the model means "home" — consultants' home is
               // the Projects landing; FM keeps the dashboard.
               setView(target === 'dash' && userMode !== 'fm' ? 'projects' : target)

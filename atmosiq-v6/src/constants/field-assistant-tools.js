@@ -229,7 +229,7 @@ export const FIELD_ASSISTANT_TOOLS = [
         target: {
           type: 'string',
           description:
-            'For action_type=navigate: the target view. One of "dash" (home), "history" (reports), "settings", "search", "trash", "incident-log", "results" (current assessment results). If the user names a tab inside the results view (findings / pathways / sampling / narrative / actions), use action_type=navigate with target="results" and put the inner tab in tab_target.',
+            'For action_type=navigate: the target view. One of "dash" (home), "history" (reports), "settings", "search", "trash", "incident-log", "results" (current assessment results). If the user names a tab inside the results view (findings / pathways / plan / report — "plan" holds the actions and the sampling plan, "report" the narrative and the sign-off review), use action_type=navigate with target="results" and put the inner tab in tab_target.',
         },
         tab_target: {
           type: 'string',
@@ -963,7 +963,10 @@ export async function dispatchTool(name, input, ctx = {}) {
         }
       }
       const allowedTargets = new Set(['dash', 'projects', 'history', 'settings', 'search', 'trash', 'incident-log', 'results'])
-      const allowedTabs = new Set(['overview', 'findings', 'pathways', 'sampling', 'narrative', 'actions'])
+      // The results screen has four tabs (findings / pathways / plan /
+      // report). The older names still resolve: the app maps sampling and
+      // actions onto plan, narrative and review onto report.
+      const allowedTabs = new Set(['overview', 'findings', 'pathways', 'plan', 'report', 'sampling', 'narrative', 'actions', 'review'])
       const action = { type: actionType }
       if (actionType === 'navigate') {
         const target = input && typeof input.target === 'string' ? input.target : ''
