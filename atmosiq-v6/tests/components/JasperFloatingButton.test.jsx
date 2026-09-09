@@ -104,11 +104,14 @@ describe('JasperFloatingButton', () => {
     scroller.remove()
   })
 
-  it('has no gradient aura behind the glyph', () => {
+  // The two-tone breathing aura is the launcher's identity mark and stays
+  // (product decision, reaffirmed after a restraint pass removed it).
+  it('keeps the breathing two-tone aura behind the glyph', () => {
     const { container } = render(<JasperFloatingButton onClick={() => {}} />)
-    expect(container.querySelector('.jfb-glow')).toBeNull()
-    const styles = Array.from(container.querySelectorAll('*')).map((el) => el.getAttribute('style') || '')
-    expect(styles.some((s) => /gradient/.test(s))).toBe(false)
+    const glow = container.querySelector('.jfb-glow')
+    expect(glow).not.toBeNull()
+    expect(glow.getAttribute('aria-hidden')).toBe('true')
+    expect(glow.style.animation).toContain('jfbBreathe')
   })
 
   describe('free placement', () => {

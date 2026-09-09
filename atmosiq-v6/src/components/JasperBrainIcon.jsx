@@ -43,10 +43,8 @@ if (typeof document !== 'undefined' && !document.getElementById('jasper-brain-kf
 }
 
 // `animate` (default true) runs the groove-trace loop. Pass animate={false}
-// for a static, fully-lit brain (e.g. as a plain menu icon). `color`
-// defaults to the neon cyan the chat surfaces use; a control on a light
-// surface passes the theme accent so the glyph keeps its contrast.
-export default function JasperBrainIcon({ size = 22, glow = false, animate = true, ariaLabel, color = NEON }) {
+// for a static, fully-lit brain (e.g. as a plain menu icon).
+export default function JasperBrainIcon({ size = 22, glow = false, animate = true, ariaLabel }) {
   return (
     <span
       aria-hidden={ariaLabel ? undefined : 'true'}
@@ -54,13 +52,13 @@ export default function JasperBrainIcon({ size = 22, glow = false, animate = tru
       role={ariaLabel ? 'img' : undefined}
       style={{
         display: 'inline-flex', flexShrink: 0,
-        ...(glow ? { filter: `drop-shadow(0 0 1.5px ${color})` } : null),
+        ...(glow ? { filter: `drop-shadow(0 0 1.5px ${NEON})` } : null),
       }}>
       <svg
         width={size} height={size} viewBox="0 0 24 24" fill="none"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+        stroke={NEON} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
         {/* Dim base — the unlit neon tube, always faintly visible. */}
-        <g stroke={color} opacity={0.22}>
+        <g stroke={NEON} opacity={0.22}>
           {PATHS.map((d, i) => <path key={`b-${i}`} d={d} />)}
         </g>
         {/* Bright trace — neon races through each groove in sequence. */}
