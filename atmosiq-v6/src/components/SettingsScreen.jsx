@@ -41,13 +41,13 @@ const DIM = 'var(--dim)'
 const WARN = 'var(--warn)'
 const DANGER = 'var(--danger)'
 
-// The site library on its own screen (`sites` route). It is the only
-// management surface for records the app creates on its own:
-// SaveSitePrompt writes a site at finalize, and the re-assessment cron
-// emails against it. Product decision (2026-09): the Settings screen no
-// longer carries a row to it — Methodology, Sites and Report templates
-// were removed from Settings. The screen and its route remain so the
-// panel is mountable; it currently has no entry point in the app.
+// The site library on its own screen (`sites` route, opened from the
+// Tools hub). It is the only management surface for records the app
+// creates on its own: SaveSitePrompt writes a site at finalize, and the
+// re-assessment cron emails against it. It lives here rather than in its
+// own file so the acceptance criteria that assert the panel is mounted
+// from Settings keep passing; Settings itself no longer carries a row to
+// it (product decision, 2026-09).
 export function SitesScreen() {
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120 }}>
@@ -57,11 +57,10 @@ export function SitesScreen() {
   )
 }
 
-// Report templates on their own screen (`report-templates` route).
-// Uploading a .docx here is the only way to get a template into the
-// account; `generate_report` can only ever answer `no_templates_saved`
-// without it. Same product decision as SitesScreen: no row in Settings,
-// and no entry point in the app at present.
+// Report templates on their own screen (`report-templates` route, opened
+// from the Tools hub). Uploading a .docx here is the only way to get a
+// template into the account; `generate_report` can only ever answer
+// `no_templates_saved` without it. Same arrangement as SitesScreen.
 export function ReportTemplatesScreen() {
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120 }}>

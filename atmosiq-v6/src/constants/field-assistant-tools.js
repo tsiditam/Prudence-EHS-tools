@@ -279,7 +279,7 @@ export const FIELD_ASSISTANT_TOOLS = [
   {
     name: 'generate_report',
     description:
-      "Render a user-uploaded DOCX report template, filling all {{tokens}} with LITERAL data from the current assessment context. Use this whenever the assessor asks to \"render\", \"generate\", \"make\", or \"build\" a report from one of their saved templates (\"render my Federal template\", \"make me a deliverable using the Acme template\"). The tool does NOT write any prose into the template — it only substitutes registered tokens (client name, facility, finding counts, etc.) with values from the assessment. After a successful render the chat client surfaces an inline Download card and the assessor decides whether to save the file. If the user has no templates saved, the tool returns no_templates_saved and Jasper should point them at Settings → Report Templates. If the name hint matches multiple templates, the tool returns needs_disambiguation and Jasper should ask the user which one. Never invent or paraphrase data — every {{token}} is resolved by the canonical registry.",
+      "Render a user-uploaded DOCX report template, filling all {{tokens}} with LITERAL data from the current assessment context. Use this whenever the assessor asks to \"render\", \"generate\", \"make\", or \"build\" a report from one of their saved templates (\"render my Federal template\", \"make me a deliverable using the Acme template\"). The tool does NOT write any prose into the template — it only substitutes registered tokens (client name, facility, finding counts, etc.) with values from the assessment. After a successful render the chat client surfaces an inline Download card and the assessor decides whether to save the file. If the user has no templates saved, the tool returns no_templates_saved and Jasper should point them at Tools → Report templates. If the name hint matches multiple templates, the tool returns needs_disambiguation and Jasper should ask the user which one. Never invent or paraphrase data — every {{token}} is resolved by the canonical registry.",
     input_schema: {
       type: 'object',
       properties: {
@@ -1165,7 +1165,7 @@ export async function dispatchTool(name, input, ctx = {}) {
         return {
           status: 'no_templates_saved',
           message:
-            'No report templates are saved for this user. Tell the assessor to upload a .docx in Settings → Report Templates, then ask Jasper to render it.',
+            'No report templates are saved for this user. Tell the assessor to upload a .docx in Tools → Report templates, then ask Jasper to render it.',
           settings_target: 'settings',
         }
       }

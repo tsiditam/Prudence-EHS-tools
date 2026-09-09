@@ -3,9 +3,10 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * ToolsHub — the home of the working tools, a dock destination. Five
+ * ToolsHub — the home of the working tools, a dock destination. Seven
  * rows on the open page: a glyph, the tool's name, one line on what it
- * does, a chevron.
+ * does, a chevron. Sites and Report templates moved here from Settings
+ * (2026-09): both are working surfaces, not preferences.
  *
  * The glyph is what says "tool". A restraint pass removed it along with
  * the tinted tile it sat in, and the screen read as a settings list —
@@ -34,6 +35,8 @@ export const TOOLS = [
   { id: 'ventilation', icon: 'wind', title: 'Ventilation', body: 'ASHRAE 62.1 outdoor air and CO₂ delivery.' },
   { id: 'sampling-forms', icon: 'findings', title: 'Sampling forms', body: 'Chain-of-custody forms, pre-filled.' },
   { id: 'incident-log', icon: 'flag', title: 'Incidents', body: 'Document air events, export to Word.' },
+  { id: 'sites', icon: 'location', title: 'Sites', body: 'Saved buildings and re-assessment reminders.' },
+  { id: 'report-templates', icon: 'template', title: 'Report templates', body: 'Word templates the AI fills from an assessment.' },
   { id: 'search', icon: 'search', title: 'Search', body: 'Reports, incidents, settings and help.' },
 ]
 
