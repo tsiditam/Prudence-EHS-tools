@@ -48,7 +48,11 @@
 import { STD } from '../../constants/standards'
 import { G_CFM_PER_PERSON, MIN_DIFFERENTIAL_PPM } from '../../utils/ventilation'
 
-export const VENTILATION_ENGINE_VERSION = '1.0.0'
+// 1.1.0 (2026-09): the per-person requirement the comparison uses is the
+// BREATHING-ZONE rate (Vbz / Pz), not the zone supply (Voz / Pz) — see
+// requiredOutdoorAir; the "near" band is tied to the estimate's own
+// uncertainty rather than a looser 80% line.
+export const VENTILATION_ENGINE_VERSION = '1.1.0'
 
 const num = (v) => {
   if (v === '' || v == null) return null
@@ -77,7 +81,9 @@ export const EZ_PRESETS = [
   { key: 'ceiling_cool', label: 'Ceiling, cool air', ez: 1.0 },
   { key: 'ceiling_warm_ceiling_return', label: 'Ceiling, warm air, ceiling return', ez: 0.8 },
   { key: 'floor_cool_displacement', label: 'Floor, cool air (displacement)', ez: 1.2 },
-  { key: 'floor_warm', label: 'Floor, warm air', ez: 1.0 },
+  // Table 6-4 gives floor-supplied warm air 1.0 only with a FLOOR return;
+  // with a ceiling return it is 0.7. The label says which row this is.
+  { key: 'floor_warm', label: 'Floor, warm air, floor return', ez: 1.0 },
 ]
 
 export const REQUIRED_CITATION = 'ASHRAE 62.1-2025 §6.2 Ventilation Rate Procedure: Vbz = Rp·Pz + Ra·Az (Table 6-1); Voz = Vbz / Ez (Table 6-4).'
@@ -87,6 +93,15 @@ export const REQUIRED_CITATION = 'ASHRAE 62.1-2025 §6.2 Ventilation Rate Proced
  * Returns null when the space type is unknown or neither occupants nor
  * area is given. `partial` is true when one of the two terms is missing —
  * the result is then a floor, not the requirement.
+ *
+ * `perPerson` is Vbz / Pz — the BREATHING-ZONE rate per occupant — and is
+ * what a CO₂-based delivery estimate is compared against. A CO₂ reading
+ * taken among the occupants reflects the outdoor air that actually reached
+ * them, which is the quantity Vbz describes; Voz is what the system must
+ * supply at the diffuser so that Vbz arrives after distribution losses
+ * (Ez). Comparing a breathing-zone estimate to Voz / Pz counted the Ez
+ * penalty twice and, at Ez 0.8, called a space that met its breathing-zone
+ * rate 20% short. `perPersonZone` (Voz / Pz) is kept for the designer.
  */
 export function requiredOutdoorAir({ spaceType, occupants, areaSqft, ez = 1.0 }) {
   const rates = STD.v.oa[spaceType]
@@ -105,7 +120,8 @@ export function requiredOutdoorAir({ spaceType, occupants, areaSqft, ez = 1.0 })
     people: people != null ? r1(people) : null,
     area: area != null ? r1(area) : null,
     vbz: r1(vbz), voz: r1(voz),
-    perPerson: pz > 0 ? r1(voz / pz) : null,
+    perPerson: pz > 0 ? r1(vbz / pz) : null,
+    perPersonZone: pz > 0 ? r1(voz / pz) : null,
     partial: pz == null || az == null,
     citation: REQUIRED_CITATION,
   }
@@ -130,6 +146,20 @@ export const G_UNCERTAINTY = 0.10
 export const STEADY_STATE_CITATION = 'Steady-state CO₂ mass balance, Vo = G·10⁶ / (Cin − Cout) (ASTM D6245-18; Persily & de Jonge 2017). Valid only at equilibrium — roughly three air-change time constants of steady occupancy.'
 
 /**
+ * What the steady-state estimate assumes, for a given activity level.
+ * Exported so a caller can state the assumptions BEFORE there is a result:
+ * they describe the method, not the answer, and a UI that waits for a
+ * number to show them has to reflow the page when one arrives.
+ */
+export function steadyAssumptions(met = 1.2) {
+  return [
+    'Occupancy and outdoor-air delivery were steady long enough to reach equilibrium.',
+    `Occupants at about ${met} met; generation rate ${generationCfm(met).toFixed(4)} cfm/person (±${Math.round(G_UNCERTAINTY * 100)}%).`,
+    'Outdoor CO₂ was measured, not assumed.',
+  ]
+}
+
+/**
  * Outdoor-air delivery per person from an indoor / outdoor CO₂ pair.
  * Returns { error } when the differential is below the reliability floor,
  * null when inputs are not numbers.
@@ -140,7 +170,13 @@ export function steadyStateDelivery({ indoorPpm, outdoorPpm, met = 1.2 }) {
   if (cs == null || co == null) return null
   const delta = cs - co
   if (delta < MIN_DIFFERENTIAL_PPM) {
-    return { error: `CO₂ differential is ${Math.round(delta)} ppm — below the ${MIN_DIFFERENTIAL_PPM} ppm floor where the mass-balance estimate is reliable. Use a direct airflow measurement.` }
+    // `delta` rides along with the refusal: it is the number that explains
+    // it, and a UI showing the differential can keep showing it instead of
+    // dropping the figure (and its row) while the reading is too small.
+    // Kept to two lines on a phone: the caller reserves the space this
+    // message needs, and a third line is a third line of reserved blank
+    // whenever the reading IS usable.
+    return { delta: Math.round(delta), error: `CO₂ differential is ${Math.round(delta)} ppm — below the ${MIN_DIFFERENTIAL_PPM} ppm floor for a reliable estimate. Use a direct airflow measurement.` }
   }
   const g = generationCfm(met)
   const cfm = (g * 1e6) / delta
@@ -152,11 +188,7 @@ export function steadyStateDelivery({ indoorPpm, outdoorPpm, met = 1.2 }) {
     high: r1(cfm * (1 + G_UNCERTAINTY)),
     delta: Math.round(delta), g: Number(g.toFixed(4)), met,
     citation: STEADY_STATE_CITATION,
-    assumptions: [
-      'Occupancy and outdoor-air delivery were steady long enough to reach equilibrium.',
-      `Occupants at about ${met} met; generation rate ${generationCfm(met).toFixed(4)} cfm/person (±${Math.round(G_UNCERTAINTY * 100)}%).`,
-      'Outdoor CO₂ was measured, not assumed.',
-    ],
+    assumptions: steadyAssumptions(met),
   }
 }
 
@@ -179,7 +211,9 @@ export function decayTwoPoint({ startPpm, endPpm, outdoorPpm, minutes }) {
   return { method: 'decay', ach: r2(ach), hours: r2(m / 60), n: 2, r2: null, citation: DECAY_CITATION, assumptions: DECAY_ASSUMPTIONS }
 }
 
-const DECAY_ASSUMPTIONS = [
+/** Exported for the same reason as `steadyAssumptions` — they describe the
+ *  method, so a caller can state them before there is a result. */
+export const DECAY_ASSUMPTIONS = [
   'The space was unoccupied for the whole period, so no CO₂ was generated.',
   'Outdoor-air delivery and outdoor CO₂ were constant across the period.',
   'The air was well mixed at the sensor location.',
@@ -226,21 +260,28 @@ export function achToCfm(ach, volumeCuft, occupants) {
 // ── Comparison ─────────────────────────────────────────────────────
 
 /**
- * Delivered against required, per person. Levels are bands on the ratio,
- * worded as an estimate; the professional makes the determination.
+ * Delivered against required, per person (both breathing-zone rates).
+ * Levels are bands on the ratio, worded as an estimate; the professional
+ * makes the determination. "Near" is the band the estimate's own
+ * uncertainty covers (G_UNCERTAINTY, ±10%): a shortfall the method cannot
+ * resolve is reported as near, anything wider as below. It used to start
+ * at 80%, which called a 20% shortfall "within the estimate's uncertainty"
+ * while the same screen stated the uncertainty as ±10%.
  */
+export const NEAR_BAND = 1 - G_UNCERTAINTY
+
 export function compareDelivery({ requiredPerPerson, deliveredPerPerson }) {
   const req = num(requiredPerPerson), del = num(deliveredPerPerson)
   if (req == null || del == null || req <= 0) return null
   const ratio = del / req
   const pct = Math.round(ratio * 100)
   let level, statement
-  if (ratio < 0.8) {
+  if (ratio < NEAR_BAND) {
     level = 'below'
     statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — below the requirement, on this estimate.`
   } else if (ratio < 1.0) {
     level = 'near'
-    statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — within the estimate's uncertainty of the requirement.`
+    statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — inside the estimate's own ±${Math.round(G_UNCERTAINTY * 100)}%, which cannot resolve a gap this small.`
   } else {
     level = 'meets'
     statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — at or above the requirement, on this estimate.`

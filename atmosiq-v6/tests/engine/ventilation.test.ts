@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest'
 import { STD } from '../../src/constants/standards'
 import { G_CFM_PER_PERSON, MIN_DIFFERENTIAL_PPM } from '../../src/utils/ventilation'
 import {
-  SPACE_TYPES, EZ_PRESETS, ACTIVITY_LEVELS, generationCfm,
+  SPACE_TYPES, EZ_PRESETS, ACTIVITY_LEVELS, generationCfm, G_UNCERTAINTY, NEAR_BAND,
   requiredOutdoorAir, steadyStateDelivery, decayTwoPoint, decayFromSeries, achToCfm, compareDelivery,
 } from '../../src/engines/ventilation'
 
@@ -27,6 +27,22 @@ describe('requiredOutdoorAir — ASHRAE 62.1 VRP', () => {
   it('divides by Ez, so a warm-air ceiling system (0.8) needs more zone air', () => {
     const r = requiredOutdoorAir({ spaceType: 'office', occupants: 10, areaSqft: 1000, ez: 0.8 })!
     expect(r.voz).toBe(137.5)
+  })
+
+  it('the per-person figure the comparison uses is the breathing-zone rate, whatever Ez is', () => {
+    // A CO₂ estimate describes the outdoor air that reached the occupants —
+    // Vbz. Comparing it to Voz / Pz counted the Ez penalty twice: at Ez 0.8
+    // a space delivering exactly its breathing-zone rate read as 20% short.
+    const r = requiredOutdoorAir({ spaceType: 'office', occupants: 10, areaSqft: 1000, ez: 0.8 })!
+    expect(r.perPerson).toBe(11)          // Vbz 110 / 10
+    expect(r.perPersonZone).toBe(13.8)    // Voz 137.5 / 10, for the designer
+    expect(compareDelivery({ requiredPerPerson: r.perPerson, deliveredPerPerson: 11 })!.level).toBe('meets')
+  })
+
+  it('labels the floor-supply warm-air preset with its return path — Table 6-4 gives 1.0 only for a floor return', () => {
+    const p = EZ_PRESETS.find((x) => x.key === 'floor_warm')!
+    expect(p.ez).toBe(1.0)
+    expect(p.label).toMatch(/floor return/i)
   })
 
   it('reads the same Rp / Ra table the scoring engine applies', () => {
@@ -151,5 +167,15 @@ describe('compareDelivery', () => {
   it('returns null without both sides', () => {
     expect(compareDelivery({ requiredPerPerson: null, deliveredPerPerson: 10 })).toBeNull()
     expect(compareDelivery({ requiredPerPerson: 0, deliveredPerPerson: 10 })).toBeNull()
+  })
+
+  it('the "near" band is the estimate’s own ±10%, so the words and the number agree', () => {
+    // 80–90% used to read "within the estimate's uncertainty" beside a
+    // stated ±10% band. Now 89% is below and 90% is near.
+    expect(NEAR_BAND).toBeCloseTo(1 - G_UNCERTAINTY, 10)
+    expect(compareDelivery({ requiredPerPerson: 100, deliveredPerPerson: 89 })!.level).toBe('below')
+    expect(compareDelivery({ requiredPerPerson: 100, deliveredPerPerson: 90 })!.level).toBe('near')
+    expect(compareDelivery({ requiredPerPerson: 100, deliveredPerPerson: 100 })!.level).toBe('meets')
+    expect(compareDelivery({ requiredPerPerson: 100, deliveredPerPerson: 95 })!.statement).toMatch(/±10%/)
   })
 })

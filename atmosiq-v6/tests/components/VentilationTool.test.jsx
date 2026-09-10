@@ -1,65 +1,85 @@
 // @vitest-environment jsdom
 /**
- * VentilationTool — the assessor-facing calculator. Pins that the three
- * sections render, the requirement appears once occupants + area are
- * entered, the steady-state estimate appears from a CO₂ pair, the
- * comparison bands them, and the decay method is reachable.
+ * VentilationTool — the page holds still while the assessor types.
+ *
+ * Every result block used to mount on the keystroke that made it valid and
+ * unmount on the one that did not: the requirement grid appeared on the
+ * first digit of the occupant count, the delivered stats and their
+ * assumptions arrived once the CO₂ differential cleared 50 ppm, and the
+ * comparison replaced a one-line note with a three-figure block. Each
+ * appearance dropped everything below it down the page, so entering a
+ * reading moved the field being typed into.
+ *
+ * The fix is structural, so the test is too: the result scaffolding is on
+ * the page from the first render, showing "—" until there is a figure, and
+ * the same nodes are still there once every field is filled. What changes
+ * is the text inside them, not the shape of the page.
  */
-import { describe, it, expect, afterEach, beforeEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import VentilationTool from '../../src/components/VentilationTool'
 
-afterEach(() => cleanup())
-beforeEach(() => { try { localStorage.clear() } catch { /* jsdom */ } })
+/** Labels that must be present whatever the inputs hold. */
+const ALWAYS = [
+  'Breathing zone', 'Zone outdoor air', 'Per person · breathing zone',   // section 1
+  'Delivered', 'Differential', 'Generation rate',                        // section 2, steady
+  'Delivered · est.', 'Required · 62.1 Vbz',                             // section 3
+]
 
 const type = (label, value) => fireEvent.change(screen.getByLabelText(label), { target: { value } })
+const countBullets = (c) => c.querySelectorAll('ul li').length
 
-describe('VentilationTool', () => {
-  it('renders the three sections and the method sources', () => {
+afterEach(() => { cleanup(); window.localStorage.clear() })
+
+describe('VentilationTool layout stability', () => {
+  it('renders the whole result scaffolding before anything is entered', () => {
     render(<VentilationTool />)
-    expect(screen.getByText('Ventilation')).toBeTruthy()
-    expect(screen.getByText(/Required — ASHRAE 62\.1/)).toBeTruthy()
-    expect(screen.getByText(/Delivered — estimated from CO₂/)).toBeTruthy()
-    expect(screen.getByText(/3 · Comparison/)).toBeTruthy()
-    expect(screen.getByText(/direct airflow measurement/i)).toBeTruthy()
+    for (const label of ALWAYS) expect(screen.getByText(label), label).toBeTruthy()
+    // Placeholders, not absent rows.
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(6)
   })
 
-  it('computes the 62.1 requirement from space use, occupants and area', () => {
-    render(<VentilationTool />)
-    type('Occupants', '10')
-    type('Floor area', '1000')
-    // office: 5 × 10 + 0.06 × 1000 = 110 cfm — shown as both Vbz and Voz
-    // at Ez 1.0 — and 11 cfm/person
-    expect(screen.getAllByText('110')).toHaveLength(2)
-    expect(screen.getByText('11')).toBeTruthy()
+  it('states the method assumptions before there is a result to state them with', () => {
+    const { container } = render(<VentilationTool />)
+    expect(countBullets(container)).toBe(3)
+    expect(screen.getByText(/steady long enough to reach equilibrium/)).toBeTruthy()
   })
 
-  it('estimates delivery from a CO₂ pair and compares it to the requirement', () => {
-    render(<VentilationTool />)
-    type('Occupants', '10')
-    type('Floor area', '1000')
-    type('Indoor CO2', '1120')
-    type('Outdoor CO2', '420')
-    // 0.0084e6 / 700 = 12 cfm/person → 12 / 11 = 109% → at or above
-    expect(screen.getAllByText('12').length).toBeGreaterThan(0)
-    expect(screen.getByText('At or above minimum')).toBeTruthy()
-    expect(screen.getByText(/109% of the ASHRAE 62\.1 minimum/)).toBeTruthy()
-  })
+  it('keeps the same blocks through an empty → invalid → valid entry', () => {
+    const { container } = render(<VentilationTool />)
+    const shape = () => ({
+      labels: ALWAYS.every((l) => screen.queryByText(l) !== null),
+      bullets: countBullets(container),
+      stats: container.querySelectorAll('[data-stat]').length,
+    })
+    const before = shape()
 
-  it('refuses a too-small differential with the reason', () => {
-    render(<VentilationTool />)
+    type('Occupants', '12')
+    type('Floor area', '1500')
+    // Differential below the 50 ppm floor: an error, not a figure.
     type('Indoor CO2', '440')
-    type('Outdoor CO2', '420')
     expect(screen.getByText(/below the 50 ppm floor/)).toBeTruthy()
+    expect(shape()).toEqual(before)
+
+    // A usable reading.
+    type('Indoor CO2', '1100')
+    expect(screen.getByText(/Estimated delivery is about/)).toBeTruthy()
+    expect(shape()).toEqual(before)
   })
 
-  it('switches to the decay method and reports air changes', () => {
+  it('keeps the differential on screen when it is the reason for the refusal', () => {
     render(<VentilationTool />)
-    fireEvent.click(screen.getByText('Decay (unoccupied)'))
-    type('Start CO2', '1220')
-    type('End CO2', String(420 + 800 * Math.exp(-1)))
-    type('Elapsed minutes', '30')
-    expect(screen.getByText('ACH')).toBeTruthy()
-    expect(screen.getByText('2')).toBeTruthy()
+    type('Indoor CO2', '440')   // 440 − 420 = 20 ppm
+    expect(screen.getByText('20')).toBeTruthy()
+  })
+
+  it('shows the comparison figures as placeholders until both sides exist', () => {
+    render(<VentilationTool />)
+    expect(screen.getByText('Awaiting both figures')).toBeTruthy()
+    type('Occupants', '12')
+    type('Floor area', '1500')
+    type('Indoor CO2', '1100')
+    expect(screen.queryByText('Awaiting both figures')).toBeNull()
+    expect(screen.getByText('Near minimum')).toBeTruthy()
   })
 })
