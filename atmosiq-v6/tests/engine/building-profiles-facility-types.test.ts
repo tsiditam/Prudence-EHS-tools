@@ -143,11 +143,17 @@ describe('the five profiles are well-formed', () => {
         }
       })
 
-      it('carries no air-change or humidity override', () => {
-        // No figure for these occupancies was entered from a checked table.
-        // A recorded ACH in these zones is reported, not judged.
-        expect(p.achOverrides).toBeUndefined()
+      it('carries no humidity override, and an air-change override only where a table row backs it', () => {
         expect(p.rhOverrides).toBeUndefined()
+        // Only long-term care has a published total-ACH table (ASHRAE 170
+        // Table 9.1). The other four occupancies are governed by outdoor-air
+        // standards (62.1, 62.2) or flag-state rules that set no air-change
+        // rate, so a recorded ACH there is reported, not judged.
+        if (key === 'SENIOR_LIVING') {
+          expect(p.achOverrides).toBeTruthy()
+        } else {
+          expect(p.achOverrides).toBeUndefined()
+        }
       })
 
       it('names the standard behind every finding and cites at least one profile-level standard', () => {
@@ -213,6 +219,47 @@ describe('Senior Living / Long-Term Care', () => {
     expect(f.std).toMatch(/QSO-17-30/)
     expect(f.std).toMatch(/ASHRAE 188/)
     expect(f.t).toMatch(/not a Legionella assessment/)
+    // The 10 total ACH it states is the same figure the engine scores from.
+    expect(f.t).toMatch(/10 total ACH/)
+    expect((BUILDING_PROFILES.SENIOR_LIVING as any).achOverrides.bathing.min).toBe(10)
+  })
+
+  describe('air-change overrides (ASHRAE 170-2021 Table 9.1, nursing-facility rows)', () => {
+    const ach = (BUILDING_PROFILES.SENIOR_LIVING as any).achOverrides as Record<string, { min: number; label: string }>
+
+    it('carries the five rows that were corroborated, each citing the table', () => {
+      expect(ach).toEqual({
+        resident_room: { min: 2, label: 'ASHRAE 170-2021 Table 9.1' },
+        dining_activity: { min: 4, label: 'ASHRAE 170-2021 Table 9.1' },
+        corridor: { min: 4, label: 'ASHRAE 170-2021 Table 9.1' },
+        bathing: { min: 10, label: 'ASHRAE 170-2021 Table 9.1' },
+        therapy: { min: 6, label: 'ASHRAE 170-2021 Table 9.1' },
+      })
+    })
+
+    it('does not guess a figure for soiled/clean utility, the kitchen or the nurse station', () => {
+      // `utility` spans two rows with opposite pressures and different rates;
+      // one number would be wrong for half the rooms it applied to.
+      for (const s of ['utility', 'kitchen', 'nurse_station', 'mechanical']) expect(ach[s], s).toBeUndefined()
+    })
+
+    it('a recorded ACH in a resident room is judged against the row; in a utility room it is reported', () => {
+      const bldg = { ft: 'Senior Living / Long-Term Care', hm: 'Within 6 months', assessmentDate: '2026-07-15' }
+      const vent = (z: Record<string, unknown>) => (scoreZone({ zn: 'Z', su: 'healthcare', ...z } as never, bldg as never) as any)
+        .cats.find((c: any) => c.l === 'Ventilation').r as Array<{ t: string; sev: string; std?: string; dataGap?: boolean }>
+
+      const low = vent({ zone_subtype: 'resident_room', ach: '1' }).find((r) => /^ACH 1 /.test(r.t))!
+      expect(low.t).toMatch(/below minimum \(2\)/)
+      expect(low.sev).toBe('high')
+      expect(low.std).toBe('ASHRAE 170-2021 Table 9.1')
+
+      const ok = vent({ zone_subtype: 'resident_room', ach: '3' }).find((r) => /^ACH 3 /.test(r.t))!
+      expect(ok.sev).toBe('pass')
+
+      const reported = vent({ zone_subtype: 'utility', ach: '3' }).find((r) => /^ACH 3 /.test(r.t))!
+      expect(reported.dataGap).toBe(true)
+      expect(reported.t).toMatch(/reported, not evaluated/)
+    })
   })
 })
 

@@ -501,12 +501,6 @@ export const BUILDING_PROFILES = {
   SENIOR_LIVING: {
     id: 'senior_living',
     label: 'Senior Living / Long-Term Care',
-    // No achOverrides. ASHRAE 170-2021 carries its own table for residential
-    // health, care and support facilities, and the figures for resident
-    // rooms, bathing rooms and soiled utility were not entered here from a
-    // checked copy. Enter them with the table citation when confirmed; until
-    // then the findings name the standard and the reading is reported, not
-    // judged.
     additionalStandards: [
       'ASHRAE 170-2021 (residential health, care and support facilities)',
       '42 CFR 483 (CMS requirements for long-term care facilities) — §483.10(i)(6) temperature, §483.80 infection prevention and control',
@@ -528,6 +522,28 @@ export const BUILDING_PROFILES = {
       mechanical: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
     },
     additionalFields: {},
+    // Minimum TOTAL air changes per hour, ASHRAE 170-2021 Table 9.1
+    // (residential health, care and support facilities — the nursing-facility
+    // rows). Provenance, stated because the table was not opened from a
+    // licensed copy for this entry: each figure was read from ASHRAE's own
+    // published addenda text to 170-2017 (a, k, p, n) and the 170-2021
+    // Table 9-1 description, and only rows that agreed across at least two
+    // independent extracts are entered. Confirm against the current edition
+    // (170-2025 is now published) when a copy is to hand.
+    //
+    // Not entered, and why: `utility` covers soiled AND clean utility, whose
+    // rows differ in both rate and pressure (soiled 10 total, negative; clean
+    // positive at a lower rate the extracts did not agree on), so one figure
+    // would be wrong for half the rooms it applies to; `kitchen` and the
+    // nurse station have no confirmed row. Those subtypes report a recorded
+    // ACH rather than judging it.
+    achOverrides: {
+      resident_room: { min: 2, label: 'ASHRAE 170-2021 Table 9.1' },
+      dining_activity: { min: 4, label: 'ASHRAE 170-2021 Table 9.1' },
+      corridor: { min: 4, label: 'ASHRAE 170-2021 Table 9.1' },
+      bathing: { min: 10, label: 'ASHRAE 170-2021 Table 9.1' },
+      therapy: { min: 6, label: 'ASHRAE 170-2021 Table 9.1' },
+    },
     contextFindings: [
       // CMS requires long-term care facilities certified after 1 October
       // 1990 to maintain 71–81 °F (42 CFR 483.10(i)(6)). That is a regulatory
@@ -542,7 +558,7 @@ export const BUILDING_PROFILES = {
         text: 'Visible mold in a long-term care facility: the residents are an older and often immunocompromised population, and CMS requires the facility to run an infection prevention and control program. Route this through that program for evaluation and remediation planning rather than treating it as a housekeeping item.',
         sev: 'high', std: '42 CFR 483.80; EPA Mold Remediation in Schools and Commercial Buildings' },
       { condition: (z) => z.zone_subtype === 'bathing',
-        text: 'Central bathing or shower room: showers and spa tubs aerosolize water, and CMS requires long-term care facilities to have a water management program addressing Legionella. Verify that the program exists and covers this room\'s fixtures, and that the room is exhausted and held negative to the corridor per the ASHRAE 170 design basis so moist air does not migrate into resident areas. This is a walkthrough observation, not a Legionella assessment.',
+        text: 'Central bathing or shower room: showers and spa tubs aerosolize water, and CMS requires long-term care facilities to have a water management program addressing Legionella. Verify that the program exists and covers this room\'s fixtures. ASHRAE 170-2021 Table 9.1 lists the bathing room at a minimum of 10 total ACH, negative to adjacent spaces with all room air exhausted to outdoors; verify the exhaust runs and the pressure relationship at the door so moist air does not migrate into resident areas. This is a walkthrough observation, not a Legionella assessment.',
         sev: 'medium', std: 'CMS QSO-17-30; ASHRAE 188; ASHRAE 170-2021' },
       { condition: (z) => z.zone_subtype === 'utility',
         text: 'Soiled and clean utility: the ASHRAE 170 design basis holds soiled utility negative to the corridor and clean utility positive. Verify the pressure relationship at the door with a smoke source and that the exhaust runs continuously.',
