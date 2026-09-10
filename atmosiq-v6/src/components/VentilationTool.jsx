@@ -252,7 +252,9 @@ export default function VentilationTool() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginTop: 14 }}>
               <div>
                 <div style={V3.T.captionDim}>Delivered · est.</div>
-                <div style={V3.N.lg}>{deliveredPerPerson}</div>
+                {/* The figure that matters carries the verdict's colour; the
+                    requirement beside it stays in the primary ink. */}
+                <div style={{ ...V3.N.lg, color: LEVEL_TONE[comparison.level] }}>{deliveredPerPerson}</div>
                 <div style={V3.T.captionDim}>cfm/person</div>
               </div>
               <div style={{ fontSize: 22, color: DIM }}>/</div>
