@@ -48,7 +48,11 @@
 import { STD } from '../../constants/standards'
 import { G_CFM_PER_PERSON, MIN_DIFFERENTIAL_PPM } from '../../utils/ventilation'
 
-export const VENTILATION_ENGINE_VERSION = '1.0.0'
+// 1.1.0 (2026-09): the per-person requirement the comparison uses is the
+// BREATHING-ZONE rate (Vbz / Pz), not the zone supply (Voz / Pz) — see
+// requiredOutdoorAir; the "near" band is tied to the estimate's own
+// uncertainty rather than a looser 80% line.
+export const VENTILATION_ENGINE_VERSION = '1.1.0'
 
 const num = (v) => {
   if (v === '' || v == null) return null
@@ -77,7 +81,9 @@ export const EZ_PRESETS = [
   { key: 'ceiling_cool', label: 'Ceiling, cool air', ez: 1.0 },
   { key: 'ceiling_warm_ceiling_return', label: 'Ceiling, warm air, ceiling return', ez: 0.8 },
   { key: 'floor_cool_displacement', label: 'Floor, cool air (displacement)', ez: 1.2 },
-  { key: 'floor_warm', label: 'Floor, warm air', ez: 1.0 },
+  // Table 6-4 gives floor-supplied warm air 1.0 only with a FLOOR return;
+  // with a ceiling return it is 0.7. The label says which row this is.
+  { key: 'floor_warm', label: 'Floor, warm air, floor return', ez: 1.0 },
 ]
 
 export const REQUIRED_CITATION = 'ASHRAE 62.1-2025 §6.2 Ventilation Rate Procedure: Vbz = Rp·Pz + Ra·Az (Table 6-1); Voz = Vbz / Ez (Table 6-4).'
@@ -87,6 +93,15 @@ export const REQUIRED_CITATION = 'ASHRAE 62.1-2025 §6.2 Ventilation Rate Proced
  * Returns null when the space type is unknown or neither occupants nor
  * area is given. `partial` is true when one of the two terms is missing —
  * the result is then a floor, not the requirement.
+ *
+ * `perPerson` is Vbz / Pz — the BREATHING-ZONE rate per occupant — and is
+ * what a CO₂-based delivery estimate is compared against. A CO₂ reading
+ * taken among the occupants reflects the outdoor air that actually reached
+ * them, which is the quantity Vbz describes; Voz is what the system must
+ * supply at the diffuser so that Vbz arrives after distribution losses
+ * (Ez). Comparing a breathing-zone estimate to Voz / Pz counted the Ez
+ * penalty twice and, at Ez 0.8, called a space that met its breathing-zone
+ * rate 20% short. `perPersonZone` (Voz / Pz) is kept for the designer.
  */
 export function requiredOutdoorAir({ spaceType, occupants, areaSqft, ez = 1.0 }) {
   const rates = STD.v.oa[spaceType]
@@ -105,7 +120,8 @@ export function requiredOutdoorAir({ spaceType, occupants, areaSqft, ez = 1.0 })
     people: people != null ? r1(people) : null,
     area: area != null ? r1(area) : null,
     vbz: r1(vbz), voz: r1(voz),
-    perPerson: pz > 0 ? r1(voz / pz) : null,
+    perPerson: pz > 0 ? r1(vbz / pz) : null,
+    perPersonZone: pz > 0 ? r1(voz / pz) : null,
     partial: pz == null || az == null,
     citation: REQUIRED_CITATION,
   }
@@ -226,21 +242,28 @@ export function achToCfm(ach, volumeCuft, occupants) {
 // ── Comparison ─────────────────────────────────────────────────────
 
 /**
- * Delivered against required, per person. Levels are bands on the ratio,
- * worded as an estimate; the professional makes the determination.
+ * Delivered against required, per person (both breathing-zone rates).
+ * Levels are bands on the ratio, worded as an estimate; the professional
+ * makes the determination. "Near" is the band the estimate's own
+ * uncertainty covers (G_UNCERTAINTY, ±10%): a shortfall the method cannot
+ * resolve is reported as near, anything wider as below. It used to start
+ * at 80%, which called a 20% shortfall "within the estimate's uncertainty"
+ * while the same screen stated the uncertainty as ±10%.
  */
+export const NEAR_BAND = 1 - G_UNCERTAINTY
+
 export function compareDelivery({ requiredPerPerson, deliveredPerPerson }) {
   const req = num(requiredPerPerson), del = num(deliveredPerPerson)
   if (req == null || del == null || req <= 0) return null
   const ratio = del / req
   const pct = Math.round(ratio * 100)
   let level, statement
-  if (ratio < 0.8) {
+  if (ratio < NEAR_BAND) {
     level = 'below'
     statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — below the requirement, on this estimate.`
   } else if (ratio < 1.0) {
     level = 'near'
-    statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — within the estimate's uncertainty of the requirement.`
+    statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — within the estimate's ±${Math.round(G_UNCERTAINTY * 100)}% of the requirement, which the method cannot resolve either way.`
   } else {
     level = 'meets'
     statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — at or above the requirement, on this estimate.`

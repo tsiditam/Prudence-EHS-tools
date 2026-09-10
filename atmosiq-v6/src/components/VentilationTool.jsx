@@ -55,9 +55,12 @@ function usePersisted() {
 const inStyle = { width: '100%', padding: '10px 12px', background: 'var(--surface)', border: HAIRLINE, borderRadius: 10, color: TEXT, fontSize: 16, fontFamily: 'inherit', boxSizing: 'border-box', minHeight: 44 }
 const selStyle = { ...inStyle, appearance: 'auto' }
 
-function Field({ label, unit, children }) {
+function Field({ label, unit, wide, children }) {
+  // `wide` spans the row: a select whose longest option does not fit half
+  // a phone ("0.8 · Ceiling, warm air, ceiling return") was being cut to
+  // "1.0 · Ceiling, co" in the two-column grid.
   return (
-    <label style={{ display: 'block', minWidth: 0 }}>
+    <label style={{ display: 'block', minWidth: 0, gridColumn: wide ? '1 / -1' : undefined }}>
       <div style={{ ...V3.T.caption, marginBottom: 6 }}>{label}{unit ? <span style={{ color: DIM, fontWeight: 400 }}> · {unit}</span> : null}</div>
       {children}
     </label>
@@ -90,7 +93,8 @@ const Note = ({ children, tone }) => (
   <div style={{ ...V3.T.captionDim, marginTop: 10, lineHeight: 1.5, color: tone || undefined }}>{children}</div>
 )
 
-const LEVEL_TONE = { meets: V3.STATUS.ready, near: '#FBBF24', below: V3.DANGER }
+// Theme tokens, not hexes: the amber flips with the theme (index.html --warn).
+const LEVEL_TONE = { meets: V3.STATUS.ready, near: 'var(--warn)', below: V3.DANGER }
 const LEVEL_LABEL = { meets: 'At or above minimum', near: 'Near minimum', below: 'Below minimum' }
 
 export default function VentilationTool() {
@@ -119,7 +123,7 @@ export default function VentilationTool() {
       {/* ── 1 · Required ── */}
       <Section n="1" title="Required — ASHRAE 62.1" first>
         <div style={grid2}>
-          <Field label="Space use">
+          <Field label="Space use" wide>
             <Select style={selStyle} value={s.spaceType} onChange={set('spaceType')} aria-label="Space use">
               {SPACE_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
             </Select>
@@ -130,7 +134,7 @@ export default function VentilationTool() {
           <Field label="Floor area" unit="ft²">
             <input type="number" inputMode="decimal" min="0" value={s.areaSqft} onChange={set('areaSqft')} placeholder="e.g. 1,200" style={inStyle} aria-label="Floor area" />
           </Field>
-          <Field label="Air distribution" unit="Ez">
+          <Field label="Air distribution" unit="Ez" wide>
             <Select style={selStyle} value={s.ezKey} onChange={set('ezKey')} aria-label="Air distribution">
               {EZ_PRESETS.map((p) => <option key={p.key} value={p.key}>{p.ez.toFixed(1)} · {p.label}</option>)}
               <option value="custom">Custom Ez…</option>
@@ -147,9 +151,9 @@ export default function VentilationTool() {
             <div style={stats}>
               <Stat label="Breathing zone" value={required.vbz} unit="cfm" sub={`Vbz · ${required.rp}/person + ${required.ra}/ft²`} />
               <Stat label="Zone outdoor air" value={required.voz} unit="cfm" sub={`Voz · Ez ${required.ez}`} />
-              <Stat label="Per person" value={required.perPerson} unit="cfm/person" sub={required.pz > 0 ? `${required.pz} occupants` : 'needs occupants'} />
+              <Stat label="Per person · breathing zone" value={required.perPerson} unit="cfm/person" sub={required.pz > 0 ? `Vbz ÷ ${required.pz} occupants` : 'needs occupants'} />
             </div>
-            {required.partial && <Note tone="#FBBF24">Only one of the two terms is entered — this is a floor on the requirement, not the requirement.</Note>}
+            {required.partial && <Note tone="var(--warn)">Only one of the two terms is entered — this is a floor on the requirement, not the requirement.</Note>}
             <Note>{REQUIRED_CITATION}</Note>
           </>
         ) : (
@@ -176,7 +180,7 @@ export default function VentilationTool() {
               <Field label="Outdoor CO₂" unit="ppm">
                 <input type="number" inputMode="numeric" min="0" value={s.outdoorPpm} onChange={set('outdoorPpm')} placeholder="e.g. 420" style={inStyle} aria-label="Outdoor CO2" />
               </Field>
-              <Field label="Occupant activity">
+              <Field label="Occupant activity" wide>
                 <Select style={selStyle} value={s.activity} onChange={set('activity')} aria-label="Occupant activity">
                   {ACTIVITY_LEVELS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
                 </Select>
@@ -253,7 +257,10 @@ export default function VentilationTool() {
               </div>
               <div style={{ fontSize: 22, color: DIM }}>/</div>
               <div>
-                <div style={V3.T.captionDim}>Required · 62.1</div>
+                {/* "Vbz" rather than "breathing zone": the long label wrapped
+                    on a phone and dropped this figure below the other one.
+                    Section 1 defines Vbz two lines above the number. */}
+                <div style={V3.T.captionDim}>Required · 62.1 Vbz</div>
                 <div style={V3.N.lg}>{required.perPerson}</div>
                 <div style={V3.T.captionDim}>cfm/person</div>
               </div>
@@ -275,13 +282,15 @@ export default function VentilationTool() {
           <span className="rs-chev" aria-hidden="true" style={{ color: V3.TEXT_TERTIARY, fontSize: 18, lineHeight: 1, display: 'inline-block' }}>›</span>
         </summary>
         <div style={{ ...V3.T.captionDim, lineHeight: 1.6, paddingBottom: 14 }}>
-          <p style={{ margin: '0 0 8px' }}><strong style={{ color: TEXT }}>Required.</strong> {REQUIRED_CITATION} Rates are the same table the assessment engine applies when it reports outdoor air against the 62.1 minimum.</p>
+          <p style={{ margin: '0 0 8px' }}><strong style={{ color: TEXT }}>Required.</strong> {REQUIRED_CITATION} Rates are the same table the assessment engine applies when it reports outdoor air against the 62.1 minimum. The comparison uses the breathing-zone rate per person (Vbz ÷ occupants): a CO₂ reading taken among the occupants reflects the outdoor air that reached them, which is what Vbz describes. Voz is what the system must supply at the diffuser to get there after distribution losses (Ez), and is shown for the designer.</p>
           <p style={{ margin: '0 0 8px' }}><strong style={{ color: TEXT }}>Steady state.</strong> {STEADY_STATE_CITATION} Its largest uncertainty is the occupant generation rate, which depends on activity and body size (Persily &amp; de Jonge 2017); the ±10% band carries that.</p>
           <p style={{ margin: 0 }}><strong style={{ color: TEXT }}>Decay.</strong> {DECAY_CITATION} Because it needs no generation rate it is the stronger estimate when an unoccupied period is available (Batterman 2017), and it yields air changes per hour directly; cfm needs the room volume.</p>
         </div>
       </details>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 14, borderTop: HAIRLINE }}>
+      {/* Left, not right: the AI launcher floats in the bottom-right corner
+          and sat over a right-aligned control at the end of the page. */}
+      <div style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: 14, borderTop: HAIRLINE }}>
         <button type="button" onClick={reset} style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: V3.TEXT_SECONDARY, cursor: 'pointer' }}>Clear inputs</button>
       </div>
     </div>
