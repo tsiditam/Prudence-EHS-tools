@@ -134,11 +134,16 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
 
       {/* Heading and the one action. No subtitle: the list is the
           explanation. On a first run the action lives in the empty state
-          instead, so it is never on the screen twice. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
-        <h2 style={{ ...V3.T.h1, margin: 0 }}>Projects</h2>
-        {list.length > 0 && newProjectButton}
-      </div>
+          instead, so it is never on the screen twice — and the heading
+          goes with it: with nothing to head, a title in the top-left
+          corner only pulled the eye off the centred group below. The
+          empty state names the screen itself. */}
+      {(projects === null || list.length > 0) && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
+          <h2 style={{ ...V3.T.h1, margin: 0 }}>Projects</h2>
+          {list.length > 0 && newProjectButton}
+        </div>
+      )}
 
       {/* Status filters as text tabs — the active one in the primary ink
           with a rule beneath it. The strip scrolls past the frame on a
