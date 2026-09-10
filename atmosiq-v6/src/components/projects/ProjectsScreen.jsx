@@ -107,13 +107,18 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
 
   const tabScroll = useScrollEdges()
 
+  // One action, two places it can live. In the list header it is the
+  // small pill beside the heading; in the empty state it is the only
+  // thing to tap, so it takes the full-size pill with room around the
+  // label (48px tall, the tap-target floor on a phone).
   const newProjectButton = (
     <TactileButton
       variant="primary"
-      size="sm"
+      size={list.length === 0 ? 'md' : 'sm'}
       pill
       haptic="success"
       onClick={() => setShowCreate(true)}
+      style={list.length === 0 ? { padding: '14px 30px', fontSize: 15 } : undefined}
     >
       New project
     </TactileButton>
@@ -167,12 +172,29 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       {projects === null ? (
         <div style={{ ...V3.T.bodyDim, textAlign: 'center', padding: '40px 0' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        // Empty state: a line and the action, on the open page.
-        <div style={{ textAlign: 'center', padding: '72px 24px 0' }}>
-          <div style={{ ...V3.T.h2, marginBottom: 16 }}>{list.length === 0 ? 'Start with a project' : `No ${filter === 'all' ? '' : STATUS_LABEL[filter].toLowerCase() + ' '}projects`}</div>
-          {list.length === 0
-            ? newProjectButton
-            : <button type="button" onClick={() => setFilter('all')} style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: V3.TEXT_PRIMARY, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Show all ›</button>}
+        // Empty state, centred in the open page rather than pinned under
+        // the heading: an icon tile, the title, one line on what a project
+        // is for, and the action. The min-height subtracts the chrome above
+        // (header spacer, heading) and below (the dock) so the group sits at
+        // the visual centre of what the assessor can see, not of the scroll
+        // height. A filter with nothing in it uses the same frame without
+        // the tile and the line.
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: `calc(${V3.FULL_VH} - 250px)`, padding: '0 24px' }}>
+          {list.length === 0 ? (
+            <>
+              <div aria-hidden="true" style={{ width: 64, height: 64, borderRadius: '50%', background: V3.RAISED, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                <I n="bldg" s={26} c={V3.TEXT_PRIMARY} w={1.6} />
+              </div>
+              <div style={{ ...V3.T.h2, marginBottom: 6 }}>Start with a project</div>
+              <div style={{ ...V3.T.bodyDim, fontSize: 15, lineHeight: '22px', maxWidth: 300, marginBottom: 22 }}>Use projects to group a site's assessments, documents and photos.</div>
+              {newProjectButton}
+            </>
+          ) : (
+            <>
+              <div style={{ ...V3.T.h2, marginBottom: 16 }}>{`No ${filter === 'all' ? '' : STATUS_LABEL[filter].toLowerCase() + ' '}projects`}</div>
+              <button type="button" onClick={() => setFilter('all')} style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: V3.TEXT_PRIMARY, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Show all ›</button>
+            </>
+          )}
         </div>
       ) : (
         <div>

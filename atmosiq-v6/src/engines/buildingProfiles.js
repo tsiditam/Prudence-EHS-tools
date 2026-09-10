@@ -360,10 +360,150 @@ export const BUILDING_PROFILES = {
         sev: 'high', std: 'IMC §404.1; ACGIH TLV (CO)' },
     ],
   },
+
+  // ── 2026-09: five facility types added at the product owner's direction ──
+  // (Marine / Vessel, Hotel / Lodging, Senior Living / Long-Term Care,
+  // Childcare / Early Learning, Residential). Each is a facility type on the
+  // intake and a zone-subtype list, and nothing more: no context findings,
+  // no air-change rows, no additional standards. A first cut carried
+  // population-specific findings (a CMS temperature range for resident
+  // rooms, lead RRP for pre-1978 child-occupied rooms, chloramines at a
+  // pool, an enclosed-space note for a cargo hold …) and was taken back out
+  // at the product owner's direction — the assessment is of employee-
+  // occupied areas, the engine's own findings apply in every one of these
+  // buildings, and each extra rule was one more standard for the report to
+  // carry. What survives is the part that costs nothing: the assessor can
+  // name a zone by its subtype, and rooms with no occupants to ask
+  // (mechanical, storage, a cargo hold) skip the complaint and comfort
+  // questions. A zone under these types assesses exactly as an unprofiled
+  // building does.
+
+  MARINE_VESSEL: {
+    id: 'marine_vessel',
+    label: 'Marine / Vessel',
+    additionalStandards: [],
+    zoneSubtypes: [
+      { id: 'bridge', label: 'Bridge / Wheelhouse' },
+      { id: 'cabin', label: 'Crew Cabin / Berthing' },
+      { id: 'mess', label: 'Mess / Crew Lounge' },
+      { id: 'galley', label: 'Galley' },
+      { id: 'passenger_space', label: 'Passenger Space / Lounge' },
+      { id: 'engine_room', label: 'Engine Room / Machinery Space' },
+      { id: 'cargo_hold', label: 'Cargo Hold / Tank' },
+      { id: 'workshop', label: 'Workshop / Store' },
+    ],
+    suppressFields: {
+      engine_room: ['tc', 'hp'],
+      cargo_hold: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
+    },
+    additionalFields: {},
+    contextFindings: [],
+  },
+
+  HOTEL_LODGING: {
+    id: 'hotel_lodging',
+    label: 'Hotel / Lodging',
+    additionalStandards: [],
+    zoneSubtypes: [
+      { id: 'guest_room', label: 'Guest Room' },
+      { id: 'corridor', label: 'Guest Corridor' },
+      { id: 'lobby', label: 'Lobby / Reception' },
+      { id: 'meeting', label: 'Meeting Room / Ballroom' },
+      { id: 'kitchen', label: 'Commercial Kitchen' },
+      { id: 'restaurant', label: 'Restaurant / Bar' },
+      { id: 'laundry', label: 'Laundry' },
+      { id: 'pool_spa', label: 'Pool / Spa' },
+      { id: 'fitness', label: 'Fitness Room' },
+      { id: 'housekeeping', label: 'Housekeeping Store' },
+      { id: 'mechanical', label: 'Mechanical Room' },
+    ],
+    suppressFields: {
+      housekeeping: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
+      mechanical: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
+    },
+    additionalFields: {},
+    contextFindings: [],
+  },
+
+  SENIOR_LIVING: {
+    id: 'senior_living',
+    label: 'Senior Living / Long-Term Care',
+    additionalStandards: [],
+    zoneSubtypes: [
+      { id: 'resident_room', label: 'Resident Room' },
+      { id: 'dining_activity', label: 'Dining / Activity Room' },
+      { id: 'corridor', label: 'Resident Corridor' },
+      { id: 'nurse_station', label: 'Nurse Station' },
+      { id: 'bathing', label: 'Central Bathing / Shower Room' },
+      { id: 'therapy', label: 'Therapy (PT / OT)' },
+      { id: 'kitchen', label: 'Kitchen' },
+      { id: 'utility', label: 'Soiled / Clean Utility' },
+      { id: 'mechanical', label: 'Mechanical Room' },
+    ],
+    suppressFields: {
+      utility: ['tc', 'hp'],
+      mechanical: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
+    },
+    additionalFields: {},
+    contextFindings: [],
+  },
+
+  CHILDCARE: {
+    id: 'childcare',
+    label: 'Childcare / Early Learning',
+    additionalStandards: [],
+    zoneSubtypes: [
+      { id: 'infant_room', label: 'Infant Room' },
+      { id: 'toddler_room', label: 'Toddler Room' },
+      { id: 'preschool_room', label: 'Preschool Room' },
+      { id: 'play_room', label: 'Indoor Play / Gross Motor' },
+      { id: 'diapering', label: 'Diapering / Restroom' },
+      { id: 'kitchen', label: 'Kitchen' },
+      { id: 'office', label: 'Office' },
+      { id: 'mechanical', label: 'Mechanical Room' },
+    ],
+    suppressFields: {
+      mechanical: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
+    },
+    additionalFields: {},
+    contextFindings: [],
+  },
+
+  RESIDENTIAL: {
+    id: 'residential',
+    label: 'Residential',
+    additionalStandards: [],
+    zoneSubtypes: [
+      { id: 'living', label: 'Living Area' },
+      { id: 'bedroom', label: 'Bedroom' },
+      { id: 'kitchen', label: 'Kitchen' },
+      { id: 'bathroom', label: 'Bathroom' },
+      { id: 'basement', label: 'Basement / Crawlspace' },
+      { id: 'garage', label: 'Attached Garage' },
+      { id: 'laundry', label: 'Laundry / Utility' },
+      { id: 'common', label: 'Common Area / Corridor (multifamily)' },
+      { id: 'mechanical', label: 'Mechanical / Furnace Room' },
+    ],
+    suppressFields: {
+      garage: ['tc', 'hp'],
+      mechanical: ['cx', 'ac', 'sy', 'sr', 'cc', 'tc', 'hp'],
+    },
+    additionalFields: {},
+    contextFindings: [],
+  },
 }
 
 export function getBuildingProfile(buildingType) {
   const n = (buildingType || '').toLowerCase().replace(/[\s\/]/g, '_')
+  // The five 2026-09 types are matched first: their names share substrings
+  // with older matches ("nursing home" / "home", "preschool" / "school",
+  // "hospitality" / "hospital"), so order decides.
+  // Word-start match for ship/boat, so "dealership" and "worship" stay ashore.
+  if (n.includes('marine') || n.includes('vessel') || /(^|_)(ship|boat)/.test(n)) return BUILDING_PROFILES.MARINE_VESSEL
+  if (n.includes('senior') || n.includes('long-term') || n.includes('long_term') || n.includes('nursing') || n.includes('assisted')) return BUILDING_PROFILES.SENIOR_LIVING
+  if (n.includes('childcare') || n.includes('child_care') || n.includes('daycare') || n.includes('day_care') || n.includes('early_learning') || n.includes('preschool')) return BUILDING_PROFILES.CHILDCARE
+  if (n.includes('hotel') || n.includes('lodging') || n.includes('motel') || n.includes('hospitality')) return BUILDING_PROFILES.HOTEL_LODGING
+  if (n.includes('residential') || n.includes('apartment') || n.includes('multifamily') || n.includes('dwelling')) return BUILDING_PROFILES.RESIDENTIAL
   if (n.includes('healthcare') || n.includes('hospital') || n.includes('clinic')) return BUILDING_PROFILES.HEALTHCARE
   if (n.includes('school') || n.includes('education') || n.includes('university')) return BUILDING_PROFILES.SCHOOL_K12
   if (n.includes('office') && !n.includes('mixed')) return BUILDING_PROFILES.COMMERCIAL_OFFICE

@@ -15,6 +15,8 @@ import STO from '../utils/storage'
 import { resolveFinalizeTarget } from '../utils/finalizeTarget'
 import { ensureAssessmentUid } from '../billing/assessmentUid'
 import { hasDraftContent } from '../utils/draftContent'
+import { resolveDraftResumeView } from '../utils/resumePhase'
+import { blankZoneIndices, removeZoneAt, removeZonesAt, zoneLabel } from '../utils/zoneContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -504,7 +506,7 @@ function InstrumentEditView({ profile, onSave, onCancel }) {
 // clears any exclusive choice. Matched by label so the rule applies
 // consistently across every t:'multi' question in the app.
 const EXCLUSIVE_MULTI_OPTS = new Set([
-  'not assessed', 'none identified', 'none observed', 'none',
+  'not assessed', 'none identified', 'none observed', 'none', 'none of concern',
   'clear of sources', 'nothing yet', 'unknown',
 ])
 const isExclusiveMultiOpt = (o) => EXCLUSIVE_MULTI_OPTS.has(String(o).trim().toLowerCase())
@@ -874,6 +876,15 @@ export default function MobileApp() {
   })
   const [delConf, setDelConf] = useState(null)
   const [zonePrompt, setZonePrompt] = useState(false)
+  // Finalize found zones with nothing recorded in them: their indices,
+  // or null when the sheet is closed. See finishAssessment.
+  const [blankZonePrompt, setBlankZonePrompt] = useState(null)
+  // "Remove this zone" confirmation on the zone screen.
+  const [confirmRemoveZone, setConfirmRemoveZone] = useState(false)
+  // Bumped after the blank-zone sheet strips zones, so finalize re-runs
+  // against the committed state (finishAssessment reads `zones` from its
+  // closure, so calling it in the same handler would score the old list).
+  const [pendingFinish, setPendingFinish] = useState(0)
   const [calWarning, setCalWarning] = useState(null)
   // Calibration acknowledgement — the record left when an assessor
   // finalizes past the instrument interrupt. See
@@ -1268,7 +1279,12 @@ export default function MobileApp() {
   // Auto-save draft
   const saveRef = useRef(null)
   useEffect(() => {
-    if (!['quickstart','zone','details'].includes(view) || !draftId) return
+    // 'equipment' belongs in this whitelist too — it sits between
+    // quickstart and zone in the walkthrough, and equipment captured
+    // there was previously never persisted (silently dropped if the
+    // assessor left the app on this screen), nor could resumeDraft ever
+    // route back to it. See resolveDraftResumeView.
+    if (!['quickstart','equipment','zone','details'].includes(view) || !draftId) return
     // Don't persist an assessment that hasn't been started. This fired 1.2s
     // after "New Assessment" with `bldg` still `{}`, so backing out left an
     // "Untitled" draft row forever — and nothing ever pruned one. See
@@ -1364,6 +1380,17 @@ export default function MobileApp() {
     if (additionalQs.length > 0) qs = [...qs, ...additionalQs]
     return qs
   }, [zData, bldg.ft, buildingProfile, suppressedIds, additionalQs])
+  // Defensive clamp: qsqi/dqi/zqi index into qsVis/dtVis/zVis, and a
+  // conditional question (e.g. Q_ZONE's cx → sy/sr/ac/cc) can shrink one
+  // of those lists out from under an index that pointed past where the
+  // list now ends. An out-of-range index means `qscq`/`dtcq`/`zcq` is
+  // undefined, and each wizard screen is gated on that value being
+  // truthy — so the screen renders nothing at all: no question, no Back,
+  // no Continue, a dead end the assessor cannot navigate out of. Pull the
+  // index back onto the last real question instead.
+  useEffect(() => { if (qsVis.length > 0 && qsqi > qsVis.length - 1) setQsqi(qsVis.length - 1) }, [qsVis.length, qsqi, setQsqi])
+  useEffect(() => { if (dtVis.length > 0 && dqi > dtVis.length - 1) setDqi(dtVis.length - 1) }, [dtVis.length, dqi, setDqi])
+  useEffect(() => { if (zVis.length > 0 && zqi > zVis.length - 1) setZqi(zVis.length - 1) }, [zVis.length, zqi, setZqi])
   // Outdoor sensor readings are a site-wide baseline, captured once (only the
   // first zone shows them). Writing one applies it to EVERY zone so scoring and
   // the report see the outdoor value regardless of which zone is active.
@@ -1586,10 +1613,10 @@ export default function MobileApp() {
     setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
     setCurrentSiteId(d.site_id || null)  // PR 1: inherit site binding if the draft carries one
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
-    // Resume at the right phase
-    if (!d.bldg?.fn && !d.building?.fn) setView('quickstart')
-    else if (d.zones?.length > 0 && d.zones[0]?.zn) setView('zone')
-    else setView('quickstart')
+    // Resume at the right phase — see resolveDraftResumeView for why
+    // 'equipment' is a real destination here, not a fallthrough to
+    // 'quickstart'.
+    setView(resolveDraftResumeView(d))
     return true
   }
 
@@ -1718,6 +1745,9 @@ export default function MobileApp() {
         sp: samplingPlan, cc: causalChains, mold: moldResults, mc: measConf,
       }
     }
+    // Every entry in `zones` is scored. finishAssessment keeps a zone with
+    // nothing recorded in it from reaching here (isBlankZone); the
+    // zone screen offers "Remove this zone" for the same reason.
     // Propagate outdoor baselines — one outdoor reading per parameter applies to all zones
     const outdoorFields = ['co2o', 'tfo', 'rho', 'pmo', 'tvo']
     const outdoorValues = {}
@@ -1756,7 +1786,19 @@ export default function MobileApp() {
     return { zScores, composite, osha, recommendations, sp, cc, mold, mc }
   }
 
-  const finishAssessment = async (bypassCalWarning, acknowledgement) => {
+  const finishAssessment = async (bypassCalWarning, acknowledgement, opts = {}) => {
+    // Zones with nothing recorded — a "+ Add another zone" that was never
+    // filled in, or one stepped past with ‹ Prev / Next › — do not belong
+    // in the census. Stop and ask before scoring them; the sheet either
+    // strips them (then re-enters here with skipBlankCheck, see the
+    // pendingFinish effect) or takes the assessor to the first one. The
+    // ack path (bypassCalWarning) has already been through this.
+    if (!bypassCalWarning && !opts.skipBlankCheck) {
+      const blank = blankZoneIndices(zones, OUTDOOR_SENSOR_IDS)
+      if (blank.length > 0 && blank.length < zones.length) { setBlankZonePrompt(blank); return }
+      // Every zone blank: there is nothing to finalize. Send them to zone 1.
+      if (blank.length > 0) { setCurZone(0); setZqi(0); setView('zone'); toast.error('Record at least one zone before finishing.'); return }
+    }
     // Instrument metadata check — warn if missing
     if (!bypassCalWarning) {
       const missing = []
@@ -1793,17 +1835,27 @@ export default function MobileApp() {
     trackEvent('assessment_completed', { zones: zones.length, findings: composite?.findings?.total, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
     setMilestone({icon:'chart',title:'Assessment Complete',sub:`Scoring ${zones.length} zone${zones.length>1?'s':''}...`})
-    setTimeout(() => { setMilestone(null); setRTab('overview'); setView('results') }, 1600)
+    // The milestone holds for at least 1.6s so the "scoring" beat reads as
+    // a step, but Results is shown only once the LOCAL record is written
+    // and `draftId` has advanced to the report id — an export tapped
+    // before that carried the retired draft id. Cloud sync and the site
+    // refresh stay after the transition: they never touch `draftId`, and
+    // an offline queue should not hold the screen.
+    const minHold = new Promise((resolve) => setTimeout(resolve, 1600))
+    const showResults = () => { setMilestone(null); setRTab('overview'); setView('results') }
+    let report = null
+    let rid = null
+    try {
     // Reuse the existing report id when re-finalizing one that was resumed to
     // fix a defensibility gap, so it UPDATES in place instead of spawning a
     // duplicate. A brand-new assessment gets a fresh rpt- id and its source
     // draft is retired. Either way the id is dropped from the drafts list so a
     // finalized report never also lingers as a draft.
-    const { rid } = resolveFinalizeTarget({
+    rid = resolveFinalizeTarget({
       currentId: draftId,
       reportIds: (index.reports || []).map(r => r.id),
       newId: 'rpt-' + Date.now(),
-    })
+    }).rid
     // PR 1: stamp the report with the bound site_id when present
     // (deep-link hydration or a previous "Save site" finalize).
     // siteLink.findMostRecentReportForSite uses this on the next round.
@@ -1823,7 +1875,7 @@ export default function MobileApp() {
     // below purges that namespace, so copy them under the report id first.
     const { photos: reportPhotos } = await rekeyPhotos(photos, rid)
     if (reportPhotos !== photos) setPhotos(reportPhotos)
-    const report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
+    report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
     reportStorageWrite(await STO.set(rid, report), 'report')
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
@@ -1843,6 +1895,17 @@ export default function MobileApp() {
     // resumeAndFix → resumeDraft) did.
     setDraftId(rid)
     await refreshIndex()
+    } catch (e) {
+      // Live state is already scored and renders Results on its own; what
+      // failed is the saved record. Say so rather than letting the beat
+      // time out into a screen that looks finalized.
+      console.error('Finalize: local persistence failed', e)
+      report = null
+      toast.error('The report could not be saved on this device. Your results are shown, but re-finalize before exporting.')
+    }
+    await minHold
+    showResults()
+    if (!report) return
     // Sync to cloud
     if (supabase) {
       // saveAssessment never throws on a cloud failure any more; it reports
@@ -1892,6 +1955,27 @@ export default function MobileApp() {
       // First-time path — open the SaveSitePrompt over the results view.
       setSavePromptCtx({ rid, ts: report.ts })
     }
+  }
+
+  // Re-enter finalize once the blank-zone sheet's removal has committed.
+  // Counter, not boolean, and depends on the counter ALONE — same
+  // reasoning as pendingRescore above: the strip and this bump land in
+  // one handler, so the closure here already sees the shorter `zones`.
+  useEffect(() => {
+    if (pendingFinish === 0) return
+    finishAssessment(false, null, { skipBlankCheck: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFinish])
+
+  // Take the current zone out of the assessment: photos re-keyed, the
+  // equipment mapping pruned, the pointer clamped. See zoneContent.js.
+  const removeCurrentZone = () => {
+    if (zones.length <= 1) return
+    const next = removeZoneAt({ zones, photos, photoOverrides, equipment, curZone }, curZone)
+    trackEvent('zone_removed', { zone_index: curZone, zones_remaining: next.zones.length })
+    setZones(next.zones); setPhotos(next.photos); setPhotoOverrides(next.photoOverrides); setEquipment(next.equipment)
+    setCurZone(next.curZone); setZqi(0); setConfirmRemoveZone(false)
+    haptic('light')
   }
 
   const finishDetails = () => {
@@ -2458,7 +2542,7 @@ export default function MobileApp() {
 
           {extraTop}
 
-          {q.t==='text'&&<><input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id, q.ac==='street-address' ? e.target.value.replace(/[^A-Za-z0-9\s,.#/'&-]/g,'') : e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id]&&!addrInvalid)goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${addrInvalid?WARN:BORDER}`,borderRadius:12,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box',outline:'none'}} onFocus={e=>e.target.style.borderColor=addrInvalid?WARN:ACCENT} onBlur={e=>e.target.style.borderColor=addrInvalid?WARN:BORDER} />{addrInvalid&&<div style={{fontSize:13,color:WARN,marginTop:8,fontFamily:'inherit'}}>Enter a valid address: letters required (e.g. a street name or campus ID).</div>}</>}
+          {q.t==='text'&&<><input type="text" autoComplete={q.ac||'off'} value={data[q.id]||''} onChange={e=>setField(q.id, q.ac==='street-address' ? e.target.value.replace(/[^A-Za-z0-9\s,.#/'&-]/g,'') : e.target.value)} placeholder={q.ph||'Type...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&answeredReq(q)&&!addrInvalid)goNext()}} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${addrInvalid?WARN:BORDER}`,borderRadius:12,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box',outline:'none'}} onFocus={e=>e.target.style.borderColor=addrInvalid?WARN:ACCENT} onBlur={e=>e.target.style.borderColor=addrInvalid?WARN:BORDER} />{addrInvalid&&<div style={{fontSize:13,color:WARN,marginTop:8,fontFamily:'inherit'}}>Enter a valid address: letters required (e.g. a street name or campus ID).</div>}</>}
           {q.t==='num'&&(() => {
             // Map wizard field id → canonical BLE metric. Only the
             // CO2 fields wire to BLE in this PR; adding RH / temp /
@@ -2478,7 +2562,7 @@ export default function MobileApp() {
               <div>
                 <div style={{display:'flex',alignItems:'stretch',gap:8}}>
                   <div style={{position:'relative',flex:1,minWidth:0}}>
-                    <input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&data[q.id])goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box',outline:'none'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
+                    <input type="number" inputMode="decimal" value={data[q.id]||''} onChange={e=>setField(q.id,e.target.value)} placeholder={q.ph||'Enter...'} autoFocus onKeyDown={e=>{if(e.key==='Enter'&&answeredReq(q))goNext()}} style={{width:'100%',padding:'18px 20px',paddingRight:q.u?70:20,background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:12,color:TEXT,fontSize:17,fontFamily:'inherit',fontWeight:500,boxSizing:'border-box',outline:'none'}} onFocus={e=>e.target.style.borderColor=ACCENT} onBlur={e=>e.target.style.borderColor=BORDER} />
                     {q.u&&<span style={{position:'absolute',right:18,top:'50%',transform:'translateY(-50%)',color:DIM,fontSize:14,fontFamily:"var(--font-mono)"}}>{q.u}</span>}
                   </div>
                   {/* BLE sensor pair button — sits to the right of
@@ -2555,10 +2639,21 @@ export default function MobileApp() {
           {q.t==='ch'&&q.opts&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{q.opts.map((o,i)=>{const stMap=q._subtypeMap;const storedVal=stMap?stMap.find(st=>st.label===o)?.id||o:o;const sel=stMap?(data[q.id]===storedVal):(o==='Other'?isOtherChoice(q.opts,data[q.id]):(data[q.id]===o));return(<button key={o} onClick={()=>{haptic('light');if(o==='Other'&&q.other){setField(q.id,'Other')}else{setField(q.id,storedVal);setTimeout(goNext,250)}}} style={{padding:'16px 20px',textAlign:'left',background:sel?`${mix('accent', 7)}`:`${CARD}`,border:`1.5px solid ${sel?ACCENT:BORDER}`,borderRadius:12,color:sel?ACCENT:TEXT,fontSize:16,fontFamily:'inherit',fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:14,minHeight:54}}><div style={{width:24,height:24,borderRadius:'50%',border:`2px solid ${sel?ACCENT:BORDER}`,background:sel?ACCENT:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{sel&&<I n="check" s={12} c={ON_ACCENT} />}</div><span style={{flex:1}}>{o}</span></button>)})}
             {q.other&&isOtherChoice(q.opts,data[q.id])&&<input type="text" value={data[q.id]==='Other'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'Other')} placeholder="Describe space use..." autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:4}} />}
           </div>}
-          {q.t==='multi'&&q.opts&&(()=>{const arr=data[q.id]||[];const exclusiveSel=arr.find(isExclusiveMultiOpt)||null;return(<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const optExclusive=isExclusiveMultiOpt(o);
+          {q.t==='multi'&&q.opts&&(()=>{const arr=data[q.id]||[];const exclusiveSel=arr.find(isExclusiveMultiOpt)||null;return(<><div style={{display:'flex',flexWrap:'wrap',gap:8}}>{q.opts.map((o,i)=>{const optExclusive=isExclusiveMultiOpt(o);
             // When an exclusive choice is active, every other option is
             // locked (and shown unchecked) until it's deselected.
-            const locked=exclusiveSel&&o!==exclusiveSel;const sel=exclusiveSel?o===exclusiveSel:arr.includes(o);const onClick=()=>{if(locked)return;if(optExclusive){setField(q.id,sel?[]:[o]);return}setField(q.id,sel?arr.filter(x=>x!==o):[...arr.filter(x=>!isExclusiveMultiOpt(x)),o])};return(<button key={o} disabled={!!locked} aria-disabled={!!locked} onClick={onClick} style={{padding:'12px 18px',borderRadius:999,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1,transition:'opacity .15s',minHeight:44}}>{sel?'✓ ':''}{o}</button>)})}</div>)})()}
+            const locked=exclusiveSel&&o!==exclusiveSel;const sel=exclusiveSel?o===exclusiveSel:arr.includes(o);const onClick=()=>{if(locked)return;if(optExclusive){setField(q.id,sel?[]:[o]);if(!sel)setField(`${q.id}_other`,undefined);return}setField(q.id,sel?arr.filter(x=>x!==o):[...arr.filter(x=>!isExclusiveMultiOpt(x)),o])};return(<button key={o} disabled={!!locked} aria-disabled={!!locked} onClick={onClick} style={{padding:'12px 18px',borderRadius:999,background:sel?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${sel?ACCENT:BORDER}`,color:sel?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:locked?'not-allowed':'pointer',opacity:locked?0.4:1,transition:'opacity .15s',minHeight:44}}>{sel?'✓ ':''}{o}</button>)})}
+            {/* Write-in for a multi-select (`other:1`). Kept OUT of the
+                list — stored as `<id>_other` — so the engine's option
+                matches never see it; it prints as what the assessor
+                recorded. Locked with the rest when an exclusive choice
+                ("None …") is active; that choice clears it. The pill is
+                "on" while the field exists, even empty, so the input stays
+                open while the assessor types. */}
+            {q.other&&(()=>{const key=`${q.id}_other`;const open=data[key]!=null;const lockedO=!!exclusiveSel;return(<button key="__other" disabled={lockedO} aria-disabled={lockedO} aria-pressed={open} onClick={()=>{if(lockedO)return;setField(key,open?undefined:'')}} style={{padding:'12px 18px',borderRadius:999,background:open?`${mix('accent', 8)}`:CARD,border:`1.5px solid ${open?ACCENT:BORDER}`,color:open?ACCENT:TEXT,fontSize:14,fontFamily:'inherit',fontWeight:500,cursor:lockedO?'not-allowed':'pointer',opacity:lockedO?0.4:1,transition:'opacity .15s',minHeight:44}}>{open?'✓ ':''}Other</button>)})()}
+          </div>
+          {q.other&&data[`${q.id}_other`]!=null&&!exclusiveSel&&<input type="text" value={data[`${q.id}_other`]||''} onChange={e=>setField(`${q.id}_other`,e.target.value)} placeholder="Describe it…" aria-label="Other — describe" autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:10}} />}
+          </>)})()}
           {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
           {q.t==='sensors'&&<>
             <SensorScreen data={data} onChange={setField} sensorData={sensorData} isDesktop={false} showOutdoor={curZone === 0} />
@@ -2593,16 +2688,33 @@ export default function MobileApp() {
         </div>
         {/* Back and Skip are text; Continue / Finish is the app's one
             primary capsule (accent fill), not a gradient — and not green
-            for Finish: green is the safe / severity colour. */}
+            for Finish: green is the safe / severity colour.
+            Both buttons gate on `canAdvance`, not just dim when it's
+            false: they used to only DIM (opacity .35) while staying
+            fully clickable, so a required question — the zone name,
+            zone area, occupant count, survey date, assessor name — could
+            be tapped past empty with no field ever populated, all the
+            way to Finish. `canAdvance` reuses `answeredReq`, the same
+            predicate the section chips above already use to decide what
+            counts as answered, so a question isn't "answered enough to
+            jump past" but "not answered enough to leave" — the ad hoc
+            check this replaced also read `data[q.id]` directly, which
+            treats an empty (deselected-down-to-zero) required multi-select
+            array as answered (arrays are truthy even when empty). */}
+        {(() => {
+          const canAdvance = answeredReq(q) && !addrInvalid
+          return (
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:32}}>
           <button onClick={goPrev} disabled={qIdx===0} style={{background:'none',border:'none',color:qIdx===0?DIM:SUB,fontSize:15,fontWeight:500,cursor:qIdx===0?'default':'pointer',fontFamily:'inherit',padding:'12px 0',minHeight:48}}>Back</button>
           <div style={{display:'flex',gap:18,alignItems:'center'}}>
             {q.sk&&<button onClick={goNext} style={{background:'transparent',border:'none',padding:'12px 0',color:SUB,fontSize:15,fontWeight:500,cursor:'pointer',fontFamily:'inherit',minHeight:48}}>Skip</button>}
             {qIdx===visQs.length-1
-              ? <button onClick={onFinish} style={{padding:'0 24px',background:'var(--accent-fill)',border:'none',borderRadius:999,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:46}}>{finishLabel}</button>
-              : (q.t!=='ch' || (q.other&&isOtherChoice(q.opts,data[q.id]))) ? <button onClick={()=>{if(addrInvalid)return;goNext()}} style={{padding:'0 24px',background:'var(--accent-fill)',border:'none',borderRadius:999,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:addrInvalid?'not-allowed':'pointer',fontFamily:'inherit',opacity:((!q.req||(q.t==='ch'?(data[q.id]&&data[q.id]!=='Other'):data[q.id]))&&!addrInvalid)?1:.35,minHeight:46}}>Continue</button> : null}
+              ? <button disabled={!canAdvance} onClick={()=>{if(!canAdvance)return;onFinish()}} style={{padding:'0 24px',background:'var(--accent-fill)',border:'none',borderRadius:999,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:canAdvance?'pointer':'not-allowed',fontFamily:'inherit',opacity:canAdvance?1:.35,minHeight:46}}>{finishLabel}</button>
+              : (q.t!=='ch' || (q.other&&isOtherChoice(q.opts,data[q.id]))) ? <button disabled={!canAdvance} onClick={()=>{if(!canAdvance)return;goNext()}} style={{padding:'0 24px',background:'var(--accent-fill)',border:'none',borderRadius:999,color:'var(--on-accent-fill)',fontSize:15,fontWeight:700,cursor:canAdvance?'pointer':'not-allowed',fontFamily:'inherit',opacity:canAdvance?1:.35,minHeight:46}}>Continue</button> : null}
           </div>
         </div>
+          )
+        })()}
       </div>
     )
   }
@@ -3914,6 +4026,55 @@ export default function MobileApp() {
         </BottomSheet>
       )}
 
+      {/* Remove-zone confirmation. The zone's photos go with it. */}
+      {confirmRemoveZone && (
+        <BottomSheet title={`Remove ${zoneLabel(zones, curZone)}?`} onClose={()=>setConfirmRemoveZone(false)} ariaLabel="Remove this zone from the assessment">
+          <div style={{...V3.T.bodyDim, margin:'4px 0 18px', lineHeight:1.6}}>
+            Everything recorded for this zone — answers, readings and photos — is removed from the assessment. The other zones are not affected.
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <TactileButton variant="danger" size="lg" fullWidth haptic="heavy" onClick={removeCurrentZone}>Remove zone</TactileButton>
+            <TactileButton variant="ghost" size="lg" onClick={()=>setConfirmRemoveZone(false)}>Cancel</TactileButton>
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* Finalize found zones with nothing recorded. Strip them and go on,
+          or go and fill the first one in. Both are the assessor's call;
+          neither is a hard block on the deliverable. */}
+      {blankZonePrompt && (
+        <BottomSheet title={blankZonePrompt.length === 1 ? 'A zone has nothing recorded' : `${blankZonePrompt.length} zones have nothing recorded`} onClose={()=>setBlankZonePrompt(null)} ariaLabel="Empty zones found before finishing">
+          <div style={{...V3.T.bodyDim, margin:'4px 0 12px', lineHeight:1.6}}>
+            {blankZonePrompt.length === 1 ? 'This zone was added but never surveyed.' : 'These zones were added but never surveyed.'} An empty zone would still count in the findings and appear in the report.
+          </div>
+          <div style={{margin:'0 0 18px'}}>
+            {blankZonePrompt.map(i => (
+              <div key={i} style={{...V3.T.bodyStrong, padding:'6px 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>{zoneLabel(zones, i)}</div>
+            ))}
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <TactileButton variant="primary" fullWidth size="lg" haptic="success" onClick={()=>{
+              const idx = blankZonePrompt
+              const next = removeZonesAt({ zones, photos, photoOverrides, equipment, curZone }, idx)
+              trackEvent('blank_zones_removed', { count: idx.length, zones_remaining: next.zones.length })
+              setZones(next.zones); setPhotos(next.photos); setPhotoOverrides(next.photoOverrides); setEquipment(next.equipment); setCurZone(next.curZone)
+              setBlankZonePrompt(null)
+              setPendingFinish(n => n + 1)
+            }}>
+              {blankZonePrompt.length === 1 ? 'Remove it and finish' : 'Remove them and finish'}
+            </TactileButton>
+            <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>{
+              const first = blankZonePrompt[0]
+              setBlankZonePrompt(null)
+              setCurZone(first); setZqi(0); setView('zone')
+            }}>
+              Go to {zoneLabel(zones, blankZonePrompt[0])}
+            </TactileButton>
+            <TactileButton variant="ghost" fullWidth onClick={()=>setBlankZonePrompt(null)}>Cancel</TactileButton>
+          </div>
+        </BottomSheet>
+      )}
+
       {/* Logger Studio opened with no assessment in progress: which one
           should the logger data belong to? Listed newest first; "open
           without attaching" keeps the old behaviour for a quick look at a
@@ -4624,6 +4785,10 @@ export default function MobileApp() {
             <div style={{display:'flex',gap:8}}>
               {zones.length>1&&curZone>0&&<button onClick={()=>{setCurZone(curZone-1);setZqi(0)}} style={{fontSize:14,color:SUB,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 12px',minHeight:44}}>‹ Prev</button>}
               {curZone<zones.length-1&&<button onClick={()=>{setCurZone(curZone+1);setZqi(0)}} style={{fontSize:14,color:SUB,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 12px',minHeight:44}}>Next ›</button>}
+              {/* A zone can be taken back out — a mis-tapped "Add another
+                  zone", a duplicate — as long as one remains. Danger ink,
+                  text action, confirmed in a sheet, like "Delete project". */}
+              {zones.length>1&&<button onClick={()=>setConfirmRemoveZone(true)} aria-label="Remove this zone" style={{fontSize:14,color:'var(--danger)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'8px 0 8px 12px',minHeight:44}}>Remove</button>}
             </div>
           </div>
           {/* Zone-equipment mapping (v2.8.0). Equipment-scoped recs

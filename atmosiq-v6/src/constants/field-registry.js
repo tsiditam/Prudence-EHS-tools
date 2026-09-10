@@ -160,7 +160,32 @@ function buildRegistry() {
       // `_sensors` is a layout placeholder for the instrument panel, not
       // a field anything stores.
       if (!q || !q.id || q.id.startsWith('_')) continue
-      remember(contractFromQuestion(q, source))
+      const contract = contractFromQuestion(q, source)
+      remember(contract)
+      // A multi-select with `other:1` stores its "Other" write-in BESIDE the
+      // list as `<id>_other` — never inside it, so the option matches the
+      // engines key on are untouched, and the text still reaches the
+      // findings and chain evidence as recorded. Derived here so the
+      // companion is a declared field wherever the parent is, and the
+      // engine-read scan can tell a write-in from a dead read. (A `ch`
+      // with `other:1` stores its custom text in the same field.)
+      if (q.t === 'multi' && q.other === 1) {
+        remember({
+          id: `${q.id}_other`,
+          label: `${contract.label} — other`,
+          scope: contract.scope,
+          kind: 'text',
+          control: 'text',
+          opts: null,
+          unit: null,
+          dynamicOptions: false,
+          conditional: true,
+          required: false,
+          outdoor: false,
+          companionOf: q.id,
+          sources: [source],
+        })
+      }
     }
   }
   for (const f of SENSOR_FIELDS) {
