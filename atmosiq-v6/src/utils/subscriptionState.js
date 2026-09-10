@@ -109,8 +109,10 @@ export function getSubscriptionBannerState(profile, now = new Date()) {
   if (BILLING_MODE === 'beta') return null
 
   // Phase 2+ branches go here. Stub left in place so call sites have
-  // a stable signature; do not enable until Stripe state is wired.
-  // eslint-disable-next-line no-unused-vars
+  // a stable signature; do not enable until Stripe state is wired. (The
+  // underscore names are the lint rule's own allow-pattern, so no
+  // directive is needed here — the one that stood here was itself the
+  // warning.)
   const _profile = profile, _now = now
   return null
 }

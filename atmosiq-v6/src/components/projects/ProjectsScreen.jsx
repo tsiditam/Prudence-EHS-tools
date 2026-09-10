@@ -23,7 +23,7 @@ import { I } from '../Icons'
 import { getProjects, createProject, deleteProject, PROJECT_STATUSES } from '../../utils/projectStore'
 import ProjectForm from './ProjectForm'
 import { STATUS_LABEL, fmtDate } from './projectsTheme'
-import { useScrollEdges } from '../../hooks/useScrollEdges'
+import AssessmentSegmentedPillNav from '../ui/AssessmentSegmentedPillNav'
 
 const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
 
@@ -105,8 +105,6 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
   const list = projects || []
   const filtered = filter === 'all' ? list : list.filter(p => p.status === filter)
 
-  const tabScroll = useScrollEdges()
-
   // One action, two places it can live. In the list header it is the
   // small pill beside the heading; in the empty state it is the only
   // thing to tap, so it takes the full-size pill with room around the
@@ -146,32 +144,18 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       )}
 
       {/* Status filters as text tabs — the active one in the primary ink
-          with a rule beneath it. The strip scrolls past the frame on a
-          narrow phone and fades on whichever side still has tabs
-          (useScrollEdges). */}
+          with a rule beneath it that glides between tabs. The same strip
+          the result screen and Logger Studio use, so the three move the
+          same way; it scrolls past the frame on a narrow phone and fades
+          on whichever side still has tabs. */}
       {list.length > 0 && (
-        <div ref={tabScroll.ref} role="tablist" aria-label="Filter by status" style={{
-          display: 'flex', gap: 22, overflowX: 'auto', marginBottom: 4,
-          borderBottom: HAIRLINE,
-          WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
-          ...tabScroll.maskStyle,
-        }}>
-          {['all', ...PROJECT_STATUSES].map(s => {
-            const active = filter === s
-            return (
-              <button key={s} role="tab" aria-selected={active} onClick={() => setFilter(s)} style={{
-                flexShrink: 0, padding: '8px 0 10px', cursor: 'pointer', fontFamily: 'inherit',
-                background: 'transparent', border: 'none',
-                borderBottom: `2px solid ${active ? V3.TEXT_PRIMARY : 'transparent'}`, marginBottom: -1,
-                fontSize: 14, fontWeight: active ? 600 : 500, letterSpacing: '-0.01em',
-                color: active ? V3.TEXT_PRIMARY : V3.TEXT_SECONDARY,
-                WebkitTapHighlightColor: 'transparent',
-              }}>
-                {s === 'all' ? 'All' : STATUS_LABEL[s]}
-              </button>
-            )
-          })}
-        </div>
+        <AssessmentSegmentedPillNav
+          ariaLabel="Filter by status"
+          tabs={['all', ...PROJECT_STATUSES].map((s) => ({ id: s, label: s === 'all' ? 'All' : STATUS_LABEL[s] }))}
+          active={filter}
+          onChange={setFilter}
+          style={{ marginBottom: 4 }}
+        />
       )}
 
       {projects === null ? (
