@@ -82,9 +82,21 @@ if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
 
 // The vertical offset of whatever just scrolled: an element's scrollTop,
 // or the window's scrollY when the document itself scrolls.
-function scrollOffsetOf(target) {
-  if (target && typeof target.scrollTop === 'number' && target !== document) return target.scrollTop
-  return window.scrollY || document.documentElement.scrollTop || 0
+//
+// Held to the scroller's real range. An iOS rubber-band bounce reports
+// offsets past either end while the content springs back — on a page
+// that does not scroll at all, pulling it up read as "scrolling down"
+// and then "scrolling up" within one gesture, so the launcher shrank and
+// grew mid-bounce and its aura tore. A bounce is not a scroll. A document
+// that has not been laid out (scrollHeight 0) reports no range and is
+// left alone.
+export function scrollOffsetOf(target) {
+  const isElement = target && typeof target.scrollTop === 'number' && target !== document
+  const el = isElement ? target : document.documentElement
+  const y = isElement ? target.scrollTop : (window.scrollY || el.scrollTop || 0)
+  if (!(el.scrollHeight > 0)) return Math.max(0, y)
+  const max = Math.max(0, el.scrollHeight - el.clientHeight)
+  return Math.min(Math.max(0, y), max)
 }
 
 export default function JasperFloatingButton({ onClick, active, label = 'AtmosFlow AI', bottomOffset = 78 }) {
@@ -123,6 +135,13 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
 
   const size = shrunk ? 46 : 60
   const glyph = shrunk ? 17 : 22
+  // The aura keeps one extent whatever the disc is doing. It used to track
+  // `size`, which resized the masked span in a single step while the disc
+  // eased over 280ms — Safari drew the mask against the old bounds for
+  // those frames and the glow sat off-centre and clipped. The disc is
+  // what gets out of the way while reading; the glow is the identity and
+  // stays the same.
+  const glowSize = 60
 
   // Free placement. `pos` is null until the user drags: that keeps the
   // original bottom-right anchor (and its safe-area math) as the resting
@@ -239,8 +258,8 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
           position: 'absolute',
           top: '50%',
           left: '50%',
-          width: size,
-          height: size,
+          width: glowSize,
+          height: glowSize,
           borderRadius: '50%',
           pointerEvents: 'none',
           // Base centering transform so the glow stays put even when the

@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
-import JasperFloatingButton, { clampToViewport } from '../../src/components/JasperFloatingButton'
+import JasperFloatingButton, { clampToViewport, scrollOffsetOf } from '../../src/components/JasperFloatingButton'
 import { KEYS } from '../../src/utils/storageKeys'
 
 // jsdom gives every element a zero-size rect, so a pointerdown at (x, y)
@@ -104,6 +104,39 @@ describe('JasperFloatingButton', () => {
     scroller.remove()
   })
 
+  // An iOS rubber-band bounce reports offsets past the end of the range
+  // while the content springs back. On a page that does not scroll that
+  // read as down-then-up inside one gesture, and the launcher shrank and
+  // grew mid-bounce. A bounce is not a scroll.
+  it('ignores a rubber-band bounce on a scroller with no range', () => {
+    const scroller = document.createElement('div')
+    // jsdom lays nothing out, so give the scroller a laid-out shape: content
+    // exactly fills the box, so the range is zero.
+    Object.defineProperty(scroller, 'scrollHeight', { value: 800, configurable: true })
+    Object.defineProperty(scroller, 'clientHeight', { value: 800, configurable: true })
+    document.body.appendChild(scroller)
+    render(<JasperFloatingButton onClick={() => {}} />)
+    const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
+
+    scroller.scrollTop = 90; fireEvent.scroll(scroller)     // the overshoot
+    expect(btn.style.width).toBe('60px')
+    scroller.scrollTop = 0; fireEvent.scroll(scroller)      // the spring back
+    expect(btn.style.width).toBe('60px')
+    scroller.remove()
+  })
+
+  it('clamps an overshoot past the end of a real range, and a negative one at the top', () => {
+    const scroller = document.createElement('div')
+    Object.defineProperty(scroller, 'scrollHeight', { value: 2000, configurable: true })
+    Object.defineProperty(scroller, 'clientHeight', { value: 800, configurable: true })
+    scroller.scrollTop = 1300
+    expect(scrollOffsetOf(scroller)).toBe(1200)
+    scroller.scrollTop = -40
+    expect(scrollOffsetOf(scroller)).toBe(0)
+    scroller.scrollTop = 600
+    expect(scrollOffsetOf(scroller)).toBe(600)
+  })
+
   // The two-tone breathing aura is the launcher's identity mark and stays
   // (product decision, reaffirmed after a restraint pass removed it).
   it('keeps the breathing two-tone aura behind the glyph', () => {
@@ -112,6 +145,19 @@ describe('JasperFloatingButton', () => {
     expect(glow).not.toBeNull()
     expect(glow.getAttribute('aria-hidden')).toBe('true')
     expect(glow.style.animation).toContain('jfbBreathe')
+  })
+
+  // The aura keeps one extent while the disc shrinks. It used to resize in
+  // a single step while the disc eased, and Safari drew the mask against
+  // the old bounds for those frames — the glow sat off-centre and clipped.
+  it('keeps the aura at full extent while the disc is shrunk', () => {
+    const { container } = render(<JasperFloatingButton onClick={() => {}} />)
+    const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
+    const glow = container.querySelector('.jfb-glow')
+    setScrollY(240); fireEvent.scroll(window)
+    expect(btn.style.width).toBe('46px')
+    expect(glow.style.width).toBe('60px')
+    expect(glow.style.height).toBe('60px')
   })
 
   describe('free placement', () => {
