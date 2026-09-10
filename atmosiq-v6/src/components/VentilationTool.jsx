@@ -26,8 +26,9 @@ import * as V3 from '../styles/tokens'
 import Select from './ui/Select'
 import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
 import {
-  SPACE_TYPES, EZ_PRESETS, ACTIVITY_LEVELS,
+  SPACE_TYPES, EZ_PRESETS, ACTIVITY_LEVELS, G_UNCERTAINTY, generationCfm,
   requiredOutdoorAir, steadyStateDelivery, decayTwoPoint, achToCfm, compareDelivery,
+  steadyAssumptions, DECAY_ASSUMPTIONS,
   REQUIRED_CITATION, STEADY_STATE_CITATION, DECAY_CITATION,
 } from '../engines/ventilation'
 
@@ -71,13 +72,17 @@ function Field({ label, unit, wide, children }) {
 // beneath. No box.
 function Stat({ label, value, unit, sub }) {
   return (
-    <div style={{ minWidth: 0 }}>
+    // `data-stat` is the handle the layout-stability test counts: the same
+    // statistics are on the page before and after a reading is entered.
+    <div data-stat style={{ minWidth: 0 }}>
       <div style={{ ...V3.T.captionDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
         <span style={V3.N.lg}>{value == null ? '—' : value}</span>
         {unit && <span style={{ ...V3.T.captionDim, whiteSpace: 'nowrap' }}>{unit}</span>}
       </div>
-      {sub && <div style={{ ...V3.T.captionDim, marginTop: 2 }}>{sub}</div>}
+      {/* Always rendered, even with nothing to say: a caption that appeared
+          with the figure changed the row's height and moved the page. */}
+      <div style={{ ...V3.T.captionDim, marginTop: 2, minHeight: 16 }}>{sub || ' '}</div>
     </div>
   )
 }
@@ -89,8 +94,26 @@ const Section = ({ n, title, first, children }) => (
   </div>
 )
 
-const Note = ({ children, tone }) => (
-  <div style={{ ...V3.T.captionDim, marginTop: 10, lineHeight: 1.5, color: tone || undefined }}>{children}</div>
+/**
+ * A note under a section: guidance, a warning, an error, a citation.
+ *
+ * `lines` RESERVES that many lines of room, for the notes that are not
+ * always there. The page used to move under the assessor's hands —
+ * guidance, a differential-too-small error and a result all occupied the
+ * same place, and each was mounted or unmounted as the next digit was
+ * typed, so everything below it jumped down the page. A reserved note
+ * holds its height whether or not it has anything to say, which is why
+ * every message here is written to fit the lines it reserves. `strong` is
+ * body size, for the comparison statement.
+ */
+const Note = ({ children, tone, lines = 0, strong }) => (
+  <div style={{
+    ...(strong ? V3.T.body : V3.T.captionDim),
+    marginTop: strong ? 12 : 10,
+    lineHeight: 1.5,
+    color: tone || undefined,
+    ...(lines ? { minHeight: lines * (strong ? 21 : 18) } : null),
+  }}>{children}</div>
 )
 
 // Theme tokens, not hexes: the amber flips with the theme (index.html --warn).
@@ -102,8 +125,14 @@ export default function VentilationTool() {
 
   const ez = s.ezKey === 'custom' ? s.ezCustom : (EZ_PRESETS.find((p) => p.key === s.ezKey)?.ez ?? 1.0)
   const required = useMemo(() => requiredOutdoorAir({ spaceType: s.spaceType, occupants: s.occupants, areaSqft: s.areaSqft, ez }), [s.spaceType, s.occupants, s.areaSqft, ez])
+  // What the Ez caption shows before there is a result to read it off.
+  const ezShown = Number(ez) > 0 ? Number(ez) : 1
 
   const met = ACTIVITY_LEVELS.find((a) => a.key === s.activity)?.met ?? 1.2
+  // Both derive from the activity level alone, so they are known before any
+  // reading is entered and their figures never arrive mid-typing.
+  const gNow = Number(generationCfm(met).toFixed(4))
+  const uncertaintyPct = Math.round(G_UNCERTAINTY * 100)
   const steady = useMemo(() => steadyStateDelivery({ indoorPpm: s.indoorPpm, outdoorPpm: s.outdoorPpm, met }), [s.indoorPpm, s.outdoorPpm, met])
   const decay = useMemo(() => decayTwoPoint({ startPpm: s.startPpm, endPpm: s.endPpm, outdoorPpm: s.decayOutdoorPpm, minutes: s.minutes }), [s.startPpm, s.endPpm, s.decayOutdoorPpm, s.minutes])
   const decayCfm = useMemo(() => (decay && decay.ach != null ? achToCfm(decay.ach, s.volumeCuft, s.occupants) : null), [decay, s.volumeCuft, s.occupants])
@@ -146,19 +175,25 @@ export default function VentilationTool() {
             </Field>
           )}
         </div>
-        {required ? (
-          <>
-            <div style={stats}>
-              <Stat label="Breathing zone" value={required.vbz} unit="cfm" sub={`Vbz · ${required.rp}/person + ${required.ra}/ft²`} />
-              <Stat label="Zone outdoor air" value={required.voz} unit="cfm" sub={`Voz · Ez ${required.ez}`} />
-              <Stat label="Per person · breathing zone" value={required.perPerson} unit="cfm/person" sub={required.pz > 0 ? `Vbz ÷ ${required.pz} occupants` : 'needs occupants'} />
-            </div>
-            {required.partial && <Note tone="var(--warn)">Only one of the two terms is entered — this is a floor on the requirement, not the requirement.</Note>}
-            <Note>{REQUIRED_CITATION}</Note>
-          </>
-        ) : (
-          <Note>Enter occupants or floor area to compute the requirement.</Note>
-        )}
+        {/* The result grid is always on the page, showing "—" until there
+            is a figure. It used to mount on the first keystroke, which
+            dropped sections 2 and 3 a screenful down the page. */}
+        <div style={stats}>
+          <Stat label="Breathing zone" value={required?.vbz} unit="cfm" sub={required ? `Vbz · ${required.rp}/person + ${required.ra}/ft²` : 'Vbz · Rp·Pz + Ra·Az'} />
+          <Stat label="Zone outdoor air" value={required?.voz} unit="cfm" sub={`Voz · Ez ${required ? required.ez : ezShown}`} />
+          <Stat label="Per person · breathing zone" value={required?.perPerson} unit="cfm/person" sub={required && required.pz > 0 ? `Vbz ÷ ${required.pz} occupants` : 'needs occupants'} />
+        </div>
+        {/* Both messages are kept to one line so the reserved room is one
+            line — the completed state is the one the assessor looks at
+            longest, and it is the one holding the space empty. */}
+        <Note lines={1} tone={required?.partial ? 'var(--warn)' : undefined}>
+          {!required
+            ? 'Enter occupants or floor area.'
+            : required.partial
+              ? 'One term only — a floor, not the requirement.'
+              : null}
+        </Note>
+        <Note>{REQUIRED_CITATION}</Note>
       </Section>
 
       {/* ── 2 · Delivered ── */}
@@ -186,20 +221,20 @@ export default function VentilationTool() {
                 </Select>
               </Field>
             </div>
-            {steady && steady.error && <Note tone={V3.DANGER}>{steady.error}</Note>}
-            {steady && steady.cfmPerPerson != null && (
-              <>
-                <div style={stats}>
-                  <Stat label="Delivered" value={steady.cfmPerPerson} unit="cfm/person" sub={`${steady.low}–${steady.high} at ±10%`} />
-                  <Stat label="Differential" value={steady.delta} unit="ppm" sub="indoor − outdoor" />
-                  <Stat label="Generation rate" value={steady.g} unit="cfm/person" sub={`${steady.met} met`} />
-                </div>
-                <ul style={{ margin: '10px 0 0', paddingLeft: 16 }}>
-                  {steady.assumptions.map((a, i) => <li key={i} style={{ ...V3.T.captionDim, lineHeight: 1.6 }}>{a}</li>)}
-                </ul>
-              </>
-            )}
-            {!steady && <Note>Enter an indoor and outdoor reading taken after the space has been steadily occupied for a few hours.</Note>}
+            <div style={stats}>
+              <Stat label="Delivered" value={steady?.cfmPerPerson} unit="cfm/person" sub={steady?.cfmPerPerson != null ? `${steady.low}–${steady.high} at ±${uncertaintyPct}%` : `±${uncertaintyPct}% band`} />
+              <Stat label="Differential" value={steady?.delta} unit="ppm" sub="indoor − outdoor" />
+              <Stat label="Generation rate" value={gNow} unit="cfm/person" sub={`${met} met`} />
+            </div>
+            {/* The assumptions describe the METHOD, not the answer, so they
+                are on the page from the start rather than arriving with the
+                first valid reading and shoving section 3 down. */}
+            <ul style={{ margin: '10px 0 0', paddingLeft: 16 }}>
+              {steadyAssumptions(met).map((a, i) => <li key={i} style={{ ...V3.T.captionDim, lineHeight: 1.6 }}>{a}</li>)}
+            </ul>
+            <Note lines={2} tone={steady?.error ? V3.DANGER : undefined}>
+              {steady?.error || (steady ? null : 'Enter an indoor and outdoor reading taken after the space has been steadily occupied for a few hours.')}
+            </Note>
             <Note>{STEADY_STATE_CITATION}</Note>
           </>
         ) : (
@@ -221,20 +256,17 @@ export default function VentilationTool() {
                 <input type="number" inputMode="decimal" min="0" value={s.volumeCuft} onChange={set('volumeCuft')} placeholder="area × ceiling height" style={inStyle} aria-label="Room volume" />
               </Field>
             </div>
-            {decay && decay.error && <Note tone={V3.DANGER}>{decay.error}</Note>}
-            {decay && decay.ach != null && (
-              <>
-                <div style={stats}>
-                  <Stat label="Air changes" value={decay.ach} unit="ACH" sub={`over ${decay.hours} h`} />
-                  <Stat label="Outdoor air" value={decayCfm ? decayCfm.cfm : null} unit="cfm" sub={decayCfm ? 'from room volume' : 'needs room volume'} />
-                  <Stat label="Per person" value={decayCfm ? decayCfm.cfmPerPerson : null} unit="cfm/person" sub={decayCfm && decayCfm.cfmPerPerson == null ? 'needs occupants (section 1)' : 'at the occupancy in section 1'} />
-                </div>
-                <ul style={{ margin: '10px 0 0', paddingLeft: 16 }}>
-                  {decay.assumptions.map((a, i) => <li key={i} style={{ ...V3.T.captionDim, lineHeight: 1.6 }}>{a}</li>)}
-                </ul>
-              </>
-            )}
-            {!decay && <Note>Take one reading as the last occupants leave and one after the room has been empty for an hour or more.</Note>}
+            <div style={stats}>
+              <Stat label="Air changes" value={decay?.ach} unit="ACH" sub={decay?.hours != null ? `over ${decay.hours} h` : 'over the period'} />
+              <Stat label="Outdoor air" value={decayCfm?.cfm} unit="cfm" sub={decayCfm ? 'from room volume' : 'needs room volume'} />
+              <Stat label="Per person" value={decayCfm?.cfmPerPerson} unit="cfm/person" sub={decayCfm?.cfmPerPerson != null ? 'at section 1 occupancy' : 'needs occupants'} />
+            </div>
+            <ul style={{ margin: '10px 0 0', paddingLeft: 16 }}>
+              {DECAY_ASSUMPTIONS.map((a, i) => <li key={i} style={{ ...V3.T.captionDim, lineHeight: 1.6 }}>{a}</li>)}
+            </ul>
+            <Note lines={2} tone={decay?.error ? V3.DANGER : undefined}>
+              {decay?.error || (decay ? null : 'Take one reading as the last occupants leave and one after the room has been empty for an hour or more.')}
+            </Note>
             <Note>{DECAY_CITATION}</Note>
           </>
         )}
@@ -242,36 +274,35 @@ export default function VentilationTool() {
 
       {/* ── 3 · Comparison ── */}
       <Section n="3" title="Comparison">
-        {comparison ? (
-          <>
-            {/* The verdict is a word in its colour; the method beside it. */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 15, fontWeight: 600, color: LEVEL_TONE[comparison.level] }}>{LEVEL_LABEL[comparison.level]}</span>
-              <span style={V3.T.captionDim}>{s.method === 'steady' ? 'steady-state estimate' : 'decay estimate'}</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginTop: 14 }}>
-              <div>
-                <div style={V3.T.captionDim}>Delivered · est.</div>
-                {/* The figure that matters carries the verdict's colour; the
-                    requirement beside it stays in the primary ink. */}
-                <div style={{ ...V3.N.lg, color: LEVEL_TONE[comparison.level] }}>{deliveredPerPerson}</div>
-                <div style={V3.T.captionDim}>cfm/person</div>
-              </div>
-              <div style={{ fontSize: 22, color: DIM }}>/</div>
-              <div>
-                {/* "Vbz" rather than "breathing zone": the long label wrapped
-                    on a phone and dropped this figure below the other one.
-                    Section 1 defines Vbz two lines above the number. */}
-                <div style={V3.T.captionDim}>Required · 62.1 Vbz</div>
-                <div style={V3.N.lg}>{required.perPerson}</div>
-                <div style={V3.T.captionDim}>cfm/person</div>
-              </div>
-            </div>
-            <div style={{ ...V3.T.body, marginTop: 12, lineHeight: 1.5 }}>{comparison.statement}</div>
-          </>
-        ) : (
-          <Note>Both a requirement (section 1, with occupants) and a delivered estimate (section 2) are needed for the comparison.</Note>
-        )}
+        {/* The verdict is a word in its colour; the method beside it. Both
+            figures keep their place before either side exists. */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: comparison ? LEVEL_TONE[comparison.level] : V3.TEXT_SECONDARY }}>
+            {comparison ? LEVEL_LABEL[comparison.level] : 'Awaiting both figures'}
+          </span>
+          <span style={V3.T.captionDim}>{s.method === 'steady' ? 'steady-state estimate' : 'decay estimate'}</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginTop: 14 }}>
+          <div>
+            <div style={V3.T.captionDim}>Delivered · est.</div>
+            {/* The figure that matters carries the verdict's colour; the
+                requirement beside it stays in the primary ink. */}
+            <div style={{ ...V3.N.lg, color: comparison ? LEVEL_TONE[comparison.level] : undefined }}>{deliveredPerPerson == null ? '—' : deliveredPerPerson}</div>
+            <div style={V3.T.captionDim}>cfm/person</div>
+          </div>
+          <div style={{ fontSize: 22, color: DIM }}>/</div>
+          <div>
+            {/* "Vbz" rather than "breathing zone": the long label wrapped
+                on a phone and dropped this figure below the other one.
+                Section 1 defines Vbz two lines above the number. */}
+            <div style={V3.T.captionDim}>Required · 62.1 Vbz</div>
+            <div style={V3.N.lg}>{required?.perPerson == null ? '—' : required.perPerson}</div>
+            <div style={V3.T.captionDim}>cfm/person</div>
+          </div>
+        </div>
+        <Note strong lines={3}>
+          {comparison ? comparison.statement : 'Both a requirement (section 1, with occupants) and a delivered estimate (section 2) are needed for the comparison.'}
+        </Note>
         <div style={{ ...V3.T.captionDim, lineHeight: 1.5, marginTop: 14 }}>
           CO₂-based figures are estimates of outdoor-air delivery, not measurements. For compliance documentation a direct airflow measurement — duct traverse, balometer at the diffuser, or tracer gas per ASTM E741 — outranks any figure here.
         </div>

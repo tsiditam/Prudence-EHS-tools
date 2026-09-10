@@ -146,6 +146,20 @@ export const G_UNCERTAINTY = 0.10
 export const STEADY_STATE_CITATION = 'Steady-state CO₂ mass balance, Vo = G·10⁶ / (Cin − Cout) (ASTM D6245-18; Persily & de Jonge 2017). Valid only at equilibrium — roughly three air-change time constants of steady occupancy.'
 
 /**
+ * What the steady-state estimate assumes, for a given activity level.
+ * Exported so a caller can state the assumptions BEFORE there is a result:
+ * they describe the method, not the answer, and a UI that waits for a
+ * number to show them has to reflow the page when one arrives.
+ */
+export function steadyAssumptions(met = 1.2) {
+  return [
+    'Occupancy and outdoor-air delivery were steady long enough to reach equilibrium.',
+    `Occupants at about ${met} met; generation rate ${generationCfm(met).toFixed(4)} cfm/person (±${Math.round(G_UNCERTAINTY * 100)}%).`,
+    'Outdoor CO₂ was measured, not assumed.',
+  ]
+}
+
+/**
  * Outdoor-air delivery per person from an indoor / outdoor CO₂ pair.
  * Returns { error } when the differential is below the reliability floor,
  * null when inputs are not numbers.
@@ -156,7 +170,13 @@ export function steadyStateDelivery({ indoorPpm, outdoorPpm, met = 1.2 }) {
   if (cs == null || co == null) return null
   const delta = cs - co
   if (delta < MIN_DIFFERENTIAL_PPM) {
-    return { error: `CO₂ differential is ${Math.round(delta)} ppm — below the ${MIN_DIFFERENTIAL_PPM} ppm floor where the mass-balance estimate is reliable. Use a direct airflow measurement.` }
+    // `delta` rides along with the refusal: it is the number that explains
+    // it, and a UI showing the differential can keep showing it instead of
+    // dropping the figure (and its row) while the reading is too small.
+    // Kept to two lines on a phone: the caller reserves the space this
+    // message needs, and a third line is a third line of reserved blank
+    // whenever the reading IS usable.
+    return { delta: Math.round(delta), error: `CO₂ differential is ${Math.round(delta)} ppm — below the ${MIN_DIFFERENTIAL_PPM} ppm floor for a reliable estimate. Use a direct airflow measurement.` }
   }
   const g = generationCfm(met)
   const cfm = (g * 1e6) / delta
@@ -168,11 +188,7 @@ export function steadyStateDelivery({ indoorPpm, outdoorPpm, met = 1.2 }) {
     high: r1(cfm * (1 + G_UNCERTAINTY)),
     delta: Math.round(delta), g: Number(g.toFixed(4)), met,
     citation: STEADY_STATE_CITATION,
-    assumptions: [
-      'Occupancy and outdoor-air delivery were steady long enough to reach equilibrium.',
-      `Occupants at about ${met} met; generation rate ${generationCfm(met).toFixed(4)} cfm/person (±${Math.round(G_UNCERTAINTY * 100)}%).`,
-      'Outdoor CO₂ was measured, not assumed.',
-    ],
+    assumptions: steadyAssumptions(met),
   }
 }
 
@@ -195,7 +211,9 @@ export function decayTwoPoint({ startPpm, endPpm, outdoorPpm, minutes }) {
   return { method: 'decay', ach: r2(ach), hours: r2(m / 60), n: 2, r2: null, citation: DECAY_CITATION, assumptions: DECAY_ASSUMPTIONS }
 }
 
-const DECAY_ASSUMPTIONS = [
+/** Exported for the same reason as `steadyAssumptions` — they describe the
+ *  method, so a caller can state them before there is a result. */
+export const DECAY_ASSUMPTIONS = [
   'The space was unoccupied for the whole period, so no CO₂ was generated.',
   'Outdoor-air delivery and outdoor CO₂ were constant across the period.',
   'The air was well mixed at the sensor location.',
@@ -263,7 +281,7 @@ export function compareDelivery({ requiredPerPerson, deliveredPerPerson }) {
     statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — below the requirement, on this estimate.`
   } else if (ratio < 1.0) {
     level = 'near'
-    statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — within the estimate's ±${Math.round(G_UNCERTAINTY * 100)}% of the requirement, which the method cannot resolve either way.`
+    statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — inside the estimate's own ±${Math.round(G_UNCERTAINTY * 100)}%, which cannot resolve a gap this small.`
   } else {
     level = 'meets'
     statement = `Estimated delivery is about ${pct}% of the ASHRAE 62.1 minimum — at or above the requirement, on this estimate.`
