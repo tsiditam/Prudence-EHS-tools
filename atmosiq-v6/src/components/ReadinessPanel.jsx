@@ -12,8 +12,10 @@
  *   2. Sign-off blockers — the hard items; advisory, not an export gate
  *   3. Recommended before sign-off — dismissible
  *   4. Defensibility gaps — resolve or disclose
- *   5. Warnings — informational
- *   6. Confidence breakdown — high / medium / low / qualitative-only
+ *   5. Report consistency — where the assembled report disagrees with
+ *      itself (src/report/modelConsistency.js); empty when it agrees
+ *   6. Warnings — informational
+ *   7. Confidence breakdown — high / medium / low / qualitative-only
  *
  * Restraint pass (2026-09): the tinted status box with its icon circle,
  * the stripe-edged item cards, the mono count pills and the boxed
@@ -170,7 +172,7 @@ function humanizeKind(kind) {
   }[kind] || kind
 }
 
-export default function ReadinessPanel({ assessment, onFeedback, onFix }) {
+export default function ReadinessPanel({ assessment, consistency = [], onFeedback, onFix }) {
   const verdict = useMemo(() => buildReadinessVerdict(assessment || {}), [assessment])
 
   return (
@@ -196,6 +198,22 @@ export default function ReadinessPanel({ assessment, onFeedback, onFix }) {
       <Section title="Defensibility gaps" count={verdict.defensibility_gaps.length} color="#FB923C">
         {verdict.defensibility_gaps.map((gap, i) => (
           <GapRow key={`${gap.kind}-${i}`} gap={gap} first={i === 0} />
+        ))}
+      </Section>
+
+      {/* The assembled report checked against itself. A row here is a
+          section of the document contradicting another — the class of
+          defect a reviewer catches after the fact and this catches before
+          export. The rule id is shown so the disagreement can be pointed at. */}
+      <Section title="Report consistency" count={consistency.length} color="#EF4444">
+        {consistency.map((c, i) => (
+          <div key={`${c.id}-${i}`} style={{ padding: '12px 0', borderTop: i === 0 ? 'none' : HAIRLINE }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+              <div style={{ ...V3.T.bodyStrong, fontSize: 15 }}>{c.where}</div>
+              <div style={{ ...V3.T.caption, color: DIM, whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>{c.id}</div>
+            </div>
+            <div style={{ ...V3.T.body, color: SUB, marginTop: 4, lineHeight: '20px' }}>{c.message}</div>
+          </div>
         ))}
       </Section>
 

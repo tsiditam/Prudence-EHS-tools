@@ -1040,7 +1040,9 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const cite = (std) => (std && citeIndex.has(std) ? `[${citeIndex.get(std)}]` : '')
   const findingRows = rd.findings.map(f => ({
     z: f.zone, sev: ENGINE_SEV_TO_SEV[f.severity] || 'advisory', basis: f.basis || '—', conf: f.confidence || '—',
-    f: f.text, cite: cite(f.std),
+    // `std` rides along so modelConsistency can check the citation resolves;
+    // the renderer prints `cite`.
+    f: f.text, std: f.std || null, cite: cite(f.std),
   }))
 
   // Conceptual site model + hypotheses from the primary causal chain.

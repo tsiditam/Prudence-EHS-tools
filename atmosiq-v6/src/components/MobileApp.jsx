@@ -26,6 +26,8 @@ import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
+import { assembleRenderModel } from '../report/reportModel'
+import { checkRenderModel } from '../report/modelConsistency'
 import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import {
@@ -2986,6 +2988,24 @@ export default function MobileApp() {
     }
     const readiness = buildReadinessVerdict(readinessAssessment)
 
+    // Does the report agree with itself? Assembled from the SAME inputs the
+    // export uses and checked section against section — summary vs table,
+    // site mean vs zone rows, citations vs appendix, register completeness —
+    // so a contradiction is seen here, before the document is generated,
+    // rather than by a reviewer afterwards. Advisory, like every readiness
+    // signal: it names the disagreement and never blocks the deliverable.
+    // Only computed on the Report tab; the model is cheap but not free.
+    const reportConsistency = rTab === 'report' && zoneScores.length ? (() => {
+      try {
+        return checkRenderModel(assembleRenderModel({
+          id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp,
+          recs, causalChains, profile, photos, photoOverrides, sensorData, ts: viewRpt?.ts,
+        }))
+      } catch (e) {
+        return [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
+      }
+    })() : []
+
     return (
       <div style={{paddingTop:20,paddingBottom:120,position:'relative',isolation:'isolate'}}>
         {/* The ambient "airflow" gradient that used to sit behind the header
@@ -3199,6 +3219,7 @@ export default function MobileApp() {
                 tab label so it is never hidden behind the tab. */}
             <ReadinessPanel
               assessment={readinessAssessment}
+              consistency={reportConsistency}
               onFeedback={()=>openFeedback('Findings & readiness')}
               onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
             />

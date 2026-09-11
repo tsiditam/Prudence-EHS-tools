@@ -76,3 +76,25 @@ describe('ReadinessPanel', () => {
     expect(screen.getByText(/Client name is empty/i)).toBeTruthy()
   })
 })
+
+describe('report consistency section', () => {
+  it('is absent when the report agrees with itself, and lists each disagreement when it does not', () => {
+    const clean = render(<ReadinessPanel assessment={cleanAssessment()} consistency={[]} />)
+    expect(clean.queryByText(/Report consistency/i)).toBeNull()
+    clean.unmount()
+
+    render(
+      <ReadinessPanel
+        assessment={cleanAssessment()}
+        consistency={[
+          { id: 'site-mean-rank', where: 'Measurement Results', message: 'The site-mean row reads "ok" while a zone row above it reads worse.' },
+          { id: 'summary-scope', where: 'Overall statement', message: '"Most areas presented acceptable…" while 2 of 2 zone rows carry a finding.' },
+        ]}
+      />,
+    )
+    expect(screen.getByText(/Report consistency · 2/i)).toBeTruthy()
+    expect(screen.getByText('Measurement Results')).toBeTruthy()
+    expect(screen.getByText('site-mean-rank')).toBeTruthy()
+    expect(screen.getByText(/while 2 of 2 zone rows carry a finding/)).toBeTruthy()
+  })
+})
