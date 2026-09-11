@@ -7,7 +7,7 @@
  *   2. Two zones served by DIFFERENT AHUs produce TWO drain-pan
  *      actions, each labeled to its own AHU.
  *   3. A zone with unmapped equipment triggers a building-scoped
- *      fallback action prefixed "HVAC equipment not yet identified —".
+ *      fallback action prefixed "No HVAC unit is mapped to this zone —".
  *   4. The mixed case (some zones mapped, some unmapped) emits both
  *      equipment-scoped actions for mapped zones and a building-scoped
  *      fallback for unmapped zones.
@@ -47,15 +47,17 @@ function meridianFixture(equipmentTopology: 'shared-ahu' | 'split-ahu' | 'unmapp
       // Symptom cluster (Complaints category, sev high) → zone-scoped
       // HEPA + ATSDR + relocation. These must remain per-zone.
       { l: 'Complaints', r: [{ t: 'Occupant symptom cluster', sev: 'high' }] },
-      // Water + leak → zone-scoped IICRC S500 action.
+      // Active water → zone-scoped IICRC S500 action. The finding text is
+      // here for realism; the rule reads the zone's structured `wd` answer
+      // (set on both zones below), never the wording of a finding.
       { l: 'Environment', r: [{ t: 'Active water leak observed', sev: 'critical' }] },
     ],
   })
 
   const zoneScores = [baseFindings('3rd Floor Open Office'), baseFindings('Conference Room B')]
   const zones: any[] = [
-    { zid: 'z-3f', zn: '3rd Floor Open Office', servingEquipmentIds: [] },
-    { zid: 'z-cb', zn: 'Conference Room B', servingEquipmentIds: [] },
+    { zid: 'z-3f', zn: '3rd Floor Open Office', wd: 'Active leak', servingEquipmentIds: [] },
+    { zid: 'z-cb', zn: 'Conference Room B', wd: 'Active leak', servingEquipmentIds: [] },
   ]
   let equipment: any[] = []
 
@@ -87,7 +89,8 @@ function meridianFixture(equipmentTopology: 'shared-ahu' | 'split-ahu' | 'unmapp
 // so the assertions have something exact to match on.
 const drainPanText = 'Clean the drain pan and associated components in accordance with manufacturer recommendations and applicable HVAC maintenance procedures; correct drainage and slope deficiencies contributing to standing water.'
 const drainPanImmediateText = 'Address drain pan condition immediately. Evaluate for microbial growth.'
-const oaDamperText = 'Evaluate outdoor air delivery rate and verify OA damper position within 24–72 hours.'
+// No embedded deadline: timing lives in the register's Timeframe column.
+const oaDamperText = 'Evaluate outdoor air delivery rate and verify OA damper position.'
 const niosh = 'Document affected occupants using NIOSH IEQ questionnaire or equivalent structured symptom instrument.'
 const iicrc500 = 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.'
 
@@ -116,11 +119,11 @@ describe('Engine v2.8.0 — equipment-scoped recommendations', () => {
     }
   })
 
-  it('AC#3 unmapped zones → single building-scoped fallback prefixed "HVAC equipment not yet identified —"', () => {
+  it('AC#3 unmapped zones → single building-scoped fallback prefixed "No HVAC unit is mapped to this zone —"', () => {
     const { zoneScores, zones, equipment, bldg } = meridianFixture('unmapped')
     const recs = genRecs(zoneScores, bldg, { zones, equipment })
     const fallback = recs.imm.find((a: any) =>
-      a.scope === 'building' && a.text.startsWith('HVAC equipment not yet identified —') && a.text.endsWith(drainPanText)
+      a.scope === 'building' && a.text.startsWith('No HVAC unit is mapped to this zone —') && a.text.endsWith(drainPanText)
     )
     expect(fallback).toBeDefined()
     expect(new Set(fallback.affectedZoneNames)).toEqual(new Set(['3rd Floor Open Office', 'Conference Room B']))
@@ -137,7 +140,7 @@ describe('Engine v2.8.0 — equipment-scoped recommendations', () => {
     expect(equipScoped[0].equipmentLabel).toBe('AHU-1')
     expect(equipScoped[0].affectedZoneNames).toEqual(['3rd Floor Open Office'])
     const fallback = recs.imm.find((a: any) =>
-      a.scope === 'building' && a.text.startsWith('HVAC equipment not yet identified —') && a.text.endsWith(drainPanText)
+      a.scope === 'building' && a.text.startsWith('No HVAC unit is mapped to this zone —') && a.text.endsWith(drainPanText)
     )
     expect(fallback).toBeDefined()
     expect(fallback.affectedZoneNames).toEqual(['Conference Room B'])

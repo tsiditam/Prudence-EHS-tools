@@ -29,7 +29,11 @@ function demoData(extra) {
 describe('assembleRenderModel', () => {
   it('produces the renderer model with the fixed sections', () => {
     const m = assembleRenderModel(demoData(), { mode: 'draft' })
-    for (const k of ['meta', 'execSummary', 'findingsAtGlance', 'results', 'recommendations', 'qaQc', 'limitations', 'references', 'about']) {
+    // 'about' is gone: the "About AtmosFlow" appendix was removed from the
+    // technical report on CIH review (2026-09) — a promotional page
+    // interrupts the document — and attribution moved to the page footer.
+    // 'observations' is the walkthrough account that review asked for.
+    for (const k of ['meta', 'execSummary', 'findingsAtGlance', 'observations', 'results', 'recommendations', 'qaQc', 'limitations', 'references']) {
       expect(m).toHaveProperty(k)
     }
     expect(m.results.parameters.length).toBeGreaterThan(0)

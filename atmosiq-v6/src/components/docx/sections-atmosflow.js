@@ -79,6 +79,9 @@ const SEV = {
   // verdict the platform has no basis for, which is the more dangerous of the
   // two ways to get an unjudgeable reading wrong.
   not_evaluated: { label: 'Not evaluated', color: '6B7380' },
+  // The outdoor baseline row. A reference, not a judged location: grey, and
+  // deliberately not 'Acceptable' — the outdoors is not being evaluated.
+  reference: { label: 'Reference', color: '6B7380' },
 }
 const sev = (t) => SEV[t] || SEV.ok
 const fmt = (v) => (v === null || v === undefined || v === '' ? '—' : String(v))
@@ -417,10 +420,35 @@ export function atmosFlowReportChildren(model) {
   // ═══ Cover ═══ (no watermark, ever)
   c.push(...buildCover(meta))
 
+  // ═══ Prepared for ═══
+  //
+  // The addressee. It opens the body because that is where a reader looks for
+  // it, and because until now this deliverable had no addressee anywhere: the
+  // client appeared only in the footer of a Final-status report, so every
+  // draft was a consultant report addressed to nobody. Omitted entirely when
+  // no recipient details were entered — an empty "Prepared for" heading is
+  // worse than none.
+  if (M.recipient && M.recipient.lines && M.recipient.lines.length) {
+    c.push(h1('Prepared For', { pbb: true }))
+    for (const line of M.recipient.lines) c.push(body(line))
+  }
+
   // ═══ Executive Summary ═══
   if (M.execSummary) {
-    c.push(h1('Executive Summary', { pbb: true }))
-    c.push(body(M.execSummary))
+    c.push(h1('Executive Summary', { pbb: !(M.recipient && M.recipient.lines && M.recipient.lines.length) }))
+    // The model may hand this over as a plain string (a stored report built
+    // before the summary carried its own findings and actions) or as the
+    // structured shape. Both render.
+    const es = typeof M.execSummary === 'string' ? { paragraphs: [M.execSummary] } : M.execSummary
+    ;(es.paragraphs || []).forEach((para) => c.push(body(para)))
+    if ((es.findings || []).length) {
+      c.push(...label('Leading findings'))
+      es.findings.forEach((f) => c.push(bullet(f)))
+    }
+    if ((es.actions || []).length) {
+      c.push(...label('First actions'))
+      es.actions.forEach((a2) => c.push(bullet(a2)))
+    }
   }
 
   // Findings at a glance.
@@ -484,29 +512,83 @@ export function atmosFlowReportChildren(model) {
     c.push(body(M.overallStatement, { after: 0 }))
   }
 
-  // ═══ 1. Scope & Site Description ═══
+  // ═══ 1. Purpose, Scope & Site Background ═══
+  //
+  // Section order below follows a CIH review of this report (2026-09):
+  // purpose → methods (with QA/QC beside them, so measurement reliability is
+  // known before any reading is read) → what the walkthrough saw →
+  // measurements as fact → interpretation → actions. The previous order put
+  // QA/QC after the recommendations and had no observations section at all,
+  // so the document went from methods straight to numbers.
   if (M.scope && (M.scope.paras || M.scope.text)) {
-    c.push(h1('1. Scope & Site Description', { pbb: true }))
+    c.push(h1('1. Purpose, Scope & Site Background', { pbb: true }))
     ;(M.scope.paras || [M.scope.text]).filter(Boolean).forEach((para) => c.push(body(para)))
   }
 
-  // ═══ 2. Methodology & Instrumentation ═══
-  if (M.methodology) {
-    c.push(h1('2. Methodology & Instrumentation', { before: 330 }))
-    if (M.methodology.bullets && M.methodology.bullets.length) {
+  // ═══ 2. Investigation Methods & QA/QC ═══
+  //
+  // QA/QC lives HERE, not in its own section after the recommendations. A
+  // reader needs to know what measured what, and whether it was calibrated,
+  // before reading a single number.
+  if (M.methodology || (M.qaQc && M.qaQc.length)) {
+    c.push(h1('2. Investigation Methods & QA/QC', { before: 330 }))
+    if (M.methodology && M.methodology.bullets && M.methodology.bullets.length) {
       c.push(h2('Direct-reading instrumentation'))
       M.methodology.bullets.forEach((b) => c.push(bullet(b)))
     }
-    if (M.methodology.referenceFramework) {
+    if (M.methodology && M.methodology.referenceFramework) {
       c.push(h2('Reference framework'))
-      c.push(body(M.methodology.referenceFramework, { after: 0 }))
+      c.push(body(M.methodology.referenceFramework))
+    }
+    if (M.qaQc && M.qaQc.length) {
+      c.push(...label('Quality assurance / quality control'))
+      c.push(
+        table(['Item', 'Record'], M.qaQc.map((q) => splitLabelValue(q)), [2721, 6639], { cellSpec: (r, ci) => ({ bold: ci === 0 }) }),
+      )
     }
   }
 
-  // ═══ 3. Measurement Results ═══
+  // ═══ 3. Walkthrough Observations & Occupant Reports ═══
+  //
+  // The account of what was SEEN and what was SAID, before any number and
+  // before any conclusion. It restates no severity, citation or verdict —
+  // those are section 5's — so a reader can see which conclusions came from
+  // which observation.
+  if (M.observations) {
+    c.push(h1('3. Walkthrough Observations & Occupant Reports', { pbb: true }))
+    if (M.observations.intro) c.push(body(M.observations.intro))
+    if (M.observations.building && M.observations.building.length) {
+      c.push(...label('Building systems as observed'))
+      c.push(
+        table(['Item', 'Observed'], M.observations.building.map(([k, v]) => [fmt(k), fmt(v)]), [3129, 6231], {
+          cellSpec: (r, ci) => ({ bold: ci === 0 }),
+        }),
+      )
+    }
+    for (const z of M.observations.zones || []) {
+      const meta = [z.use, z.area ? `${z.area} sq ft` : '', z.occupants ? `${z.occupants} occupants` : '']
+        .filter(Boolean).join(' · ')
+      c.push(h2(z.zone))
+      if (meta) c.push(caption(meta))
+      z.observed.forEach((line) => c.push(bullet(line)))
+      if (z.occupantReports.length) {
+        c.push(p('Occupant reports', { size: 20, bold: true, color: INK, after: 60 }))
+        z.occupantReports.forEach((line) => c.push(bullet(line)))
+      }
+      if (z.notes) c.push(lead('Assessor notes: ', z.notes))
+    }
+  }
+
+  // ═══ 4. Measurement Results ═══
+  //
+  // Factual only. The per-parameter "what this parameter is and why we
+  // measure it" prose used to sit here, so a reader met the same explanation
+  // twice — once beside the numbers, once again in the findings. It is now
+  // Appendix A, which is where a reference explainer belongs; the per-zone
+  // OBSERVED sentences stay with the interpretation in section 5.
   if (M.results) {
     const CEN = AlignmentType.CENTER
-    c.push(h1('3. Measurement Results', { pbb: true }))
+    c.push(h1('4. Measurement Results', { pbb: true }))
     if (M.results.intro) c.push(body(M.results.intro))
     if (M.results.rows && M.results.rows.length) {
       const rows = M.results.rows
@@ -525,25 +607,12 @@ export function atmosFlowReportChildren(model) {
       )
       if (M.results.note) c.push(caption(M.results.note))
     }
-    if (M.results.parameters && M.results.parameters.length) {
-      c.push(...label('Per-parameter interpretation'))
-      if (M.results.perParamIntro) c.push(body(M.results.perParamIntro))
-      M.results.parameters.forEach((param, pi) => {
-        c.push(h2(param.title, pi === 0 ? {} : { pbb: false }))
-        ;(param.body || []).forEach((line, li, arr) => {
-          const isLast = li === arr.length - 1
-          const parts = splitLead(line)
-          if (parts) c.push(lead(parts[0], parts[1], isLast ? { after: 0 } : {}))
-          else c.push(body(line, isLast ? { after: 0 } : {}))
-        })
-      })
-    }
   }
 
   // 3.1 Environmental Evidence Graphs (logger PNGs only; vector charts omitted
   // — DOCX has no drawing surface). M.co2Bars is intentionally skipped.
   if (M.loggerImages && Array.isArray(M.loggerImages.images) && M.loggerImages.images.length) {
-    c.push(h1('3.1 Environmental Evidence Graphs (Logger Studio)', { pbb: true }))
+    c.push(h1('4.1 Environmental Evidence Graphs (Logger Studio)', { pbb: true }))
     if (M.loggerImages.disclaimer) c.push(caption(M.loggerImages.disclaimer))
     if (M.loggerImages.dataSource) c.push(caption(M.loggerImages.dataSource))
     M.loggerImages.images.forEach((g) => {
@@ -554,16 +623,23 @@ export function atmosFlowReportChildren(model) {
     })
   }
 
-  // ═══ 4. Findings & Interpretation ═══
+  // ═══ 5. Discussion & Conclusions ═══
   if (M.findings) {
-    c.push(h1('4. Findings & Interpretation', { pbb: true }))
+    c.push(h1('5. Discussion & Conclusions', { pbb: true }))
     if (M.findings.intro) c.push(body(M.findings.intro))
     if (M.findings.rows && M.findings.rows.length) {
       const rows = M.findings.rows
       c.push(
         table(
-          ['Zone', 'Severity', 'Conf.', 'Finding'],
-          rows.map((r) => [fmt(r.z), sev(r.sev).label, fmt(r.conf), fmt(r.f)]),
+          // "Basis", not "Conf.". The old column printed the ZONE's
+          // confidence on every row of that zone under a heading that read
+          // as per-finding: identical for all its rows, carrying no
+          // information, and disagreeing with the measurement-confidence
+          // breakdown the app showed for the same assessment. Basis is a
+          // real property of the finding — whether it rests on an instrument
+          // reading or on an observation.
+          ['Zone', 'Severity', 'Basis', 'Finding'],
+          rows.map((r) => [fmt(r.z), sev(r.sev).label, fmt(r.basis), r.cite ? `${fmt(r.f)} ${r.cite}` : fmt(r.f)]),
           [1605, 1442, 1088, 5225],
           { cellSpec: (r, ci) => (ci === 1 ? { bold: true, color: sev(rows[r].sev).color } : { bold: ci === 0 }) },
         ),
@@ -592,10 +668,35 @@ export function atmosFlowReportChildren(model) {
     }
   }
 
-  // ═══ 5. Recommended Actions ═══
+  // ═══ 6. Recommended Actions & Verification ═══
+  //
+  // ONE action register, not three bullet lists. The CIH review asked for a
+  // table carrying finding, action, priority, responsible party, deadline and
+  // verification. Four of those are built from the data; RESPONSIBLE PARTY
+  // and DEADLINE are not, because no intake field, engine output or stored
+  // column in this platform records an owner or a due date. Printing empty
+  // columns for them would look like an oversight, and inventing values would
+  // assert a commitment nobody made — so the register says whose job it is to
+  // add them. See actionRegister() in report/reportModel.js.
   const rec = M.recommendations
-  if (rec && ((rec.immediate || []).length || (rec.shortTerm || []).length || (rec.mediumTerm || []).length)) {
-    c.push(h1('5. Recommended Actions', { pbb: true }))
+  if (rec && rec.register && rec.register.length) {
+    c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
+    if (rec.intro) c.push(body(rec.intro))
+    const rows = rec.register
+    // Priority and timeframe share a cell, as do control and owner, so the
+    // action and its completion evidence get the width a reader needs.
+    c.push(
+      table(
+        ['Priority', 'Action', 'Location', 'Owner (role)', 'Completion evidence'],
+        rows.map((r) => [[fmt(r.priority), fmt(r.timeframe)], fmt(r.action), fmt(r.location), [fmt(r.owner), fmt(r.control)], fmt(r.evidence)]),
+        [1150, 3260, 1450, 1500, 2000],
+        { cellSpec: (_r, ci) => ({ bold: ci === 0 }) },
+      ),
+    )
+    if (rec.registerNote) c.push(caption(rec.registerNote))
+  } else if (rec && ((rec.immediate || []).length || (rec.shortTerm || []).length || (rec.mediumTerm || []).length)) {
+    // Fallback for a stored report predating the register.
+    c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
     if (rec.intro) c.push(body(rec.intro))
     if ((rec.immediate || []).length) {
       c.push(...label('Immediate (0–7 days)'))
@@ -609,14 +710,6 @@ export function atmosFlowReportChildren(model) {
       c.push(...label(rec.mediumTermLabel || 'Medium term (30–90 days)'))
       rec.mediumTerm.forEach((it, i, arr) => c.push(bullet(it, i === arr.length - 1 ? { after: 0 } : {})))
     }
-  }
-
-  // ═══ 6. QA/QC ═══
-  if (M.qaQc && M.qaQc.length) {
-    c.push(h1('6. Quality Assurance / Quality Control', { pbb: true }))
-    c.push(
-      table(['Item', 'Record'], M.qaQc.map((q) => splitLabelValue(q)), [2721, 6639], { cellSpec: (r, ci) => ({ bold: ci === 0 }) }),
-    )
   }
 
   // ═══ 7. Limitations ═══
@@ -656,21 +749,32 @@ export function atmosFlowReportChildren(model) {
   // fact about the report. The reference list itself is the model's; the
   // renderer adds nothing. There is no table of contents in this document,
   // so there is no contents entry to keep in step.
+  if (M.results && M.results.parameters && M.results.parameters.length) {
+    c.push(h1('Appendix A — Parameter Background', { pbb: true }))
+    if (M.results.perParamIntro) c.push(body(M.results.perParamIntro))
+    M.results.parameters.forEach((param) => {
+      c.push(h2(param.title))
+      ;(param.body || []).forEach((line, li, arr) => {
+        const isLast = li === arr.length - 1
+        const parts = splitLead(line)
+        if (parts) c.push(lead(parts[0], parts[1], isLast ? { after: 0 } : {}))
+        else c.push(body(line, isLast ? { after: 0 } : {}))
+      })
+    })
+  }
+
   if (M.references && M.references.length) {
-    c.push(h1('Appendix A — Standards & References', { pbb: true }))
+    c.push(h1('Appendix B — Standards & References', { pbb: true }))
     c.push(
-      table(['Reference', 'Basis of use'], M.references.map(([ref, basis, usage]) => [fmt(ref), fmt(referenceBasisText(basis, usage))]), [3129, 6231], {
+      table(['Reference', 'Basis of use'], M.references.map(([ref, basis, usage, n]) => [n ? `[${n}] ${fmt(ref)}` : fmt(ref), fmt(referenceBasisText(basis, usage))]), [3129, 6231], {
         cellSpec: (r, ci) => ({ bold: ci === 0 }),
       }),
     )
   }
 
-  // ═══ Appendix B — About AtmosFlow ═══
-  if (M.about && M.about.text) {
-    c.push(h1(M.about.title || 'Appendix B — About AtmosFlow', { before: 400 }))
-    c.push(body(M.about.text))
-    c.push(p('Learn more at atmosflow.net.', { size: 21, bold: true, color: TEAL, after: 0 }))
-  }
+  // The "About AtmosFlow" appendix was REMOVED (CIH review, 2026-09): a
+  // promotional page does not belong in a technical report, and attribution
+  // is carried by the page footer instead. `M.about` is no longer built.
 
   // ═══ Appendix C — Site Photographs ═══
   if (M.photos) {
@@ -756,7 +860,11 @@ export function atmosFlowSections(model) {
               tabStops: [{ type: TabStopType.RIGHT, position: CW }],
               border: { top: { style: BorderStyle.SINGLE, size: 4, color: HAIR, space: 7 } },
               children: [
-                new TextRun({ text: footerNote, font: F, size: 16, color: MUTED }),
+                // Attribution lives HERE, not in an appendix. The "About
+                // AtmosFlow" page was removed on CIH review — a promotional
+                // section interrupts a technical document — and a discreet
+                // footer line gives the same attribution without doing that.
+                new TextRun({ text: `${footerNote}  ·  Prepared using AtmosFlow`, font: F, size: 16, color: MUTED }),
                 new TextRun({ text: '\t', font: F, size: 16 }),
                 new TextRun({ text: 'Page ', font: F, size: 16, color: MUTED }),
                 new TextRun({ children: [PageNumber.CURRENT], font: F, size: 16, color: MUTED }),

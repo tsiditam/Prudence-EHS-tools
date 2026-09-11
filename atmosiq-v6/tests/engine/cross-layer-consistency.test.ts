@@ -18,6 +18,8 @@ import { describe, it, expect } from 'vitest'
 import { scoreZone, summarizeAssessment } from '../../src/engines/scoring'
 // @ts-expect-error — JS module without TS types
 import { assembleRenderModel, zoneParamOutcome } from '../../src/report/reportModel'
+// @ts-expect-error — JS module without TS types
+import { checkRenderModel } from '../../src/report/modelConsistency'
 
 const SEV_TO_OUTCOME: Record<string, string> = { critical: 'priority', high: 'elevated', medium: 'advisory', low: 'ok', pass: 'ok', info: 'ok' }
 const RANK: Record<string, number> = { not_evaluated: -1, ok: 0, advisory: 1, elevated: 2, priority: 3 }
@@ -119,6 +121,14 @@ describe('every layer of the AtmosFlow report says what the engine said', () => 
           const f = (zs.cats as any[]).flatMap((c: any) => c.r || []).find((x: any) => x.t === r.f)
           if (f && f.std) expect(refs.has(f.std), f.std).toBe(true)
         }
+      })
+
+      it('the assembled model agrees with itself, section by section', () => {
+        // The other checks here compare the model to the ENGINE. This one
+        // compares the model to ITSELF — summary vs table, citations vs
+        // appendix, register completeness — via the same function the Report
+        // tab runs before export (src/report/modelConsistency.js).
+        expect(checkRenderModel(model)).toEqual([])
       })
 
       it('a data gap the engine raised is stated in Limitations, never rendered as a verdict', () => {

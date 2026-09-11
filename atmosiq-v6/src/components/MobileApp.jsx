@@ -26,7 +26,9 @@ import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { resolveAssessmentDate } from '../utils/assessmentDate'
+import { assembleRenderModel } from '../report/reportModel'
+import { checkRenderModel } from '../report/modelConsistency'
+import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import {
   buildCalibrationAcknowledgement, validateJustification, MAX_JUSTIFICATION_LEN,
@@ -39,7 +41,7 @@ import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
 import { deriveInvestigation } from '../engine/investigation'
 import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
-import { buildCausalChains } from '../engines/causalChains'
+import { buildCausalChains, pickPrimaryChain } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
 import PricingSheet from './pricing/PricingSheet'
 import { I } from './Icons'
@@ -280,6 +282,29 @@ function mapInstrumentCalStatus(inst) {
     return isOutOfCal(inst) ? 'Calibrated, overdue for recertification' : 'Calibrated within manufacturer spec'
   }
   return 'Unknown'
+}
+
+/**
+ * The presurvey a NEW assessment starts from: profile auto-fill, plus the
+ * survey date stamped at the moment the walkthrough begins.
+ *
+ * The date matters more than it looks. `ps_survey_date` lives only in
+ * Q_PRESURVEY — the desktop long form — so nothing on the mobile path could
+ * ever set it. With no date `comfortSeason` returns null by design (audit
+ * H5), `assessEnv` takes the data-gap branch, and TEMPERATURE IS NEVER
+ * EVALUATED on a Quick Start assessment. The report then prints "assessment
+ * date not recorded" on a page that states the assessment date three times,
+ * because the report chrome falls back to the finalize timestamp `ts` and the
+ * scorer — which is handed only { ...bldg, ...zone } — has no `ts` to fall
+ * back to. In a complaint-driven survey that silently skipped the parameter
+ * most likely to explain the complaint.
+ *
+ * Stamping at creation rather than defaulting at score time is what keeps a
+ * draft resumed after a month boundary scored against the day the walkthrough
+ * actually happened. It stays editable in Assessment Details.
+ */
+function freshPresurvey(profile) {
+  return { ps_survey_date: todayLocalISO(), ...(profile ? Profiles.toPresurvey(profile) : {}) }
 }
 
 // `mix(name, pct)` for legacy `${TOKEN}HEX_ALPHA` sites is imported
@@ -886,6 +911,16 @@ export default function MobileApp() {
   // closure, so calling it in the same handler would score the old list).
   const [pendingFinish, setPendingFinish] = useState(0)
   const [calWarning, setCalWarning] = useState(null)
+  // A finalize that the calibration interrupt sent to the Details form is
+  // still OUTSTANDING. Without this the interrupt's own "Add instrument data"
+  // button silently abandoned the finalize: it set the view to 'details' and
+  // nothing re-entered finishAssessment, so an assessor who took the
+  // responsible route landed on a Results screen reading "Saved · N findings"
+  // with no report written, no finalize affordance anywhere on that screen,
+  // and — once the data was filled — not even the completeness prompts that
+  // might have hinted something was unfinished. Only "Continue without"
+  // actually finalized, which made the careless path the working one.
+  const [finalizePending, setFinalizePending] = useState(false)
   // Calibration acknowledgement — the record left when an assessor
   // finalizes past the instrument interrupt. See
   // src/utils/calibrationAcknowledgement.js for why this ADDS an audit
@@ -1141,7 +1176,7 @@ export default function MobileApp() {
         // Hydrate a NEW draft from the prior report, OR fall back to
         // a fresh New Assessment with just the site name/address pre-filled.
         const draftIdNew = 'draft-' + Date.now()
-        const psFill = profile ? Profiles.toPresurvey(profile) : {}
+        const psFill = freshPresurvey(profile)
         if (prior) {
           setBldg({ ...(prior.building || {}), fn: site.name, address: site.address || prior.building?.address || '' })
           setPresurvey({ ...psFill, ...(prior.presurvey || {}) })
@@ -1546,8 +1581,9 @@ export default function MobileApp() {
     setDraftId(id)
     setCurrentSiteId(null)  // PR 1: fresh assessments aren't bound to a site
     // Auto-fill from profile
-    const psFill = profile ? Profiles.toPresurvey(profile) : {}
+    const psFill = freshPresurvey(profile)
     // Pre-bind to the originating Project when launched from its workspace.
+    setFinalizePending(false)
     setPresurvey(psFill); setBldg(assessmentSeed ? { name: assessmentSeed.name, address: assessmentSeed.address } : {}); setAssessmentSeed(null); setQsqi(0); setDqi(0); setSensorData(null)
     setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
@@ -1610,6 +1646,8 @@ export default function MobileApp() {
       try { await STO.set(id, d) } catch { /* quota — the value is derived, so the next open agrees anyway */ }
     }
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
+    // A suspended finalize belongs to the assessment it was suspended on.
+    setFinalizePending(false)
     setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
     setCurrentSiteId(d.site_id || null)  // PR 1: inherit site binding if the draft carries one
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
@@ -1760,10 +1798,20 @@ export default function MobileApp() {
     // The survey date rides in on the building object (scoreZone merges
     // { ...bldg, ...zone }), so a draft resumed after a month boundary is
     // still scored against the day the walkthrough happened rather than the
-    // day it was reopened. Absent an entered date this is a live walkthrough
-    // and comfortSeason's fallback to now is correct.
-    const surveyDate = resolveAssessmentDate({ presurvey })
-    const scoringBldg = surveyDate ? { ...bldg, assessmentDate: surveyDate } : bldg
+    // day it was reopened.
+    //
+    // The fallback is today, and it is stated here rather than left to the
+    // engine. comfortSeason used to read the clock itself; that was removed
+    // (audit H5) so a report re-rendered in another month could not silently
+    // change band, and its docstring says "the caller that genuinely is live
+    // passes today explicitly". THIS is that caller, and it did not — the old
+    // comment here still claimed "comfortSeason's fallback to now is correct"
+    // about a fallback that no longer existed. Between them, every assessment
+    // that reached scoring without an entered date had its temperature
+    // silently not evaluated. New assessments now carry a stamped
+    // ps_survey_date (freshPresurvey); this covers drafts created before that.
+    const surveyDate = resolveAssessmentDate({ presurvey }) || todayLocalISO()
+    const scoringBldg = { ...bldg, assessmentDate: surveyDate }
     const zScores = zonesWithOutdoor.map(z => scoreZone(z, scoringBldg))
     const composite = summarizeAssessment(zScores)
     // The zone carrying the worst finding. This used to re-run scoreZone
@@ -1981,6 +2029,15 @@ export default function MobileApp() {
   const finishDetails = () => {
     trackEvent('details_completed', { facility: bldg.fn || '' })
     runScoring()
+    // Resume the finalize the calibration interrupt suspended. The flag is
+    // cleared either way, so Details reached from anywhere else — the results
+    // screen's completeness prompts, the menu — still just re-scores and
+    // returns, and a stale flag cannot survive into a later visit.
+    if (finalizePending) {
+      setFinalizePending(false)
+      showMilestone('check', 'Details Complete', 'Finalizing the assessment', () => { finishAssessment() })
+      return
+    }
     showMilestone('check', 'Details Complete', 'Assessment rescored with updated data', () => { setView('results') })
   }
 
@@ -2898,7 +2955,13 @@ export default function MobileApp() {
       // Name the screening indicator, not a likelihood on the attribution —
       // confidence/likelihood belongs to the measurement layer, not the
       // causal-attribution layer (keeps the screening framing defensible).
-      if (causalChains[0]?.type) return causalChains[0].type
+      // The STRONGEST pathway, by the same rule the report's conceptual site
+      // model uses — not `causalChains[0]`, which is whichever chain the
+      // builder happened to push first. Two surfaces naming different
+      // pathways as "the" finding for one assessment is the cross-layer
+      // disagreement this codebase keeps paying for.
+      const lead = pickPrimaryChain(causalChains)
+      if (lead?.type) return lead.type
       if (expertDriver) return `${expertDriver}`
       // Nothing rose to a driver. Say which of the two clean cases it is —
       // "No significant findings" printed above a header reading "1 finding"
@@ -2924,6 +2987,24 @@ export default function MobileApp() {
       investigation: readinessInvestigation,
     }
     const readiness = buildReadinessVerdict(readinessAssessment)
+
+    // Does the report agree with itself? Assembled from the SAME inputs the
+    // export uses and checked section against section — summary vs table,
+    // site mean vs zone rows, citations vs appendix, register completeness —
+    // so a contradiction is seen here, before the document is generated,
+    // rather than by a reviewer afterwards. Advisory, like every readiness
+    // signal: it names the disagreement and never blocks the deliverable.
+    // Only computed on the Report tab; the model is cheap but not free.
+    const reportConsistency = rTab === 'report' && zoneScores.length ? (() => {
+      try {
+        return checkRenderModel(assembleRenderModel({
+          id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp,
+          recs, causalChains, profile, photos, photoOverrides, sensorData, ts: viewRpt?.ts,
+        }))
+      } catch (e) {
+        return [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
+      }
+    })() : []
 
     return (
       <div style={{paddingTop:20,paddingBottom:120,position:'relative',isolation:'isolate'}}>
@@ -3138,6 +3219,7 @@ export default function MobileApp() {
                 tab label so it is never hidden behind the tab. */}
             <ReadinessPanel
               assessment={readinessAssessment}
+              consistency={reportConsistency}
               onFeedback={()=>openFeedback('Findings & readiness')}
               onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
             />
@@ -4279,11 +4361,14 @@ export default function MobileApp() {
             ))}
           </div>
           <div style={{display:'flex',gap:10,flexDirection:'column'}}>
-            <TactileButton variant="primary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setDqi(Math.max(0, dtVis.findIndex(q=>q.id==='ps_inst_iaq')));setView('details')}}>
+            {/* Both routes out of this sheet mark the finalize OUTSTANDING, so
+                finishDetails re-enters it once the data is in. Only the
+                acknowledgement path below finalizes directly. */}
+            <TactileButton variant="primary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setFinalizePending(true);setDqi(Math.max(0, dtVis.findIndex(q=>q.id==='ps_inst_iaq')));setView('details')}}>
               Add instrument data
             </TactileButton>
             {savedInstruments.length > 0 && (
-              <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setInstPickerOpen(true)}}>
+              <TactileButton variant="secondary" fullWidth size="lg" onClick={()=>{setCalWarning(null);setFinalizePending(true);setInstPickerOpen(true)}}>
                 Use a saved instrument
               </TactileButton>
             )}

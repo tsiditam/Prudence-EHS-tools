@@ -494,15 +494,22 @@ When working on report generation:
      an over-reaching action must not leave a critical condition recommending
      nothing, which an absence-only guard would happily allow.
 
-  **The backstop is currently missing.** `cross-layer-consistency.test.ts`
-  rendered real *consultant* reports across a fixture matrix and asserted the
-  layers agreed with each other and with the engine. The consultant report was
-  removed in 2026-08 (see below) and that test went with it. The four rules
-  above still hold and are still individually tested, but nothing now renders
-  the surviving deliverable and checks the layers against each other.
-  **Re-establishing that on the AtmosFlow report is the highest-value open
-  work in this area** — see docs/CRITERIA.md, "The consultant report
-  (removed)".
+  **The backstop exists, in two halves.** `cross-layer-consistency.test.ts`
+  renders the AtmosFlow report over a fixture matrix and asserts every
+  parameter outcome agrees with what `scoreZone` concluded — model vs ENGINE.
+  `src/report/modelConsistency.js` (`checkRenderModel`) asserts the model
+  agrees with ITSELF — summary vs table, site mean vs zone rows, citations vs
+  appendix, register completeness, observations carrying no verdict,
+  limitations vs the sections they describe. It runs in that test AND, on
+  the same function, as an advisory "Report consistency" section in the
+  Report tab before export. `tests/engine/model-consistency.test.ts` holds a
+  negative case per rule, and fails if a rule is added without one.
+
+  *History: an earlier revision of this note said the backstop was missing —
+  the consultant report's version went with that report in 2026-08 and this
+  note was not updated when the AtmosFlow version was written. The
+  model-vs-itself half was added 2026-09 after a walkthrough audit found
+  every defect it surfaced was one section disagreeing with another.*
 - **A comfort band travels with its assumptions, and ASHRAE 55 has ONE.**
   `STD.t.temp` is a single acceptable range per season — winter 68–76°F,
   summer 73–79°F — and `tests/engine/thermal-comfort-band.test.ts` holds it

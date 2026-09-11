@@ -9,11 +9,13 @@
  *
  * Sections, top to bottom:
  *   1. Status — the verdict as a word in its colour, then the summary
- *   2. Finalization blockers — hard, must clear before export
+ *   2. Sign-off blockers — the hard items; advisory, not an export gate
  *   3. Recommended before sign-off — dismissible
  *   4. Defensibility gaps — resolve or disclose
- *   5. Warnings — informational
- *   6. Confidence breakdown — high / medium / low / qualitative-only
+ *   5. Report consistency — where the assembled report disagrees with
+ *      itself (src/report/modelConsistency.js); empty when it agrees
+ *   6. Warnings — informational
+ *   7. Confidence breakdown — high / medium / low / qualitative-only
  *
  * Restraint pass (2026-09): the tinted status box with its icon circle,
  * the stripe-edged item cards, the mono count pills and the boxed
@@ -41,7 +43,11 @@ const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
 const STATUS_TONES = {
   ready:   { color: '#22C55E', label: 'Ready for sign-off' },
   gaps:    { color: '#FB923C', label: 'Defensibility gaps' },
-  blocked: { color: '#EF4444', label: 'Cannot finalize yet' },
+  // NOT "Cannot finalize yet". Report issuance has not been gated since
+  // 2026-05-27 — this panel is advisory, and it renders on reports that are
+  // already finalized and already exported, where the old label was simply
+  // untrue. It names what is outstanding, not a block that does not exist.
+  blocked: { color: '#EF4444', label: 'Not ready for sign-off' },
 }
 
 function Status({ status, summary }) {
@@ -166,14 +172,14 @@ function humanizeKind(kind) {
   }[kind] || kind
 }
 
-export default function ReadinessPanel({ assessment, onFeedback, onFix }) {
+export default function ReadinessPanel({ assessment, consistency = [], onFeedback, onFix }) {
   const verdict = useMemo(() => buildReadinessVerdict(assessment || {}), [assessment])
 
   return (
     <div style={{ paddingTop: 4, paddingBottom: 16 }}>
       <Status status={verdict.status} summary={verdict.summary} />
 
-      <Section title="Finalization blockers" count={verdict.finalization_blockers.length} color="#EF4444">
+      <Section title="Sign-off blockers" count={verdict.finalization_blockers.length} color="#EF4444">
         {(verdict.finalization_blocker_details && verdict.finalization_blocker_details.length > 0
           ? verdict.finalization_blocker_details.map((item, i) => (
               <FinalizationRow key={item.id} item={item} tone="#EF4444" onFix={onFix} first={i === 0} />
@@ -192,6 +198,22 @@ export default function ReadinessPanel({ assessment, onFeedback, onFix }) {
       <Section title="Defensibility gaps" count={verdict.defensibility_gaps.length} color="#FB923C">
         {verdict.defensibility_gaps.map((gap, i) => (
           <GapRow key={`${gap.kind}-${i}`} gap={gap} first={i === 0} />
+        ))}
+      </Section>
+
+      {/* The assembled report checked against itself. A row here is a
+          section of the document contradicting another — the class of
+          defect a reviewer catches after the fact and this catches before
+          export. The rule id is shown so the disagreement can be pointed at. */}
+      <Section title="Report consistency" count={consistency.length} color="#EF4444">
+        {consistency.map((c, i) => (
+          <div key={`${c.id}-${i}`} style={{ padding: '12px 0', borderTop: i === 0 ? 'none' : HAIRLINE }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+              <div style={{ ...V3.T.bodyStrong, fontSize: 15 }}>{c.where}</div>
+              <div style={{ ...V3.T.caption, color: DIM, whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>{c.id}</div>
+            </div>
+            <div style={{ ...V3.T.body, color: SUB, marginTop: 4, lineHeight: '20px' }}>{c.message}</div>
+          </div>
         ))}
       </Section>
 
