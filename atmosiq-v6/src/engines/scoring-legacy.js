@@ -138,10 +138,17 @@ const EQ_RULES = {
   //
   // `drainpan_immediate` and `drainpan_clean` still fire, so the condition
   // keeps two actions. See tests/engine/drain-pan-no-legionella.test.ts.
-  oa_damper: { bucket: 'eng', tier: T_ENG, text: 'Evaluate outdoor air delivery rate and verify OA damper position within 24–72 hours.' },
+  // No deadline in the TEXT. These two used to say "within 24–72 hours" while
+  // sitting in the 7–30 day bucket, and the action register prints bucket and
+  // text side by side, so the row contradicted itself. Timing is the
+  // register's Timeframe column, stated once; the action says what to do.
+  oa_damper: { bucket: 'eng', tier: T_ENG, text: 'Evaluate outdoor air delivery rate and verify OA damper position.' },
   filter_replace_imm: { bucket: 'imm', tier: T_ENG, text: 'Replace air filters immediately. Inspect filter housing for bypass or damage.' },
   filter_replace_high: { bucket: 'eng', tier: T_ENG, text: 'Replace or service air filters. Inspect filter housing for bypass or damage.' },
-  comprehensive_hvac_overdue: { bucket: 'eng', tier: T_ADM, text: 'Schedule comprehensive HVAC inspection within 24–72 hours when occupant symptoms are active.' },
+  // Also dropped "when occupant symptoms are active": the rule fires on
+  // overdue maintenance alone and never checks for symptoms, so the clause
+  // conditioned the action on a fact the engine had not established.
+  comprehensive_hvac_overdue: { bucket: 'eng', tier: T_ADM, text: 'Schedule a comprehensive HVAC inspection; maintenance is overdue.' },
   comprehensive_hvac_high: { bucket: 'eng', tier: T_ADM, text: 'Schedule comprehensive HVAC inspection.' },
   comprehensive_hvac_assessment: { bucket: 'eng', tier: T_NONE, text: 'Conduct comprehensive HVAC system assessment — inspect filter condition, measure supply airflow, and evaluate drain pan and condensate management.' },
 }

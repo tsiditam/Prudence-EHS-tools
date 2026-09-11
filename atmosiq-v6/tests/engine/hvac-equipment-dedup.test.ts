@@ -89,7 +89,8 @@ function meridianFixture(equipmentTopology: 'shared-ahu' | 'split-ahu' | 'unmapp
 // so the assertions have something exact to match on.
 const drainPanText = 'Clean the drain pan and associated components in accordance with manufacturer recommendations and applicable HVAC maintenance procedures; correct drainage and slope deficiencies contributing to standing water.'
 const drainPanImmediateText = 'Address drain pan condition immediately. Evaluate for microbial growth.'
-const oaDamperText = 'Evaluate outdoor air delivery rate and verify OA damper position within 24–72 hours.'
+// No embedded deadline: timing lives in the register's Timeframe column.
+const oaDamperText = 'Evaluate outdoor air delivery rate and verify OA damper position.'
 const niosh = 'Document affected occupants using NIOSH IEQ questionnaire or equivalent structured symptom instrument.'
 const iicrc500 = 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.'
 

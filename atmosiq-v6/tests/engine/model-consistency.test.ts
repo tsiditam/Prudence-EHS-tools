@@ -92,6 +92,16 @@ describe('every rule bites on a deliberately broken model', () => {
   it('register-owner', () => expectRule('register-owner', m => { m.recommendations.register[0].owner = '' }))
   it('register-evidence', () => expectRule('register-evidence', m => { m.recommendations.register[0].evidence = '' }))
   it('register-action', () => expectRule('register-action', m => { m.recommendations.register[0].action = '' }))
+  it('register-timeframe — a text deadline tighter than its bucket', () => expectRule('register-timeframe', m => {
+    const r = m.recommendations.register.find((x: any) => x.priority === 'Short term')
+    r.action = 'Verify OA damper position within 24–72 hours.'
+  }))
+  it('register-timeframe passes a deadline inside its bucket', () => {
+    const m = clone(base())
+    const r = m.recommendations.register.find((x: any) => x.priority === 'Immediate')
+    r.action = 'Assess affected materials within 48 hours per IICRC S500.'
+    expect(ids(m)).not.toContain('register-timeframe')
+  })
   it('qa-tvoc', () => expectRule('qa-tvoc', m => { m.qaQc = m.qaQc.filter((q: string) => !/PID/.test(q)) }))
   it('qa-tvoc-limitation', () => expectRule('qa-tvoc-limitation', m => { m.limitations = m.limitations.filter((l: string) => !/no instrument/.test(l)) }))
   it('qa-hcho-limitation', () => expectRule('qa-hcho-limitation', m => { m.limitations = m.limitations.filter((l: string) => !/no instrument/.test(l)) }))

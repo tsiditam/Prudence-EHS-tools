@@ -218,6 +218,40 @@ function conclusionAgreesWithSiteModel(M) {
   return []
 }
 
+/**
+ * An action's own text must not name a deadline tighter than its bucket.
+ *
+ * The register prints Timeframe and Action side by side, so "within 24–72
+ * hours" in a 7–30 day row is a contradiction the reader sees at once. The
+ * fix was to take deadlines OUT of action text — timing is stated once, in
+ * the column — and this rule keeps them out. It is deliberately about
+ * contradiction, not presence: "48 hours per IICRC S500" in an Immediate row
+ * is a standard's own figure inside its window and passes.
+ */
+// Each bucket's window in hours, [from, to]. A text deadline contradicts the
+// bucket when it falls entirely OUTSIDE that window — in either direction.
+// The first draft of this rule checked only the upper edge, and "within 72
+// hours" under a 7–30 day bucket is a deadline EARLIER than the window, not
+// later; the negative test caught it, which is what negative tests are for.
+const BUCKET_WINDOW = { 'Immediate': [0, 7 * 24], 'Short term': [7 * 24, 30 * 24], 'Medium term': [30 * 24, 90 * 24], 'Ongoing': [0, Infinity] }
+function registerTimeframeAgrees(M) {
+  const reg = (M.recommendations && M.recommendations.register) || []
+  const out = []
+  reg.forEach((r, i) => {
+    const m = /within\s+(\d+)(?:\s*[–-]\s*(\d+))?\s*(hour|day|week)s?/i.exec(String(r.action || ''))
+    if (!m) return
+    const unit = ({ hour: 1, day: 24, week: 168 })[m[3].toLowerCase()]
+    const lower = Number(m[1]) * unit
+    const upper = Number(m[2] || m[1]) * unit
+    const window = BUCKET_WINDOW[r.priority]
+    if (window && (upper < window[0] || lower > window[1])) {
+      out.push(issue('register-timeframe', 'Recommended actions',
+        `Action ${i + 1} says "${m[0]}" but is filed under ${r.priority} (${r.timeframe}); the text and the column disagree about when.`))
+    }
+  })
+  return out
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────
 
 const RULES = [
@@ -226,6 +260,7 @@ const RULES = [
   summaryFindingsInTable,
   citationsResolve,
   registerComplete,
+  registerTimeframeAgrees,
   instrumentsCoverParameters,
   observationsCarryNoVerdict,
   limitationsAgreeWithSections,
@@ -249,7 +284,7 @@ export function checkRenderModel(model) {
 /** The rule ids, for tests that assert every rule is exercised. */
 export const RULE_IDS = [
   'site-mean-rank', 'summary-scope', 'summary-finding-orphan', 'citation-missing', 'citation-number',
-  'reference-orphan', 'register-location', 'register-owner', 'register-evidence', 'register-action',
+  'reference-orphan', 'register-location', 'register-owner', 'register-evidence', 'register-action', 'register-timeframe',
   'qa-tvoc', 'qa-tvoc-limitation', 'qa-hcho-limitation', 'observation-verdict',
   'limitation-photos', 'limitation-logger', 'gap-undisclosed', 'conclusion-vs-site-model',
 ]
