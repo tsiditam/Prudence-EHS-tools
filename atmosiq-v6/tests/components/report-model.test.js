@@ -71,8 +71,12 @@ describe('collectFindings / recommendations', () => {
 
 describe('qaQc / limitations', () => {
   it('discloses missing QA/QC instead of inventing it', () => {
+    // 'Instrument' became 'Primary IAQ meter' when the table stopped being a
+    // single-instrument record: a report can carry TVOC and formaldehyde
+    // readings the IAQ meter cannot produce, and naming one instrument beside
+    // them attributed those readings to it by implication.
     const qa = buildQaQc({})
-    expect(qa.find(x => x.label === 'Instrument').value).toMatch(/Not documented/)
+    expect(qa.find(x => x.label === 'Primary IAQ meter').value).toMatch(/Not documented/)
   })
   it('adds a no-logger limitation when no graphs are present', () => {
     const lim = buildLimitations({ zones: Z })

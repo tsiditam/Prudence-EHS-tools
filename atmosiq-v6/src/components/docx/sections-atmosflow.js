@@ -417,9 +417,22 @@ export function atmosFlowReportChildren(model) {
   // ═══ Cover ═══ (no watermark, ever)
   c.push(...buildCover(meta))
 
+  // ═══ Prepared for ═══
+  //
+  // The addressee. It opens the body because that is where a reader looks for
+  // it, and because until now this deliverable had no addressee anywhere: the
+  // client appeared only in the footer of a Final-status report, so every
+  // draft was a consultant report addressed to nobody. Omitted entirely when
+  // no recipient details were entered — an empty "Prepared for" heading is
+  // worse than none.
+  if (M.recipient && M.recipient.lines && M.recipient.lines.length) {
+    c.push(h1('Prepared For', { pbb: true }))
+    for (const line of M.recipient.lines) c.push(body(line))
+  }
+
   // ═══ Executive Summary ═══
   if (M.execSummary) {
-    c.push(h1('Executive Summary', { pbb: true }))
+    c.push(h1('Executive Summary', { pbb: !(M.recipient && M.recipient.lines && M.recipient.lines.length) }))
     c.push(body(M.execSummary))
   }
 
@@ -562,8 +575,15 @@ export function atmosFlowReportChildren(model) {
       const rows = M.findings.rows
       c.push(
         table(
-          ['Zone', 'Severity', 'Conf.', 'Finding'],
-          rows.map((r) => [fmt(r.z), sev(r.sev).label, fmt(r.conf), fmt(r.f)]),
+          // "Basis", not "Conf.". The old column printed the ZONE's
+          // confidence on every row of that zone under a heading that read
+          // as per-finding: identical for all its rows, carrying no
+          // information, and disagreeing with the measurement-confidence
+          // breakdown the app showed for the same assessment. Basis is a
+          // real property of the finding — whether it rests on an instrument
+          // reading or on an observation.
+          ['Zone', 'Severity', 'Basis', 'Finding'],
+          rows.map((r) => [fmt(r.z), sev(r.sev).label, fmt(r.basis), fmt(r.f)]),
           [1605, 1442, 1088, 5225],
           { cellSpec: (r, ci) => (ci === 1 ? { bold: true, color: sev(rows[r].sev).color } : { bold: ci === 0 }) },
         ),

@@ -193,7 +193,25 @@ export function collectFindings(zoneScores = []) {
     for (const cat of (zs.cats || [])) {
       for (const r of (cat.r || [])) {
         if (!FLAG.has(r.sev)) continue
-        rows.push({ zone: zs.zoneName || 'Zone', category: cat.l, severity: r.sev, text: r.t, std: r.std || null, confidence: zs.confidence || null })
+        rows.push({
+          zone: zs.zoneName || 'Zone', category: cat.l, severity: r.sev, text: r.t, std: r.std || null,
+          // The ZONE's confidence, kept for consumers that want it. It is not
+          // a property of this finding and the report no longer prints it as
+          // one — see `basis` below.
+          confidence: zs.confidence || null,
+          // What this finding actually rests on. `p` is the parameter id the
+          // engine stamps on a finding derived from an instrument reading;
+          // its absence means the finding came from an observation or an
+          // intake answer. `qualitative_only` marks a reading from an
+          // instrument outside the accuracy database.
+          //
+          // The report's per-finding column used to print `zs.confidence` —
+          // one zone-level number copied onto every row under a heading that
+          // implied it was per-finding. It read the same for all findings in a
+          // zone, carried no information, and disagreed with the measurement-
+          // confidence breakdown the app showed on the same assessment.
+          basis: r.qualitative_only ? 'Qualitative' : (r.p ? 'Measured' : 'Observed'),
+        })
       }
     }
   }
@@ -269,15 +287,120 @@ export function collectReferences(findings = [], causalChains = [], zoneScores =
 }
 
 /** QA/QC manifest from presurvey instrument fields; missing → disclosed. */
-export function buildQaQc(presurvey = {}) {
+/**
+ * Who the report is addressed to, from the Client / Recipient intake.
+ *
+ * Every one of these fields was collected by Assessment Details and then
+ * dropped: the AtmosFlow DOCX named the client in exactly one place, the
+ * footer of a Final-status report, so a draft — which is what every report
+ * starts as — was addressed to nobody. The address lines had no consumer at
+ * all in this deliverable.
+ *
+ * Returns `{}` when nothing was entered, so the caller can omit the block
+ * rather than print an empty one. Every field is optional and the shape
+ * degrades a line at a time.
+ */
+export function buildRecipient(presurvey = {}) {
+  const t = (v) => (typeof v === 'string' ? v.trim() : '')
+  const name = t(presurvey.ps_recipient_name)
+  const title = t(presurvey.ps_recipient_title)
+  const organization = t(presurvey.ps_recipient_organization)
+  const cityLine = [
+    [t(presurvey.ps_recipient_city), t(presurvey.ps_recipient_state)].filter(Boolean).join(', '),
+    t(presurvey.ps_recipient_zip),
+  ].filter(Boolean).join(' ')
+  const addressLines = [
+    t(presurvey.ps_recipient_address1),
+    t(presurvey.ps_recipient_address2),
+    cityLine,
+  ].filter(Boolean)
+  if (!name && !organization && !addressLines.length) return {}
+  return {
+    name, title, organization, addressLines,
+    // "Attention" is the person plus their role — the line a reader scans to
+    // know who owns this. Title alone is not an addressee.
+    attention: [name, title].filter(Boolean).join(', '),
+    // The block as rendered, top to bottom.
+    lines: [
+      [name, title].filter(Boolean).join(', '),
+      organization,
+      ...addressLines,
+    ].filter(Boolean),
+  }
+}
+
+// Which instrument a measured parameter comes from. The primary IAQ meter
+// covers the standard suite; TVOC needs a PID; formaldehyde needs a meter of
+// its own, and the intake has no field for one (`ps_inst_other` is free text).
+const PARAM_INSTRUMENT = {
+  co2: 'iaq', co2o: 'iaq', tf: 'iaq', tfo: 'iaq', rh: 'iaq', rho: 'iaq',
+  pm: 'iaq', pmo: 'iaq', co: 'iaq',
+  tv: 'pid', tvo: 'pid',
+  hc: 'hcho',
+}
+// One name per INSTRUMENT family: an indoor and an outdoor TVOC reading come
+// off the same PID, so listing both would name the same gap twice.
+const PARAM_READABLE = { tv: 'TVOC', tvo: 'TVOC', hc: 'Formaldehyde' }
+
+/**
+ * The QA/QC record: what measured what, and what has nothing behind it.
+ *
+ * It used to list the primary IAQ meter and nothing else. A report could
+ * therefore carry a formaldehyde finding against the NIOSH REL and a full
+ * TVOC interpretation section while the only instrument on record was a
+ * CO2/temp/RH meter that measures neither. Naming one instrument beside
+ * readings it could not have produced attributes them to it by implication.
+ *
+ * Rows for the PID and for formaldehyde appear only when the assessment
+ * actually recorded those readings, and say plainly when no instrument is on
+ * file for them. Same principle as the `qualitative_only` propagation: a
+ * measurement with no instrument behind it is disclosed, not dressed up.
+ */
+export function buildQaQc(presurvey = {}, zones = []) {
   const NA = 'Not documented in project record.'
   const f = (v) => (v && String(v).trim()) || NA
-  return [
-    { label: 'Instrument', value: f(presurvey.ps_inst_iaq) },
+  const measured = (field) => zones.some(z => z && num(z[field]) !== null)
+  const rows = [
+    { label: 'Primary IAQ meter', value: f(presurvey.ps_inst_iaq) },
     { label: 'Serial number', value: f(presurvey.ps_inst_iaq_serial) },
     { label: 'Calibration', value: presurvey.ps_inst_iaq_cal_status ? `${presurvey.ps_inst_iaq_cal_status}${presurvey.ps_inst_iaq_cal ? ` (${presurvey.ps_inst_iaq_cal})` : ''}` : NA },
-    { label: 'Assessor review', value: 'Draft — requires qualified-professional review before issuance.' },
   ]
+  if (measured('tv') || measured('tvo')) {
+    rows.push({
+      label: 'VOC / PID meter',
+      value: presurvey.ps_inst_pid
+        ? `${String(presurvey.ps_inst_pid).trim()}${presurvey.ps_inst_pid_cal ? ` (${presurvey.ps_inst_pid_cal})` : ''}`
+        : 'TVOC readings were recorded; no PID is documented in the project record.',
+    })
+  }
+  if (measured('hc')) {
+    // No intake field exists for a formaldehyde meter, so the honest answer
+    // points at whatever the assessor wrote under "Other instruments" and
+    // says outright when that is empty.
+    rows.push({
+      label: 'Formaldehyde meter',
+      value: (presurvey.ps_inst_other && String(presurvey.ps_inst_other).trim())
+        || 'Formaldehyde readings were recorded; no instrument for them is documented in the project record.',
+    })
+  }
+  rows.push({ label: 'Assessor review', value: 'Draft — requires qualified-professional review before issuance.' })
+  return rows
+}
+
+/**
+ * A limitation naming every measured parameter with no instrument on record.
+ * Empty when everything measured has something behind it.
+ */
+export function unattributedParameters(presurvey = {}, zones = []) {
+  const have = { iaq: !!presurvey.ps_inst_iaq, pid: !!presurvey.ps_inst_pid, hcho: !!(presurvey.ps_inst_other && String(presurvey.ps_inst_other).trim()) }
+  const orphans = new Set()
+  for (const z of zones) {
+    for (const [field, inst] of Object.entries(PARAM_INSTRUMENT)) {
+      if (num(z && z[field]) === null) continue
+      if (!have[inst]) orphans.add(PARAM_READABLE[field] || field)
+    }
+  }
+  return [...orphans]
 }
 
 /** Standard limitations + project-specific additions. */
@@ -291,6 +414,13 @@ export function buildLimitations(data) {
   const hasLogger = !!(data.sensorData && data.sensorData.graphs && Object.values(data.sensorData.graphs).some(g => g && g.include))
   if (!hasLogger) extra.push('No continuous logger data was collected; values reflect readings taken during the site visit.')
   if (!(data.zones || []).some(z => num(z && z.co2) !== null)) extra.push('Limited quantitative measurements were available for this assessment.')
+  // A reading with no instrument behind it is disclosed, not attributed by
+  // implication to whichever meter the QA/QC table happens to name first.
+  const orphans = unattributedParameters(data.presurvey || {}, data.zones || [])
+  if (orphans.length) {
+    const list = orphans.length > 1 ? `${orphans.slice(0, -1).join(', ')} and ${orphans[orphans.length - 1]}` : orphans[0]
+    extra.push(`${list} ${orphans.length === 1 ? 'was' : 'were'} recorded, but no instrument for ${orphans.length === 1 ? 'it' : 'them'} is documented in the project record; ${orphans.length === 1 ? 'that reading is' : 'those readings are'} reported without instrument attribution.`)
+  }
   return [...base, ...extra, ...collectDataGaps(data.zoneScores || [])]
 }
 
@@ -372,7 +502,21 @@ export function buildReportModel(data = {}, opts = {}) {
       // that disagree about which one they are. `Date.now()` is a timestamp,
       // not an identity: it changes on re-issue, which is precisely when a
       // stable id matters most.
-      reportId: data.id || `AIQ-${now.getTime().toString(36).toUpperCase().slice(-6)}`,
+      // The firm's own project number wins when the assessor entered one.
+      // Assessment Details has collected `ps_project_number` all along and no
+      // consumer in this deliverable ever read it — it reached only
+      // engine/bridge/meta.ts, which feeds the consultant report that was
+      // removed in 2026-08. So the field a firm uses to tie a report to its
+      // file was discarded, and the client quoted back an internal record id.
+      //
+      // The fallback is DELIBERATELY still the raw record id rather than a
+      // prettier derived string. Reformatting it would change the printed
+      // identity of every report already issued — the exact failure the note
+      // below describes, arriving from the other direction. A project number
+      // is the supported way to put a human identifier on the document.
+      reportId: (typeof ps.ps_project_number === 'string' && ps.ps_project_number.trim())
+        || data.id
+        || `AIQ-${now.getTime().toString(36).toUpperCase().slice(-6)}`,
       mode: opts.mode || 'draft', // 'draft' | 'final' | 'sample'
       // Report lifecycle. `mode` above is the legacy switch and is kept
       // because 'sample' has no lifecycle equivalent (it is a marketing
@@ -396,7 +540,7 @@ export function buildReportModel(data = {}, opts = {}) {
     recommendations: recommendationsByTimeframe(data.recs || {}),
     charts,
     photos: data.photos || {},
-    qaQc: buildQaQc(ps),
+    qaQc: buildQaQc(ps, zones),
     limitations: buildLimitations(data),
     references: referenceUsage.refs,
     referenceUsage: referenceUsage.usage,
@@ -577,6 +721,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
   // validation.js raised a HARD blocker pointing the assessor at "Recipient
   // organization", a field the deliverable then ignored.
   const client = (data.presurvey && (data.presurvey.ps_recipient_organization || data.presurvey.ps_recipient_name)) || null
+  const recipient = buildRecipient(data.presurvey)
   const reportProfile = meta.reportProfile || DEFAULT_PROFILE
   const reportStatus = meta.reportStatus || DEFAULT_STATUS
   const reviewer = meta.reviewer || null
@@ -653,7 +798,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
 
   // Findings table.
   const findingRows = rd.findings.map(f => ({
-    z: f.zone, sev: ENGINE_SEV_TO_SEV[f.severity] || 'advisory', conf: f.confidence || '—', f: f.text,
+    z: f.zone, sev: ENGINE_SEV_TO_SEV[f.severity] || 'advisory', basis: f.basis || '—', conf: f.confidence || '—', f: f.text,
   }))
 
   // Conceptual site model + hypotheses from the primary causal chain.
@@ -755,6 +900,14 @@ export function assembleRenderModel(data = {}, opts = {}) {
       coverSubtitle: 'Direct-reading evaluation of carbon dioxide, comfort, and particulate / VOC indicators',
       coverRows: [
         ['Facility', meta.facilityName], ['Address', meta.address || '—'], ['Scope', meta.scope || `${rd.projectSummary.numberOfZones} area(s)`],
+        // Who the report is FOR. A consultant report with no addressee
+        // anywhere is not a deliverable, and until now the client appeared in
+        // exactly one place — the footer of a Final-status report — so a draft
+        // named nobody at all. Omitted rather than shown empty when the
+        // recipient fields have not been filled in; the readiness panel is
+        // already asking for them.
+        ...(recipient.organization ? [['Prepared for', recipient.organization]] : []),
+        ...(recipient.attention ? [['Attention', recipient.attention]] : []),
         ['Assessment date', meta.assessmentDate], ['Assessor of record', `${meta.assessorName}${meta.assessorCredentials ? `, ${meta.assessorCredentials}` : ''}`], ['Report ID', reportId],
       ],
       coverFooter: 'Not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
@@ -765,6 +918,9 @@ export function assembleRenderModel(data = {}, opts = {}) {
       reportProfile, reportStatus, reviewer,
       ...chrome,
     },
+    // The addressee block, or null when no recipient details were entered.
+    // The renderer omits the section rather than printing an empty heading.
+    recipient: recipient.lines && recipient.lines.length ? recipient : null,
     execSummary: NL.buildExecSummary({ firm, facility: meta.facilityName, date: meta.assessmentDate, numberOfZones: rd.projectSummary.numberOfZones, purpose: rd.projectSummary.assessmentPurpose, flaggedCount: flagged, topOutcome: null, hasOccupantReports: (data.zones || []).some(z => z && z.cx === 'Yes — complaints reported') }),
     findingsAtGlance,
     showSeverityLegend: true,
@@ -795,7 +951,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
     loggerImages,
     co2Bars,
     findings: findingRows.length ? {
-      intro: 'Findings are ranked by recommended response and carried with a confidence rating. No finding constitutes a regulatory exposure determination.',
+      intro: 'Findings are ranked by recommended response. Basis states whether a finding rests on an instrument reading or on an observation made during the walkthrough. No finding constitutes a regulatory exposure determination.',
       rows: findingRows,
     } : null,
     conceptualModel,

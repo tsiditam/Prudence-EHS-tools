@@ -264,3 +264,91 @@ describe('working hypotheses', () => {
     expect(m.workingHypotheses?.items || []).not.toContain(primary.rootCause)
   })
 })
+
+describe('the deliverable names who it is for, and what measured what', () => {
+  const build = (presurvey: Record<string, unknown>, zoneOver: Record<string, unknown> = {}) => {
+    const zones = [zone(zoneOver)]
+    const zoneScores = zones.map(z => scoreZone(z, BLDG))
+    return assembleRenderModel({
+      building: BLDG, zones, zoneScores, presurvey,
+      recs: genRecs(zoneScores, BLDG, { zones, equipment: [] }),
+    })
+  }
+
+  it('renders an addressee block from the Client / Recipient intake', () => {
+    // The client appeared in exactly one place — the footer of a FINAL report
+    // — so every draft was a consultant report addressed to nobody, and the
+    // address lines had no consumer in this deliverable at all.
+    const m = build({
+      ps_recipient_name: 'Dana Whitfield', ps_recipient_title: 'Director of Facilities',
+      ps_recipient_organization: 'Ridgeline Property Group',
+      ps_recipient_address1: '400 Kestrel Way', ps_recipient_city: 'Columbus',
+      ps_recipient_state: 'OH', ps_recipient_zip: '43215',
+    })
+    expect(m.recipient.lines).toEqual([
+      'Dana Whitfield, Director of Facilities',
+      'Ridgeline Property Group',
+      '400 Kestrel Way',
+      'Columbus, OH 43215',
+    ])
+    expect(m.meta.coverRows).toContainEqual(['Prepared for', 'Ridgeline Property Group'])
+    expect(m.meta.coverRows).toContainEqual(['Attention', 'Dana Whitfield, Director of Facilities'])
+  })
+
+  it('omits the block, and the cover rows, when no recipient was entered', () => {
+    const m = build({})
+    expect(m.recipient).toBeNull()
+    expect(m.meta.coverRows.map((r: string[]) => r[0])).not.toContain('Prepared for')
+  })
+
+  it('uses the firm project number as the Report ID when one was entered', () => {
+    // Assessment Details collected ps_project_number and no consumer in this
+    // deliverable read it — it reached only the removed consultant report.
+    expect(build({ ps_project_number: 'PSEC-2026-0188' }).meta.coverRows)
+      .toContainEqual(['Report ID', 'PSEC-2026-0188'])
+  })
+
+  it('keeps the record id when there is no project number, so an issued ID never changes', () => {
+    const zones = [zone()]
+    const zoneScores = zones.map(z => scoreZone(z, BLDG))
+    const m = assembleRenderModel({
+      id: 'rpt-123', building: BLDG, zones, zoneScores, presurvey: {},
+      recs: genRecs(zoneScores, BLDG, { zones, equipment: [] }),
+    })
+    expect(m.meta.coverRows).toContainEqual(['Report ID', 'rpt-123'])
+  })
+
+  it('does not attribute TVOC and formaldehyde to a meter that cannot measure them', () => {
+    // QA/QC listed only the primary IAQ meter, beside a formaldehyde finding
+    // against the NIOSH REL and a full TVOC section.
+    const m = build({ ps_inst_iaq: 'TSI Q-Trak 7575' }, { tv: '850', hc: '0.03' })
+    const qa = m.qaQc.join(' | ')
+    expect(qa).toMatch(/VOC \/ PID meter: TVOC readings were recorded; no PID is documented/)
+    expect(qa).toMatch(/Formaldehyde meter: Formaldehyde readings were recorded; no instrument/)
+    expect(m.limitations.join(' ')).toMatch(/no instrument for them is documented/)
+  })
+
+  it('names the PID when one is on record, and raises no limitation', () => {
+    const m = build({ ps_inst_iaq: 'TSI Q-Trak 7575', ps_inst_pid: 'MiniRAE 3000', ps_inst_pid_cal: 'Bump-tested and calibrated' }, { tv: '850' })
+    expect(m.qaQc.join(' | ')).toMatch(/VOC \/ PID meter: MiniRAE 3000 \(Bump-tested and calibrated\)/)
+    expect(m.limitations.join(' ')).not.toMatch(/no instrument/)
+  })
+
+  it('says nothing about a PID when no VOC reading was taken', () => {
+    const m = build({ ps_inst_iaq: 'TSI Q-Trak 7575' }, { tv: '', hc: '' })
+    expect(m.qaQc.join(' | ')).not.toMatch(/PID/)
+  })
+
+  it('reports each finding’s own basis rather than the zone’s confidence', () => {
+    // The column printed one zone-level value on every row of that zone.
+    const m = build({})
+    const rows = m.findings.rows
+    const bases = new Set(rows.map((r: any) => r.basis))
+    expect([...bases].every(b => ['Measured', 'Observed', 'Qualitative'].includes(b as string))).toBe(true)
+    // This fixture has both an instrument finding (CO2) and an observation
+    // finding (the complaint rows), so the column must not be uniform.
+    expect(bases.size).toBeGreaterThan(1)
+    expect(rows.find((r: any) => /CO₂/.test(r.f))?.basis).toBe('Measured')
+    expect(rows.find((r: any) => /occupants reporting symptoms/.test(r.f))?.basis).toBe('Observed')
+  })
+})

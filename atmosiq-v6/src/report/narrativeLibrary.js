@@ -125,7 +125,7 @@ export function buildExecSummary({ firm, facility, date, numberOfZones, purpose,
   const scopeBit = numberOfZones ? ` across ${numberOfZones} representative zone${numberOfZones === 1 ? '' : 's'}` : ''
   const purposeBit = purpose ? ` in response to ${String(purpose).toLowerCase()}` : ''
   const outcomeBit = flaggedCount > 0
-    ? `The assessment flagged ${flaggedCount} item${flaggedCount === 1 ? '' : 's'} for follow-up; each finding below carries a confidence rating and the verification it would need.`
+    ? `The assessment flagged ${flaggedCount} item${flaggedCount === 1 ? '' : 's'} for follow-up; each finding below states what it rests on and the verification it would need.`
     : 'No conditions were flagged above the references during the assessment window.'
   // "occupant interviews" used to be asserted unconditionally, in an
   // assessment where occupant input is a set of dropdown answers and may be
