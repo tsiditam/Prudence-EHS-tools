@@ -430,6 +430,21 @@ function assessHVAC(d) {
   if (d.fc === 'Heavily loaded' || d.fc === 'Damaged / Bypass') { r.push({ t:'Filter condition: '+d.fc.toLowerCase()+' — degraded filtration performance', sev:'high' }) }
   if (d.fm === 'No filter')           { gate5 = true; r.push({ t:'No filtration installed — Major HVAC Deficiency', sev:'critical' }) }
   if (d.sa === 'No airflow detected') { gate5 = true; r.push({ t:'No supply airflow detected — Critical HVAC Condition Identified', sev:'critical' }) }
+  // `Weak / reduced` used to produce NOTHING. It is the middle answer of the
+  // supply-air question, it is the one the assessor picks when the diffuser
+  // is underperforming, and because it still counted toward `hasAnyData`
+  // below it flipped the fallback from the honest "No HVAC system data
+  // collected" to the affirmative "HVAC system conditions acceptable". So
+  // reporting the problem was strictly worse than skipping the question.
+  // causalChains.js had read the same field as `hasWeakFlow` evidence for a
+  // ventilation deficiency the whole time — two layers, opposite conclusions,
+  // one field.
+  else if (d.sa === 'Weak / reduced') { r.push({ t:'Supply airflow reported weak / reduced at the diffuser — delivered outdoor air may be below design for this zone', sev:'medium' }) }
+  // Same defect, same field family: the outdoor-air damper. A damper closed
+  // to minimum or stuck is the textbook mechanism behind the CO₂ pattern this
+  // engine flags elsewhere, and it produced no HVAC finding at all.
+  if (d.od === 'Closed / minimum') { r.push({ t:'Outdoor air damper at closed / minimum position — limits outdoor-air delivery independent of supply airflow', sev:'medium' }) }
+  else if (d.od === 'Stuck / inoperable') { r.push({ t:'Outdoor air damper stuck / inoperable — outdoor-air delivery cannot be modulated', sev:'high' }) }
   // The Legionella / ASHRAE 188 escalation was removed in 2026-08. It fired on
   // this one intake field and nothing else — no water system, no aerosol
   // pathway, no symptom, no building type. ASHRAE 188 scopes itself to
@@ -460,8 +475,17 @@ function assessHVAC(d) {
   // the arithmetic went.
   if (gate5) r.push({ t:'Critical HVAC Condition Identified: active physical deficiency in the air-handling system', sev:'critical' })
   if (!r.length) {
-    const hasAnyData = d.hm || d.fc || d.sa || d.dp || d.fm
-    r = [{ t: hasAnyData ? 'HVAC system conditions acceptable' : 'No HVAC system data collected', sev: hasAnyData ? 'pass' : 'info' }]
+    // "Acceptable" is a verdict, and a verdict needs something INSPECTED
+    // behind it. `hasAnyData` used to count any answered field, including the
+    // answers that say the opposite — "Not accessible", "Unknown", "Not
+    // assessed" — so a walkthrough that could not open a single access panel
+    // still reported the system acceptable. Those answers record that the
+    // question was ASKED, not that the component was seen.
+    const NOT_INSPECTED = ['Not accessible', 'Unknown', 'Not assessed', '']
+    const inspected = [d.hm, d.fc, d.sa, d.dp, d.fm].filter(v => v && !NOT_INSPECTED.includes(v))
+    r = inspected.length
+      ? [{ t:'HVAC system conditions acceptable', sev:'pass' }]
+      : [{ t:'No HVAC system data collected', sev:'info' }]
   }
   return { l: 'HVAC', r, gate5, adminGap }
 }

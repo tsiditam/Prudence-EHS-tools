@@ -22,6 +22,20 @@
  * Contact: tsidi@prudenceehs.com
  */
 
+/**
+ * Today as YYYY-MM-DD in the DEVICE's timezone.
+ *
+ * `new Date().toISOString().slice(0,10)` is UTC, which in any western zone
+ * reports tomorrow's date for most of the evening — and comfortSeason reads
+ * the month off this string directly, so a UTC roll on 30 September silently
+ * moves a survey from summer to winter. The assessor is standing in the
+ * building; the building's local day is the one that happened.
+ */
+export function todayLocalISO(now = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
 /** ISO-8601 date (YYYY-MM-DD) the assessment was conducted, or null. */
 export function resolveAssessmentDate(data) {
   const entered = data?.presurvey?.ps_survey_date

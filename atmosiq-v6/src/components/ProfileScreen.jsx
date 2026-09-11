@@ -28,7 +28,7 @@ const DIM = 'var(--dim)'
 const DANGER = 'var(--danger)'
 
 const CERT_OPTS = ['CIH','CIH-in-Training','CSP','CHMM','ACAC CIEC','ACAC CMC','ACAC CMI','Other']
-const EXP_OPTS = ['1–3 years','3–5 years','5–10 years','10–20 years','20+ years']
+const EXP_OPTS = ['1-3 years','3-5 years','5-10 years','10-20 years','20+ years']
 // Instrument-related option lists are exported so the standalone
 // InstrumentEditView in MobileApp can reuse them without drift.
 export const IAQ_OPTS = ['TSI Q-Trak 7575','TSI Q-Trak 7515','TSI IAQ-Calc 7545','Graywolf AdvancedSense Pro','Graywolf IQ-610','Testo 400','Testo 440','Kanomax IAQ-2000','Other']

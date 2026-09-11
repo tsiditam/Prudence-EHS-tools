@@ -60,7 +60,7 @@ describe('ReadinessPanel', () => {
     expect(screen.getByText(/Missing outdoor CO₂ baseline/i)).toBeTruthy()
   })
 
-  it('renders the "Cannot finalize yet" status when blockers exist', () => {
+  it('renders the "Not ready for sign-off" status when blockers exist', () => {
     render(
       <ReadinessPanel
         assessment={cleanAssessment({
@@ -68,7 +68,10 @@ describe('ReadinessPanel', () => {
         })}
       />,
     )
-    expect(screen.getByText(/Cannot finalize yet/i)).toBeTruthy()
+    expect(screen.getByText(/Not ready for sign-off/i)).toBeTruthy()
+    // The panel is advisory. It must not tell the assessor the platform will
+    // refuse to finalize or export — nothing in the product does.
+    expect(screen.queryByText(/cannot finalize/i)).toBeNull()
     // Surface at least one of the named blockers (client name)
     expect(screen.getByText(/Client name is empty/i)).toBeTruthy()
   })

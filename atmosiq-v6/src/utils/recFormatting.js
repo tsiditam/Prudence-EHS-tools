@@ -13,7 +13,11 @@
  * re-implementing the legacy string-prefix parser.
  */
 
-const HVAC_FALLBACK_PREFIX = 'HVAC equipment not yet identified — '
+// The zone→unit MAPPING is what is missing, which is not the same as no
+// equipment having been captured. The old wording ("HVAC equipment not yet
+// identified") printed on reports where the assessor had entered the units
+// and simply never mapped a zone to one — the Quick Start flow does not ask.
+const HVAC_FALLBACK_PREFIX = 'No HVAC unit is mapped to this zone — '
 
 /**
  * Coerce a legacy "ZoneName: action text" string into the new

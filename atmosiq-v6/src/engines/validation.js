@@ -146,7 +146,7 @@ export function validateAssessment(assessment) {
   // Client name — HARD
   if (isMissingOrPlaceholder(clientName)) {
     addHard('client_name', 'ps_recipient_organization', 'Client name missing',
-      'Client name is empty or "Not Specified". A real client name is required for report finalization.', LOC.recipientOrg)
+      'Client name is empty or "Not Specified". A report addressed to no one cannot be signed off; enter the client organization.', LOC.recipientOrg)
   }
 
   // Site contact name + role — HARD
@@ -205,7 +205,7 @@ export function validateAssessment(assessment) {
   const assessorName = assessment.presurvey?.ps_assessor || assessment.profile?.name
   if (assessorName && ASSESSOR_PLACEHOLDER_PATTERNS.test(String(assessorName))) {
     addDismissible('assessor_placeholder', 'ps_assessor', 'Assessor name looks like a placeholder',
-      `Assessor name "${assessorName}" matches a placeholder pattern. Replace with the actual licensed professional's name before finalizing.`, LOC.assessor)
+      `Assessor name "${assessorName}" matches a placeholder pattern. Replace with the actual licensed professional's name before sign-off.`, LOC.assessor)
   }
   // ─── end evidentiary completeness ───────────────────────────────────
 

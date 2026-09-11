@@ -69,6 +69,36 @@ const weighChain = ({ measured = false, corroborating = 0, hypothesisOnly = fals
   return 'Possible'
 }
 
+// Confidence vocabulary above, weakest to strongest.
+const CHAIN_CONFIDENCE_RANK = { Possible: 1, Moderate: 2, Strong: 3 }
+
+/**
+ * The chain a surface should LEAD with.
+ *
+ * Both the report's conceptual site model and the results hero used to take
+ * `chains[0]` — whichever chain this file happened to push first, which is the
+ * complaint-driven block. So an assessment whose strongest pathway was a
+ * measured ventilation deficiency (Strong, a CO2 reading behind it) was
+ * presented under a complaint-only hypothesis (Moderate) whose evidence was
+ * nothing but occupant reports. Source-file ordering decided the headline.
+ *
+ * It lives here rather than in the report model because the hero needs it too,
+ * and two surfaces naming different pathways as "the" finding for one
+ * assessment is exactly the cross-layer disagreement CLAUDE.md warns about.
+ *
+ * Strongest confidence wins; more evidence breaks a tie; array order breaks
+ * the rest, so the choice is deterministic for a given assessment.
+ */
+export function pickPrimaryChain(chains) {
+  if (!chains || !chains.length) return undefined
+  return chains.reduce((best, c) => {
+    const rank = (x) => CHAIN_CONFIDENCE_RANK[x && x.confidence] || 0
+    if (rank(c) !== rank(best)) return rank(c) > rank(best) ? c : best
+    const ev = (x) => (Array.isArray(x && x.evidence) ? x.evidence.length : 0)
+    return ev(c) > ev(best) ? c : best
+  }, chains[0])
+}
+
 export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
   const chains = []
   zoneScores.forEach((zs, i) => {
@@ -134,6 +164,19 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
       if (hasDamperIssue) ev.push('OA damper: ' + d.od)
       if (hasWeakFlow) ev.push('Supply airflow: ' + d.sa)
       if (hasSymptomsRelated) ev.push((d.ac||'Multiple') + ' occupants with building-related symptoms')
+      // The measured chain SUPERSEDES the complaint-only hypothesis for the
+      // same mechanism in the same zone. They both describe inadequate
+      // outdoor-air delivery; the difference is that this one has a CO2
+      // reading behind it. The de-dup guard below only ever tested the exact
+      // string 'Ventilation Deficiency', and the complaint block pushes
+      // 'Ventilation Deficiency (Hypothesis)' — a different string — so the
+      // guard never matched and BOTH shipped. Every affected report carried
+      // two ventilation pathways over the same zones with two different
+      // confidences, and because the report's "primary finding" was simply
+      // chains[0], it led with the weaker, complaint-only one and never
+      // showed the CO2 that supported the stronger.
+      const supersededAt = chains.findIndex(c => c.zone === zName && c.type === 'Ventilation Deficiency (Hypothesis)')
+      if (supersededAt !== -1) chains.splice(supersededAt, 1)
       if (!chains.some(c => c.zone === zName && c.type === 'Ventilation Deficiency'))
         chains.push({ zone: zName, type: 'Ventilation Deficiency', rootCause: hasDamperIssue ? 'Outdoor air damper restriction limiting fresh air delivery' : 'Inadequate ventilation rate for occupant load', evidence: ev, confidence: weighChain({
           measured: !!d.co2,

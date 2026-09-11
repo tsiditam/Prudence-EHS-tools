@@ -108,7 +108,7 @@ export function calcVent(su, sf, oc) {
 //
 // If a triggered zone has no equipment mapped, the rule emits a
 // single building-scoped fallback action prefixed
-// "HVAC equipment not yet identified —" so the assessor can resolve
+// "No HVAC unit is mapped to this zone —" so the assessor can resolve
 // the mapping and re-run scoring.
 //
 // Scope is declared on the rule, not inferred at runtime — engine
@@ -235,8 +235,8 @@ export function genRecs(zoneScores, bldg, opts = {}) {
         if (r.t.includes('No filtration') || r.t.includes('no filter')) pushBuilding('imm', 'Request immediate HVAC service — no filtration installed.', [zs.zoneName], T_ENG)
         if (r.t.includes('Drain pan')) trigger('drainpan_immediate', zs.zoneName)
         // The 'Arrest water intrusion…' emit that stood here was a double:
-        // `hasWater` below already pushes one Immediate water action for the
-        // zone, and this one also fired on "Drain pan: standing water",
+        // `hasActiveWater` below already pushes one Immediate water action for
+        // the zone, and this one also fired on "Drain pan: standing water",
         // which is the drain-pan rule's job (audit M5).
         if (r.t.toLowerCase().includes('occupant') && r.t.includes('symptom')) pushZone('imm', zs.zoneName, 'Document symptom patterns using NIOSH IEQ questionnaire or equivalent structured instrument. Evaluate ventilation immediately.', T_ADM)
       }
@@ -257,10 +257,32 @@ export function genRecs(zoneScores, bldg, opts = {}) {
       }
     }))
     // Pattern-driven recs (water / mold / drain pan / filter / pressure / symptom cluster)
-    // Water intrusion is an Environment condition; a drain pan holding water
-    // is the HVAC rule's job (drainpan_immediate / drainpan_clean), not a
-    // second "repair water intrusion" action for the same pan.
-    const hasWater = zs.cats.some(c => c.r.some(r => !r.t.startsWith('Drain pan') && (r.t.includes('water') || r.t.includes('leak') || r.t.includes('Water'))))
+    //
+    // The zone's own intake answers. Read BEFORE the pattern flags below,
+    // because several of them key on a structured field rather than on the
+    // wording of a finding — see hasWater and hasNegPressure.
+    const zoneData = zones.find(z => (z.zn || '') === zs.zoneName)
+    // Water intrusion keys on the STRUCTURED `wd` observation, never on the
+    // word "water" appearing in a finding. It used to be a substring match
+    // over every finding's text, and the finding `Historical water staining`
+    // — which the engine itself rates `low` — contains the word. So dry,
+    // historical ceiling staining raised an IMMEDIATE "repair the source
+    // within 48 hours per IICRC S500" action, and through it an insurance
+    // notification and a post-remediation re-occupancy hold. A recommendation
+    // may not state a fact the assessment did not observe: there is no source
+    // to repair, no loss to notify, and nothing to clear for re-occupancy.
+    //
+    // `Active leak` and `Extensive damage` are the two answers that describe
+    // water actually moving now, which is what the S500 48-hour drying window
+    // addresses. Same split causalChains.js already applies to `wd`; both
+    // layers now read the field the same way.
+    //
+    // A drain pan holding water is the HVAC rule's job (drainpan_immediate /
+    // drainpan_clean), not a second "repair water intrusion" action for the
+    // same pan — that exclusion is now structural rather than a
+    // `startsWith('Drain pan')` test, because `dp` is a different field.
+    const hasActiveWater = zoneData?.wd === 'Active leak' || zoneData?.wd === 'Extensive damage'
+    const hasHistoricWater = zoneData?.wd === 'Old staining'
     const hasMold = zs.cats.some(c => c.r.some(r => r.t.toLowerCase().includes('mold')))
     const hasDrainPan = zs.cats.some(c => c.r.some(r => r.t.includes('Drain pan')))
     const hasSymptomCluster = zs.cats.some(c => c.l === 'Complaints' && c.r.some(r => r.sev === 'critical' || r.sev === 'high'))
@@ -275,11 +297,16 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     // map the pressurization module uses, or that module's own zonesNegative
     // list — never on the word "negative" appearing in any finding text,
     // which fired the remedy off a pharmacy profile's context sentence.
-    const zoneData = zones.find(z => (z.zn || '') === zs.zoneName)
     const hasNegPressure =
       (zoneData != null && ZONE_PRESSURE_OPTIONS[zoneData.path_pressure] === ZONE_PRESSURE.NEGATIVE) ||
       (opts.pressurization?.zonesNegative || []).includes(zs.zoneName)
-    if (hasWater) pushZone('imm', zs.zoneName, 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.', T_SOURCE)
+    if (hasActiveWater) pushZone('imm', zs.zoneName, 'Repair water intrusion source. Assess affected materials within 48 hours per IICRC S500.', T_SOURCE)
+    // Historical staining is an observation about the past, so the action is
+    // to establish whether it is still wet and whether the source was ever
+    // fixed — not to repair a source the assessment did not find. Without
+    // this the fix above would leave `Old staining` recommending nothing at
+    // all, which is the failure mode an absence-only correction invites.
+    else if (hasHistoricWater) pushZone('adm', zs.zoneName, 'Verify the staining is dry by moisture meter and confirm the original intrusion source was repaired. Investigate concealed materials if moisture is detected.', T_SOURCE)
     if (hasMold) {
       pushZone('eng', zs.zoneName, 'Remediate visible mold per IICRC S520 / EPA Mold Remediation in Schools and Commercial Buildings. For areas <10 sq ft (Level I), trained maintenance staff with PPE (N95, gloves, eye protection) may perform cleanup.', T_SOURCE)
       pushZone('eng', zs.zoneName, 'Post-remediation verification per IICRC S520 — visual clearance and clearance air sampling before reoccupancy.', T_ADM)
@@ -301,7 +328,12 @@ export function genRecs(zoneScores, bldg, opts = {}) {
       // emit as a NIOSH IEQ questionnaire action.
       pushZone('adm', zs.zoneName, 'Evaluate feasibility of temporary relocation for symptomatic occupants until corrective actions are verified effective.', T_ADM)
     }
-    if (hasMold || hasWater) {
+    // Both of these presuppose a remediation: a loss worth notifying an
+    // insurer about, and a space held out of normal use until it clears.
+    // They ride on `hasActiveWater`, not on historical staining — a dry stain
+    // is neither. This is the cascade that made the substring match above
+    // expensive rather than merely wrong.
+    if (hasMold || hasActiveWater) {
       pushZone('adm', zs.zoneName, 'Document loss and remediation scope for insurance notification.', T_ADM)
       pushZone('mon', zs.zoneName, 'Establish re-occupancy and clearance criteria. Post-remediation verification required before returning to normal operations.', T_ADM)
     }
@@ -355,7 +387,9 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     if (unmapped.length > 0) {
       buckets[def.bucket].push({
         scope: 'building',
-        text: `HVAC equipment not yet identified — ${def.text}`,
+        // Says what is actually missing: the zone→unit mapping, not the
+        // equipment record. See HVAC_FALLBACK_PREFIX in utils/recFormatting.
+        text: `No HVAC unit is mapped to this zone — ${def.text}`,
         controlTier: def.tier,
         affectedZoneIds: unmapped,
         affectedZoneNames: unmapped,

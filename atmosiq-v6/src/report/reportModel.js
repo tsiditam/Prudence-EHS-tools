@@ -28,6 +28,7 @@ import { STD } from '../constants/standards'
 import { parsePhotoKey, photoCaption } from '../utils/photoIndex.js'
 import { actionLine } from '../utils/recFormatting'
 import { readNumber, scoreZone } from '../engines/scoring'
+import { pickPrimaryChain } from '../engines/causalChains'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
 import * as NL from './narrativeLibrary'
 import {
@@ -288,7 +289,7 @@ export function buildLimitations(data) {
   ]
   const extra = []
   const hasLogger = !!(data.sensorData && data.sensorData.graphs && Object.values(data.sensorData.graphs).some(g => g && g.include))
-  if (!hasLogger) extra.push('No continuous logger data was collected; values reflect grab readings during the site visit.')
+  if (!hasLogger) extra.push('No continuous logger data was collected; values reflect readings taken during the site visit.')
   if (!(data.zones || []).some(z => num(z && z.co2) !== null)) extra.push('Limited quantitative measurements were available for this assessment.')
   return [...base, ...extra, ...collectDataGaps(data.zoneScores || [])]
 }
@@ -354,7 +355,12 @@ export function buildReportModel(data = {}, opts = {}) {
       assessmentDate: surveyIso ? fmt(new Date(`${surveyIso}T12:00:00`)) : fmt(now),
       reportDate: fmt(now),
       assessorName: profile.name || ps.ps_assessor || 'Assessor',
-      assessorCredentials: (profile.certs || []).join(', '),
+      // Only the credentials the name does not already carry. Assessors write
+      // their post-nominals into the name field ("T. Tamakloe, CIH, CSP")
+      // because that is how a signature block reads, and the profile also
+      // stores them as a list — so the report printed "T. Tamakloe, CIH, CSP,
+      // CIH" wherever the two were concatenated.
+      assessorCredentials: dedupeCredentials(profile.name || ps.ps_assessor || '', profile.certs || []),
       companyName: profile.firm || 'Prudence Safety & Environmental Consulting, LLC',
       // The Report ID a client quotes back when they ring about a document.
       // `data.id` is the record this export is of; the fallback is for a
@@ -404,6 +410,29 @@ export function buildReportModel(data = {}, opts = {}) {
 // the `|| 'ok'` at each call site would otherwise print "Acceptable" for a
 // parameter this platform has no basis to judge. See paramOutcome / TVOC.
 const OUTCOME_TO_SEV = { acceptable: 'ok', advisory: 'advisory', elevated: 'elevated', priority: 'priority', not_evaluated: 'not_evaluated' }
+// Worst first. `not_evaluated` is deliberately absent: it is not a rung on
+// this ladder, so a parameter the engine declined to judge never becomes the
+// governing outcome of a row. See the site-mean row below.
+const SEV_RANK_ORDER = ['priority', 'elevated', 'advisory', 'ok']
+
+/**
+ * Credentials from the profile list that the name string does not already
+ * state, joined for display. Word-boundary matched and case-insensitive, so
+ * "CIH" in "T. Tamakloe, CIH, CSP" is caught but "CIH" inside another token
+ * is not. Returns '' when the name already carries them all.
+ */
+export function dedupeCredentials(name, certs) {
+  const n = String(name || '')
+  return (certs || [])
+    .filter(Boolean)
+    .filter(c => !new RegExp(`(^|[^A-Za-z0-9])${String(c).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-z0-9]|$)`, 'i').test(n))
+    .join(', ')
+}
+
+// The lead-chain rule lives with the chains (engines/causalChains.js) so the
+// results hero and this model cannot disagree about which pathway leads.
+// Re-exported for the callers that already reach for it here.
+export { pickPrimaryChain }
 const ENGINE_SEV_TO_SEV = { critical: 'priority', high: 'elevated', medium: 'advisory', low: 'ok', pass: 'ok', info: 'ok' }
 const REF_BASIS = {
   'ASHRAE 62.1-2025': 'Ventilation and Acceptable Indoor Air Quality. Ventilation-indicator basis for CO2 (prescribes airflow, not a CO2 limit).',
@@ -541,7 +570,13 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const mode = meta.mode
   const firm = meta.companyName
   const reportId = meta.reportId
-  const client = (data.presurvey && (data.presurvey.ps_recipient_org || data.presurvey.ps_recipient_name)) || null
+  // `ps_recipient_org` was a dead key — the question id is
+  // `ps_recipient_organization` and the short form appears nowhere else in
+  // the codebase, so the organization could never resolve and the report
+  // always fell through to the recipient's personal name. Meanwhile
+  // validation.js raised a HARD blocker pointing the assessor at "Recipient
+  // organization", a field the deliverable then ignored.
+  const client = (data.presurvey && (data.presurvey.ps_recipient_organization || data.presurvey.ps_recipient_name)) || null
   const reportProfile = meta.reportProfile || DEFAULT_PROFILE
   const reportStatus = meta.reportStatus || DEFAULT_STATUS
   const reviewer = meta.reviewer || null
@@ -558,11 +593,25 @@ export function assembleRenderModel(data = {}, opts = {}) {
     sev: OUTCOME_TO_SEV[z.outcome] || 'ok',
   }))
   if (resultsRows.length) {
+    // The site-mean row's Outcome was hardcoded `sev: 'ok'` — it rendered
+    // "Acceptable" whatever the numbers beside it. In a two-zone assessment
+    // where BOTH zones read Elevated, the bold summary row under them
+    // reported a site mean CO2 of 1762 ppm as Acceptable. It is the last row
+    // of the table and the one a client's eye lands on.
+    //
+    // The outcome now comes from the per-parameter outcomes already computed
+    // for "Findings at a glance", worst-first, so the two tables cannot
+    // disagree about the same site. `not_evaluated` is skipped rather than
+    // ranked: a parameter the engine declined to judge is not evidence of
+    // acceptability, and it is not evidence of a problem either.
+    const meanSev = SEV_RANK_ORDER.find(s =>
+      Object.values(params).some(pp => (OUTCOME_TO_SEV[pp.outcome] || 'ok') === s),
+    ) || 'ok'
     resultsRows.push({
       id: 'Site mean', use: '',
       co2: params.co2 ? params.co2.mean : null, co: params.co ? params.co.mean : null, t: params.temperature ? params.temperature.mean : null,
       rh: params.relativeHumidity ? params.relativeHumidity.mean : null, pm: params.pm25 ? params.pm25.mean : null, tvoc: params.tvoc ? params.tvoc.mean : null,
-      sev: 'ok', __bold: true,
+      sev: meanSev, __bold: true,
     })
   }
 
@@ -609,7 +658,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
 
   // Conceptual site model + hypotheses from the primary causal chain.
   const chains = (data.causalChains || []).filter(Boolean)
-  const primary = chains[0]
+  const primary = pickPrimaryChain(chains)
   const conceptualModel = primary ? {
     intro: 'Following standard IAQ investigation logic, the primary finding is expressed as a source → pathway → receptor chain with its supporting evidence and confidence.',
     heading: `${primary.type || primary.name || 'Primary finding'}${primary.zone ? ` — ${primary.zone}` : ''}`,
@@ -621,9 +670,23 @@ export function assembleRenderModel(data = {}, opts = {}) {
       ['Confidence', primary.confidence || (primary.causationSupported ? 'Supported' : 'Screening') ],
     ],
   } : null
-  const workingHypotheses = chains.length ? {
-    intro: 'The screening data support the hypotheses below. None is a confirmed cause; each names the verification it requires.',
-    items: chains.slice(0, 4).map(c => `${c.rootCause || c.name || c.type}${c.refutableBy ? ` Verification: ${c.refutableBy}` : ''}`),
+  // The primary is already set out in full immediately above, with its own
+  // evidence and confidence. Repeating its root cause as the first bullet of
+  // the list below said the same thing twice — and when the primary was
+  // picked by array order it was the ONLY chain stated twice while a stronger
+  // one went unmentioned.
+  // Deduped by the sentence, because a hypothesis is a statement about a
+  // MECHANISM and the chains are built per zone: two zones with the same
+  // concealed-moisture hypothesis produce two chains carrying identical
+  // rootCause text, and the list printed the sentence twice. The zones are
+  // named in the pathway table, not here.
+  const secondary = chains.filter(c => c !== primary)
+  const items = [...new Set(secondary.map(c =>
+    `${c.rootCause || c.name || c.type}${c.refutableBy ? ` Verification: ${c.refutableBy}` : ''}`,
+  ))]
+  const workingHypotheses = items.length ? {
+    intro: 'The data support the hypotheses below. None is a confirmed cause; each names the verification it requires.',
+    items: items.slice(0, 4),
   } : null
 
   // QA/QC as bullet strings; limitations already paragraph strings.
@@ -702,24 +765,28 @@ export function assembleRenderModel(data = {}, opts = {}) {
       reportProfile, reportStatus, reviewer,
       ...chrome,
     },
-    execSummary: NL.buildExecSummary({ firm, facility: meta.facilityName, date: meta.assessmentDate, numberOfZones: rd.projectSummary.numberOfZones, purpose: rd.projectSummary.assessmentPurpose, flaggedCount: flagged, topOutcome: null }),
+    execSummary: NL.buildExecSummary({ firm, facility: meta.facilityName, date: meta.assessmentDate, numberOfZones: rd.projectSummary.numberOfZones, purpose: rd.projectSummary.assessmentPurpose, flaggedCount: flagged, topOutcome: null, hasOccupantReports: (data.zones || []).some(z => z && z.cx === 'Yes — complaints reported') }),
     findingsAtGlance,
     showSeverityLegend: true,
     severityLegendNote: NL.SEVERITY_LEGEND_NOTE,
-    overallStatement: NL.buildOverallStatement({ flaggedCount: flagged, elevatedZones }),
+    overallStatement: NL.buildOverallStatement({ flaggedCount: flagged, elevatedZones, totalZones: rd.projectSummary.numberOfZones }),
     scope: {
       paras: [
         `The assessment covered ${rd.projectSummary.numberOfZones} zone${rd.projectSummary.numberOfZones === 1 ? '' : 's'} at ${meta.facilityName}${rd.projectSummary.buildingDescription ? ` (${rd.projectSummary.buildingDescription})` : ''}${rd.projectSummary.hvacDescription ? `, served by ${rd.projectSummary.hvacDescription}` : ''}. ${rd.projectSummary.assessmentPurpose ? `The assessment was prompted by ${String(rd.projectSummary.assessmentPurpose).toLowerCase()}.` : ''}`.trim(),
-        'The objective was a screening characterization of indoor air quality indicators to confirm whether observed conditions fall within recognized comfort and ventilation references, identify any zones warranting follow-up, and provide a defensible, prioritized action list.',
+        'The objective was to characterize indoor air quality indicators, confirm whether observed conditions fall within recognized comfort and ventilation references, identify any zones warranting follow-up, and provide a defensible, prioritized action list.',
       ],
       showFloorPlanSchematic: false,
     },
     methodology: {
-      bullets: NL.methodologyBullets(data.presurvey && data.presurvey.ps_inst_iaq, data.presurvey && data.presurvey.ps_inst_iaq_cal_status),
+      bullets: NL.methodologyBullets(
+        data.presurvey && data.presurvey.ps_inst_iaq,
+        data.presurvey && data.presurvey.ps_inst_iaq_cal_status,
+        (data.zones || []).map(z => z && z.meas_duration).filter(Boolean),
+      ),
       referenceFramework: NL.REFERENCE_FRAMEWORK,
     },
     results: {
-      intro: 'The table below summarizes representative occupied-hours readings by zone, with the site arithmetic mean for context. Values are direct-reading grab measurements unless otherwise noted.',
+      intro: 'The table below summarizes representative occupied-hours readings by zone, with the site arithmetic mean for context. Values are direct-reading measurements; the averaging period recorded for each zone is stated under Methodology.',
       rows: resultsRows,
       note: resultsRows.length ? 'Site mean is the arithmetic mean of the measured zones. Outcome reflects the zone’s governing parameter.' : null,
       perParamIntro: 'Each indicator below is introduced briefly — what it is and why it is measured — followed by what was observed at this site.',
@@ -728,7 +795,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
     loggerImages,
     co2Bars,
     findings: findingRows.length ? {
-      intro: 'Findings are screening observations, ranked by recommended response and carried with a confidence rating. No finding constitutes a regulatory exposure determination.',
+      intro: 'Findings are ranked by recommended response and carried with a confidence rating. No finding constitutes a regulatory exposure determination.',
       rows: findingRows,
     } : null,
     conceptualModel,

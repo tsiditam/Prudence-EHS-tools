@@ -105,6 +105,14 @@ export const Q_QUICKSTART = [
 
 // ── MOBILE: Assessment Details (fill before or after walkthrough) ──
 export const Q_DETAILS = [
+  // Survey date. Stamped at creation (freshPresurvey in MobileApp), asked
+  // here so the assessor can correct it — a walkthrough written up days later
+  // is still the day it happened. It is not cosmetic: comfortSeason picks the
+  // ASHRAE 55 band from this month, so with no date the engine cannot select
+  // a band and temperature goes unevaluated. Until this question existed on
+  // the mobile path the field appeared only in the desktop Q_PRESURVEY, and
+  // no Quick Start assessment ever had one.
+  { id:'ps_survey_date',            sec:'Survey',             q:'Date of survey',               t:'date', sk:1, ic:'📆', ref:'Sets the ASHRAE 55 seasonal comfort band. Change it if the walkthrough was on a different day.' },
   // Client / Recipient — drives the consultant deliverable letter and
   // exec summary metadata table. All optional; gracefully degrades to
   // a generic addressee if not supplied.

@@ -55,11 +55,18 @@ function confidenceCounts(assessment) {
 
 /**
  * Top-line status pill. Maps the three signal streams to one of:
- *   'ready'    — no blockers, no gaps → assessor can finalize
- *   'gaps'     — no blockers but defensibility gaps exist → can
- *                finalize but should resolve or disclose first
- *   'blocked'  — finalization blockers exist → cannot export until
- *                resolved
+ *   'ready'    — no blockers, no gaps → nothing outstanding
+ *   'gaps'     — no blockers but defensibility gaps exist → resolve or
+ *                disclose before sign-off
+ *   'blocked'  — hard blockers outstanding
+ *
+ * 'blocked' names the STATE, not a mechanism. Nothing in the platform stops a
+ * report being generated, exported or sent while blockers stand — the gate has
+ * been advisory since 2026-05-27 and `downloadReportPdf`, `DocxReport` and
+ * `api/report-pdf` never read it. The key kept its name; the wording it drives
+ * did not, because "cannot export until resolved" was demonstrably false: an
+ * already-finalized report, exported as a client DOCX, still displays this
+ * panel saying it cannot finalize.
  */
 function deriveStatus({ canFinalize, gaps, dismissible }) {
   if (!canFinalize) return 'blocked'
@@ -124,7 +131,7 @@ export function buildReadinessVerdict(assessment) {
     if (dismissible.length > 0) parts.push(`${dismissible.length} dismissible item${dismissible.length === 1 ? '' : 's'}`)
     summary = `${parts.join(' + ')} to resolve or disclose before sign-off.`
   } else {
-    summary = `${gate.blockers.length} blocker${gate.blockers.length === 1 ? '' : 's'} to clear before this report can finalize.`
+    summary = `${gate.blockers.length} item${gate.blockers.length === 1 ? '' : 's'} to resolve before this report is ready for sign-off.`
   }
 
   return {

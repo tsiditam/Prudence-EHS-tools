@@ -9,7 +9,7 @@
  *
  * Sections, top to bottom:
  *   1. Status — the verdict as a word in its colour, then the summary
- *   2. Finalization blockers — hard, must clear before export
+ *   2. Sign-off blockers — the hard items; advisory, not an export gate
  *   3. Recommended before sign-off — dismissible
  *   4. Defensibility gaps — resolve or disclose
  *   5. Warnings — informational
@@ -41,7 +41,11 @@ const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
 const STATUS_TONES = {
   ready:   { color: '#22C55E', label: 'Ready for sign-off' },
   gaps:    { color: '#FB923C', label: 'Defensibility gaps' },
-  blocked: { color: '#EF4444', label: 'Cannot finalize yet' },
+  // NOT "Cannot finalize yet". Report issuance has not been gated since
+  // 2026-05-27 — this panel is advisory, and it renders on reports that are
+  // already finalized and already exported, where the old label was simply
+  // untrue. It names what is outstanding, not a block that does not exist.
+  blocked: { color: '#EF4444', label: 'Not ready for sign-off' },
 }
 
 function Status({ status, summary }) {
@@ -173,7 +177,7 @@ export default function ReadinessPanel({ assessment, onFeedback, onFix }) {
     <div style={{ paddingTop: 4, paddingBottom: 16 }}>
       <Status status={verdict.status} summary={verdict.summary} />
 
-      <Section title="Finalization blockers" count={verdict.finalization_blockers.length} color="#EF4444">
+      <Section title="Sign-off blockers" count={verdict.finalization_blockers.length} color="#EF4444">
         {(verdict.finalization_blocker_details && verdict.finalization_blocker_details.length > 0
           ? verdict.finalization_blocker_details.map((item, i) => (
               <FinalizationRow key={item.id} item={item} tone="#EF4444" onFix={onFix} first={i === 0} />

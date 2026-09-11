@@ -67,7 +67,12 @@ describe('readiness verdict', () => {
     expect(v.ready).toBe(false)
     expect(v.can_finalize).toBe(false)
     expect(v.finalization_blockers.length).toBeGreaterThan(0)
-    expect(v.summary).toMatch(/blocker/)
+    // The summary counts what is outstanding. It must NOT promise a block on
+    // finalizing or exporting: the gate has been advisory since 2026-05-27,
+    // and this panel renders on reports that are already finalized and
+    // already exported as client DOCX.
+    expect(v.summary).toMatch(new RegExp(`^${v.finalization_blockers.length} items? to resolve`))
+    expect(v.summary).not.toMatch(/cannot|can't|until resolved|before .*finaliz/i)
   })
 
   it('handles a null/empty assessment gracefully', () => {

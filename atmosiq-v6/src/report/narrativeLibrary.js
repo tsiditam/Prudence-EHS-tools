@@ -6,7 +6,7 @@
  * Controlled narrative library for the fixed IAQ report.
  *
  * The renderer (lib/report/render-pdf.js) owns layout; THIS owns the words.
- * It is a deterministic, screening-only narrative source: static "what it is
+ * It is a deterministic narrative source: static "what it is
  * and why we measure it" explainers (never vary), severity-keyed "observed"
  * templates filled from the Report Model statistics, and the fixed
  * methodology / reference-framework / limitations / about blocks. No AI is
@@ -40,7 +40,7 @@ const r2 = (s) => `${s.range}${s.unit ? ' ' + s.unit : ''}`
 export const OBSERVED = {
   co2(s, outcome) {
     const base = `Observed: indoor CO2 ranged ${r2(s)} (site mean ${s.mean} ${s.unit}). ASHRAE 62.1 prescribes ventilation rates rather than a CO2 limit; an indoor-to-outdoor differential above roughly 700 ppm is commonly used as an indicator that outdoor-air delivery may be low relative to occupant load.`
-    if (outcome === 'elevated') return base + ` The peak of ${s.max} ppm is consistent with possible under-ventilation at peak occupancy. This is an indicator, not a measured ventilation rate; occupant density, room volume, and supply airflow were not measured, so it is a screening hypothesis pending airflow / BAS / TAB verification.`
+    if (outcome === 'elevated') return base + ` The peak of ${s.max} ppm is consistent with possible under-ventilation at peak occupancy. This is an indicator, not a measured ventilation rate; occupant density, room volume, and supply airflow were not measured, so it remains a hypothesis pending airflow / BAS / TAB verification.`
     if (outcome === 'advisory') return base + ' One or more zones read above typical office background and may warrant additional monitoring; the readings are indicators, not measured ventilation rates.'
     return base + ' Concentrations remained within the ventilation-indicator range during the assessment window.'
   },
@@ -92,26 +92,82 @@ export const LIMITATIONS_BASE = [
   'Findings are based on direct-reading instrumentation captured during a single assessment window and reflect conditions on the assessment date only. No laboratory-analyzed integrated samples, microbial sampling, or destructive investigation were performed unless specifically noted. Direct-reading TVOC and PM2.5 are non-specific indicators and do not identify individual compounds or establish toxicological significance. This report does not constitute a regulatory exposure determination, an OSHA compliance certification, or a medical evaluation, and should not be relied upon as such.',
 ]
 
+// How the zones described their own measurement type (`meas_duration`),
+// collapsed to the phrase the protocol bullet uses. The report used to assert
+// "grab readings … held to stabilization" for every assessment regardless —
+// including ones where the assessor had explicitly recorded 5-minute or
+// 15-minute averages, or continuous logging. The field was captured and then
+// contradicted two sections later.
+const DURATION_PHRASE = {
+  'Spot check (instantaneous)': 'spot readings',
+  '5-minute average': '5-minute averages',
+  '15-minute average': '15-minute averages',
+  '1-hour average': '1-hour averages',
+  'Continuous logging': 'continuously logged readings',
+}
+
 // Methodology bullets default (when instrument details are sparse).
-export function methodologyBullets(instrument, calibration) {
+export function methodologyBullets(instrument, calibration, measurementTypes = []) {
+  const phrases = [...new Set((measurementTypes || []).map(t => DURATION_PHRASE[t]).filter(Boolean))]
+  // With nothing recorded the protocol sentence describes the height and the
+  // stabilization practice without naming an averaging period it cannot know.
+  const captured = phrases.length
+    ? `${phrases.length === 1 ? phrases[0] : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`} as recorded per zone`
+    : 'readings as recorded per zone'
   return [
     `${instrument || 'Direct-reading instrumentation'}${calibration ? ` (calibration: ${calibration})` : ''}. Carbon dioxide, carbon monoxide, temperature, relative humidity, fine particulate (PM2.5), and total VOCs captured as available.`,
-    'Measurement protocol: grab readings at occupied breathing-zone height (approx. 1.5 m) held to stabilization before recording; continuous logging where a logger was deployed.',
+    `Measurement protocol: ${captured}, taken at occupied breathing-zone height (approx. 1.5 m) and held to stabilization before recording.`,
   ]
 }
 
 // Deterministic executive summary from Report Model facts.
-export function buildExecSummary({ firm, facility, date, numberOfZones, purpose, flaggedCount, topOutcome }) {
+export function buildExecSummary({ firm, facility, date, numberOfZones, purpose, flaggedCount, topOutcome, hasOccupantReports }) {
   const scopeBit = numberOfZones ? ` across ${numberOfZones} representative zone${numberOfZones === 1 ? '' : 's'}` : ''
   const purposeBit = purpose ? ` in response to ${String(purpose).toLowerCase()}` : ''
   const outcomeBit = flaggedCount > 0
-    ? `The assessment flagged ${flaggedCount} screening item${flaggedCount === 1 ? '' : 's'} for follow-up; each finding below carries a confidence rating and the verification it would need.`
+    ? `The assessment flagged ${flaggedCount} item${flaggedCount === 1 ? '' : 's'} for follow-up; each finding below carries a confidence rating and the verification it would need.`
     : 'No conditions were flagged above the references during the assessment window.'
-  return `On ${date}, ${firm} conducted a screening-level indoor air quality (IAQ) assessment of ${facility}${purposeBit}. The assessment combined direct-reading instrument measurements with visual inspection and occupant interviews${scopeBit} during normal occupied-hours operation. Its purpose is to characterize ventilation adequacy, thermal comfort, and common airborne indicators, and to prioritize follow-up where conditions warrant. ${outcomeBit} This is a screening evaluation; results reflect conditions observed during the assessment window and are interpreted in light of the limitations herein.`
+  // "occupant interviews" used to be asserted unconditionally, in an
+  // assessment where occupant input is a set of dropdown answers and may be
+  // absent entirely. The method sentence now names only what was done.
+  const methods = `direct-reading instrument measurements with visual inspection${hasOccupantReports ? ' and documented occupant reports' : ''}`
+  return `On ${date}, ${firm} conducted an indoor air quality (IAQ) assessment of ${facility}${purposeBit}. The assessment combined ${methods}${scopeBit} during normal occupied-hours operation. Its purpose is to characterize ventilation adequacy, thermal comfort, and common airborne indicators, and to prioritize follow-up where conditions warrant. ${outcomeBit} Results reflect conditions observed during the assessment window and are interpreted in light of the limitations herein.`
 }
 
-export function buildOverallStatement({ flaggedCount, elevatedZones }) {
-  if (!flaggedCount) return 'All screened parameters were within recognized references during the assessment window. Routine operation and periodic re-screening are appropriate; no corrective action is indicated at this time.'
-  const z = elevatedZones && elevatedZones.length ? ` Conditions of note were concentrated in ${elevatedZones.join(', ')}.` : ''
-  return `Most areas presented acceptable ventilation, comfort, and air-quality indicators, with ${flaggedCount} item${flaggedCount === 1 ? '' : 's'} flagged for follow-up.${z} Each flagged item carries a confidence rating and the verification it would require; recommended actions follow a verify-before-invest ladder.`
+/**
+ * The one-paragraph verdict under Findings at a Glance.
+ *
+ * It used to open "Most areas presented acceptable ventilation, comfort, and
+ * air-quality indicators" whenever anything at all was flagged — the only
+ * branch was flaggedCount === 0. In a two-zone assessment where BOTH zones
+ * read Elevated it still said "Most areas", directly contradicting the table
+ * printed immediately above it. A template states the CONDITION; how much of
+ * the site is affected is a fact about the data, not a house style.
+ *
+ * `totalZones` is what makes "most" checkable. Absent it the paragraph falls
+ * back to naming the affected zones without quantifying the rest, which is
+ * the safe reading rather than a guess.
+ */
+export function buildOverallStatement({ flaggedCount, elevatedZones, totalZones }) {
+  if (!flaggedCount) return 'All measured parameters were within recognized references during the assessment window. Routine operation and periodic reassessment are appropriate; no corrective action is indicated at this time.'
+  const affected = (elevatedZones && elevatedZones.length) || 0
+  const items = `${flaggedCount} item${flaggedCount === 1 ? '' : 's'} flagged for follow-up`
+  const tail = ' Each flagged item carries a confidence rating and the verification it would require; recommended actions follow a verify-before-invest ladder.'
+  const zoneList = affected ? elevatedZones.join(', ') : ''
+  let lead
+  if (!affected) {
+    // Findings exist but no zone reached an elevated outcome — advisory-tier
+    // conditions only. "Most areas acceptable" is fair here and is the one
+    // case it was ever fair in.
+    lead = `Measured parameters were within recognized references across the areas assessed, with ${items}.`
+  } else if (totalZones && affected >= totalZones) {
+    lead = `Every area assessed presented at least one condition of note, with ${items}. Conditions were found in ${zoneList}.`
+  } else if (totalZones && affected > totalZones / 2) {
+    lead = `Conditions of note were found in ${affected} of the ${totalZones} areas assessed, with ${items}: ${zoneList}.`
+  } else if (totalZones) {
+    lead = `Most areas presented acceptable ventilation, comfort, and air-quality indicators, with ${items}. Conditions of note were concentrated in ${zoneList}.`
+  } else {
+    lead = `${items.charAt(0).toUpperCase()}${items.slice(1)}. Conditions of note were recorded in ${zoneList}.`
+  }
+  return lead + tail
 }
