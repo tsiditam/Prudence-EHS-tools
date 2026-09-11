@@ -421,9 +421,9 @@ describe('report structure follows the CIH-reviewed order', () => {
       expect(r.action).not.toMatch(/^No HVAC unit is mapped/)
     }
     expect(reg.some(r => /no HVAC unit mapped/i.test(r.location))).toBe(true)
-    // Responsible party and target date are NOT invented — no field in this
-    // platform records either.
-    expect(model().recommendations.registerNote).toMatch(/Responsible party and target date/)
+    // Owner is a ROLE derived from the control tier; the named person and
+    // the date are still the client's to assign, and the note says so.
+    expect(model().recommendations.registerNote).toMatch(/client assigns named individuals and target dates/)
   })
 
   it('drops the conceptual site model on a single-pathway survey, keeps it when pathways compete', () => {
@@ -441,5 +441,80 @@ describe('report structure follows the CIH-reviewed order', () => {
   it('carries no promotional appendix', () => {
     // Removed on CIH review; attribution moved to the page footer.
     expect(model().about).toBeUndefined()
+  })
+})
+
+describe('what a reviewer of the rendered report could not see', () => {
+  // A CIH-grade review done from the RENDERED report (not the data)
+  // re-derived the outdoor baseline from the CO2 differential and then
+  // flagged its own derivation as unverified; stripped credentials that were
+  // on record; and could not tell which limitations were real. Each of
+  // these is the report failing to show something the record held.
+  const build = (zoneOver: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) => {
+    const zones = [zone(zoneOver)]
+    const zoneScores = zones.map(z => scoreZone(z, BLDG))
+    return assembleRenderModel({
+      building: BLDG, zones, zoneScores, presurvey: {},
+      recs: genRecs(zoneScores, BLDG, { zones, equipment: [] }), ...extra,
+    })
+  }
+
+  it('prints the outdoor baseline beside the zones it is compared against', () => {
+    const rows = build().results.rows
+    const od = rows.find((r: any) => r.id === 'Outdoor reference')
+    expect(od).toBeTruthy()
+    expect(od.co2).toBe(430)
+    expect(od.pm).toBe(9)
+    // A reference, never a verdict.
+    expect(od.sev).toBe('reference')
+    // …and it sits before the site mean, which stays last.
+    expect(rows[rows.length - 1].id).toBe('Site mean')
+    expect(rows.indexOf(od)).toBe(rows.length - 2)
+  })
+
+  it('omits the outdoor row when nothing outdoor was recorded', () => {
+    const rows = build({ co2o: '', pmo: '' }).results.rows
+    expect(rows.some((r: any) => r.id === 'Outdoor reference')).toBe(false)
+  })
+
+  it('numbers citations so a finding resolves to its appendix entry', () => {
+    const m = build()
+    const cited = m.findings.rows.filter((r: any) => r.cite)
+    expect(cited.length).toBeGreaterThan(0)
+    for (const r of cited) {
+      const n = Number(r.cite.replace(/[[\]]/g, ''))
+      // The number is the fourth element; the name stays the exact criterion
+      // string so cross-layer-consistency can match it against findings.
+      expect(m.references[n - 1][3]).toBe(n)
+    }
+    // The CO2 finding cites the ASHRAE position document; the number on the
+    // row must be the number on that appendix entry.
+    const co2 = m.findings.rows.find((r: any) => /CO₂ 1385/.test(r.f))
+    const n = Number(co2.cite.replace(/[[\]]/g, ''))
+    expect(m.references[n - 1][0]).toMatch(/ASHRAE Position Document/)
+  })
+
+  it('proposes an owner ROLE and completion evidence for every action, and invents no person or date', () => {
+    const reg = build().recommendations.register
+    for (const r of reg) {
+      expect(['Facilities', 'Facilities / HVAC contractor', 'Facilities / assessor', 'Assessor']).toContain(r.owner)
+      expect(r.evidence).toBeTruthy()
+      expect(r).not.toHaveProperty('deadline')
+      expect(r).not.toHaveProperty('assignee')
+    }
+    expect(build().recommendations.registerNote).toMatch(/client assigns named individuals and target dates/)
+  })
+
+  it('derives limitations from what the record shows was not done', () => {
+    const lim = build().limitations.join(' ')
+    expect(lim).toMatch(/No quantified ventilation-rate measurement/)
+    expect(lim).toMatch(/No full-shift or personal exposure sampling/)
+    expect(lim).toMatch(/No photographs are included/)
+    expect(lim).toMatch(/apply to the 1 area assessed/)
+    // …and each disappears when the record says otherwise.
+    const withVent = build({ cfm_person: '18' }).limitations.join(' ')
+    expect(withVent).not.toMatch(/No quantified ventilation-rate measurement/)
+    const withPhoto = build({}, { photos: { 'z0-wd': [{ imageDataUrl: 'data:image/png;base64,AAAA' }] } }).limitations.join(' ')
+    expect(withPhoto).not.toMatch(/No photographs are included/)
   })
 })

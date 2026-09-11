@@ -160,6 +160,37 @@ export function zoneRows(zones = [], zoneScores = []) {
   })
 }
 
+// Outdoor baseline field for each model parameter. Captured once per site
+// (SENSOR_FIELDS `outdoor:1`) and propagated to every zone by runScoring, so
+// the first zone carrying a value is the site's reading.
+const OUTDOOR_KEY = { co2: 'co2o', temperature: 'tfo', relativeHumidity: 'rho', pm25: 'pmo', tvoc: 'tvo' }
+
+/**
+ * The outdoor reference readings as ONE results-table row, or null when none
+ * were recorded.
+ *
+ * The results table used to print the CO2 differential and the PM2.5
+ * indoor/outdoor ratio in the findings while showing no outdoor value
+ * anywhere. A reviewer working from the rendered report re-derived the
+ * baseline from the differential and then — reasonably, given what it could
+ * see — flagged its own derivation as "an arithmetic inference, not a
+ * verified outdoor measurement". The outdoor readings were direct
+ * measurements the whole time. A comparison the report relies on must show
+ * both sides of it.
+ */
+export function outdoorRow(zones = []) {
+  const cells = {}
+  let any = false
+  for (const p of PARAMS) {
+    const key = OUTDOOR_KEY[p.key]
+    const z = key ? zones.find(z => z && num(z[key]) !== null) : null
+    cells[p.key] = z ? num(z[key]) : null
+    if (cells[p.key] !== null) any = true
+  }
+  if (!any) return null
+  return { id: 'Outdoor reference', use: '', ...cells, outcome: 'reference' }
+}
+
 /** Peak CO2 by zone (for the bar chart) — { zone, value, outcome }. */
 export function peakCo2ByZone(zones = [], zoneScores = []) {
   return zones.map((z, i) => {
@@ -337,6 +368,30 @@ const TIER_LABEL = {
   administrative_control: 'Administrative',
 }
 
+// Who an action of each control tier belongs to, as a ROLE, and what would
+// show it was done.
+//
+// The CIH review asked for responsible party and verification on the action
+// register, and the first answer was that neither could be built because no
+// field records an owner. That was too conservative. A consultant report
+// assigns actions to ROLES — facilities, the HVAC contractor, the assessor —
+// not to named people, and the role follows from what kind of control the
+// action is, which the engine already stamps on every action as its tier.
+// Completion evidence follows the same way. Neither invents a person or a
+// date; the client still assigns those, and the register says so.
+const TIER_OWNER = {
+  source_management: 'Facilities',
+  engineering_control: 'Facilities / HVAC contractor',
+  administrative_control: 'Facilities / assessor',
+  investigation: 'Assessor',
+}
+const TIER_EVIDENCE = {
+  source_management: 'Repair or removal record and re-inspection of the affected location',
+  engineering_control: 'Service record and a post-correction check of the affected condition',
+  administrative_control: 'Completed documentation retained in the project file',
+  investigation: 'Measurement or inspection record added to the project file',
+}
+
 /**
  * Recommendations as ONE action register rather than three bullet lists.
  *
@@ -365,6 +420,7 @@ export function actionRegister(recs = {}) {
     // it — it led every such row with a caveat and buried the action itself.
     const unmapped = String(a.text || '').startsWith(HVAC_UNMAPPED_PREFIX)
     const text = unmapped ? String(a.text).slice(HVAC_UNMAPPED_PREFIX.length) : String(a.text || '')
+    const tierKey = a.controlTier && TIER_LABEL[a.controlTier] ? a.controlTier : 'investigation'
     return {
       priority, timeframe,
       action: text,
@@ -372,6 +428,8 @@ export function actionRegister(recs = {}) {
       // `null` for a data-gap action: an investigation step is not a control,
       // and the hierarchy has no honest slot for one (see CONTROL_TIER).
       control: a.controlTier ? (TIER_LABEL[a.controlTier] || a.controlTier) : 'Investigation',
+      owner: TIER_OWNER[tierKey],
+      evidence: TIER_EVIDENCE[tierKey],
     }
   })
   return [
@@ -574,6 +632,23 @@ export function buildLimitations(data) {
     const list = orphans.length > 1 ? `${orphans.slice(0, -1).join(', ')} and ${orphans[orphans.length - 1]}` : orphans[0]
     extra.push(`${list} ${orphans.length === 1 ? 'was' : 'were'} recorded, but no instrument for ${orphans.length === 1 ? 'it' : 'them'} is documented in the project record; ${orphans.length === 1 ? 'that reading is' : 'those readings are'} reported without instrument attribution.`)
   }
+  // What was NOT done, derived from the record rather than asserted as
+  // boilerplate. A reviewer reads limitations to learn the edges of the
+  // work; "conditions on the assessment date only" says nothing about
+  // whether airflow was measured, materials were opened, or anyone wore a
+  // sampling pump. Each line below is true of THIS assessment because the
+  // data says so, and disappears when the data says otherwise.
+  const zones = data.zones || []
+  const n = zones.length
+  if (n) extra.push(`Findings apply to the ${n} area${n === 1 ? '' : 's'} assessed and do not characterize areas that were not entered or measured.`)
+  const quantifiedVent = zones.some(z => z && (num(z.cfm_person) !== null || num(z.ach) !== null))
+  if (!quantifiedVent && zones.some(z => z && num(z.co2) !== null)) {
+    extra.push('No quantified ventilation-rate measurement (outdoor-air cfm per person or air changes per hour) was made; ventilation adequacy is inferred from CO₂ as an indicator only.')
+  }
+  extra.push('No full-shift or personal exposure sampling was performed; direct-reading values are short-duration and do not represent time-weighted exposures.')
+  extra.push('No destructive or concealed-material investigation was performed; conditions behind finishes are not characterized.')
+  const photoCount = Object.values(data.photos || {}).reduce((acc, arr) => acc + ((Array.isArray(arr) ? arr : []).length), 0)
+  if (!photoCount) extra.push('No photographs are included; visual observations are as recorded by the assessor.')
   return [...base, ...extra, ...collectDataGaps(data.zoneScores || [])]
 }
 
@@ -890,6 +965,12 @@ export function assembleRenderModel(data = {}, opts = {}) {
     id: z.id, use: z.use || '', co2: z.co2, co: z.co, t: z.temperature, rh: z.relativeHumidity, pm: z.pm25, tvoc: z.tvoc,
     sev: OUTCOME_TO_SEV[z.outcome] || 'ok',
   }))
+  // The outdoor baseline sits beside the zones it is compared against. It is
+  // a reference, not a judged location, so it carries no outcome.
+  const od = outdoorRow(data.zones || [])
+  if (resultsRows.length && od) {
+    resultsRows.push({ id: od.id, use: '', co2: od.co2, co: null, t: od.temperature, rh: od.relativeHumidity, pm: od.pm25, tvoc: od.tvoc, sev: 'reference' })
+  }
   if (resultsRows.length) {
     // The site-mean row's Outcome was hardcoded `sev: 'ok'` — it rendered
     // "Acceptable" whatever the numbers beside it. In a two-zone assessment
@@ -950,8 +1031,16 @@ export function assembleRenderModel(data = {}, opts = {}) {
   } : null
 
   // Findings table.
+  // Citation numbers. The reference list is the ordered, de-duplicated set of
+  // standards this report actually cited (collectReferences), so its index is
+  // the number a finding prints beside its text — "[2]" — and the appendix
+  // resolves. Each standard is still named where it is used; the number lets
+  // a reader jump to the full entry without a third restatement of the title.
+  const citeIndex = new Map(rd.references.map((ref, i) => [ref, i + 1]))
+  const cite = (std) => (std && citeIndex.has(std) ? `[${citeIndex.get(std)}]` : '')
   const findingRows = rd.findings.map(f => ({
-    z: f.zone, sev: ENGINE_SEV_TO_SEV[f.severity] || 'advisory', basis: f.basis || '—', conf: f.confidence || '—', f: f.text,
+    z: f.zone, sev: ENGINE_SEV_TO_SEV[f.severity] || 'advisory', basis: f.basis || '—', conf: f.confidence || '—',
+    f: f.text, cite: cite(f.std),
   }))
 
   // Conceptual site model + hypotheses from the primary causal chain.
@@ -1001,7 +1090,10 @@ export function assembleRenderModel(data = {}, opts = {}) {
   // report cited the reference (the renderer prefers it); `basis` is the
   // standing description where one exists. Nothing here adds a row on its
   // own — see collectReferenceUsage.
-  const references = rd.references.map(ref => [ref, REF_BASIS[ref] || 'Cited by a finding or an evaluated measurement in this report.', rd.referenceUsage[ref]])
+  // [name, basis, usage, number]. The name stays the exact criterion string —
+  // cross-layer-consistency.test.ts matches it against what findings cite —
+  // and the citation number rides as a fourth element for the renderer.
+  const references = rd.references.map((ref, i) => [ref, REF_BASIS[ref] || 'Cited by a finding or an evaluated measurement in this report.', rd.referenceUsage[ref], i + 1])
 
   // Photos.
   let photos = null
@@ -1152,7 +1244,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
       // One register instead of three bullet lists. Carries what the data
       // supports; see actionRegister for what it deliberately does not.
       register: actionRegister(data.recs || {}),
-      registerNote: 'Responsible party and target date are for the client to assign; AtmosFlow records neither.',
+      registerNote: 'Owner is the role proposed for each action; the client assigns named individuals and target dates. Completion evidence is what would show the action was carried out.',
     },
     qaQc,
     limitations: rd.limitations,

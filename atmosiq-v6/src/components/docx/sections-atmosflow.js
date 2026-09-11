@@ -79,6 +79,9 @@ const SEV = {
   // verdict the platform has no basis for, which is the more dangerous of the
   // two ways to get an unjudgeable reading wrong.
   not_evaluated: { label: 'Not evaluated', color: '6B7380' },
+  // The outdoor baseline row. A reference, not a judged location: grey, and
+  // deliberately not 'Acceptable' — the outdoors is not being evaluated.
+  reference: { label: 'Reference', color: '6B7380' },
 }
 const sev = (t) => SEV[t] || SEV.ok
 const fmt = (v) => (v === null || v === undefined || v === '' ? '—' : String(v))
@@ -636,7 +639,7 @@ export function atmosFlowReportChildren(model) {
           // real property of the finding — whether it rests on an instrument
           // reading or on an observation.
           ['Zone', 'Severity', 'Basis', 'Finding'],
-          rows.map((r) => [fmt(r.z), sev(r.sev).label, fmt(r.basis), fmt(r.f)]),
+          rows.map((r) => [fmt(r.z), sev(r.sev).label, fmt(r.basis), r.cite ? `${fmt(r.f)} ${r.cite}` : fmt(r.f)]),
           [1605, 1442, 1088, 5225],
           { cellSpec: (r, ci) => (ci === 1 ? { bold: true, color: sev(rows[r].sev).color } : { bold: ci === 0 }) },
         ),
@@ -680,11 +683,13 @@ export function atmosFlowReportChildren(model) {
     c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
     if (rec.intro) c.push(body(rec.intro))
     const rows = rec.register
+    // Priority and timeframe share a cell, as do control and owner, so the
+    // action and its completion evidence get the width a reader needs.
     c.push(
       table(
-        ['Priority', 'Timeframe', 'Action', 'Location', 'Control'],
-        rows.map((r) => [fmt(r.priority), fmt(r.timeframe), fmt(r.action), fmt(r.location), fmt(r.control)]),
-        [1100, 1160, 4100, 1700, 1300],
+        ['Priority', 'Action', 'Location', 'Owner (role)', 'Completion evidence'],
+        rows.map((r) => [[fmt(r.priority), fmt(r.timeframe)], fmt(r.action), fmt(r.location), [fmt(r.owner), fmt(r.control)], fmt(r.evidence)]),
+        [1150, 3260, 1450, 1500, 2000],
         { cellSpec: (_r, ci) => ({ bold: ci === 0 }) },
       ),
     )
@@ -761,7 +766,7 @@ export function atmosFlowReportChildren(model) {
   if (M.references && M.references.length) {
     c.push(h1('Appendix B — Standards & References', { pbb: true }))
     c.push(
-      table(['Reference', 'Basis of use'], M.references.map(([ref, basis, usage]) => [fmt(ref), fmt(referenceBasisText(basis, usage))]), [3129, 6231], {
+      table(['Reference', 'Basis of use'], M.references.map(([ref, basis, usage, n]) => [n ? `[${n}] ${fmt(ref)}` : fmt(ref), fmt(referenceBasisText(basis, usage))]), [3129, 6231], {
         cellSpec: (r, ci) => ({ bold: ci === 0 }),
       }),
     )
