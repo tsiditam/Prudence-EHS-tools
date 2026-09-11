@@ -63,7 +63,12 @@ describe('buildAtmosFlowDocument — the AtmosFlow PDF design, as editable DOCX'
     expect(xml).toContain('2E7B9B')
     // A numbered section heading.
     expect(xml).toContain('Executive Summary')
-    expect(xml).toContain('3. Measurement Results')
+    // Section order follows the 2026-09 CIH review: methods + QA/QC (2),
+    // walkthrough observations (3), then measurements (4).
+    expect(xml).toContain('4. Measurement Results')
+    // `&` is XML-escaped in document.xml, so match either side of it.
+    expect(xml).toContain('2. Investigation Methods')
+    expect(xml).toContain('3. Walkthrough Observations')
     // The Findings at a Glance section (h2, uppercased by the renderer).
     expect(xml).toContain('FINDINGS AT A GLANCE')
     // The facility from the cover meta table.

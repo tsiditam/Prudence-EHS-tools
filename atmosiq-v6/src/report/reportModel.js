@@ -26,7 +26,7 @@
 
 import { STD } from '../constants/standards'
 import { parsePhotoKey, photoCaption } from '../utils/photoIndex.js'
-import { actionLine } from '../utils/recFormatting'
+import { actionLine, HVAC_UNMAPPED_PREFIX } from '../utils/recFormatting'
 import { readNumber, scoreZone } from '../engines/scoring'
 import { pickPrimaryChain } from '../engines/causalChains'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
@@ -219,6 +219,107 @@ export function collectFindings(zoneScores = []) {
   return rows.sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9))
 }
 
+// ── Walkthrough observations ───────────────────────────────────────────
+//
+// What the assessor SAW and what occupants SAID, as a factual account,
+// separate from what the engine concluded about it.
+//
+// A CIH review of the report (2026-09) named this the biggest structural gap:
+// staining, weak airflow and symptom reports reached the reader only as
+// findings or as recommendations, so the document jumped from methods
+// straight to numbers with no account of the walkthrough that produced them.
+// An IAQ report is read as an investigation narrative — observations, then
+// measurements, then interpretation — and this section is the first of those.
+//
+// It deliberately restates NOTHING the engine decided. No severity, no
+// citation, no verdict: those belong to Findings. A reader comparing the two
+// sections should be able to see which conclusions came from what was seen.
+
+/** Intake answers that mean "nothing to report", so the line is omitted. */
+const NIL_ANSWER = new Set(['', 'None', 'No complaints', 'None identified', 'None of concern', 'None observed', 'Not assessed', 'Not tested', 'Not observed', 'Not accessible', 'Unknown', 'Comfortable', 'No known history'])
+const has = (v) => typeof v === 'string' && v.trim() !== '' && !NIL_ANSWER.has(v.trim())
+const hasList = (v) => Array.isArray(v) && v.filter(x => has(x)).length > 0
+const listOf = (v) => (v || []).filter(x => has(x)).join(', ')
+
+/** Per-zone environmental observations, as sentences. */
+function zoneObservations(z = {}) {
+  const out = []
+  if (has(z.tc)) out.push(`Thermal comfort reported as ${String(z.tc).toLowerCase()}.`)
+  if (has(z.hp)) out.push(`Humidity reported as ${String(z.hp).toLowerCase()}.`)
+  if (has(z.vd)) out.push(`Visible dust: ${String(z.vd).toLowerCase()}.`)
+  if (has(z.wd)) {
+    out.push(`Water damage: ${String(z.wd).toLowerCase()}${hasList(z.wl) ? ` — ${listOf(z.wl).toLowerCase()}` : ''}.`)
+  }
+  if (has(z.mi)) out.push(`Mold indicators: ${String(z.mi).toLowerCase()}.`)
+  if (has(z.op)) {
+    out.push(`Odour: ${String(z.op).toLowerCase()}${hasList(z.ot) ? ` — ${listOf(z.ot).toLowerCase()}` : ''}.`)
+  }
+  if (hasList(z.src_internal)) out.push(`Potential sources within the zone: ${listOf(z.src_internal).toLowerCase()}.`)
+  if (hasList(z.src_adjacent)) out.push(`Adjacent to: ${listOf(z.src_adjacent).toLowerCase()}.`)
+  if (has(z.path_pressure)) out.push(`Zone pressure relative to adjacent spaces: ${String(z.path_pressure).toLowerCase()}.`)
+  if (has(z.path_crosstalk)) out.push(`Cross-contamination: ${String(z.path_crosstalk).toLowerCase()}.`)
+  return out
+}
+
+/** Per-zone occupant reports, as sentences. */
+function zoneOccupantReports(z = {}) {
+  if (z.cx !== 'Yes — complaints reported') return []
+  const out = []
+  const symptoms = [...(z.sy || []), ...(z.sy_other ? [z.sy_other] : [])].filter(Boolean)
+  if (has(z.ac)) out.push(`${z.ac} occupants reporting symptoms.`)
+  if (symptoms.length) out.push(`Symptoms reported: ${symptoms.join(', ').toLowerCase()}.`)
+  if (has(z.sr)) out.push(`Symptoms away from the building: ${String(z.sr).toLowerCase()}.`)
+  if (has(z.cc)) out.push(`Clustering: ${String(z.cc).toLowerCase()}.`)
+  return out
+}
+
+/**
+ * Building-level observations — the HVAC and envelope conditions recorded
+ * once for the site rather than per zone.
+ */
+function buildingObservations(bldg = {}, presurvey = {}) {
+  const rows = []
+  const add = (label, v) => { if (has(v)) rows.push([label, v]) }
+  add('HVAC system type', bldg.ht)
+  add('Supply air delivery', bldg.sa)
+  add('Outdoor air damper', bldg.od)
+  add('Filter rating', bldg.fm)
+  add('Filter condition', bldg.fc)
+  add('Condensate drain pan', bldg.dp)
+  add('Last HVAC service', bldg.hm)
+  add('Exterior door test', bldg.bld_press_door)
+  add('Building pressurization', bldg.bld_pressure)
+  add('Filter change schedule', presurvey.ps_filter_schedule)
+  add('History of water intrusion', presurvey.ps_water_history)
+  return rows
+}
+
+/**
+ * The Walkthrough Observations section, or null when nothing was recorded
+ * beyond measurements — an empty heading is worse than no section.
+ */
+export function buildObservations(data = {}) {
+  const zones = data.zones || []
+  const bldg = data.building || data.bldg || {}
+  const presurvey = data.presurvey || {}
+  const building = buildingObservations(bldg, presurvey)
+  const zoneBlocks = zones.map((z, i) => ({
+    zone: (z && z.zn) || `Zone ${i + 1}`,
+    use: (z && z.su) || '',
+    area: (z && z.sf) || '',
+    occupants: (z && z.oc) || '',
+    observed: zoneObservations(z),
+    occupantReports: zoneOccupantReports(z),
+    notes: (z && typeof z.znt === 'string' && z.znt.trim()) || '',
+  })).filter(b => b.observed.length || b.occupantReports.length || b.notes)
+  if (!building.length && !zoneBlocks.length) return null
+  return {
+    intro: 'Conditions recorded during the walkthrough, before interpretation. Occupant reports are what was described to the assessor; they are not a medical finding. Measurements appear in the following section and the engine’s conclusions in Discussion and Conclusions.',
+    building,
+    zones: zoneBlocks,
+  }
+}
+
 /** Recommendations grouped by timeframe (flattened to plain strings). */
 export function recommendationsByTimeframe(recs = {}) {
   const lines = (arr) => (arr || []).map(r => typeof r === 'string' ? r : actionLine(r)).filter(Boolean)
@@ -227,6 +328,58 @@ export function recommendationsByTimeframe(recs = {}) {
     shortTerm: lines(recs.eng),
     mediumTerm: [...lines(recs.adm), ...lines(recs.mon)],
   }
+}
+
+// Control tier → the reader-facing name for what kind of control an action is.
+const TIER_LABEL = {
+  source_management: 'Source management',
+  engineering_control: 'Engineering',
+  administrative_control: 'Administrative',
+}
+
+/**
+ * Recommendations as ONE action register rather than three bullet lists.
+ *
+ * The CIH review asked for a single table with finding, action, priority,
+ * responsible party, deadline and verification. Four of those six are in the
+ * data and are built here. **Responsible party and deadline are NOT**: no
+ * intake field, engine output or stored column carries an owner or a due
+ * date anywhere in this platform, and a report that invented them would be
+ * asserting a commitment nobody made. They are left to the owner as a
+ * product decision — see the note returned alongside the rows.
+ *
+ * Emitted ALONGSIDE the flattened `immediate` / `shortTerm` / `mediumTerm`
+ * strings, which other consumers still read, rather than replacing them.
+ */
+export function actionRegister(recs = {}) {
+  const bucket = (arr, priority, timeframe) => (arr || []).map(r => {
+    const a = typeof r === 'string' ? { text: r, scope: 'building' } : r
+    const where = a.scope === 'equipment'
+      ? (a.equipmentLabel || a.equipmentId || 'Equipment')
+      : a.scope === 'zone'
+        ? (a.zoneName || a.zoneId || '')
+        : (a.affectedZoneNames && a.affectedZoneNames.length ? a.affectedZoneNames.join(', ') : 'Building-wide')
+    // The unmapped-equipment caveat is a fact about WHERE the action applies,
+    // and the register has a Location column for that. Glued to the front of
+    // the action text — which is where the flattened bullet list had to put
+    // it — it led every such row with a caveat and buried the action itself.
+    const unmapped = String(a.text || '').startsWith(HVAC_UNMAPPED_PREFIX)
+    const text = unmapped ? String(a.text).slice(HVAC_UNMAPPED_PREFIX.length) : String(a.text || '')
+    return {
+      priority, timeframe,
+      action: text,
+      location: `${where || 'Building-wide'}${unmapped ? ' (no HVAC unit mapped)' : ''}`,
+      // `null` for a data-gap action: an investigation step is not a control,
+      // and the hierarchy has no honest slot for one (see CONTROL_TIER).
+      control: a.controlTier ? (TIER_LABEL[a.controlTier] || a.controlTier) : 'Investigation',
+    }
+  })
+  return [
+    ...bucket(recs.imm, 'Immediate', '0–7 days'),
+    ...bucket(recs.eng, 'Short term', '7–30 days'),
+    ...bucket(recs.adm, 'Medium term', '30–90 days'),
+    ...bucket(recs.mon, 'Ongoing', 'Continuous'),
+  ]
 }
 
 // Reader-facing names for the engine's parameter keys, for the Appendix A
@@ -804,7 +957,14 @@ export function assembleRenderModel(data = {}, opts = {}) {
   // Conceptual site model + hypotheses from the primary causal chain.
   const chains = (data.causalChains || []).filter(Boolean)
   const primary = pickPrimaryChain(chains)
-  const conceptualModel = primary ? {
+  // A source → pathway → receptor model earns its place when the pathways
+  // COMPETE — that is the question it answers. On a two-zone survey with one
+  // mechanism in play it restates the primary finding in a table, which is
+  // what the CIH review meant by "optional for a screening report; include it
+  // only when it adds clarity beyond the findings".
+  const distinctPathways = new Set(chains.map(c => String(c.type || '').replace(/\s*\(Hypothesis\)\s*$/, '').trim())).size
+  const siteModelEarnsIts = distinctPathways > 1 || (data.zones || []).length > 2
+  const conceptualModel = primary && siteModelEarnsIts ? {
     intro: 'Following standard IAQ investigation logic, the primary finding is expressed as a source → pathway → receptor chain with its supporting evidence and confidence.',
     heading: `${primary.type || primary.name || 'Primary finding'}${primary.zone ? ` — ${primary.zone}` : ''}`,
     rows: [
@@ -921,7 +1081,32 @@ export function assembleRenderModel(data = {}, opts = {}) {
     // The addressee block, or null when no recipient details were entered.
     // The renderer omits the section rather than printing an empty heading.
     recipient: recipient.lines && recipient.lines.length ? recipient : null,
-    execSummary: NL.buildExecSummary({ firm, facility: meta.facilityName, date: meta.assessmentDate, numberOfZones: rd.projectSummary.numberOfZones, purpose: rd.projectSummary.assessmentPurpose, flaggedCount: flagged, topOutcome: null, hasOccupantReports: (data.zones || []).some(z => z && z.cx === 'Yes — complaints reported') }),
+    execSummary: NL.buildExecSummary({
+      firm, facility: meta.facilityName, date: meta.assessmentDate,
+      numberOfZones: rd.projectSummary.numberOfZones,
+      purpose: rd.projectSummary.assessmentPurpose,
+      flaggedCount: flagged, topOutcome: null,
+      hasOccupantReports: (data.zones || []).some(z => z && z.cx === 'Yes — complaints reported'),
+      // The conclusion the rest of the report supports, named once, at the
+      // top. `primary` is the strongest causal chain (pickPrimaryChain).
+      conclusion: primary
+        ? `The leading explanation is ${String(primary.type).replace(/\s*\(Hypothesis\)\s*$/, '').toLowerCase()} in ${primary.zone || 'the assessed area'} — ${String(primary.confidence || 'Possible').toLowerCase()} confidence on the evidence gathered.`
+        : null,
+      // The substance a count cannot carry: the worst findings, and the
+      // actions that open the register. Already ranked upstream.
+      // `headline` trims a finding to its claim. The full CO2 finding runs to
+      // three sentences of methodological caveat, which is right in the
+      // findings table and wrong in a summary the CIH review asked to be "3–5
+      // substantive findings" — a 60-word bullet is not a summary.
+      leadFindings: findingRows.slice(0, 4).map(f => `${f.z} — ${headline(f.f)}`),
+      // From the REGISTER, not the flattened bullet strings, so the summary
+      // and section 6 phrase the same action the same way — including having
+      // the unmapped-equipment caveat out of the action text.
+      leadActions: actionRegister(data.recs || {})
+        .filter(r => r.priority === 'Immediate')
+        .slice(0, 3)
+        .map(r => `${r.location}: ${r.action}`),
+    }),
     findingsAtGlance,
     showSeverityLegend: true,
     severityLegendNote: NL.SEVERITY_LEGEND_NOTE,
@@ -956,17 +1141,23 @@ export function assembleRenderModel(data = {}, opts = {}) {
     } : null,
     conceptualModel,
     workingHypotheses,
+    // Observations come BEFORE measurements in the rendered order: the
+    // investigation is read as walkthrough → readings → interpretation.
+    observations: buildObservations(data),
     recommendations: {
       intro: 'Recommendations follow a verify-before-invest ladder: confirm the suspected cause, correct it, re-test, and only then consider permanent monitoring or capital changes.',
       immediate: rd.recommendations.immediate,
       shortTerm: rd.recommendations.shortTerm,
       mediumTerm: rd.recommendations.mediumTerm,
+      // One register instead of three bullet lists. Carries what the data
+      // supports; see actionRegister for what it deliberately does not.
+      register: actionRegister(data.recs || {}),
+      registerNote: 'Responsible party and target date are for the client to assign; AtmosFlow records neither.',
     },
     qaQc,
     limitations: rd.limitations,
     review,
     references,
-    about: { title: 'Appendix B — About AtmosFlow', text: NL.ABOUT_ATMOSFLOW },
     photos,
   }
 }

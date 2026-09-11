@@ -121,17 +121,48 @@ export function methodologyBullets(instrument, calibration, measurementTypes = [
 }
 
 // Deterministic executive summary from Report Model facts.
-export function buildExecSummary({ firm, facility, date, numberOfZones, purpose, flaggedCount, topOutcome, hasOccupantReports }) {
+/**
+ * The executive summary, as a short paragraph plus the substance.
+ *
+ * It used to close on a count — "flagged 16 items for follow-up" — which a
+ * CIH review called out as giving the reader less context than naming the
+ * findings would. A count says how much was found; it does not say what. The
+ * summary now leads with the conclusion, names the leading findings, and
+ * names the first actions, which is what a facilities manager reads this
+ * section for.
+ *
+ * `leadFindings` and `leadActions` are already-ranked text from the model —
+ * this function selects and phrases, it does not decide severity.
+ */
+export function buildExecSummary({
+  firm, facility, date, numberOfZones, purpose, flaggedCount, topOutcome, hasOccupantReports,
+  conclusion, leadFindings = [], leadActions = [],
+}) {
   const scopeBit = numberOfZones ? ` across ${numberOfZones} representative zone${numberOfZones === 1 ? '' : 's'}` : ''
   const purposeBit = purpose ? ` in response to ${String(purpose).toLowerCase()}` : ''
-  const outcomeBit = flaggedCount > 0
-    ? `The assessment flagged ${flaggedCount} item${flaggedCount === 1 ? '' : 's'} for follow-up; each finding below states what it rests on and the verification it would need.`
-    : 'No conditions were flagged above the references during the assessment window.'
   // "occupant interviews" used to be asserted unconditionally, in an
   // assessment where occupant input is a set of dropdown answers and may be
   // absent entirely. The method sentence now names only what was done.
   const methods = `direct-reading instrument measurements with visual inspection${hasOccupantReports ? ' and documented occupant reports' : ''}`
-  return `On ${date}, ${firm} conducted an indoor air quality (IAQ) assessment of ${facility}${purposeBit}. The assessment combined ${methods}${scopeBit} during normal occupied-hours operation. Its purpose is to characterize ventilation adequacy, thermal comfort, and common airborne indicators, and to prioritize follow-up where conditions warrant. ${outcomeBit} Results reflect conditions observed during the assessment window and are interpreted in light of the limitations herein.`
+  const opening = `On ${date}, ${firm} conducted an indoor air quality (IAQ) assessment of ${facility}${purposeBit}. The assessment combined ${methods}${scopeBit} during normal occupied-hours operation.`
+  if (!flaggedCount) {
+    return {
+      paragraphs: [`${opening} No conditions were flagged above the references during the assessment window. Results reflect conditions observed during the assessment window and are interpreted in light of the limitations herein.`],
+      findings: [], actions: [],
+    }
+  }
+  const conclusionSentence = conclusion
+    ? `${conclusion} The findings below state what each rests on and the verification it would need.`
+    : 'The findings below state what each rests on and the verification it would need.'
+  return {
+    paragraphs: [
+      opening,
+      conclusionSentence,
+      'Results reflect conditions observed during the assessment window and are interpreted in light of the limitations herein.',
+    ],
+    findings: leadFindings,
+    actions: leadActions,
+  }
 }
 
 /**

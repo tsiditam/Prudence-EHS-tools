@@ -142,7 +142,10 @@ describe('the report does not contradict its own results table', () => {
     const zones = [zone({ cx: 'No complaints', sy: undefined, sr: undefined, ac: undefined, cc: undefined })]
     const zoneScores = zones.map(z => scoreZone(z, BLDG))
     const m = assembleRenderModel({ building: BLDG, zones, zoneScores, presurvey: {}, recs: genRecs(zoneScores, BLDG, { zones, equipment: [] }) })
-    expect(m.execSummary).not.toMatch(/occupant interviews|occupant reports/)
+    // The summary is now a structured block (paragraphs + leading findings +
+    // first actions) rather than one string, so the method sentence is read
+    // out of its paragraphs.
+    expect(m.execSummary.paragraphs.join(' ')).not.toMatch(/occupant interviews|occupant reports/)
   })
 })
 
@@ -350,5 +353,93 @@ describe('the deliverable names who it is for, and what measured what', () => {
     expect(bases.size).toBeGreaterThan(1)
     expect(rows.find((r: any) => /CO₂/.test(r.f))?.basis).toBe('Measured')
     expect(rows.find((r: any) => /occupants reporting symptoms/.test(r.f))?.basis).toBe('Observed')
+  })
+})
+
+describe('report structure follows the CIH-reviewed order', () => {
+  const zones = () => [
+    zone({ wd: 'Old staining', wl: ['Ceiling'], tc: 'Slightly warm', znt: 'Diffusers read low by anemometer.' }),
+    zone({ zn: 'Conf 4C', su: 'conference', sf: '420', oc: '12', co2: '2140', wd: 'None', mi: 'None', op: 'None' }),
+  ]
+  const model = (over: Record<string, unknown> = {}) => {
+    const zs = zones()
+    const bldg = { ...BLDG, sa: 'Weak / reduced', od: 'Closed / minimum', ...(over.building as object || {}) }
+    const zoneScores = zs.map(z => scoreZone(z, bldg))
+    return assembleRenderModel({
+      building: bldg, zones: zs, zoneScores, presurvey: {},
+      recs: genRecs(zoneScores, bldg, { zones: zs, equipment: [] }),
+      causalChains: buildCausalChains(zs, bldg, zoneScores),
+      ...over,
+    })
+  }
+
+  it('recounts the walkthrough before the measurements, without restating verdicts', () => {
+    // The reviewer's top item: staining, weak airflow and symptom reports
+    // reached the reader only as findings, so the document went from methods
+    // straight to numbers with no account of the walkthrough.
+    const obs = model().observations
+    expect(obs).toBeTruthy()
+    expect(obs.building).toContainEqual(['Supply air delivery', 'Weak / reduced'])
+    expect(obs.building).toContainEqual(['Outdoor air damper', 'Closed / minimum'])
+    const z1 = obs.zones[0]
+    expect(z1.observed.join(' ')).toMatch(/old staining/i)
+    expect(z1.occupantReports.join(' ')).toMatch(/occupants reporting symptoms/i)
+    expect(z1.notes).toMatch(/anemometer/)
+    // Observations are an account, not a conclusion: no severity words, no
+    // citations. A reader must be able to tell them apart from findings.
+    const all = [...z1.observed, ...z1.occupantReports].join(' ')
+    expect(all).not.toMatch(/ASHRAE|NIOSH|Priority|Elevated|Advisory|inadequate/i)
+  })
+
+  it('omits the section rather than printing an empty one', () => {
+    const zs = [{ zn: 'Bare', su: 'office', sf: '100', oc: '1' }]
+    const zoneScores = zs.map(z => scoreZone(z, {}))
+    const m = assembleRenderModel({ building: {}, zones: zs, zoneScores, presurvey: {}, recs: {} })
+    expect(m.observations).toBeNull()
+  })
+
+  it('states the conclusion and the leading findings, not a count', () => {
+    const es = model().execSummary
+    expect(es.paragraphs.join(' ')).toMatch(/The leading explanation is/)
+    expect(es.paragraphs.join(' ')).not.toMatch(/flagged \d+ item/)
+    expect(es.findings.length).toBeGreaterThan(0)
+    expect(es.findings.length).toBeLessThanOrEqual(4)
+    // Trimmed to the claim: the full CO2 finding runs to three sentences of
+    // methodological caveat, which belongs in the findings table.
+    for (const f of es.findings) expect(f.length).toBeLessThan(140)
+  })
+
+  it('gives one action register with location and control tier', () => {
+    const reg = model().recommendations.register
+    expect(reg.length).toBeGreaterThan(0)
+    for (const r of reg) {
+      expect(['Immediate', 'Short term', 'Medium term', 'Ongoing']).toContain(r.priority)
+      expect(r.location).toBeTruthy()
+      expect(r.action).toBeTruthy()
+      // The unmapped-equipment caveat is a fact about location, and must not
+      // lead the action text — it buried the action on every such row.
+      expect(r.action).not.toMatch(/^No HVAC unit is mapped/)
+    }
+    expect(reg.some(r => /no HVAC unit mapped/i.test(r.location))).toBe(true)
+    // Responsible party and target date are NOT invented — no field in this
+    // platform records either.
+    expect(model().recommendations.registerNote).toMatch(/Responsible party and target date/)
+  })
+
+  it('drops the conceptual site model on a single-pathway survey, keeps it when pathways compete', () => {
+    // "Optional for a two-zone screening report; include it only when it adds
+    // clarity beyond the findings." It answers which of several pathways is
+    // leading, so it earns its place only when there is more than one.
+    const one = assembleRenderModel({
+      building: BLDG, zones: [zone()], zoneScores: [scoreZone(zone(), BLDG)], presurvey: {}, recs: {},
+      causalChains: [{ type: 'Ventilation Deficiency', zone: 'Z', confidence: 'Strong', evidence: ['co2'] }],
+    })
+    expect(one.conceptualModel).toBeNull()
+    expect(model().conceptualModel).toBeTruthy()
+  })
+
+  it('carries no promotional appendix', () => {
+    // Removed on CIH review; attribution moved to the page footer.
+    expect(model().about).toBeUndefined()
   })
 })
