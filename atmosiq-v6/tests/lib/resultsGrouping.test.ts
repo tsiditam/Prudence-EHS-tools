@@ -23,8 +23,25 @@ describe('groupPathways', () => {
 
   it('keeps the strongest confidence and every distinct hypothesis', () => {
     const g = groupPathways(chains)[0]
+    // Folded, and deliberately not rendered: the Pathways tab stopped showing
+    // the word in 2026-09 with the report (CLAUDE.md — a causal pathway is
+    // never given a published confidence rating). It still orders the chains
+    // and still constrains what may be asserted about one.
     expect(g.confidence).toBe('Strong')
     expect(g.rootCauses).toEqual(['Inadequate ventilation rate', 'Outdoor air damper restriction'])
+  })
+
+  it('carries the verification the surfaces show instead of a confidence word', () => {
+    const withVerification = chains.map((c) => ({ ...c, verification: c.type.startsWith('Ventilation')
+      ? 'outdoor-air delivery should be measured directly'
+      : 'speciated VOC sampling should identify the compounds present' }))
+    const g = groupPathways(withVerification)
+    expect(g[0].verification).toBe('outdoor-air delivery should be measured directly')
+    expect(g[1].verification).toBe('speciated VOC sampling should identify the compounds present')
+  })
+
+  it('leaves verification null when the engine stamped none', () => {
+    expect(groupPathways(chains)[0].verification).toBeNull()
   })
 
   it('loses no evidence line: the per-zone detail is carried on the row', () => {

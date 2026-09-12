@@ -110,6 +110,33 @@ describe('the report states no confidence rating on a causal pathway', () => {
   })
 })
 
+describe('the assessor-facing Pathways tab does not grade them either', () => {
+  // The report and the app have to agree. A tab that shows "Moderate" beside
+  // a pathway trains the assessor in a scale the deliverable will not carry,
+  // and it is the same claim either way — the surface it renders on does not
+  // change whether the methodology behind it is stated.
+  const app = readFileSync(join(ROOT, 'src/components/MobileApp.jsx'), 'utf8')
+  const tab = app.slice(app.indexOf("rTab==='rootcause'"), app.indexOf("rTab==='evidence'"))
+
+  it('renders no confidence word or tone on a pathway row', () => {
+    expect(tab.length).toBeGreaterThan(500)
+    expect(tab).not.toMatch(/confLabel|confColor/)
+    expect(tab).not.toMatch(/'Strong'|'Moderate'|'Possible'/)
+  })
+
+  it('the confidence palette is gone, not merely unused', () => {
+    // A color ramp kept alive for a label that no longer renders is how the
+    // label comes back.
+    expect(app).not.toMatch(/^const confColor = /m)
+  })
+
+  it('shows the verification instead, and says nothing is established', () => {
+    expect(tab).toMatch(/g\.verification/)
+    expect(tab).toMatch(/Verification: /)
+    expect(tab).toMatch(/No causal relationship has been established for any of them/)
+  })
+})
+
 describe('what replaces it: every pathway names the verification it requires', () => {
   it('the engine stamps a verification clause on each chain', () => {
     const { causalChains } = build()

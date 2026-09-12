@@ -883,6 +883,18 @@ When working on report generation:
   sure anyone is about a cause. The distinction is the whole point — do not
   read this as a second pass at the composite-score removal.
 
+  **The app agrees with the report.** The results Pathways tab printed the same
+  word as a colored label (`confColor`, High / Moderate / Possible) and lost it
+  too. A tab that grades a pathway trains the assessor in a scale the
+  deliverable will not carry, and the claim does not become better founded for
+  being on a screen instead of a page. Nothing replaced it in the row: every
+  pathway there is an unconfirmed hypothesis, so a label identical on every row
+  carries no information. The fold now ends in the `verification` instead,
+  which is the question the assessor actually has. `confColor` was DELETED
+  rather than left unused — a palette kept alive for a label that no longer
+  renders is how the label comes back. `groupPathways` still folds
+  `confidence`; it is simply never read by a renderer.
+
   This also closed a promise the report had never kept: the Working Hypotheses
   intro has always said "each names the verification it requires", while
   `refutableBy` was declared on the type and read by `reportModel.js` and

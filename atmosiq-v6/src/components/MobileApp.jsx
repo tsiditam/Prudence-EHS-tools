@@ -279,13 +279,10 @@ const AI_SECTION_LABELS = {
 // borrowing it.
 const RS_LINK = { background: 'none', border: 'none', color: V3.TEXT_PRIMARY, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4, WebkitTapHighlightColor: 'transparent' }
 
-// Confidence tones for the results cards. High = green (confident),
-// Moderate = amber, Possible = a cool slate-blue — deliberately lower-
-// energy but still chromatic, so the lowest tier reads as an intentional
-// confidence state rather than disabled gray body text.
-const confColor = (conf) => conf === 'Strong' ? '#22C55E'
-  : conf === 'Moderate' ? '#FBBF24'
-  : '#8AA4CC'
+// `confColor` (High = green, Moderate = amber, Possible = slate-blue) was
+// deleted in 2026-09 with the Pathways tab's confidence word. Nothing else
+// used it, and a palette kept alive for a label that no longer renders is how
+// the label comes back.
 const ON_ACCENT = 'var(--on-accent)'
 // Hero heading font. Was an editorial serif (Tiempos/Lora); switched to
 // the app's sans (var(--font-sans), Inter) so the result acard + Home
@@ -4031,27 +4028,33 @@ export default function MobileApp() {
         })()}
 
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
-          <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5, marginBottom:6}}>Pathways correlate field observations, measurements and occupant reports. They support, but do not confirm, root-cause determination.</div>
+          <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5, marginBottom:6}}>Pathways correlate field observations, measurements and occupant reports. No causal relationship has been established for any of them; each names the verification it requires.</div>
           {causalChains.length===0?<div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No concern pathways identified — no correlated multi-factor findings in this assessment.</div>
-          :groupPathways(causalChains).map((g,i)=>{const confLabel=g.confidence==='Strong'?'High':g.confidence==='Moderate'?'Moderate':'Possible';const cc=confColor(g.confidence);const multi=g.byZone.length>1;return(
-            // One row per distinct pathway, folded: the name, the zones it
-            // applies to, its confidence as a word in its color. The
-            // engine emits a chain per zone, so the same pathway used to
-            // appear once for every zone; the fold keeps every zone's
-            // hypothesis and evidence inside the row.
+          :groupPathways(causalChains).map((g,i)=>{const multi=g.byZone.length>1;return(
+            // One row per distinct pathway, folded: the name and the zones
+            // it applies to. The engine emits a chain per zone, so the same
+            // pathway used to appear once for every zone; the fold keeps
+            // every zone's hypothesis and evidence inside the row.
+            //
+            // The row used to end in the chain's confidence as a colored word
+            // — High / Moderate / Possible. It came off with the report's
+            // (CLAUDE.md: a causal pathway is never given a published
+            // confidence rating), and nothing replaces it: every pathway here
+            // is an unconfirmed hypothesis, so a label identical on every row
+            // carries no information. What the assessor actually needs is at
+            // the foot of the fold — what would settle it.
             <details key={g.type} className="rs-cat" style={{borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
               <summary style={{display:'flex',alignItems:'center',gap:10,padding:'13px 0',cursor:'pointer',listStyle:'none',WebkitTapHighlightColor:'transparent'}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{...V3.T.bodyStrong, fontSize:15}}>{g.type}</div>
                   <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{g.zones.join(' · ')}</div>
                 </div>
-                <span style={{...V3.T.caption, color:cc, whiteSpace:'nowrap'}}>{confLabel}</span>
                 <span className="rs-chev" aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1,display:'inline-block'}}>›</span>
               </summary>
               <div style={{paddingBottom:16}}>
                 {g.byZone.map((z, zi) => (
                   <div key={z.zone || zi} style={{paddingTop: zi === 0 ? 0 : 12, marginTop: zi === 0 ? 0 : 12, borderTop: zi === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
-                    {multi && <div style={{...V3.T.captionDim, fontWeight:600, color:V3.TEXT_SECONDARY, marginBottom:6}}>{z.zone}{z.confidence !== g.confidence ? <span style={{color:confColor(z.confidence), fontWeight:500}}> · {z.confidence==='Strong'?'High':z.confidence==='Moderate'?'Moderate':'Possible'}</span> : null}</div>}
+                    {multi && <div style={{...V3.T.captionDim, fontWeight:600, color:V3.TEXT_SECONDARY, marginBottom:6}}>{z.zone}</div>}
                     <div style={{...V3.T.body, lineHeight:'20px'}}>{z.rootCause}</div>
                     {z.evidence.length > 0 && (
                       <div style={{marginTop:8}}>
@@ -4060,6 +4063,12 @@ export default function MobileApp() {
                     )}
                   </div>
                 ))}
+                {g.verification && (
+                  <div style={{marginTop:12, paddingTop:10, borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
+                    <span style={{...V3.T.caption, fontWeight:600, color:V3.TEXT_SECONDARY}}>Verification: </span>
+                    <span style={{...V3.T.caption, lineHeight:1.55}}>{g.verification.charAt(0).toUpperCase() + g.verification.slice(1)}.</span>
+                  </div>
+                )}
               </div>
             </details>
           )})}
