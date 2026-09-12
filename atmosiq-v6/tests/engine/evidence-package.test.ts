@@ -27,7 +27,7 @@ import { scoreZone } from '../../src/engines/scoring.js'
 // @ts-ignore js
 import { buildCausalChains } from '../../src/engines/causalChains.js'
 // @ts-ignore js
-import { buildEvidencePackage, packageForWriter, PACKAGE_VERSION, WRITABLE_SECTIONS, IMMUTABLE_SECTIONS } from '../../src/report/evidencePackage.js'
+import { buildEvidencePackage, packageForWriter, PACKAGE_VERSION, WRITABLE_SECTIONS, IMMUTABLE_SECTIONS, MAY_ASSERT_LEGEND, WIRE_BUDGET_CHARS } from '../../src/report/evidencePackage.js'
 // @ts-ignore js
 import { auditNarrative, summarizeAudit, AUDIT_RULE_IDS } from '../../src/report/narrativeAudit.js'
 // @ts-ignore js
@@ -152,7 +152,97 @@ describe('buildEvidencePackage — a projection of the report, not a second opin
     const forWriter = packageForWriter(pkg)
     expect(forWriter.immutable_values).toBeUndefined()
     expect(forWriter.findings.every((f: any) => !('unjoined' in f))).toBe(true)
-    expect(forWriter.measurements).toEqual(pkg.measurements)
+    // Same readings, same values; the criterion object is sent once under
+    // `criteria` and the label and unit once under `parameters`.
+    expect(forWriter.measurements.map((m: any) => [m.zone, m.parameter, m.value]))
+      .toEqual(pkg.measurements.map((m: any) => [m.zone, m.parameter, m.value]))
+    for (const m of pkg.measurements) {
+      if (m.criterion) expect(forWriter.criteria[m.criterion.id].standard).toBe(m.criterion.standard)
+      expect(forWriter.parameters[m.parameter]).toEqual({ label: m.label, unit: m.unit })
+    }
+  })
+
+  it('the wire form carries each pathway once with its confidence and hypothesis flag', () => {
+    const { pkg, causalChains } = build()
+    const wire = packageForWriter(pkg)
+    expect(wire.pathways.length).toBe(causalChains.filter((c: any) => c && c.type).length)
+    for (const p of wire.pathways) {
+      expect(['Possible', 'Moderate', 'Strong']).toContain(p.confidence)
+      expect(typeof p.hypothesis).toBe('boolean')
+      expect(p.type).not.toMatch(/\(Hypothesis\)/)
+    }
+    expect(wire.pathways.some((p: any) => p.hypothesis)).toBe(causalChains.some((c: any) => /\(Hypothesis\)/.test(c.type)))
+    expect(wire.pathway_rule).toMatch(/never as the cause/)
+    expect(wire.allowed_interpretations.every((a: any) => a.subject_kind === 'parameter')).toBe(true)
+    expect(wire.prohibited_claims.every((p: any) => p.subject_kind === 'parameter')).toBe(true)
+  })
+
+  it('the wire form drops the evidentiary caveat the token now encodes, and the audit copy keeps it', () => {
+    const { pkg } = build()
+    const wire = packageForWriter(pkg)
+    const caveat = /A short-duration reading (is indicative but not determinative|cannot establish compliance)/
+    expect(pkg.findings.some((f: any) => caveat.test(f.text))).toBe(true)
+    expect(wire.findings.some((f: any) => caveat.test(f.text))).toBe(false)
+    expect(wire.findings.length).toBe(pkg.findings.length)
+  })
+
+  it('every finding carries its permitted interpretation as one token, tracking the determinative flag', () => {
+    const { pkg } = build()
+    for (const f of pkg.findings) {
+      expect(['exceedance', 'indication', 'observation']).toContain(f.may_assert)
+      if (!f.criterion_id) expect(f.may_assert).toBe('observation')
+      else expect(f.may_assert).toBe(f.determinative === true ? 'exceedance' : 'indication')
+    }
+    expect(Object.keys(MAY_ASSERT_LEGEND).sort()).toEqual(['exceedance', 'indication', 'observation'])
+  })
+
+  it('the wire form folds per-finding permission into the token and sends the legend once', () => {
+    const { pkg } = build()
+    const wire = packageForWriter(pkg)
+    expect(wire.may_assert_legend).toEqual({ ...MAY_ASSERT_LEGEND })
+    // Sentences per finding are gone from the wire; the audit's copy keeps them.
+    expect(wire.allowed_interpretations.some((a: any) => a.subject_kind === 'finding')).toBe(false)
+    expect(wire.prohibited_claims.some((p: any) => p.subject_kind === 'finding')).toBe(false)
+    expect(pkg.allowed_interpretations.some((a: any) => a.subject_kind === 'finding')).toBe(true)
+    // Parameter and pathway rules are not derivable from a finding and stay.
+    expect(wire.prohibited_claims.some((p: any) => p.subject_kind === 'parameter')).toBe(true)
+    expect(wire.context_omitted).toEqual([])
+  })
+
+  it('the wire form stays under the endpoint cap on a dense eight-zone assessment', () => {
+    const zones = Array.from({ length: 8 }, (_, i) => ({ ...(ZONES as any)[i % ZONES.length], zn: `Zone ${i + 1}` }))
+    const zoneScores = zones.map((z: any) => scoreZone(z, { ...BLDG, ...AT }))
+    const causalChains = buildCausalChains(zones, BLDG, zoneScores)
+    const model = assembleRenderModel({
+      building: BLDG, presurvey: PRESURVEY, zones, zoneScores, causalChains,
+      recs: { imm: [{ text: 'Verify supply airflow to the flagged zone.', scope: 'zone', zoneName: 'Zone 1', controlTier: 'engineering_control' }], eng: [], adm: [], mon: [] },
+      id: 'AIQ-8', ts: '2026-06-10',
+    }, { now: new Date('2026-06-11T12:00:00Z') })
+    const pkg = buildEvidencePackage(model, { zoneScores, causalChains })
+    const wire = packageForWriter(pkg)
+    const bytes = JSON.stringify({ payload: { evidence: wire } }).length
+    expect(bytes, `eight zones came to ${bytes} chars`).toBeLessThanOrEqual(WIRE_BUDGET_CHARS)
+    // Evidence for a claim is never shed, whatever was dropped.
+    expect(wire.findings.length).toBe(pkg.findings.length)
+    expect(wire.measurements.length).toBe(pkg.measurements.length)
+    expect(wire.recommendation_options.length).toBe(pkg.recommendation_options.length)
+  })
+
+  it('sheds context in a fixed order when over budget, and says so', () => {
+    const { pkg } = build()
+    const tight = packageForWriter(pkg, { budgetChars: 1 })
+    expect(tight.context_omitted).toEqual(['assessor notes', 'report scope limitations', 'walkthrough observations'])
+    expect(tight.observations).toEqual([])
+    expect(tight.report_limitations).toEqual([])
+    expect(tight.findings.length).toBe(pkg.findings.length)
+    expect(tight.references.length).toBe(pkg.references.length)
+  })
+
+  it('the wire budget matches the cap the endpoint enforces', () => {
+    const api = readFileSync(new URL('../../api/narrative.js', import.meta.url), 'utf8')
+    const m = api.match(/MAX_PAYLOAD_CHARS\s*=\s*([\d_]+)/)
+    expect(m, 'api/narrative.js no longer declares MAX_PAYLOAD_CHARS').toBeTruthy()
+    expect(Number(m![1].replace(/_/g, ''))).toBe(WIRE_BUDGET_CHARS)
   })
 
   it('produces a package from an empty model without throwing', () => {
