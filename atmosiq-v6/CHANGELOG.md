@@ -1,5 +1,81 @@
 # AtmosFlow Changelog
 
+## Desktop pro pass (September 2026)
+
+Second desktop tranche. The first made the shell behave like a current AI
+workspace; this one makes it communicate the state of the work instead of
+the places you can go, and gives the interface the depth, hierarchy and
+restraint a professional instrument carries. Phone and tablet layouts are
+unchanged below 1024px.
+
+- **Home** (`DesktopHome`, view `home`) is the desktop landing for
+  consultant mode: greeting, four counts, a Needs-attention card (active
+  draft with its zones / readings / observations census, else the report
+  with findings needing attention), recent projects with status, and an
+  activity feed merged from drafts, reports and project activity.
+- **Workflow-ordered rail.** Search, Home / Projects / Sites / Reports,
+  Analysis (Logger Studio, Ventilation), AtmosFlow AI, Library (Templates,
+  Forms, Incidents, All tools), Recent projects, then Settings / Help /
+  Trash. Slimmer (232px, 34px rows, 64px collapsed); the selected row is a
+  raised tile, and the only cyan on the rail is the AI mark.
+- **AtmosFlow AI is a docked right-hand panel** (420px) on desktop, toggled
+  by **Ctrl/⌘ J** or the rail row; the header and content surface narrow to
+  make room, and the floating launcher orb is no longer rendered on
+  desktop. The phone sheet and orb are unchanged.
+- **Tools is a toolkit dashboard** on desktop: grouped cards with a
+  sentence each and the criterion or output they work against.
+- **Results hero** gains a four-count stat strip (zones, measurements,
+  observations, occupant reports) under the verdict; the At-a-glance list
+  drops its **Confidence** row — `evalMeasurementConfidence` scores how many
+  parameters were captured, and printed beside a verdict it read as
+  confidence in the conclusion (the Pathways tab lost its rating the same
+  way). The value still reaches the report surfaces unchanged. The census
+  row moved into the strip; a Photos row replaces it.
+- **Palette depth.** The dark theme is five zinc-tinted values 2–3 L* apart
+  (page `#0B0B0C`, rail `#09090A`, surface `#111113`, card `#151517`,
+  raised `#19191C`, border `#252529`) with the text ladder `#F4F4F5` /
+  `#A1A1AA` / `#8B8B94` / `#71717A`. Light mode is unchanged.
+- **Type scale** one weight lighter at the top: page title 26/600 (was
+  28/700), section 16/600 (was 18), captions and eyebrows at regular /
+  medium weight.
+- Tests: `DesktopHome.test.jsx`, `ToolsHub-desktop.test.jsx`; the rail,
+  palette and AI-panel tests updated. `docs/DESKTOP.md` describes the shell.
+- Lint: the `src/` JS/JSX tier's `no-unused-vars` now ignores PascalCase
+  identifiers — with no React plugin the core rule cannot see JSX usage,
+  so every component import or local component counted as "unused". The
+  ratchet is lowered to the real count.
+
+## Desktop shell modernization (September 2026)
+
+The desktop layout (≥ 1024px) had the shape of the phone app with a rail
+bolted on: a 640px chat sheet floating over a dimmed page, a fixed-width
+sidebar with no hover states, and no keyboard route to anything. This pass
+brings the shell to the conventions every current AI workspace shares
+(Claude, ChatGPT, Grok) without touching the phone/tablet layout, which
+stays byte-identical below 1024px.
+
+- **AtmosFlow AI is a page, not a sheet, on desktop.** `FieldAssistant`
+  takes `desktop` + `leftInset`: no scrim, pinned to the content area right
+  of the rail at full width, transcript and composer centered in an 800px
+  reading column, a fade instead of the sheet rise, and a greeting on the
+  empty canvas with the composer lifted toward the middle of the window.
+  Choosing a rail destination while the chat is open closes it.
+- **Collapsible rail.** `DesktopSidebar` collapses to a 68px icon rail from
+  its header toggle or **Ctrl/⌘ B** (ignored inside a text field) and
+  remembers the choice (`KEYS.desktopRailCollapsed`). The header, content
+  surface and chat page follow the live rail width. Rows gained
+  pointer-only hover states; the AI launcher became the rail's filled
+  **New chat** action; a **Search** row shows the palette shortcut.
+- **Command palette.** New `DesktopCommandPalette` on **Ctrl/⌘ K**: filters
+  and ranks every rail destination, the eight most recent drafts and
+  reports, New chat, the theme switch and the rail toggle; arrows + Enter,
+  Escape, focus-trapped, reduced-motion aware.
+- Tests: `DesktopSidebar.test.jsx` (collapse, chord, New chat / Search,
+  persistence), `DesktopCommandPalette.test.jsx`,
+  `FieldAssistant-desktop.test.tsx`. `docs/DESKTOP.md` describes the shell.
+- Three stale `eslint-disable` directives removed so the `lint:src` ratchet
+  holds at 416 with the new files' JSX-only imports counted.
+
 ## Audit remediation (September 2026)
 
 The engineering audit (`docs/AUDIT-2026-09.md`) found that nothing gated a

@@ -40,6 +40,7 @@ import { AI_DISCLAIMER_LINE } from '../constants/field-assistant-prompt'
 import { splitTrailingDisclaimer } from '../utils/jasperDisclaimer'
 import {
   JASPER_SPRING,
+  JASPER_EASE_OUT,
   JASPER_DURATION,
   jasperAtmosphere,
   JASPER_SHEET_SHADOW,
@@ -58,6 +59,23 @@ const HEADER_BTN = (on) => ({
   color: on ? 'var(--accent)' : 'var(--sub)',
   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
   fontFamily: 'inherit', flexShrink: 0, WebkitTapHighlightColor: 'transparent',
+})
+
+// Desktop (>=1024): the assistant is a PANEL docked to the right edge of
+// the window, beside the work — not a phone sheet floating over a scrim,
+// and not a page that replaces the screen. The content the assessor is
+// asking about stays visible to its left (the shell pads the content
+// surface by the panel width), the rail stays usable, and Ctrl/⌘ J
+// toggles it. It slides in from its edge; only a sheet rises. Everything
+// else about the surface (header, composer, footer) is shared with the
+// phone layout, so the two never drift.
+const desktopPanelStyle = (width) => ({
+  left: 'auto', right: 0, width, maxWidth: 'none',
+  border: 'none', borderLeft: `1px solid ${BORDER}`, boxShadow: 'none',
+  padding: '10px 16px',
+  paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
+  paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
+  animation: `jasperPanelIn ${JASPER_DURATION.enter}ms ${JASPER_EASE_OUT} both`,
 })
 
 const CARD = 'var(--card)'
@@ -943,7 +961,7 @@ function DownloadCard({ report, onDownload }) {
   )
 }
 
-export default function FieldAssistant({ onClose, context, onNavigate, initialMessage, onAction }) {
+export default function FieldAssistant({ onClose, context, onNavigate, initialMessage, onAction, desktop = false, panelWidth = 420, newChatNonce = 0 }) {
   const {
     messages,
     sending,
@@ -1170,6 +1188,19 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   // first and the initial message becomes the input value so they
   // can review + send after accepting.
   const initialMessageRef = useRef(null)
+  // Desktop rail "New chat" while the page is already open: start a fresh
+  // conversation (the label promises one). The ref starts at the mounted
+  // value so a bump that happened while the page was closed is not
+  // replayed on mount — a fresh mount is already a fresh conversation.
+  const newChatRef = useRef(newChatNonce)
+  useEffect(() => {
+    if (newChatNonce === newChatRef.current) return
+    newChatRef.current = newChatNonce
+    if (messages.length > 0 || sending) newConversation()
+    setHistoryOpen(false)
+    setPickerOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newChatNonce])
   useEffect(() => {
     if (!initialMessage || initialMessageRef.current === initialMessage) return
     initialMessageRef.current = initialMessage
@@ -1277,6 +1308,9 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           as a defocused hint of the assessment instead of a black
           void. Matches the iOS / macOS sheet pattern (Messages,
           Mail, ChatGPT iOS) and reinforces the sheet's elevation. */}
+      {/* No scrim on desktop: the panel sits beside the work, and the rest
+          of the window stays usable. */}
+      {!desktop && (
       <div
         onClick={handleBackdropClick}
         className="jasper-backdrop"
@@ -1290,6 +1324,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           animation: 'jasperBackdropIn 280ms ease-out both',
         }}
       />
+      )}
       <div
         onClick={(e) => e.stopPropagation()}
         // Drop and paste are bound to the whole sheet, not the composer:
@@ -1341,6 +1376,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           display: 'flex', flexDirection: 'column',
           boxSizing: 'border-box',
           overflow: 'hidden',
+          ...(desktop ? desktopPanelStyle(panelWidth) : null),
         }}>
         {/* Drop target overlay. Covers the sheet while a file is over
             it so there is no question about where to let go.
@@ -1857,9 +1893,19 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               page (Grok's watermark). The headline, body copy and "Try
               one of these" label are gone: the prompt row above the
               composer says what to ask, and the composer says where. */}
-          {isEmptyCanvas && (
+          {isEmptyCanvas && !desktop && (
             <div aria-hidden="true" style={{ opacity: 0.22, filter: 'grayscale(1)' }}>
               <JasperBrainIcon size={72} animate={false} />
+            </div>
+          )}
+          {/* Desktop empty canvas — a greeting in place of the watermark,
+              the way Claude's side panel opens: the panel asks the question
+              and the composer below is where it gets answered. */}
+          {isEmptyCanvas && desktop && (
+            <div data-testid="jasper-desktop-greeting" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center', maxWidth: 320, padding: '0 12px' }}>
+              <JasperBrainIcon size={36} animate={false} />
+              <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: TEXT, lineHeight: 1.25, marginTop: 4 }}>Ask about this investigation</div>
+              <div style={{ ...jasperCaption, lineHeight: '18px' }}>Readings, patterns, what a finding indicates, or draft the narrative — with the assessment on screen as the evidence.</div>
             </div>
           )}
 
@@ -1943,6 +1989,8 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           )}
         </div>
 
+        {/* Composer column — pinned to the bottom edge on every layout. */}
+        <div style={{ width: '100%', flexShrink: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
         {/* Offline banner — only shown when network is actually down */}
         {!online && (
           <div style={{
@@ -2331,6 +2379,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             )}
           </div>
         </div>
+        </div>
         </>)}
 
         {/* Footer — one recessive line. The review note carries the
@@ -2392,6 +2441,14 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         @keyframes faStopIn {
           from { opacity: 0; transform: scale(0.8); }
           to   { opacity: 1; transform: scale(1); }
+        }
+        /* Desktop panel entrance — slides in from the right edge. */
+        @keyframes jasperPanelIn {
+          from { opacity: 0; transform: translateX(16px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .jasper-sheet { animation: none !important; }
         }
         /* Neon-brain "thinking" indicator. The bright trace layer draws
            through each groove (stroke-dashoffset 100 → 0), holds fully

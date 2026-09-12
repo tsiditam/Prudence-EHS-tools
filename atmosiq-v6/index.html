@@ -102,28 +102,35 @@
            "charcoal"; the surfaces are now true neutrals stepping 6–7 L*
            apart, so hierarchy comes from the hairline border and the
            step itself rather than from tint or glass. */
-        --bg:#0A0A0A;
-        --surface:#111111;
-        --card:#161616;
+        /* Depth pass (desktop pro, 2026-09). Five dark values 2–3 L* apart
+           instead of three: page, rail, primary surface, card, raised. On
+           its own each step is barely perceptible; together they give the
+           UI the layered depth a single near-black plane could not, and
+           the hairline border stops being the only thing separating two
+           panels. Zinc-tinted (a hint of blue in the neutral) so the
+           surfaces read as a material rather than a void. */
+        --bg:#0B0B0C;
+        --surface:#111113;
+        --card:#151517;
         /* Inset grouped list panel (Settings / Account, 2026-09): one step
            above the page in dark, one step below white in light — the way
            iOS draws grouped settings on either appearance. */
-        --group:#161616;
+        --group:#151517;
         /* Deep surface — the near-black used by the slide-out side menu.
            Opt-in via the BottomSheet `tone="deep"` prop for sheets that
            should read as a dark stage rather than a raised card. Flips to
            white in light mode below (mirrors the menu). */
-        --surface-deep:#050505;
-        --raised:#1E1E1E;
-        --border:#262626;
+        --surface-deep:#09090A;
+        --raised:#19191C;
+        --border:#252529;
         /* Border ladder (UI consistency pass, 2026-09). tokens.js used to
            hard-code these as white-alpha (rgba(255,255,255,.04/.07/.12)),
            which is invisible on a white page — in light mode every
            V3.panel / SettingsList group lost its edge and read as loose
            text. Subtle is for dividers inside a panel, --border for panel
            edges, strong for emphasised edges / selected tracks. */
-        --border-subtle:#1C1C1C;
-        --border-strong:#333333;
+        --border-subtle:#1D1D20;
+        --border-strong:#313136;
         /* Restrained primary cyan — darker and a touch less saturated
            than the old #22D3EE aqua, so header controls, icon outlines,
            text accents, and default active states read technical and
@@ -134,13 +141,13 @@
         /* Text ladder is neutral grey to match the neutral surfaces — the
            previous cool-tinted greys (#ECEEF2 / #A8B0BD / #8B93A5) read
            faintly blue on a pure-neutral black. */
-        --text:#F2F2F2;
+        --text:#F4F4F5;
         /* Supporting-label tier between --text and --sub (tokens.js
            TEXT_SECONDARY). Was a hard-coded hex in 17 call sites, so it
            never flipped for light mode. 7.8:1 on --bg, 7.2:1 on --card. */
-        --text-secondary:#A3A3A3;
-        --sub:#8A8A8A;
-        --dim:#6B6B6B;
+        --text-secondary:#A1A1AA;
+        --sub:#8B8B94;
+        --dim:#71717A;
         --warn:#FBBF24;
         --danger:#EF4444;
         --success:#22C55E;
@@ -185,7 +192,7 @@
            one step lighter than the page, blurs what is behind it, and
            draws a hairline along its foot — the treatment iOS and the
            Claude app give a navigation bar over scrolled content. */
-        --chrome-glass:rgba(20,20,20,0.55);
+        --chrome-glass:rgba(17,17,19,0.55);
         --chrome-hair:rgba(255,255,255,0.07);
       }
       [data-theme="light"]{

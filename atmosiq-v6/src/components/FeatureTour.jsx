@@ -86,7 +86,7 @@ export default function FeatureTour({ onClose, steps = FEATURE_TOUR_STEPS, start
     const onKey = (e) => { if (e.key === 'Escape') close() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 
   return (
     <div

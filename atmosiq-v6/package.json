@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "lint": "npm run lint:eslint && npm run lint:src && npm run lint:imports && npm run lint:spelling",
     "lint:eslint": "eslint --max-warnings=0 \"scripts/**/*.{js,mjs,ts}\" \"tests/api/**/*.ts\" \"tests/scripts/**/*.ts\" \"tests/components/**/*.{ts,tsx}\" \"tests/lib/**/*.ts\" \"tests/pages/**/*.{ts,tsx}\" \"lib/**/*.ts\" \"components/**/*.{ts,tsx}\" \"pages/**/*.{ts,tsx}\"",
-    "lint:src": "eslint --max-warnings=416 \"src/**/*.{js,jsx,ts,tsx}\"",
+    "lint:src": "eslint --max-warnings=80 \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:imports": "node scripts/check-api-js-imports.mjs",
     "lint:spelling": "node scripts/check-spelling.mjs",
     "accept:api-boot": "node scripts/acceptance-check.mjs --config scripts/acceptance/api-boot.json",

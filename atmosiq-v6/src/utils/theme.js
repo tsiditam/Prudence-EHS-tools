@@ -32,7 +32,7 @@ export function getTheme() {
 // Fallback per theme when the computed --bg is unavailable (jsdom, or a
 // document that has not loaded index.html's stylesheet). Kept in step
 // with the :root / [data-theme="light"] values in index.html.
-const THEME_COLOR_FALLBACK = { dark: '#0A0A0A', light: '#FFFFFF' }
+const THEME_COLOR_FALLBACK = { dark: '#0B0B0C', light: '#FFFFFF' }
 
 export function applyTheme(mode) {
   if (typeof document === 'undefined') return
