@@ -26,7 +26,7 @@ import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { assembleRenderModel } from '../report/reportModel'
+import { withAiSections, lockAiSections } from '../report/aiSections'
 import { checkRenderModel } from '../report/modelConsistency'
 import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
@@ -43,6 +43,7 @@ import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasur
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains, pickPrimaryChain } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
+import { generateReportSections } from '../engines/reportSections'
 import PricingSheet from './pricing/PricingSheet'
 import { I } from './Icons'
 import { isOtherChoice } from '../utils/choiceOther'
@@ -252,6 +253,26 @@ const RESULT_TAB_ALIASES = {
 // styles, so the screen reads as one document rather than a dashboard.
 const RS_SECTION = { paddingTop: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
 const RS_HEAD = { ...V3.T.micro, marginBottom: 10 }
+
+// The audit panel's shape, read off the stored `narrativeMeta` record
+// (see requestNarrative). Null when there is no narrative or the record
+// predates the audit.
+const auditFromMeta = (meta) => (meta && Array.isArray(meta.audit) ? { issues: meta.audit, summary: meta.auditSummary || null } : null)
+
+// Reader-facing names for the AI-sections audit breakdown (src/report/aiSections.js
+// keys). Matches the WRITABLE_SECTIONS names, plus the per-parameter
+// `parameter_background.<key>` keys reportModel.js's own grouping produces.
+const AI_SECTION_LABELS = {
+  executive_summary: 'Executive Summary',
+  discussion: 'Discussion & Conclusions',
+  conceptual_site_model: 'Conceptual Site Model',
+  recommendations_prose: 'Recommendations framing',
+  'parameter_background.co2': 'Background — Carbon dioxide',
+  'parameter_background.co': 'Background — Carbon monoxide',
+  'parameter_background.thermal': 'Background — Thermal comfort',
+  'parameter_background.pm25': 'Background — Fine particulate',
+  'parameter_background.tvoc': 'Background — Total VOCs',
+}
 // A text action / link: the primary ink, weight 600, a chevron when it goes
 // somewhere. Accent discipline (2026-09): cyan is reserved for the one
 // primary action on a screen and the selected state; links stopped
@@ -724,6 +745,7 @@ export default function MobileApp() {
     recs, setRecs,
     narrative, setNarrative,
     narrativeLoading, setNarrativeLoading,
+    aiSections, setAiSections,
     samplingPlan, setSamplingPlan,
     causalChains, setCausalChains,
     moldResults, setMoldResults,
@@ -1195,7 +1217,7 @@ export default function MobileApp() {
         setZones([{}]); setCurZone(0); setQsqi(0); setDqi(0); setZqi(0)
         setPhotos({}); setPhotoOverrides({}); setSensorData(null); setFloorPlans([])
         setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
-        setNarrative(null); setSamplingPlan(null); setCausalChains([])
+        setNarrative(null); setSamplingPlan(null); setCausalChains([]); setAiSections(null)
         trackEvent('site_link_hydrated', { site_id: site.id, prior_report: !!prior })
         setView('quickstart')
       } catch (e) {
@@ -1347,7 +1369,7 @@ export default function MobileApp() {
       // Plan images live in IndexedDB; the record carries the refs. A plan
       // still inline (IndexedDB unavailable) is saved inline, as before.
       // The legacy single `floorPlan` is dropped once the list is written.
-      const draft = { ...prev, id:draftId, assessmentUid: ensureAssessmentUid({ ...prev, id: draftId }), presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlans: compactFloorPlans(floorPlans), sensorData, qsqi, dqi, curZone, zqi, site_id: currentSiteId || null, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      const draft = { ...prev, id:draftId, assessmentUid: ensureAssessmentUid({ ...prev, id: draftId }), presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlans: compactFloorPlans(floorPlans), sensorData, qsqi, dqi, curZone, zqi, site_id: currentSiteId || null, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST, aiSections }
       delete draft.floorPlan
       reportStorageWrite(await STO.set(draftId, draft), 'draft')
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
@@ -1594,7 +1616,7 @@ export default function MobileApp() {
     setFinalizePending(false)
     setPresurvey(psFill); setBldg(assessmentSeed ? { name: assessmentSeed.name, address: assessmentSeed.address } : {}); setAssessmentSeed(null); setQsqi(0); setDqi(0); setSensorData(null)
     setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
-    setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([])
+    setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([]); setAiSections(null)
     setView('quickstart')
   }
 
@@ -1618,7 +1640,7 @@ export default function MobileApp() {
     const mold = demoZones.map(z => evalMold(z)).filter(Boolean)
     const mc = evalMeasurementConfidence(demoZones)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('overview'); setNarrative(null); setView('results')
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('overview'); setNarrative(null); setAiSections(null); setView('results')
   }
 
   /**
@@ -1887,7 +1909,16 @@ export default function MobileApp() {
       })
     }
     const { zScores, composite, osha, recommendations, sp, cc } = runScoring()
-    setSelZone(0); setNarrative(null)
+    // aiSections is deliberately NOT cleared here, unlike narrative. Its own
+    // fingerprint (src/report/aiSections.js) already governs whether it
+    // survives this re-score: identical data re-scores to an identical
+    // fingerprint and the AI sections the assessor just generated stay
+    // usable through to the finalize below; changed data goes stale and
+    // falls back on its own. Clearing it here would discard valid work the
+    // fingerprint check was built to keep. The narrative is cleared and then
+    // carried forward below on the same test, once the report exists to
+    // fingerprint.
+    setSelZone(0); setNarrative(null); setNarrativeMeta(null)
     trackEvent('engine_completed', { zones: composite?.count, findings: composite?.findings?.total, attention: composite?.findings?.attention, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
     trackEvent('assessment_completed', { zones: zones.length, findings: composite?.findings?.total, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
@@ -1935,7 +1966,28 @@ export default function MobileApp() {
     // The floor plans' images live in the same namespace; same move.
     const reportPlans = await rekeyFloorPlans(floorPlans, rid)
     if (reportPlans !== floorPlans) setFloorPlans(reportPlans)
-    report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlans: compactFloorPlans(reportPlans), sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
+    // aiSections locks here (src/report/aiSections.js) — mirrors `runScoring`'s
+    // own finalized-report guard: an issued report's AI-authored sections do
+    // not change on a later export because someone regenerated them. Locking
+    // a record that happens to be stale against zScores/cc is harmless — the
+    // render-time freshness check is what actually gates use, always, lock or
+    // no lock; this only stops FURTHER regeneration once issued.
+    report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlans: compactFloorPlans(reportPlans), sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement, aiSections: lockAiSections(aiSections) }
+    // A stored narrative survives a re-finalize only when it was written
+    // from this exact evidence — the same fingerprint test aiSections
+    // applies to itself at render time. Written for different data, it is
+    // dropped rather than issued stale. `profile` rides along because the
+    // package's facts read it and the narrative was generated with it in
+    // scope, so the fingerprints are comparable.
+    const priorMeta = priorBody.narrativeMeta
+    if (priorBody.narrative && priorMeta && priorMeta.fingerprint) {
+      let current = null
+      try { current = withAiSections({ ...report, profile }).evidenceFingerprint } catch { current = null }
+      if (current && current === priorMeta.fingerprint) {
+        report = { ...report, narrative: priorBody.narrative, narrativeMeta: priorMeta }
+        setNarrative(priorBody.narrative); setNarrativeMeta(priorMeta)
+      }
+    }
     reportStorageWrite(await STO.set(rid, report), 'report')
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
@@ -2053,14 +2105,109 @@ export default function MobileApp() {
     showMilestone('check', 'Details Complete', 'Assessment rescored with updated data', () => { setView('results') })
   }
 
+  // What the deterministic audit found in the narrative shown
+  // (src/report/narrativeAudit.js), plus the fingerprint of the evidence it
+  // was written from. Persisted on the record WITH the narrative as
+  // `narrativeMeta` and only ever replaced together with it, so a verdict
+  // never sits beside prose other than the one it describes.
+  const [narrativeMeta, setNarrativeMeta] = useState(null)
+  const narrativeAudit = auditFromMeta(narrativeMeta)
+
+  // Persist AI-authored output onto the record it was written for, so
+  // reopening the report shows it instead of asking for the credits again.
+  // The Report tab exists only for a finalized report (the demo has no
+  // record and is skipped here), so the stored copy is an issued one:
+  // migration 034 refuses a payload change on its cloud row unless the row
+  // is moved back to draft first — the same reopen-then-save sequence
+  // resumeAndFix and LabResultsImport already use. The row is 'final' again
+  // when saveAssessment returns, with the text attached. The local write
+  // never waits on the cloud one landing.
+  const persistAiOutput = async (patch) => {
+    const id = viewRpt?.id || draftId
+    if (!id) return
+    if (viewRpt) setViewRpt(prev => (prev ? { ...prev, ...patch } : prev))
+    try {
+      const stored = await STO.get(id)
+      if (!stored) return
+      const ua = new Date().toISOString()
+      const issued = stored.status === 'complete' || (index.reports || []).some(r => r.id === id)
+      if (!issued || !supabase) { await STO.set(id, { ...stored, ...patch, ua }); return }
+      try { await Storage.reopenAssessment(id) } catch { /* best effort — offline, the save queues */ }
+      // getAssessment expands photo refs back to the inline form the wire needs.
+      const full = (await Storage.getAssessment(id)) || stored
+      const r = await Storage.saveAssessment({ ...full, ...patch, ua, status: 'complete', facility_name: full.building?.fn || bldg.fn })
+      if (r && !r.ok && !r.queued) console.warn('AI output saved on this device but not synced:', r.error?.message)
+    } catch (e) {
+      console.warn('AI output could not be persisted:', e && e.message)
+    }
+  }
+
+  // Whether the record being viewed is an issued report. On the results
+  // screen right after finalize `viewRpt` is still null while `draftId`
+  // already points at the rpt- id, so the index is the reliable tell.
+  const viewingIssuedReport = () => !!viewRpt || (index.reports || []).some(r => r.id === draftId)
+
   const requestNarrative = async () => {
     if (!PAYWALL_DISABLED && credits < 3) { setShowPricing(true); return }
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setNarrativeLoading(true)
-    const text = await generateNarrative(bldg, zones, zoneScores, recs, presurvey)
-    setNarrative(text); setNarrativeLoading(false)
-    if (text) trackEvent('narrative_generated', { word_count: text.split(/\s+/).length })
+    setNarrativeMeta(null)
+    // The rest of the report data rides along so the evidence package the
+    // model writes from describes the same report the client will receive —
+    // same criteria, same action register, same limitations.
+    const result = await generateNarrative(bldg, zones, zoneScores, recs, presurvey, {
+      id: viewRpt?.id || draftId || null, equipment, comp,
+      causalChains, profile, photos, photoOverrides, floorPlans, ts: viewRpt?.ts,
+      sensorData: (viewRpt && viewRpt.sensorData) || sensorData,
+    })
+    const text = result && result.narrative
+    const meta = text
+      ? { fingerprint: result.fingerprint || null, generatedAt: new Date().toISOString(), audit: result.audit || [], auditSummary: result.auditSummary || null }
+      : null
+    setNarrative(text || null)
+    setNarrativeMeta(meta)
+    setNarrativeLoading(false)
+    if (text) {
+      await persistAiOutput({ narrative: text, narrativeMeta: meta })
+      trackEvent('narrative_generated', {
+        word_count: text.split(/\s+/).length,
+        audit_blocking: (result.auditSummary && result.auditSummary.blocking) || 0,
+        audit_warnings: (result.auditSummary && result.auditSummary.warnings) || 0,
+      })
+    }
+  }
+
+  const [reportSectionsLoading, setReportSectionsLoading] = useState(false)
+
+  const requestReportSections = async () => {
+    if (!PAYWALL_DISABLED && credits < 5) { setShowPricing(true); return }
+    consumeCredit(5, 'report_sections')
+    trackEvent('report_sections_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
+    setReportSectionsLoading(true)
+    // Same report data narrative already threads through, so the evidence
+    // package this writes from and the one the DOCX export will fingerprint
+    // against (src/report/aiSections.js) describe the same assessment.
+    const rec = await generateReportSections({
+      building: bldg, presurvey, zones, zoneScores, recs, causalChains,
+      id: viewRpt?.id || draftId || null, equipment, comp, profile, photos, photoOverrides, floorPlans,
+      ts: viewRpt?.ts, sensorData: (viewRpt && viewRpt.sensorData) || sensorData,
+    })
+    // An issued report gets exactly one generation, the same as one that
+    // was finalized with sections already attached (lockAiSections at
+    // finalize): the document a client was sent must not read differently
+    // on a later export because the model was asked again.
+    const record = rec && viewingIssuedReport() ? lockAiSections(rec) : rec
+    setAiSections(record)
+    setReportSectionsLoading(false)
+    if (record) {
+      await persistAiOutput({ aiSections: record })
+      const summaries = Object.values(rec.auditSummary || {})
+      trackEvent('report_sections_generated', {
+        section_count: Object.keys(rec.sections || {}).length,
+        audit_blocked: summaries.filter(s => s && s.supported === false).length,
+      })
+    }
   }
 
   // Equipment-capture working state (the equipment array itself
@@ -2146,7 +2293,13 @@ export default function MobileApp() {
     // src/report/reportModel.js. `viewRpt` is the opened finalized report;
     // `draftId` is the session pointer, which finalize advances to the new
     // report id, so this resolves to the same value on every re-export.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
+    // `ts` — the finalize timestamp, which is the assessment date whenever no
+    // survey date was entered (utils/assessmentDate.js). The share and PDF
+    // paths already pass it; without it a report reopened on a later day
+    // printed THAT day as the assessment date, and the evidence package the
+    // export fingerprints carried a different date from the one the Report
+    // tab generated the AI sections against — so they silently fell back.
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, aiSections: viewRpt?.aiSections || aiSections, ts: viewRpt?.ts, assessmentContext }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', findings: comp?.findings?.total, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -2235,7 +2388,7 @@ export default function MobileApp() {
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, aiSections: viewRpt?.aiSections || aiSections, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
       const { getAtmosFlowDocxBlob } = await loadDocxReport()
@@ -2290,7 +2443,7 @@ export default function MobileApp() {
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, aiSections: viewRpt?.aiSections || aiSections, ts: viewRpt?.ts, assessmentContext }
     const { getAtmosFlowDocxBlob } = await loadDocxReport()
     const built = await getAtmosFlowDocxBlob(reportData)
     // Size pre-check. The DOCX is uploaded to Storage and attached to the
@@ -2509,7 +2662,7 @@ export default function MobileApp() {
     setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlans(await expandFloorPlans(normalizeFloorPlans(rpt))); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
-    setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setView('report')
+    setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setNarrativeMeta(rpt.narrativeMeta||null); setView('report')
   }
 
   const deleteItem = async (id, name, type) => {
@@ -3055,17 +3208,38 @@ export default function MobileApp() {
     // so a contradiction is seen here, before the document is generated,
     // rather than by a reviewer afterwards. Advisory, like every readiness
     // signal: it names the disagreement and never blocks the deliverable.
-    // Only computed on the Report tab; the model is cheap but not free.
-    const reportConsistency = rTab === 'report' && zoneScores.length ? (() => {
+    // Only computed on the Report tab; the model is cheap but not free. The
+    // model itself is kept because it also carries the freshness verdict on
+    // whatever AI output is stored (aiSectionsStatus, evidenceFingerprint).
+    let reportModel = null
+    let reportConsistency = []
+    if (rTab === 'report' && zoneScores.length) {
       try {
-        return checkRenderModel(assembleRenderModel({
+        reportModel = withAiSections({
           id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp,
           recs, causalChains, profile, photos, photoOverrides, sensorData: loggerSd, floorPlans, ts: viewRpt?.ts,
-        }))
+          aiSections,
+        })
+        reportConsistency = checkRenderModel(reportModel)
       } catch (e) {
-        return [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
+        reportConsistency = [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
       }
-    })() : []
+    }
+
+    // Whether the report's AI-authored sections may still be regenerated.
+    // Locked at finalize (src/report/aiSections.js lockAiSections) so an
+    // issued report never reads differently because someone asked the model
+    // the same question again and got a different answer.
+    const aiSectionsLocked = !!(aiSections && aiSections.locked)
+    // Stored AI output written for an assessment that has since changed. The
+    // sections fall back to deterministic prose on their own; the narrative
+    // is a separate share document, so it is shown but labeled.
+    const aiSectionsStale = !!(aiSections && reportModel && reportModel.aiSectionsStatus === 'stale')
+    const narrativeStale = !!(narrative && narrativeMeta && narrativeMeta.fingerprint && reportModel && reportModel.evidenceFingerprint && narrativeMeta.fingerprint !== reportModel.evidenceFingerprint)
+    const aiSectionsSummaryCounts = (() => {
+      const values = Object.values((aiSections && aiSections.auditSummary) || {})
+      return { total: values.length, blocked: values.filter(s => s && s.supported === false).length }
+    })()
 
     return (
       <div style={{paddingTop:20,paddingBottom:120,position:'relative',isolation:'isolate'}}>
@@ -3297,6 +3471,66 @@ export default function MobileApp() {
               onFeedback={()=>openFeedback('Findings & readiness')}
               onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
             />
+            {/* AI-authored sections of the AtmosFlow DOCX itself (the client
+                deliverable) — src/report/aiSections.js, src/report/evidencePackage.js.
+                Distinct from "Findings narrative" below, which is a separate
+                one-page share document; this is what the exported Word report
+                actually renders in place of its deterministic Executive Summary,
+                Discussion, Conceptual Site Model, Recommendations and per-parameter
+                Background prose, for whichever of those a fresh, audit-supported
+                generation covers. */}
+            <div style={RS_SECTION}>
+              <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:12,flexWrap:'wrap'}}>
+                <div style={RS_HEAD}>Report sections</div>
+                {aiSections && aiSectionsSummaryCounts.total > 0 && <div style={{display:'flex',alignItems:'center',gap:4}}>
+                  <span style={{...V3.T.caption, color:WARN}}>AI-generated · review required</span>
+                  <FeedbackButton label="Flag" onClick={()=>openFeedback('AI report sections')} />
+                </div>}
+              </div>
+              <div style={{...V3.T.bodyDim, maxWidth:460, marginBottom:14}}>
+                Refines the Executive Summary, Discussion, Conceptual Site Model, Recommendations framing and per-parameter background prose in the exported Word report — from the same findings, criteria and action register it already contains. Measurement tables, QA/QC, citations and the action register itself are never touched.
+              </div>
+              {aiSectionsLocked && (
+                <div style={{...V3.T.caption, color:aiSectionsStale?WARN:SUB, marginBottom:10}}>
+                  {aiSectionsStale
+                    ? 'This report is finalized. Its report sections were written for an earlier version of the assessment, so the export uses the report’s own text.'
+                    : 'This report is finalized. Its report sections are saved with it and reused by every export at no further cost.'}
+                </div>
+              )}
+              {!reportSectionsLoading && !aiSectionsLocked && aiSections && aiSectionsSummaryCounts.total > 0 && (
+                <div style={{...V3.T.caption, color:aiSectionsStale?WARN:SUB, marginBottom:10}}>
+                  {aiSectionsStale
+                    ? 'The assessment changed since these were written; the export uses the report’s own text until they are regenerated.'
+                    : 'Saved with this assessment and reused by every export at no further cost.'}
+                </div>
+              )}
+              {!reportSectionsLoading && !aiSectionsLocked && (
+                <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                  <TactileButton variant="primary" size="sm" pill onClick={requestReportSections}>
+                    {aiSections && aiSectionsSummaryCounts.total > 0 ? 'Regenerate report sections' : 'Generate report sections'}
+                  </TactileButton>
+                  <span style={V3.T.captionDim}>5 credits</span>
+                </div>
+              )}
+              {reportSectionsLoading && <div style={{padding:'8px 0',display:'flex',alignItems:'center',gap:12}}><div style={{width:20,height:20,borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite',flexShrink:0}} /><div style={V3.T.bodyDim}>Writing report sections from assessment data…</div></div>}
+              {aiSections && aiSectionsSummaryCounts.total > 0 && !reportSectionsLoading && (
+                <div style={{marginTop:14,padding:'12px 14px',borderRadius:RADII.md,border:`1px solid ${aiSectionsSummaryCounts.blocked === 0 ? 'var(--border)' : `color-mix(in srgb, ${WARN} 45%, transparent)`}`,background:`color-mix(in srgb, ${aiSectionsSummaryCounts.blocked === 0 ? 'var(--surface)' : WARN} 8%, transparent)`}}>
+                  <div style={{...V3.T.caption,color:aiSectionsSummaryCounts.blocked===0?SUB:WARN,marginBottom:8}}>
+                    {aiSectionsSummaryCounts.blocked === 0
+                      ? `Checked against the assessment record — ${aiSectionsSummaryCounts.total} of ${aiSectionsSummaryCounts.total} section${aiSectionsSummaryCounts.total===1?'':'s'} traced and will be used in the export.`
+                      : `Checked against the assessment record — ${aiSectionsSummaryCounts.blocked} of ${aiSectionsSummaryCounts.total} section${aiSectionsSummaryCounts.total===1?'':'s'} could not be supported and will use the deterministic report text instead.`}
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    {Object.entries(aiSections.auditSummary || {}).map(([key, summary]) => (
+                      <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5}}>
+                        <span style={{color:summary && summary.supported===false?WARN:'var(--success)',fontWeight:600}}>{summary && summary.supported===false?'⚠':'✓'} {AI_SECTION_LABELS[key] || key}</span>
+                        {summary && summary.supported===false && <>{' — '}{(aiSections.audit && aiSections.audit[key] || []).map(i=>i.message).join(' ')}</>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <div style={RS_SECTION}>
               <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:12,flexWrap:'wrap'}}>
                 <div style={RS_HEAD}>Findings narrative</div>
@@ -3315,12 +3549,47 @@ export default function MobileApp() {
               {narrativeLoading&&<div style={{padding:'8px 0',display:'flex',alignItems:'center',gap:12}}><div style={{width:20,height:20,borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite',flexShrink:0}} /><div style={V3.T.bodyDim}>Generating narrative from assessment data…</div></div>}
               {narrative&&<div>
                 <Markdown style={{fontSize:14,color:TEXT,lineHeight:1.75}}>{narrative}</Markdown>
+                {/* What the deterministic audit could not support in the prose
+                    above (src/report/narrativeAudit.js). Advisory, like the
+                    readiness blockers and the report-consistency panel: it
+                    names the statement and the reason, and never discards the
+                    draft — three credits of work suppressed silently is how
+                    the old banned-language gate behaved, and the assessor
+                    could not see why. */}
+                {narrativeAudit && narrativeAudit.issues.length > 0 && (
+                  <div style={{marginTop:14,padding:'12px 14px',borderRadius:RADII.md,border:`1px solid ${narrativeAudit.summary && narrativeAudit.summary.supported ? 'var(--border)' : `color-mix(in srgb, ${WARN} 45%, transparent)`}`,background:`color-mix(in srgb, ${narrativeAudit.summary && narrativeAudit.summary.supported ? 'var(--surface)' : WARN} 8%, transparent)`}}>
+                    <div style={{...V3.T.caption,color:narrativeAudit.summary && narrativeAudit.summary.supported?SUB:WARN,marginBottom:8}}>
+                      Checked against the assessment record — {narrativeAudit.summary ? narrativeAudit.summary.summary : ''}
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                      {narrativeAudit.issues.map((iss,i)=>(
+                        <div key={`${iss.id}-${i}`} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5}}>
+                          <span style={{color:iss.severity==='blocking'?WARN:SUB,fontWeight:600}}>{iss.where}</span>
+                          {' — '}{iss.message}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {narrativeAudit && narrativeAudit.issues.length === 0 && (
+                  <div style={{...V3.T.caption,color:SUB,marginTop:14}} role="status">
+                    Checked against the assessment record — every figure, criterion and recommendation in this narrative traces to the report.
+                  </div>
+                )}
                 <div style={{...V3.T.caption, fontWeight:400, marginTop:14, lineHeight:1.5}}>Generated from deterministic findings. Review, edit and approve before it goes into any client deliverable.</div>
+                <div style={{...V3.T.caption, color:narrativeStale?WARN:SUB, marginTop:10, lineHeight:1.5}}>
+                  {narrativeStale
+                    ? 'Written for an earlier version of this assessment.'
+                    : 'Saved with the report and shown here on every open at no further cost.'}
+                </div>
                 {/* Share the narrative as a lightweight DOCX so the
                     reviewing IH can hand it off as an editable draft
                     (Mail, Slack, Files) without bundling the full
                     consultant report. */}
                 <div style={{marginTop:14,display:'flex',gap:10,flexWrap:'wrap'}}>
+                  {narrativeStale && !narrativeLoading && (
+                    <TactileButton variant="secondary" onClick={requestNarrative}>Regenerate narrative · 3 credits</TactileButton>
+                  )}
                   <TactileButton variant="secondary" onClick={handleShareNarrative} icon={<I n="send" s={15} c="var(--accent)" w={1.8} />}>
                     Share narrative as Word
                   </TactileButton>

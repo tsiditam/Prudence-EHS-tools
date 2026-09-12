@@ -171,6 +171,58 @@ describe('fromCloudRow — payload preference (lossless restore)', () => {
   })
 })
 
+describe('aiSections survives the cloud round trip through the generic payload column', () => {
+  // No dedicated `ai_sections` column and no migration were added — unlike
+  // `narrative`, which has its own column, `aiSections` rides the SAME
+  // generic mechanism `equipment` / `floorPlan` / `labResults` /
+  // `standardsManifest` already use: toPayload spreads the whole assessment
+  // (minus photos) into the jsonb `payload` column, and fromCloudRow's
+  // preferred path restores that snapshot losslessly. Nothing in either
+  // function was written per-field for this — this pins that the generic
+  // path actually carries a nested object (sections/audit/auditSummary),
+  // not just flat values.
+  function record() {
+    return {
+      version: 1, generatedAt: '2026-06-11T12:00:00.000Z', model: 'claude-test',
+      fingerprint: 'abc12345', locked: true,
+      sections: { executive_summary: 'Carbon dioxide was elevated at this site.', parameter_background: { co2: 'x' } },
+      audit: { executive_summary: [] },
+      auditSummary: { executive_summary: { supported: true, blocking: 0, warnings: 0, summary: 'ok' } },
+    }
+  }
+
+  it('toPayload keeps it, exactly', () => {
+    const p = toPayload({ id: 'A-1', aiSections: record() })
+    expect(p.aiSections).toEqual(record())
+  })
+
+  it('toAssessmentRow → fromCloudRow restores it losslessly, nested content included', () => {
+    const row = toAssessmentRow({ id: 'A-1', status: 'complete', aiSections: record() }, 'u-1')
+    const out = fromCloudRow(row)
+    expect(out.aiSections).toEqual(record())
+    expect(out.aiSections.sections.parameter_background.co2).toBe('x')
+    expect(out.aiSections.locked).toBe(true)
+  })
+
+  it('a report with no aiSections round-trips to null/undefined, not a stray key', () => {
+    const row = toAssessmentRow({ id: 'A-1', status: 'complete' }, 'u-1')
+    const out = fromCloudRow(row)
+    expect(out.aiSections).toBeFalsy()
+  })
+
+  it('narrativeMeta rides the same generic path beside the dedicated `narrative` column', () => {
+    // The narrative text keeps its own column; the audit + fingerprint that
+    // describe it (MobileApp requestNarrative) ride `payload`, so a report
+    // opened on another device shows the same verdict beside the same prose.
+    const meta = { fingerprint: 'deadbeef', generatedAt: '2026-06-11T12:00:00.000Z', audit: [], auditSummary: { supported: true, blocking: 0, warnings: 0, summary: 'ok' } }
+    const row = toAssessmentRow({ id: 'A-1', status: 'complete', narrative: 'Prose.', narrativeMeta: meta }, 'u-1')
+    expect(row.narrative).toBe('Prose.')
+    const out = fromCloudRow(row)
+    expect(out.narrative).toBe('Prose.')
+    expect(out.narrativeMeta).toEqual(meta)
+  })
+})
+
 describe('fromCloudRow — calibration acknowledgement', () => {
   const ACK = {
     version: 1,

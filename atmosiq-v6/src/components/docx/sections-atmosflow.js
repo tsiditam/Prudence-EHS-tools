@@ -12,8 +12,16 @@
  * in src/report/reportModel.js — the same model the PDF renderer draws — so
  * every value (facility, ranges, findings, recommendations, signature, chrome)
  * comes from the real assessment, never a hardcoded fixture. This file never
- * rewords the model's prose; the narrative is authored, screening-safe, and
- * placed verbatim.
+ * rewords the model's prose; it places whatever the model hands it verbatim.
+ *
+ * Five slots (`execSummary.paragraphs`, `discussion.paragraphs`,
+ * `conceptualModel.intro`, `recommendations.intro`, a per-parameter
+ * `results.parameters[i].body`) MAY carry AI-authored prose instead of the
+ * deterministic default — `src/report/aiSections.js` decides which, per
+ * section, before the model ever reaches this renderer. Every table, every
+ * number, every citation and the Limitations section are never touched by
+ * that override; this file has no way to tell which is which and does not
+ * need one.
  *
  * ── Type system ────────────────────────────────────────────────────────
  * The AtmosFlow report has its OWN reviewed type system (as the monitoring
@@ -145,6 +153,32 @@ const h2 = (t, o = {}) =>
     pageBreakBefore: !!o.pbb,
     spacing: { before: 160, after: 50, line: 258 },
     children: [new TextRun({ text: t, font: F, size: 22, bold: true, color: TEAL })],
+  })
+
+// A field the AI-sections override can turn into multiple paragraphs
+// (src/report/aiSections.js splits on blank lines); the deterministic path
+// still writes these as a single string. Accept both.
+const toParas = (t) => (Array.isArray(t) ? t : t ? [t] : [])
+
+// Provenance marker rendered immediately before an AI-authored paragraph —
+// never before deterministic prose, which needs none. `M.aiAuthoredSections`
+// (src/report/aiSections.js) names exactly which slots this render actually
+// overrode; the renderer never guesses from the text.
+//
+// Bold and amber, not the italic gray `caption()` used for figure/table
+// captions a few lines below each of these — a disclosure that visually
+// blends in with ordinary captions is not "distinguishable... in every
+// lifecycle state" (CLAUDE.md anti-patterns, on the standing requirement
+// that AI-generated prose in a client deliverable carry a provenance
+// label). `aiProvenanceBanner()` in sections-core.js is the same
+// requirement's original answer for a single standalone document; this is
+// its per-section counterpart for five paragraphs woven into one otherwise
+// deterministic report, sized to not read as five alarms in one document.
+const isAiAuthored = (M, key) => Array.isArray(M.aiAuthoredSections) && M.aiAuthoredSections.includes(key)
+const aiNote = () =>
+  new Paragraph({
+    spacing: { before: 20, after: 70, line: 240 },
+    children: [new TextRun({ text: 'AI-assisted — verify before issue.', font: F, size: 16, bold: true, color: PILL.amb })],
   })
 
 // Justified body paragraph.
@@ -440,6 +474,7 @@ export function atmosFlowReportChildren(model) {
     // before the summary carried its own findings and actions) or as the
     // structured shape. Both render.
     const es = typeof M.execSummary === 'string' ? { paragraphs: [M.execSummary] } : M.execSummary
+    if (isAiAuthored(M, 'executive_summary')) c.push(aiNote())
     ;(es.paragraphs || []).forEach((para) => c.push(body(para)))
     if ((es.findings || []).length) {
       c.push(...label('Leading findings'))
@@ -664,6 +699,13 @@ export function atmosFlowReportChildren(model) {
   // ═══ 5. Discussion & Conclusions ═══
   if (M.findings) {
     c.push(h1('5. Discussion & Conclusions', { pbb: true }))
+    // AI-authored synthesis, when eligible (src/report/aiSections.js). A new
+    // field with no deterministic counterpart — absent simply means no
+    // paragraph here, which is today's report.
+    if (M.discussion && M.discussion.paragraphs && M.discussion.paragraphs.length) {
+      if (isAiAuthored(M, 'discussion')) c.push(aiNote())
+      M.discussion.paragraphs.forEach((para) => c.push(body(para)))
+    }
     if (M.findings.intro) c.push(body(M.findings.intro))
     if (M.findings.rows && M.findings.rows.length) {
       const rows = M.findings.rows
@@ -688,7 +730,8 @@ export function atmosFlowReportChildren(model) {
       const rows = M.conceptualModel.rows
       const confIdx = rows.findIndex((row) => String(row[0]).toLowerCase() === 'confidence')
       c.push(...label('Conceptual site model — primary finding'))
-      if (M.conceptualModel.intro) c.push(body(M.conceptualModel.intro))
+      if (isAiAuthored(M, 'conceptual_site_model')) c.push(aiNote())
+      toParas(M.conceptualModel.intro).forEach((para) => c.push(body(para)))
       c.push(
         table(
           ['Element', M.conceptualModel.heading || 'Primary finding'],
@@ -719,7 +762,8 @@ export function atmosFlowReportChildren(model) {
   const rec = M.recommendations
   if (rec && rec.register && rec.register.length) {
     c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
-    if (rec.intro) c.push(body(rec.intro))
+    if (isAiAuthored(M, 'recommendations_prose')) c.push(aiNote())
+    toParas(rec.intro).forEach((para) => c.push(body(para)))
     const rows = rec.register
     // Priority and timeframe share a cell, as do control and owner, so the
     // action and its completion evidence get the width a reader needs.
@@ -735,7 +779,8 @@ export function atmosFlowReportChildren(model) {
   } else if (rec && ((rec.immediate || []).length || (rec.shortTerm || []).length || (rec.mediumTerm || []).length)) {
     // Fallback for a stored report predating the register.
     c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
-    if (rec.intro) c.push(body(rec.intro))
+    if (isAiAuthored(M, 'recommendations_prose')) c.push(aiNote())
+    toParas(rec.intro).forEach((para) => c.push(body(para)))
     if ((rec.immediate || []).length) {
       c.push(...label('Immediate (0–7 days)'))
       rec.immediate.forEach((it) => c.push(bullet(it)))
@@ -792,6 +837,7 @@ export function atmosFlowReportChildren(model) {
     if (M.results.perParamIntro) c.push(body(M.results.perParamIntro))
     M.results.parameters.forEach((param) => {
       c.push(h2(param.title))
+      if (param.key && isAiAuthored(M, `parameter_background.${param.key}`)) c.push(aiNote())
       ;(param.body || []).forEach((line, li, arr) => {
         const isLast = li === arr.length - 1
         const parts = splitLead(line)

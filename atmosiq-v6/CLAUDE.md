@@ -126,7 +126,7 @@ Read these directories first when investigating any task:
   readiness diagnostic, smoke test, password-reset verification, Stripe
   setup, cron implementations, sample-report PDF generator.
 - `scripts/acceptance/` — JSON acceptance configs:
-  `prod-ready.json` (77 criteria), `pricing-rollout.json` (19),
+  `prod-ready.json` (79 criteria), `pricing-rollout.json` (19),
   `go-live.json` (22), `api-boot.json` (the `API-BOOT` criterion alone,
   for CI), plus `kg.json` and `mold.json`. The legacy v2.X engine
   configs no longer exist.
@@ -327,6 +327,196 @@ When working on report generation:
   consultant reports in this field are normally written. Do not reintroduce a
   standards list; `tests/engine/no-standards-register.test.ts` fails if one
   reappears in the DOCX. Tracking is unchanged — only printing stopped.
+- **The AI narrative writes from a CLOSED evidence package, and what it
+  returns is audited against that package.** AtmosFlow is a deterministic IAQ
+  assessment engine with AI-assisted reporting — not an AI that decides
+  whether a building has a problem. The engine decides what was measured,
+  which criterion applied, whether a walkthrough reading can settle that
+  comparison, how severe the condition is, and which actions are eligible. An
+  AI pass improves how that READS. It decides none of it.
+
+  That split only holds if the model is handed a closed universe, and until
+  2026-09 it was not. The payload carried `standardsManifest: { bibliography:
+  STANDARDS_MANIFEST, referenceValues: STD }` — **every threshold in the
+  product** — under the instruction "cite only from the manifest". That is a
+  closed instruction over an open set: citing the WHO annual PM2.5 guideline
+  in a report that never evaluated it satisfies it exactly.
+
+  Two modules, both pure:
+  - **`src/report/evidencePackage.js`** — `buildEvidencePackage(model,
+    { zoneScores, causalChains })`. A **PROJECTION of
+    `assembleRenderModel`**, never a re-derivation, so it cannot disagree
+    with the report it describes. Carries `facts`, `measurements` (each with
+    the criterion that judged it, **or null**), `observations`, `findings`
+    (the engine's sentence verbatim), `references` (**only** the criteria
+    that fired), `allowed_interpretations`, `prohibited_claims`,
+    `required_limitations`, `recommendation_options` (the action register, and
+    nothing else is eligible), `report_limitations`, `sections.writable` vs
+    `sections.immutable`, and `immutable_values`.
+  - **`src/report/narrativeAudit.js`** — `auditNarrative(text, pkg)`. Same
+    shape and discipline as `modelConsistency.js`: `{ id, where, message,
+    severity }`, rule ids exported, a negative case per rule. Catches an
+    altered figure, a standard used as a criterion that never applied, a
+    settled comparison on a non-determinative criterion, a comparison drawn
+    against a parameter no criterion judged, causation asserted over a weighed
+    pathway, a dropped limitation, prose clearing a parameter the engine
+    flagged, and a control the register never proposed.
+
+  Four rules to keep, each load-bearing:
+
+  1. **The three constraint arrays are DERIVED, never authored.**
+     `allowed_interpretations` and `prohibited_claims` come off the engine's
+     own `determinative` flag (`AVERAGING[x].determinativeFrom` in
+     `constants/criteria.js`) and off chain confidence, which already makes
+     Strong unreachable for a hypothesis. Hand-writing them would be a second
+     opinion beside the registry — the defect class that gave this codebase a
+     comfort band nobody could trace.
+  2. **`criterion: null` is the constraint, not missing data.** No criterion
+     applied, so nothing may be said about that reading against any standard.
+     Reporting a value is not clearing it.
+  3. **A figure is checked only when it carries a UNIT.** `45 µg/m³` is a
+     measurement claim; "three areas" and "roughly twenty times higher" are
+     arithmetic over the package, and the prompt explicitly asks for them.
+     Rounding passes, alteration does not. A rule that flags the prose the
+     prompt requests gets switched off, and then nothing is checked at all.
+     The same reasoning scopes `required_limitations` with `when`: a narrative
+     that never mentions TVOC owes no TVOC caveat.
+  4. **The audit does NOT suppress.** It names the statement and the reason in
+     the Report tab, like the readiness blockers and the consistency panel.
+     Suppression is what the old path did — `language_review === 'failed'`
+     silently discarded three credits of work with no reason shown.
+
+  `api/_banned-language.js` is **unchanged and still runs first.** It is a
+  different question: fifteen phrases that are wrong in *any* report, scanned
+  server-side. The audit asks whether *this* assessment supports *this*
+  sentence — "exceeds the OSHA PEL" is correct from an 8-hour TWA and false
+  from a grab reading, and only the package knows which. Gate:
+  `AI-EVIDENCE-PACKAGE`; tests in `tests/engine/evidence-package.test.ts`,
+  which also guards the wiring, because a package the model never receives and
+  an audit nobody sees are the two ways this becomes decoration (see
+  `aiProvenanceBanner`, below, for the precedent).
+
+  **The wire form is budgeted, not just constructed.** `packageForWriter`
+  is what actually crosses the network — `WIRE_BUDGET_CHARS`, pinned by test
+  to `api/narrative.js`'s `MAX_PAYLOAD_CHARS`. The first measurement of the
+  audit's full copy came to 44 KB for two zones against 8 KB for the payload
+  it replaced; a dense eight-zone assessment reached 88 KB, over the cap. The
+  wire form dedupes what repeated per finding or per measurement — a
+  finding's permission collapses to one word (`may_assert`, against a
+  `may_assert_legend` sent once), a criterion's source/class/averaging/band
+  moves to a `criteria` dictionary keyed by id, a parameter's label/unit to a
+  `parameters` dictionary, a causal chain to one `pathways` row under one
+  `pathway_rule` — cutting the two-zone case to 25 KB and the eight-zone case
+  to 50 KB, under the cap. If it is still over budget, `context_omitted`
+  sheds non-evidence context in a fixed order (assessor notes, the report's
+  scope limitations, then the remaining observations) and says what it left
+  out; evidence for a claim — facts, measurements, findings, references, the
+  constraint lists, the action register — is never shed.
+
+  **Still true, and unrelated to the DOCX section below:** the freeform AI
+  narrative reaches no client deliverable except the standalone "Share
+  narrative as Word" one-pager and `PrintReport.jsx` (raw-interpolated, so
+  `**Overall Finding**` prints its asterisks).
+
+  **AI output is generated once and saved with the assessment — regenerating
+  is never the price of reopening.** Until 2026-09 the narrative had no write
+  path at all (`toCloudRow` / `fromCloudRow` mapped a column nothing wrote),
+  and the DOCX sections, though carried by the draft autosave and the
+  finalize body, were only ever generated from the Report tab — which exists
+  only for a finalized report, where neither write path runs. Both lived in
+  React state until the report was closed, and cost the credits again on
+  reopen. `MobileApp.persistAiOutput` closes that: `requestNarrative` stores
+  `narrative` (its existing column) plus `narrativeMeta` (`{ fingerprint,
+  generatedAt, audit, auditSummary }`, riding the generic payload like
+  `aiSections`), and `requestReportSections` stores `aiSections`. On an
+  issued report the cloud row's payload is immutable (migration 034), so the
+  write goes through the same reopen-then-save-as-complete sequence
+  `resumeAndFix` and `LabResultsImport` use, and sections generated there are
+  locked on the spot — one generation per issued report, exactly as at
+  finalize. `generateNarrative` returns the package `fingerprint` and
+  `withAiSections` exposes `evidenceFingerprint`, so the Report tab can say
+  whether a stored copy still describes the assessment (stale sections
+  already fall back on their own; a stale narrative is shown, labeled, with
+  a regenerate offer), and a re-finalize carries the narrative forward only
+  on a fingerprint match. Tests: `tests/engine/ai-output-persistence.test.ts`.
+
+- **The AtmosFlow DOCX itself can carry AI-authored prose, in five sections,
+  generated once and locked at finalize — this is what the evidence-package
+  work above was FOR.** The AtmosFlow DOCX (`assembleRenderModel` →
+  `sections-atmosflow.js`) is the one client deliverable, and until 2026-09
+  nothing AI-written reached it: `assembleRenderModel` never read
+  `data.narrative`, so every word in it was `narrativeLibrary` template
+  prose. `src/report/aiSections.js` closes that, for exactly the five
+  sections `WRITABLE_SECTIONS` names — Executive Summary, Discussion,
+  Conceptual Site Model, Recommendations framing, and per-parameter
+  Background — while Measurement Results, QA/QC, citations, the Limitations
+  section and the action register stay 100% deterministic, untouched by any
+  of this.
+
+  The constraint that shapes the whole design:
+  `render-determinism.test.ts` requires the same stored assessment to render
+  an IDENTICAL report body on every export, regardless of when. AI text
+  therefore cannot be generated inside `assembleRenderModel` or the DOCX
+  builder — it has to be generated once, stored on the record like
+  `zoneScores` already is, and read back exactly the same way.
+
+  - **Generation.** `src/engines/reportSections.js` → `/api/report-sections`
+    (`api/_report-sections-prompt.js`, server-owned, byte-parity tested
+    against the client copy the same way narrative's prompt is) — ONE
+    combined call returns all five sections as strict JSON, keyed exactly
+    like `WRITABLE_SECTIONS` (`parameter_background` further keyed `co2`,
+    `co`, `thermal` — temperature and RH combined into one paragraph,
+    matching `reportModel.js`'s own grouping — `pm25`, `tvoc`). The
+    banned-language gate (`api/_banned-language.js`) runs PER SECTION here,
+    same liability-floor role as on `/api/narrative`, so one flagged section
+    doesn't cost the other four.
+  - **Freshness.** `fingerprintPackage(pkg)` (`evidencePackage.js`) — a
+    32-bit FNV-1a hash over the package's claim-bearing content, stable at
+    every nesting level (`stableStringify`; `JSON.stringify`'s array-form
+    replacer filters keys RECURSIVELY at every level, which would have
+    silently emptied every nested object — caught before it shipped).
+    `isAiSectionsFresh` compares it against the CURRENT package at every
+    render; a mismatch — a zone added, a reading changed since generation —
+    silently falls back to deterministic prose. Never surfaced in the DOCX
+    itself, same "never worse than today" pattern as the IndexedDB and
+    banned-language fallbacks.
+  - **Per-section fallback, not all-or-nothing.** `applyAiSections` folds in
+    each section independently; one with a BLOCKING finding from its own
+    audit pass (`requireUnconditional: false` — the report's own Limitations
+    section already discloses the statutory floor unconditionally, so a
+    two-sentence Conceptual Site Model paragraph doesn't have to restate it)
+    falls back to deterministic content for that section alone. This is a
+    DELIBERATE divergence from the standalone narrative, where the audit is
+    advisory and never suppresses: these five sections go straight into the
+    signed client deliverable, several to a report, and "advisory" should not
+    risk a wrong number in one on the other four's behalf.
+  - **Lock at finalize.** `lockAiSections`, mirroring `runScoring`'s existing
+    early-return for a finalized report: an issued report's sections do not
+    change on a later export because someone regenerated them. Freshness
+    still governs USE regardless of the lock — locking only stops further
+    regeneration.
+  - **AI-provenance marker, in the live document.** `isAiAuthored(M, key)` +
+    a bold amber note rendered immediately before each AI-authored paragraph
+    in `sections-atmosflow.js` — never before deterministic prose. This
+    matters because the ORIGINAL answer to the anti-pattern rule below
+    (`aiProvenanceBanner()` in `sections-core.js`) has had no production
+    importer since the consultant report was removed; its guard test and
+    acceptance check only ever exercised that dead file. Both were widened to
+    also cover the live path (`tests/engine/ai-sections-provenance.test.ts`),
+    rather than leaving a passing guard that protected nothing.
+  - **No new database column.** `aiSections` rides the existing generic
+    `toPayload` / `fromCloudRow` jsonb path — the same one `floorPlan`,
+    `equipment` and `labResults` already use — not a dedicated column like
+    `narrative` has. No migration.
+
+  Gate: `AI-SECTIONS-DOCX`. Tests: `tests/engine/ai-sections.test.ts` (the
+  lifecycle, including a render-determinism case with a fresh AI record
+  attached), `tests/engine/ai-sections-provenance.test.ts` (the live
+  provenance marker), `tests/api/report-sections.test.ts` +
+  `report-sections-prompt-parity.test.ts` (the endpoint and prompt),
+  `tests/engine/report-sections-generate.test.ts` (the client call),
+  `tests/lib/supabase-storage-cloud-shape.test.ts` (the generic-payload
+  round trip).
 - **Qualitative-only propagation.** Findings derived from instruments
   not in the accuracy database inherit a `qualitative_only: true` flag
   that propagates to every rendered output of that finding.
@@ -602,7 +792,7 @@ Three feature-level acceptance configs gate completion claims:
 
 | Gate | Script | Criteria |
 |---|---|---|
-| Production readiness (Group A) | `npm run accept:prod-ready` | 77 |
+| Production readiness (Group A) | `npm run accept:prod-ready` | 79 |
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
 | Go-live experience (Group C) | `npm run accept:go-live` | 22 |
 | API boot (CI job, also inside A and C) | `npm run accept:api-boot` | 1 |

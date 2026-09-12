@@ -10,11 +10,13 @@
  * guaranteed consistent and the design matches the sample exactly.
  */
 
-import { assembleRenderModel } from '../report/reportModel'
+import { withAiSections } from '../report/aiSections'
 import { supabase } from './supabaseClient'
 
 export async function downloadReportPdf(reportData, opts = {}) {
-  const model = assembleRenderModel(reportData, opts)
+  // See src/report/aiSections.js — folds in AI-authored sections when the
+  // stored record is fresh against this data and passes its own audit.
+  const model = withAiSections(reportData, opts)
   // The render endpoint now requires a valid Supabase session (it used to
   // accept any request). Attach the bearer token.
   let token = null

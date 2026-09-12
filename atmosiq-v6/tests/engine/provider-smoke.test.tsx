@@ -22,6 +22,7 @@ const ASSESSMENT_KEYS = [
   'zoneScores', 'setZoneScores', 'comp', 'setComp',
   'oshaResult', 'setOshaResult', 'recs', 'setRecs',
   'narrative', 'setNarrative', 'narrativeLoading', 'setNarrativeLoading',
+  'aiSections', 'setAiSections',
   'samplingPlan', 'setSamplingPlan', 'causalChains', 'setCausalChains',
   'moldResults', 'setMoldResults', 'measConf', 'setMeasConf',
 ]
