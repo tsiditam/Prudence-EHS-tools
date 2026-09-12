@@ -416,11 +416,29 @@ When working on report generation:
   **Still true, and unrelated to the DOCX section below:** the freeform AI
   narrative reaches no client deliverable except the standalone "Share
   narrative as Word" one-pager and `PrintReport.jsx` (raw-interpolated, so
-  `**Overall Finding**` prints its asterisks). It is also **never
-  persisted**: no write path carries `narrative`, though `toCloudRow` /
-  `fromCloudRow` / `INDEX_COLUMNS` all map it, so generating one and
-  reopening the report loses it along with the credits. That gap is
-  independent of the AtmosFlow DOCX, which the next section covers.
+  `**Overall Finding**` prints its asterisks).
+
+  **AI output is generated once and saved with the assessment — regenerating
+  is never the price of reopening.** Until 2026-09 the narrative had no write
+  path at all (`toCloudRow` / `fromCloudRow` mapped a column nothing wrote),
+  and the DOCX sections, though carried by the draft autosave and the
+  finalize body, were only ever generated from the Report tab — which exists
+  only for a finalized report, where neither write path runs. Both lived in
+  React state until the report was closed, and cost the credits again on
+  reopen. `MobileApp.persistAiOutput` closes that: `requestNarrative` stores
+  `narrative` (its existing column) plus `narrativeMeta` (`{ fingerprint,
+  generatedAt, audit, auditSummary }`, riding the generic payload like
+  `aiSections`), and `requestReportSections` stores `aiSections`. On an
+  issued report the cloud row's payload is immutable (migration 034), so the
+  write goes through the same reopen-then-save-as-complete sequence
+  `resumeAndFix` and `LabResultsImport` use, and sections generated there are
+  locked on the spot — one generation per issued report, exactly as at
+  finalize. `generateNarrative` returns the package `fingerprint` and
+  `withAiSections` exposes `evidenceFingerprint`, so the Report tab can say
+  whether a stored copy still describes the assessment (stale sections
+  already fall back on their own; a stale narrative is shown, labeled, with
+  a regenerate offer), and a re-finalize carries the narrative forward only
+  on a fingerprint match. Tests: `tests/engine/ai-output-persistence.test.ts`.
 
 - **The AtmosFlow DOCX itself can carry AI-authored prose, in five sections,
   generated once and locked at finalize — this is what the evidence-package

@@ -13,7 +13,7 @@
 import { supabase } from '../utils/supabaseClient'
 import { buildNarrativeInputs } from '../../lib/context/buildAssessmentContext'
 import { assembleRenderModel } from '../report/reportModel'
-import { buildEvidencePackage, packageForWriter } from '../report/evidencePackage'
+import { buildEvidencePackage, packageForWriter, fingerprintPackage } from '../report/evidencePackage'
 import { auditNarrative, summarizeAudit } from '../report/narrativeAudit'
 
 // Narrative system prompt. This layer does narrative + extraction ONLY;
@@ -186,7 +186,11 @@ Cite a standard or numeric value ONLY if it appears in the supplied evidence pac
  *   — `causalChains`, `photos`, `sensorData`, `equipment`, `profile`, `id`,
  *   `ts`, `floorPlans`. Passed through to `assembleRenderModel` so the
  *   package describes the same report the client will receive.
- * @returns {Promise<{narrative: string|null, audit: Array, auditSummary: object|null, evidence: object|null}>}
+ * @returns {Promise<{narrative: string|null, audit: Array, auditSummary: object|null, evidence: object|null, fingerprint: string|null}>}
+ *   `fingerprint` identifies the evidence the text was written from
+ *   (`fingerprintPackage`), so a stored narrative can be told apart from one
+ *   written for an assessment that has since changed — the same freshness
+ *   check `aiSections.js` applies to the DOCX sections.
  */
 export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey, opts = {}) {
   // The system prompt is no longer sent. api/narrative.js uses its own
@@ -288,7 +292,7 @@ export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey
     if (audit.length) {
       console.warn('Narrative audit:', summarizeAudit(audit).summary, audit.map(a => `${a.id}@${a.where}`).join(', '))
     }
-    return { narrative: text, audit, auditSummary: text ? summarizeAudit(audit) : null, evidence }
+    return { narrative: text, audit, auditSummary: text ? summarizeAudit(audit) : null, evidence, fingerprint: fingerprintPackage(evidence) }
   } catch (e) {
     console.error('AI narrative error:', e)
     return { narrative: null, audit: [], auditSummary: null, evidence }

@@ -254,6 +254,11 @@ const RESULT_TAB_ALIASES = {
 const RS_SECTION = { paddingTop: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
 const RS_HEAD = { ...V3.T.micro, marginBottom: 10 }
 
+// The audit panel's shape, read off the stored `narrativeMeta` record
+// (see requestNarrative). Null when there is no narrative or the record
+// predates the audit.
+const auditFromMeta = (meta) => (meta && Array.isArray(meta.audit) ? { issues: meta.audit, summary: meta.auditSummary || null } : null)
+
 // Reader-facing names for the AI-sections audit breakdown (src/report/aiSections.js
 // keys). Matches the WRITABLE_SECTIONS names, plus the per-parameter
 // `parameter_background.<key>` keys reportModel.js's own grouping produces.
@@ -1910,8 +1915,10 @@ export default function MobileApp() {
     // fingerprint and the AI sections the assessor just generated stay
     // usable through to the finalize below; changed data goes stale and
     // falls back on its own. Clearing it here would discard valid work the
-    // fingerprint check was built to keep.
-    setSelZone(0); setNarrative(null)
+    // fingerprint check was built to keep. The narrative is cleared and then
+    // carried forward below on the same test, once the report exists to
+    // fingerprint.
+    setSelZone(0); setNarrative(null); setNarrativeMeta(null)
     trackEvent('engine_completed', { zones: composite?.count, findings: composite?.findings?.total, attention: composite?.findings?.attention, osha_flag: !!osha?.flag, confidence: osha?.conf || 'unknown', data_gaps: (osha?.gaps||[]).length })
     trackEvent('assessment_completed', { zones: zones.length, findings: composite?.findings?.total, facility: bldg.fn || 'unknown', has_causal_chains: cc.length > 0, sampling_recommendations: sp?.plan?.length || 0 })
     haptic('success')
@@ -1966,6 +1973,21 @@ export default function MobileApp() {
     // render-time freshness check is what actually gates use, always, lock or
     // no lock; this only stops FURTHER regeneration once issued.
     report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlans: compactFloorPlans(reportPlans), sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement, aiSections: lockAiSections(aiSections) }
+    // A stored narrative survives a re-finalize only when it was written
+    // from this exact evidence — the same fingerprint test aiSections
+    // applies to itself at render time. Written for different data, it is
+    // dropped rather than issued stale. `profile` rides along because the
+    // package's facts read it and the narrative was generated with it in
+    // scope, so the fingerprints are comparable.
+    const priorMeta = priorBody.narrativeMeta
+    if (priorBody.narrative && priorMeta && priorMeta.fingerprint) {
+      let current = null
+      try { current = withAiSections({ ...report, profile }).evidenceFingerprint } catch { current = null }
+      if (current && current === priorMeta.fingerprint) {
+        report = { ...report, narrative: priorBody.narrative, narrativeMeta: priorMeta }
+        setNarrative(priorBody.narrative); setNarrativeMeta(priorMeta)
+      }
+    }
     reportStorageWrite(await STO.set(rid, report), 'report')
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
@@ -2083,17 +2105,54 @@ export default function MobileApp() {
     showMilestone('check', 'Details Complete', 'Assessment rescored with updated data', () => { setView('results') })
   }
 
-  // What the deterministic audit found in the last generated narrative
-  // (src/report/narrativeAudit.js). Not persisted: it describes one draft, and
-  // a stale verdict beside re-generated prose is worse than none.
-  const [narrativeAudit, setNarrativeAudit] = useState(null)
+  // What the deterministic audit found in the narrative shown
+  // (src/report/narrativeAudit.js), plus the fingerprint of the evidence it
+  // was written from. Persisted on the record WITH the narrative as
+  // `narrativeMeta` and only ever replaced together with it, so a verdict
+  // never sits beside prose other than the one it describes.
+  const [narrativeMeta, setNarrativeMeta] = useState(null)
+  const narrativeAudit = auditFromMeta(narrativeMeta)
+
+  // Persist AI-authored output onto the record it was written for, so
+  // reopening the report shows it instead of asking for the credits again.
+  // The Report tab exists only for a finalized report (the demo has no
+  // record and is skipped here), so the stored copy is an issued one:
+  // migration 034 refuses a payload change on its cloud row unless the row
+  // is moved back to draft first — the same reopen-then-save sequence
+  // resumeAndFix and LabResultsImport already use. The row is 'final' again
+  // when saveAssessment returns, with the text attached. The local write
+  // never waits on the cloud one landing.
+  const persistAiOutput = async (patch) => {
+    const id = viewRpt?.id || draftId
+    if (!id) return
+    if (viewRpt) setViewRpt(prev => (prev ? { ...prev, ...patch } : prev))
+    try {
+      const stored = await STO.get(id)
+      if (!stored) return
+      const ua = new Date().toISOString()
+      const issued = stored.status === 'complete' || (index.reports || []).some(r => r.id === id)
+      if (!issued || !supabase) { await STO.set(id, { ...stored, ...patch, ua }); return }
+      try { await Storage.reopenAssessment(id) } catch { /* best effort — offline, the save queues */ }
+      // getAssessment expands photo refs back to the inline form the wire needs.
+      const full = (await Storage.getAssessment(id)) || stored
+      const r = await Storage.saveAssessment({ ...full, ...patch, ua, status: 'complete', facility_name: full.building?.fn || bldg.fn })
+      if (r && !r.ok && !r.queued) console.warn('AI output saved on this device but not synced:', r.error?.message)
+    } catch (e) {
+      console.warn('AI output could not be persisted:', e && e.message)
+    }
+  }
+
+  // Whether the record being viewed is an issued report. On the results
+  // screen right after finalize `viewRpt` is still null while `draftId`
+  // already points at the rpt- id, so the index is the reliable tell.
+  const viewingIssuedReport = () => !!viewRpt || (index.reports || []).some(r => r.id === draftId)
 
   const requestNarrative = async () => {
     if (!PAYWALL_DISABLED && credits < 3) { setShowPricing(true); return }
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setNarrativeLoading(true)
-    setNarrativeAudit(null)
+    setNarrativeMeta(null)
     // The rest of the report data rides along so the evidence package the
     // model writes from describes the same report the client will receive —
     // same criteria, same action register, same limitations.
@@ -2103,10 +2162,14 @@ export default function MobileApp() {
       sensorData: (viewRpt && viewRpt.sensorData) || sensorData,
     })
     const text = result && result.narrative
+    const meta = text
+      ? { fingerprint: result.fingerprint || null, generatedAt: new Date().toISOString(), audit: result.audit || [], auditSummary: result.auditSummary || null }
+      : null
     setNarrative(text || null)
-    setNarrativeAudit(text ? { issues: result.audit || [], summary: result.auditSummary } : null)
+    setNarrativeMeta(meta)
     setNarrativeLoading(false)
     if (text) {
+      await persistAiOutput({ narrative: text, narrativeMeta: meta })
       trackEvent('narrative_generated', {
         word_count: text.split(/\s+/).length,
         audit_blocking: (result.auditSummary && result.auditSummary.blocking) || 0,
@@ -2130,9 +2193,15 @@ export default function MobileApp() {
       id: viewRpt?.id || draftId || null, equipment, comp, profile, photos, photoOverrides, floorPlans,
       ts: viewRpt?.ts, sensorData: (viewRpt && viewRpt.sensorData) || sensorData,
     })
-    setAiSections(rec)
+    // An issued report gets exactly one generation, the same as one that
+    // was finalized with sections already attached (lockAiSections at
+    // finalize): the document a client was sent must not read differently
+    // on a later export because the model was asked again.
+    const record = rec && viewingIssuedReport() ? lockAiSections(rec) : rec
+    setAiSections(record)
     setReportSectionsLoading(false)
-    if (rec) {
+    if (record) {
+      await persistAiOutput({ aiSections: record })
       const summaries = Object.values(rec.auditSummary || {})
       trackEvent('report_sections_generated', {
         section_count: Object.keys(rec.sections || {}).length,
@@ -2587,7 +2656,7 @@ export default function MobileApp() {
     setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlans(await expandFloorPlans(normalizeFloorPlans(rpt))); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
-    setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setView('report')
+    setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setNarrativeMeta(rpt.narrativeMeta||null); setView('report')
   }
 
   const deleteItem = async (id, name, type) => {
@@ -3133,24 +3202,34 @@ export default function MobileApp() {
     // so a contradiction is seen here, before the document is generated,
     // rather than by a reviewer afterwards. Advisory, like every readiness
     // signal: it names the disagreement and never blocks the deliverable.
-    // Only computed on the Report tab; the model is cheap but not free.
-    const reportConsistency = rTab === 'report' && zoneScores.length ? (() => {
+    // Only computed on the Report tab; the model is cheap but not free. The
+    // model itself is kept because it also carries the freshness verdict on
+    // whatever AI output is stored (aiSectionsStatus, evidenceFingerprint).
+    let reportModel = null
+    let reportConsistency = []
+    if (rTab === 'report' && zoneScores.length) {
       try {
-        return checkRenderModel(withAiSections({
+        reportModel = withAiSections({
           id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp,
           recs, causalChains, profile, photos, photoOverrides, sensorData: loggerSd, floorPlans, ts: viewRpt?.ts,
           aiSections,
-        }))
+        })
+        reportConsistency = checkRenderModel(reportModel)
       } catch (e) {
-        return [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
+        reportConsistency = [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
       }
-    })() : []
+    }
 
     // Whether the report's AI-authored sections may still be regenerated.
     // Locked at finalize (src/report/aiSections.js lockAiSections) so an
     // issued report never reads differently because someone asked the model
     // the same question again and got a different answer.
     const aiSectionsLocked = !!(aiSections && aiSections.locked)
+    // Stored AI output written for an assessment that has since changed. The
+    // sections fall back to deterministic prose on their own; the narrative
+    // is a separate share document, so it is shown but labeled.
+    const aiSectionsStale = !!(aiSections && reportModel && reportModel.aiSectionsStatus === 'stale')
+    const narrativeStale = !!(narrative && narrativeMeta && narrativeMeta.fingerprint && reportModel && reportModel.evidenceFingerprint && narrativeMeta.fingerprint !== reportModel.evidenceFingerprint)
     const aiSectionsSummaryCounts = (() => {
       const values = Object.values((aiSections && aiSections.auditSummary) || {})
       return { total: values.length, blocked: values.filter(s => s && s.supported === false).length }
@@ -3406,7 +3485,18 @@ export default function MobileApp() {
                 Refines the Executive Summary, Discussion, Conceptual Site Model, Recommendations framing and per-parameter background prose in the exported Word report — from the same findings, criteria and action register it already contains. Measurement tables, QA/QC, citations and the action register itself are never touched.
               </div>
               {aiSectionsLocked && (
-                <div style={{...V3.T.caption, color:SUB, marginBottom:10}}>This report is finalized. Its report sections are locked to what was issued.</div>
+                <div style={{...V3.T.caption, color:aiSectionsStale?WARN:SUB, marginBottom:10}}>
+                  {aiSectionsStale
+                    ? 'This report is finalized. Its report sections were written for an earlier version of the assessment, so the export uses the report’s own text.'
+                    : 'This report is finalized. Its report sections are saved with it and reused by every export at no further cost.'}
+                </div>
+              )}
+              {!reportSectionsLoading && !aiSectionsLocked && aiSections && aiSectionsSummaryCounts.total > 0 && (
+                <div style={{...V3.T.caption, color:aiSectionsStale?WARN:SUB, marginBottom:10}}>
+                  {aiSectionsStale
+                    ? 'The assessment changed since these were written; the export uses the report’s own text until they are regenerated.'
+                    : 'Saved with this assessment and reused by every export at no further cost.'}
+                </div>
               )}
               {!reportSectionsLoading && !aiSectionsLocked && (
                 <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
@@ -3481,11 +3571,19 @@ export default function MobileApp() {
                   </div>
                 )}
                 <div style={{...V3.T.caption, fontWeight:400, marginTop:14, lineHeight:1.5}}>Generated from deterministic findings. Review, edit and approve before it goes into any client deliverable.</div>
+                <div style={{...V3.T.caption, color:narrativeStale?WARN:SUB, marginTop:10, lineHeight:1.5}}>
+                  {narrativeStale
+                    ? 'Written for an earlier version of this assessment.'
+                    : 'Saved with the report and shown here on every open at no further cost.'}
+                </div>
                 {/* Share the narrative as a lightweight DOCX so the
                     reviewing IH can hand it off as an editable draft
                     (Mail, Slack, Files) without bundling the full
                     consultant report. */}
                 <div style={{marginTop:14,display:'flex',gap:10,flexWrap:'wrap'}}>
+                  {narrativeStale && !narrativeLoading && (
+                    <TactileButton variant="secondary" onClick={requestNarrative}>Regenerate narrative · 3 credits</TactileButton>
+                  )}
                   <TactileButton variant="secondary" onClick={handleShareNarrative} icon={<I n="send" s={15} c="var(--accent)" w={1.8} />}>
                     Share narrative as Word
                   </TactileButton>

@@ -209,6 +209,18 @@ describe('aiSections survives the cloud round trip through the generic payload c
     const out = fromCloudRow(row)
     expect(out.aiSections).toBeFalsy()
   })
+
+  it('narrativeMeta rides the same generic path beside the dedicated `narrative` column', () => {
+    // The narrative text keeps its own column; the audit + fingerprint that
+    // describe it (MobileApp requestNarrative) ride `payload`, so a report
+    // opened on another device shows the same verdict beside the same prose.
+    const meta = { fingerprint: 'deadbeef', generatedAt: '2026-06-11T12:00:00.000Z', audit: [], auditSummary: { supported: true, blocking: 0, warnings: 0, summary: 'ok' } }
+    const row = toAssessmentRow({ id: 'A-1', status: 'complete', narrative: 'Prose.', narrativeMeta: meta }, 'u-1')
+    expect(row.narrative).toBe('Prose.')
+    const out = fromCloudRow(row)
+    expect(out.narrative).toBe('Prose.')
+    expect(out.narrativeMeta).toEqual(meta)
+  })
 })
 
 describe('fromCloudRow — calibration acknowledgement', () => {

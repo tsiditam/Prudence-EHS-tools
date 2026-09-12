@@ -229,9 +229,10 @@ describe('withAiSections — the call-site wrapper every export uses', () => {
   it('matches assembleRenderModel exactly when there is no aiSections record', () => {
     const { data, model } = build()
     const out = withAiSections(data, { now: new Date('2026-06-11T12:00:00Z') })
-    const { aiSectionsStatus, aiAuthoredSections, ...rest } = out
+    const { aiSectionsStatus, aiAuthoredSections, evidenceFingerprint, ...rest } = out
     expect(aiSectionsStatus).toBe('none')
     expect(aiAuthoredSections).toEqual([])
+    expect(evidenceFingerprint).toMatch(/^[0-9a-f]{8}$/)
     expect(rest).toEqual(model)
   })
 
@@ -270,7 +271,9 @@ describe('the wiring reaches every production export site', () => {
   it('the DOCX builder, the PDF export and the Report tab preview all call withAiSections', () => {
     expect(read('../../src/components/DocxReport.js')).toMatch(/withAiSections\(data \|\| \{\}, undefined\)/)
     expect(read('../../src/utils/downloadReportPdf.js')).toMatch(/withAiSections\(reportData, opts\)/)
-    expect(read('../../src/components/MobileApp.jsx')).toMatch(/checkRenderModel\(withAiSections\(/)
+    const app = read('../../src/components/MobileApp.jsx')
+    expect(app).toMatch(/reportModel = withAiSections\(\{/)
+    expect(app).toMatch(/checkRenderModel\(reportModel\)/)
   })
 
   it('the draft autosave carries the live aiSections state, not a stale copy off `prev`', () => {

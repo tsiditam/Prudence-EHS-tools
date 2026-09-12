@@ -457,7 +457,10 @@ describe('the package is wired, not decorative', () => {
 
   it('the audit reaches the assessor rather than only the console', () => {
     const src = read('../../src/components/MobileApp.jsx')
-    expect(src).toMatch(/setNarrativeAudit\(text \? \{ issues: result\.audit/)
+    // The audit is stored with the narrative (`narrativeMeta`) and the panel
+    // reads it back off that record — see ai-output-persistence.test.ts.
+    expect(src).toMatch(/audit: result\.audit \|\| \[\], auditSummary: result\.auditSummary/)
+    expect(src).toMatch(/const narrativeAudit = auditFromMeta\(narrativeMeta\)/)
     expect(src).toMatch(/narrativeAudit && narrativeAudit\.issues\.length > 0/)
     expect(src).toMatch(/Checked against the assessment record/)
   })

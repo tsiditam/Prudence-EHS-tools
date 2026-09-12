@@ -171,13 +171,18 @@ function sectionUsable(aiSections, key) {
  * @param {object} model       output of the deterministic assembly
  * @param {object|null|undefined} aiSections   `data.aiSections`, as stored
  * @param {object} pkg         the CURRENT evidence package, for the freshness check
- * @returns {object} model, with `aiSectionsStatus: 'none'|'stale'|'active'` added
+ * @returns {object} model, with `aiSectionsStatus: 'none'|'stale'|'active'`,
+ *   `aiAuthoredSections` and `evidenceFingerprint` (the CURRENT package's
+ *   fingerprint, so a caller holding any stored AI output — these sections
+ *   or the standalone narrative — can judge its freshness without
+ *   rebuilding the package) added
  */
 export function applyAiSections(model, aiSections, pkg) {
-  if (!aiSections) return { ...model, aiSectionsStatus: 'none', aiAuthoredSections: [] }
-  if (!isAiSectionsFresh(aiSections, pkg)) return { ...model, aiSectionsStatus: 'stale', aiAuthoredSections: [] }
+  const evidenceFingerprint = fingerprintPackage(pkg)
+  if (!aiSections) return { ...model, aiSectionsStatus: 'none', aiAuthoredSections: [], evidenceFingerprint }
+  if (!isAiSectionsFresh(aiSections, pkg)) return { ...model, aiSectionsStatus: 'stale', aiAuthoredSections: [], evidenceFingerprint }
 
-  const out = { ...model, aiSectionsStatus: 'active' }
+  const out = { ...model, aiSectionsStatus: 'active', evidenceFingerprint }
   const sections = aiSections.sections || {}
   // Every section key this render actually overrode with AI text — the ONLY
   // thing that tells `sections-atmosflow.js` which paragraphs need the
