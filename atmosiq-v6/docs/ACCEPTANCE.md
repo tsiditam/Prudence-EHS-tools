@@ -22,7 +22,7 @@ runtime shape that failed.
 ## Running it
 
 ```sh
-npm run accept:prod-ready       # scripts/acceptance/prod-ready.json (78 criteria)
+npm run accept:prod-ready       # scripts/acceptance/prod-ready.json (79 criteria)
 npm run accept:go-live          # scripts/acceptance/go-live.json    (22)
 npm run accept:pricing-rollout  # scripts/acceptance/pricing-rollout.json (19)
 npm run accept:api-boot         # scripts/acceptance/api-boot.json   (1 — API-BOOT alone, for CI)

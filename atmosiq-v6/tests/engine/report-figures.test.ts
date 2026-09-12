@@ -418,7 +418,11 @@ describe('every export path reads the graphs of the report being exported', () =
   })
 
   it('the Report-tab consistency check reads the same dataset the export will', () => {
-    expect(src).toMatch(/checkRenderModel\(assembleRenderModel\(\{[\s\S]*?sensorData: loggerSd, floorPlans,/)
+    // withAiSections wraps assembleRenderModel (src/report/aiSections.js) so
+    // the preview also reflects whatever AI-authored sections the export
+    // would use — same reasoning this test already existed for.
+    expect(src).toMatch(/checkRenderModel\(withAiSections\(\{[\s\S]*?sensorData: loggerSd, floorPlans,/)
+    expect(src).toMatch(/checkRenderModel\(withAiSections\(\{[\s\S]*?aiSections,/)
   })
 })
 

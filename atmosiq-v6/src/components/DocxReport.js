@@ -28,7 +28,7 @@ import { markdownToDocx } from './docx/markdownToDocx'
 import { buildFooter } from './docx/sections-appendix'
 import { buildTechnicalHeader, buildScopeConditions, buildInstrumentation, buildBenchmarksUsed, buildResults, buildFlaggedIndicators, buildAnalystNotes, buildLimitationsCompact } from './docx/sections-technical'
 import { buildAtmosFlowDoc } from './docx/sections-atmosflow'
-import { assembleRenderModel } from '../report/reportModel'
+import { withAiSections } from '../report/aiSections'
 
 function pickStr(...vals) {
   for (const v of vals) {
@@ -134,7 +134,12 @@ export function buildContext(data) {
 }
 
 export async function buildAtmosFlowDocument(data) {
-  const model = assembleRenderModel(data || {})
+  // withAiSections folds in AI-authored sections (src/report/aiSections.js)
+  // when the stored record has them, is fresh against this data, and passes
+  // its own audit — falling back to assembleRenderModel's deterministic
+  // model otherwise. This is THE client deliverable, so it is the primary
+  // reason that module exists.
+  const model = withAiSections(data || {}, undefined)
   return buildAtmosFlowDoc(model)
 }
 

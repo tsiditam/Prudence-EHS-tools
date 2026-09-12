@@ -540,7 +540,7 @@
     },
     {
       "id": "NARRATIVE-AI-PROVENANCE-BANNER",
-      "label": "Executive Summary AI narrative carries a hard AI-provenance banner",
+      "label": "Executive Summary AI narrative carries a hard AI-provenance banner, and the AtmosFlow DOCX's AI-authored sections each carry their own provenance marker",
       "checks": [
         {
           "type": "grep_matches",
@@ -559,6 +559,20 @@
         {
           "type": "file_exists",
           "path": "tests/engine/ai-provenance-banner.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "AI-assisted — verify before issue",
+          "paths": [
+            "src/components/docx/sections-atmosflow.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "isAiAuthored\\(M,",
+          "paths": [
+            "src/components/docx/sections-atmosflow.js"
+          ]
         }
       ]
     },
@@ -3002,6 +3016,83 @@
         }
       ],
       "_comment": "The package is a PROJECTION of assembleRenderModel, never a re-derivation, so it cannot disagree with the report it describes. The banned-language scan in api/_banned-language.js is unchanged and still runs first: that is the liability floor (phrases wrong in any report), while the audit asks whether THIS assessment supports THIS sentence."
+    },
+    {
+      "id": "AI-SECTIONS-DOCX",
+      "label": "The AtmosFlow DOCX itself can carry AI-authored Executive Summary, Discussion, Conceptual Site Model, Recommendations framing and per-parameter background text, generated once, fingerprinted against the assessment, locked at finalize, and folded in per-section only where a deterministic audit finds it supported",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/report/aiSections.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/engines/reportSections.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/report-sections.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "api/_report-sections-prompt.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/ai-sections.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/ai-sections-provenance.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/api/report-sections.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function fingerprintPackage",
+          "paths": [
+            "src/report/evidencePackage.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "export function lockAiSections",
+          "paths": [
+            "src/report/aiSections.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "const model = withAiSections\\(data \\|\\| \\{\\}, undefined\\)",
+          "paths": [
+            "src/components/DocxReport.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "aiSections: lockAiSections\\(aiSections\\)",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "isAiAuthored\\(M,",
+          "paths": [
+            "src/components/docx/sections-atmosflow.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "ai_sections",
+          "paths": [
+            "src/utils/supabaseStorage.js"
+          ]
+        }
+      ],
+      "_comment": "render-determinism.test.ts requires the same stored assessment to render identically on every export; assembleRenderModel therefore never calls the model itself. aiSections.js is the layer that makes AI text safe to persist into that guarantee: generated once (src/engines/reportSections.js -> api/report-sections.js), fingerprinted against the evidence package it was written from (fingerprintPackage), and applied per-section (applyAiSections) only when fresh AND not blocked by its own audit -- a blocking finding on one section falls that section back to deterministic prose without touching the other four. Locked at finalize. No new Supabase column or migration: it rides the existing generic toPayload/fromCloudRow jsonb path, same as floorPlan/equipment/labResults."
     }
   ]
 }

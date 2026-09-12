@@ -122,14 +122,44 @@ const aliasRegex = (alias) => {
   return new RegExp(`(?<![a-z0-9])${esc}(?![a-z0-9₂.])`, 'gi')
 }
 
-/** Character windows around every mention of a parameter, for proximity tests. */
-function mentionWindows(text, parameter, before = 140, after = 200) {
+/**
+ * Split into sentences, keeping the terminal punctuation with the sentence
+ * it ends. Naive — this module already leans on regex proximity heuristics
+ * rather than real NLP — but it is what lets a mention window stop at a
+ * sentence boundary instead of bleeding into the sentence next to it.
+ */
+function splitSentences(text) {
+  return String(text).split(/(?<=[.!?])\s+/).filter(Boolean)
+}
+
+/**
+ * Windows around every mention of a parameter, for proximity tests —
+ * SENTENCE-scoped, not character-scoped.
+ *
+ * A fixed character window found a false violation the first time this ran
+ * on real multi-parameter prose: "Temperature did not identify a notable
+ * condition. Relative humidity measured above the moisture-control range."
+ * — two short, unrelated sentences, written exactly the way the prompt asks
+ * for a combined thermal-comfort paragraph. A 140-character backward window
+ * from "relative humidity" reached into the FIRST sentence and read "did not
+ * identify" as if it were said about humidity.
+ *
+ * The window is the sentence containing the mention, plus the sentence AFTER
+ * it — never the one before. English usually predicates on a subject it has
+ * just named ("CO2 measured 1200 ppm. This exceeds…"), rarely refers forward
+ * to one it is about to name, so looking ahead one sentence catches the
+ * pronoun-reference case without reopening the backward-bleed this exists to
+ * close.
+ */
+function mentionWindows(text, parameter) {
+  const sentences = splitSentences(text)
   const out = []
   for (const alias of (PARAM_ALIASES[parameter] || [])) {
     const re = aliasRegex(alias)
-    let m
-    while ((m = re.exec(text)) !== null) {
-      out.push(text.slice(Math.max(0, m.index - before), m.index + alias.length + after))
+    for (let i = 0; i < sentences.length; i++) {
+      re.lastIndex = 0
+      if (!re.test(sentences[i])) continue
+      out.push(sentences[i] + (sentences[i + 1] ? ` ${sentences[i + 1]}` : ''))
     }
   }
   return out
@@ -311,14 +341,26 @@ function causationIsNotAsserted(text, pkg) {
  * `when` scopes a limitation to prose that actually raises the subject: a
  * narrative that never mentions TVOC owes no TVOC caveat. Without that, the
  * rule fires on every disclosure the report carries and gets switched off.
+ *
+ * `opts.requireUnconditional` (default true) governs the `when: null`
+ * entries — the statutory floor and the assessment-date line. True fits the
+ * standalone narrative, which carries the only disclosure the reader will
+ * ever see. False fits prose EMBEDDED in a report that already renders its
+ * own deterministic Limitations section unconditionally (the AtmosFlow
+ * DOCX's five AI-eligible sections): that section already guarantees the
+ * floor, so demanding a two-sentence Conceptual Site Model paragraph restate
+ * it would fail every embedded section for a disclosure the document already
+ * carries elsewhere.
  */
-function requiredLimitationsSurvive(text, pkg) {
+function requiredLimitationsSurvive(text, pkg, opts = {}) {
+  const requireUnconditional = opts.requireUnconditional !== false
   const lower = text.toLowerCase()
   const out = []
   for (const lim of (pkg.required_limitations || [])) {
     const alternatives = lim.must_mention || []
     if (!alternatives.length) continue
     const when = lim.when
+    if (!when && !requireUnconditional) continue
     if (Array.isArray(when) && !when.some(t => lower.includes(str(t).toLowerCase()))) continue
     const present = alternatives.some(tokens => tokens.every(t => lower.includes(str(t).toLowerCase())))
     if (present) continue
@@ -342,7 +384,7 @@ function findingsAreNotContradicted(text, pkg) {
     // model key. Accept either spelling.
     const key = parameter === 'rh' ? 'relativeHumidity' : parameter
     if (!PARAM_ALIASES[key] || seen.has(key)) continue
-    for (const window of mentionWindows(text, key, 100, 160)) {
+    for (const window of mentionWindows(text, key)) {
       if (!has(ACCEPTABLE_RE, window)) continue
       seen.add(key)
       out.push({
@@ -391,16 +433,20 @@ const RULES = [
  *
  * @param {string} text  the narrative as the model returned it
  * @param {object} pkg   output of `buildEvidencePackage(model, engine)`
+ * @param {object} [opts]
+ * @param {boolean} [opts.requireUnconditional=true]  false for prose EMBEDDED
+ *   in a report that already renders its own Limitations section
+ *   unconditionally — see `requiredLimitationsSurvive` above.
  * @returns {Array<{id: string, where: string, message: string, severity: 'blocking'|'warning'}>}
  *   empty when the prose is supported by the package
  */
-export function auditNarrative(text, pkg) {
+export function auditNarrative(text, pkg, opts = {}) {
   const body = str(text)
   if (!body.trim() || !pkg) return []
   const out = []
   for (const rule of RULES) {
     try {
-      out.push(...rule(body, pkg))
+      out.push(...rule(body, pkg, opts))
     } catch (e) {
       out.push({
         id: 'rule-error',

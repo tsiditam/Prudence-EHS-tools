@@ -66,6 +66,12 @@ export function AssessmentProvider({ children }) {
   const [recs, setRecs] = useState(null)
   const [narrative, setNarrative] = useState(null)
   const [narrativeLoading, setNarrativeLoading] = useState(false)
+  // AI-authored sections of the AtmosFlow DOCX (src/report/aiSections.js).
+  // Unlike `narrative`, this DOES need to survive a draft autosave: it feeds
+  // the client deliverable at export time, not a one-off share document, so
+  // losing it on refresh would cost the credits the same way an unsaved
+  // draft edit would. See MobileApp.jsx's draft body and finalize body.
+  const [aiSections, setAiSections] = useState(null)
   const [samplingPlan, setSamplingPlan] = useState(null)
   const [causalChains, setCausalChains] = useState([])
   const [moldResults, setMoldResults] = useState([])
@@ -156,7 +162,7 @@ export function AssessmentProvider({ children }) {
     setQsqi(0); setDqi(0); setZqi(0)
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
     setNarrative(null); setSamplingPlan(null); setCausalChains([]); setMoldResults([])
-    setMeasConf(null)
+    setMeasConf(null); setAiSections(null)
   }, [])
 
   // ── Load Draft ──
@@ -175,6 +181,7 @@ export function AssessmentProvider({ children }) {
     setDqi(d.dqi || 0)
     setCurZone(d.curZone || 0)
     setZqi(d.zqi || 0)
+    setAiSections(d.aiSections || null)
     return d
   }, [])
 
@@ -196,6 +203,7 @@ export function AssessmentProvider({ children }) {
     setSamplingPlan(rpt.samplingPlan || null)
     setCausalChains(rpt.causalChains || [])
     setNarrative(rpt.narrative || null)
+    setAiSections(rpt.aiSections || null)
     return rpt
   }, [])
 
@@ -224,10 +232,11 @@ export function AssessmentProvider({ children }) {
   const resultsValue = useMemo(() => ({
     zoneScores, setZoneScores, comp, setComp, oshaResult, setOshaResult,
     recs, setRecs, narrative, setNarrative, narrativeLoading, setNarrativeLoading,
+    aiSections, setAiSections,
     samplingPlan, setSamplingPlan, causalChains, setCausalChains,
     moldResults, setMoldResults, measConf, setMeasConf,
   }), [
-    zoneScores, comp, oshaResult, recs, narrative, narrativeLoading,
+    zoneScores, comp, oshaResult, recs, narrative, narrativeLoading, aiSections,
     samplingPlan, causalChains, moldResults, measConf,
   ])
 
