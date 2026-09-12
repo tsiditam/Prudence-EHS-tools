@@ -54,7 +54,7 @@ const EIGHT = /\b8[- ]?(?:hour|hr)\b/i
 const FORWARD = new RegExp(`${NIOSH_REL.source}[^\\n.;]{0,160}?${EIGHT.source}`, 'i')
 const BACKWARD = new RegExp(`${EIGHT.source}[^\\n.;]{0,60}?\\b(?:NIOSH (?:REL|Recommended Exposure Limit))\\b`, 'i')
 
-describe('no NIOSH REL is labelled 8-hour anywhere under src/', () => {
+describe('no NIOSH REL is labeled 8-hour anywhere under src/', () => {
   const files = walk(join(ROOT, 'src'))
 
   it('sweeps a non-trivial tree', () => {

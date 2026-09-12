@@ -185,7 +185,7 @@ describe('withThresholdVerifyNote', () => {
  * Two guarantees that nothing made before:
  *
  *   1. A truncated answer says so. `max_tokens` is a hard stop, not a
- *      summariser — the model is cut mid-word and the transport reports
+ *      summarizer — the model is cut mid-word and the transport reports
  *      success. A drafted IAQ report reached an assessor ending on
  *      "the indoor-to-outdoor ratio of 19.57 is far above", with the
  *      recommendations and sign-off simply absent, and nothing marked it.
@@ -205,7 +205,7 @@ describe('finalizeJasperAnswer', () => {
     const already = `Filters are MERV 8.\n\n${D}`
     expect(finalizeJasperAnswer(already)).toBe(already)
     // SAFE_FALLBACK ends with the line, and finalize runs after the
-    // safety pass — re-finalising must be inert.
+    // safety pass — re-finalizing must be inert.
     expect(finalizeJasperAnswer(SAFE_FALLBACK)).toBe(SAFE_FALLBACK)
     expect((finalizeJasperAnswer(SAFE_FALLBACK).match(/AI-assisted response/g) || []).length).toBe(1)
   })

@@ -7,7 +7,7 @@
  *
  * Prefers the Web Share API where available so iOS / Android users
  * land in the native share sheet (Save to Files, AirDrop, Mail,
- * Messages). Falls back to a synthesised <a download> click for
+ * Messages). Falls back to a synthesized <a download> click for
  * desktop browsers and older mobile WebViews.
  *
  * Originally lived inline in IncidentDocxReport.js; extracted here

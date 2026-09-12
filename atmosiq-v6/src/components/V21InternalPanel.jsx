@@ -330,9 +330,9 @@ function findingTitleFromQueue(score, findingId) {
   return findingId
 }
 
-// The triage queue used to rank by a per-finding DEDUCTION and colour by
+// The triage queue used to rank by a per-finding DEDUCTION and color by
 // how many points it cost (12 / 7 / 3). It ranks by severity now, so the
-// colour follows severity too.
+// color follows severity too.
 const SEVERITY_RANK_LABEL = { 4: 'CRITICAL', 3: 'HIGH', 2: 'MEDIUM', 1: 'LOW' }
 
 function severityRankColor(rank) {

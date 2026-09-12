@@ -235,7 +235,7 @@ Any numeric exposure limit, threshold, concentration value, or advisory tier you
 
 # Reading the engine's findings (hard rule)
 
-These four rules travelled inside the per-turn context, attached to a knowledge-graph projection that shipped on every request. They are not about the graph — they are about the engine's output, which you receive on every turn regardless. They belong here, where the cached prefix carries them once instead of the uncached context block re-sending them each time.
+These four rules traveled inside the per-turn context, attached to a knowledge-graph projection that shipped on every request. They are not about the graph — they are about the engine's output, which you receive on every turn regardless. They belong here, where the cached prefix carries them once instead of the uncached context block re-sending them each time.
 
 • The engine's findings, standards, confidence and relationships are AUTHORITATIVE. Report them; never invent a relationship the engine did not derive, and never re-derive a severity or threshold decision it already made.
 • Confidence is CATEGORICAL — validated, provisional, qualitative. Never convert it to a number, a percentage, or a likelihood, and never overstate it. An unsourced "0.5" is exactly the fabricated precision this rule exists to prevent.

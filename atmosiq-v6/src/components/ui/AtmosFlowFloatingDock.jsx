@@ -59,7 +59,7 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     '.affd-selector{position:absolute;top:50%;left:0;height:' + TILE_H + 'px;' +
       'width:var(--bubble-width,64px);border-radius:999px;' +
       'transform:translate3d(var(--bubble-x,0px),-50%,0);' +
-      // Flat neutral tile — a step of the text colour over the capsule, so
+      // Flat neutral tile — a step of the text color over the capsule, so
       // it reads as "raised" in both themes without a specular highlight.
       'background:color-mix(in srgb, var(--text) 8%, transparent);' +
       'box-shadow:inset 0 0 0 1px var(--border);' +

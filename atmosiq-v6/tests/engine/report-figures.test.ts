@@ -427,7 +427,7 @@ describe('every export path reads the graphs of the report being exported', () =
 describe('a floor plan marks where sampling happened, not what was found', () => {
   /**
    * Source-level, because the defect was which helper each surface reached
-   * for. All three coloured a pin by `worstFindingSeverity` and numbered it
+   * for. All three colored a pin by `worstFindingSeverity` and numbered it
    * by `countFindings`, so a site drawing restated the verdict a fourth time
    * and the pin number could not double as the key to the table.
    *
@@ -538,7 +538,7 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     expect(screen).toContain('Remove pin')
     expect(screen, 'the three-tap label is back').not.toContain('Unpin')
     // The selected marker is distinguished by a halo, not by swapping its
-    // ring to the theme's text colour — which in the dark theme is near-white
+    // ring to the theme's text color — which in the dark theme is near-white
     // on a white ring, i.e. invisible.
     expect(screen).not.toMatch(/border: `2px solid \$\{selected === p\.n \? TEXT/)
     expect(screen).toMatch(/boxShadow: selected === p\.n \? `0 0 0 3px \$\{ACCENT\}, 0 0 0 5px #fff/)
@@ -574,10 +574,10 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     expect((store.match(/_localizeFloorPlans\(fromCloudRow\(/g) || []).length).toBe(3)
   })
 
-  it('the Plan tab is labelled Actions and keeps its id', () => {
+  it('the Plan tab is labeled Actions and keeps its id', () => {
     const app = read('src/components/MobileApp.jsx')
     expect(app).toContain("['plan','check','Actions']")
-    expect(app, 'a tab is still labelled Plan').not.toContain("['plan','check','Plan']")
+    expect(app, 'a tab is still labeled Plan').not.toContain("['plan','check','Plan']")
     expect(app).toContain('See the actions')
     // The id is the stable key, as with overview/Findings and
     // rootcause/Pathways — renaming it would churn the alias map and the

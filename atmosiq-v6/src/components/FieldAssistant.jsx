@@ -85,7 +85,7 @@ const ATTACHMENT_KIND_LABEL = {
 // Wording stays screening-safe (research / analyze / cross-reference —
 // never "diagnose" or "determine"). Rendered in Bitcount Grid Single
 // (a free pixel/dot-matrix Google Font, loaded in index.html), then the
-// bold jasper stack as fallback. Colour is the bright thinking-cyan that
+// bold jasper stack as fallback. Color is the bright thinking-cyan that
 // matches the neon brain.
 const THINKING_CYAN = '#22E0F2'
 const THINKING_FONT = "'Bitcount Grid Single', var(--font-jasper)"
@@ -1444,7 +1444,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         {/* What the AI knows about the situation, as one quiet line —
             "Draft assessment · Room 101 · CO₂ elevated" — not a row of
             tinted chips. The facility itself is the chip in the composer,
-            the one the user acts on. A warn-toned signal keeps its colour;
+            the one the user acts on. A warn-toned signal keeps its color;
             the rest is secondary ink. */}
         {!historyOpen && !pickerOpen && signalChips.length > 0 && (
           <div aria-label="AtmosFlow AI context" style={{ ...jasperCaption, marginBottom: 6, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1845,7 +1845,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             flex: 1, overflowY: 'auto', overflowX: 'hidden',
             padding: '8px 2px', minHeight: 120,
             minWidth: 0, boxSizing: 'border-box', wordBreak: 'break-word',
-            // Empty canvas: centre the watermark. Flex only in that state
+            // Empty canvas: center the watermark. Flex only in that state
             // so a transcript still flows from the top.
             ...(isEmptyCanvas ? { display: 'flex', alignItems: 'center', justifyContent: 'center' } : {}),
           }}>
@@ -1920,7 +1920,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
 
           {/* Rendered-report download cards — generate_report tool
               results. base64 lives only on the client; clicking
-              Download materialises it as a Blob and triggers a
+              Download materializes it as a Blob and triggers a
               browser download. */}
           {renderedReports.map((r) => (
             <DownloadCard
@@ -2279,7 +2279,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             {/* Primary capsule. While the agent is streaming it is Stop
                 (the partial answer stays on screen); with text in the box
                 it is the accent send circle; otherwise "Speak" — the
-                dictation button as a labelled capsule, Grok's standing
+                dictation button as a labeled capsule, Grok's standing
                 voice affordance. */}
             {sending ? (
               <button

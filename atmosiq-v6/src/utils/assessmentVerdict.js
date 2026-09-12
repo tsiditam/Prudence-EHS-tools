@@ -131,7 +131,7 @@ export function worstFindingCategory(zoneScores) {
  * exactly that inference. Scoring rates 6+ occupants reporting symptoms as
  * `critical`, which the verdict layer then propagated to the whole assessment
  * and to the report's P1 triage — contradicting the codebase's own principle,
- * honoured by driverCat, that complaints are a symptom and not a driver.
+ * honored by driverCat, that complaints are a symptom and not a driver.
  *
  * Capped rather than excluded: a symptom cluster still raises the verdict to
  * `high`, so it cannot be quietly dropped either.

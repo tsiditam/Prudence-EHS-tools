@@ -171,7 +171,7 @@ export default function SensorScreen({ data, onChange, sensorData, isDesktop, sh
               <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 8, lineHeight: 1.5 }}>
                 Converts to µg/m³ as {TVOC_REFERENCES[tvocRef].label.toLowerCase()}-equivalent (MW {TVOC_REFERENCES[tvocRef].mw}), at 25 °C / 1 atm.
                 {' '}
-                {calGas.recognised
+                {calGas.recognized
                   ? `From this zone's recorded calibration gas (${calGas.stated}).`
                   : calGas.recorded
                     ? `This zone records "${calGas.stated}", which has no molecular weight here — pick the compound your meter was spanned to.`

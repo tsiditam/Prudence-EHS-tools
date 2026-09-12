@@ -17,7 +17,7 @@
  * a causal chain, all as though a limit existed.
  *
  * Captioning them "advisory" is what let them spread. A tier printed beside a
- * measured value reads as a limit however it is labelled, and every surface
+ * measured value reads as a limit however it is labeled, and every surface
  * that carried one also carried a disclaimer saying it was only advisory. The
  * disclaimer was the vector, not the fix.
  *
@@ -30,7 +30,7 @@
  *
  * So there are two halves:
  *
- *   1. Behavioural assertions, per layer, driven through the real entry
+ *   1. Behavioral assertions, per layer, driven through the real entry
  *      points at values that would have fired every removed branch. These
  *      catch a reintroduction that works.
  *   2. A source sweep over the shipped tree for a TVOC threshold in a

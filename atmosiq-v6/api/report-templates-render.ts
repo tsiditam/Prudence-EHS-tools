@@ -91,7 +91,7 @@ async function handler(req: Req, res: Res) {
     res.status(400).json({ error: 'template_id_required' }); return
   }
 
-  // file_name sanitisation — strip path separators, trim to length,
+  // file_name sanitization — strip path separators, trim to length,
   // append .docx if missing.
   let fileName =
     typeof body.file_name === 'string' && body.file_name.trim()

@@ -5,7 +5,7 @@
  * in the order a reader meets them and are identical in appearance; the list
  * beneath the plan is the key. Nothing here states a conclusion.
  *
- * This screen used to colour each pin by the worst finding severity in the
+ * This screen used to color each pin by the worst finding severity in the
  * zone and print the zone's finding count inside the marker, under the title
  * "Spatial Risk Map", with a "Top Risk Factors" panel on tap. That made the
  * site drawing a fourth restatement of a verdict the results hero, the
@@ -38,9 +38,9 @@ import { planLabel, planImage, downscaleImageDataUrl } from '../utils/floorPlans
 const CARD = 'var(--card)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)'
 
-// One neutral marker for every location. Colour is not an encoding here, so
+// One neutral marker for every location. Color is not an encoding here, so
 // identity rests on the number and the list, which also survives grayscale
-// print and a colour-blind reader.
+// print and a color-blind reader.
 const PIN = ACCENT
 const PIN_INK = 'var(--on-accent-fill)'
 
@@ -260,7 +260,7 @@ export default function SpatialMap({
               onTouchStart={handleMapTouchStart}
               onTouchEnd={handleMapTouchEnd}
               // While a location is being placed the plan is a target: expose it
-              // as a button and let Enter drop the pin at the centre, which the
+              // as a button and let Enter drop the pin at the center, which the
               // user can then reposition by pointer. Otherwise it is an image.
               role={placing ? 'button' : undefined}
               tabIndex={placing ? 0 : undefined}
@@ -278,12 +278,12 @@ export default function SpatialMap({
                   aria-pressed={selected === p.n}
                   onClick={(e) => { e.stopPropagation(); setSelected(selected === p.n ? null : p.n) }}
                   // The tip of the tail is the recorded point. Scaling about the
-                  // bottom centre keeps it there while the marker grows.
+                  // bottom center keeps it there while the marker grows.
                   style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: `translate(-50%, -100%)${selected === p.n ? ' scale(1.2)' : ''}`, transformOrigin: '50% 100%', transition: 'transform 120ms ease', cursor: 'pointer', zIndex: selected === p.n ? 11 : 10, background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit' }}
                 >
                   {/* The selected marker grows and takes a halo: accent, then a
                       white edge, so it reads against a light plan and a dark one.
-                      It used to swap its white ring for the theme's text colour,
+                      It used to swap its white ring for the theme's text color,
                       which in the dark theme is near-white — no visible change. */}
                   <div style={{ width: 26, height: 26, borderRadius: '50%', background: PIN, border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow 120ms ease',
                     boxShadow: selected === p.n ? `0 0 0 3px ${ACCENT}, 0 0 0 5px #fff, 0 3px 10px rgba(0,0,0,0.45)` : '0 2px 8px rgba(0,0,0,0.35)' }}>

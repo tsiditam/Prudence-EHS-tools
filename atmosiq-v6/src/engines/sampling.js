@@ -16,7 +16,7 @@ import { readNumber } from './scoring'
 
 // One wood-moisture figure for the whole platform (audit M8): the IICRC S500
 // dry-standard 16% MC in moldStandards.js. This file carried its own 19% —
-// the fibre-saturation / decay rule of thumb — beside the mold module's 16%.
+// the fiber-saturation / decay rule of thumb — beside the mold module's 16%.
 const WOOD_MC_SCREEN = MOISTURE_INDICATORS.wood.elevatedAtOrAbovePct
 
 export function generateSamplingPlan(zones, bldg) {

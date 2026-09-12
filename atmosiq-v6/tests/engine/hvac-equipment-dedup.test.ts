@@ -35,7 +35,7 @@ function meridianFixture(equipmentTopology: 'shared-ahu' | 'split-ahu' | 'unmapp
       // Drain pan critical → triggers drainpan_immediate (equipment) +
       // drainpan_clean (equipment). It used to trigger legionella_188 as a
       // third; that rule was removed in 2026-08 with the ASHRAE 188
-      // escalation. The dedup behaviour this file tests is per-rule, so the
+      // escalation. The dedup behavior this file tests is per-rule, so the
       // count of rules does not change what it asserts.
       { l: 'HVAC', r: [{ t: 'Drain pan: standing water — Critical', sev: 'critical' }] },
       // Filter issue high → triggers filter_replace_imm + filter_replace_high
@@ -84,7 +84,7 @@ function meridianFixture(equipmentTopology: 'shared-ahu' | 'split-ahu' | 'unmapp
 
 // The EPA-registered-biocide instruction was removed from this action in
 // 2026-08 — biocide selection is a maintenance decision, not a screening
-// finding. What this file tests is the equipment-scoped DEDUP behaviour, which
+// finding. What this file tests is the equipment-scoped DEDUP behavior, which
 // is per-rule and indifferent to the wording; the string is pinned here only
 // so the assertions have something exact to match on.
 const drainPanText = 'Clean the drain pan and associated components in accordance with manufacturer recommendations and applicable HVAC maintenance procedures; correct drainage and slope deficiencies contributing to standing water.'

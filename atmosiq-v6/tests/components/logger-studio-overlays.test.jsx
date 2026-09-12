@@ -32,7 +32,7 @@ describe('Co2DifferentialChart', () => {
 describe('MultiZoneChart', () => {
   const points = [{ t: 0, a: 800, b: 1000 }, { t: 60000, a: 850, b: 1100 }]
   const zones = [{ id: 'a', label: 'Conference Room A' }, { id: 'b', label: 'Server Room' }]
-  it('renders one labelled line per zone and the CO₂ advisory when enabled', () => {
+  it('renders one labeled line per zone and the CO₂ advisory when enabled', () => {
     const { container } = render(<MultiZoneChart points={points} zones={zones} param="co2" units={{ co2: 'ppm' }} width={520} height={260} showRefs />)
     expect(container.textContent).toContain('Conference Room A')
     expect(container.textContent).toContain('Server Room')

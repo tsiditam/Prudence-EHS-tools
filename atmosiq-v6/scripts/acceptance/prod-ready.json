@@ -2413,7 +2413,7 @@
         },
         {
           "type": "grep_matches",
-          "pattern": "does not clear a mouldy basement with a clean floor",
+          "pattern": "does not clear a moldy basement with a clean floor",
           "paths": [
             "tests/engine/investigation.test.ts"
           ]
@@ -2622,7 +2622,7 @@
     {
       "id": "NO-TVOC-THRESHOLD",
       "label": "TVOC is measured, charted and reported, and compared against nothing",
-      "_comment": "The Molhave 1991 advisory tiers (500 / 3,000 ug/m3) were the only basis on which this platform judged a total-VOC reading, and they were not a limit - they are a chamber-study dose-response framework, and no regulatory or consensus health-based limit exists for a non-specific sum that identifies no compound. Applying them produced a severity, a citation, a client-facing finding, a live field advisory, a sampling trigger and a causal-chain term. All of it was removed in 2026-08, together with the WELL v2 target that offered a third yardstick. Captioning a tier 'advisory' is what let it spread: a figure printed beside a measured value reads as a limit however it is labelled, and every surface that carried one also carried a disclaimer. no-molhave.test.ts pins the class rather than the instances - behavioural assertions through the real entry points at every tier boundary, plus a source sweep for a TVOC threshold in a rendered position with comments stripped, because twenty-odd files now carry removal records that name the figures and a guard that could not tell a record from a string would fire on its own documentation. It also pins what must REMAIN: the reading is still captured and unit-converted, the report says 'not evaluated' rather than 'acceptable', and the renovation-source TO-17 sampling entry still fires (it keys on a recorded source, not a concentration).",
+      "_comment": "The Molhave 1991 advisory tiers (500 / 3,000 ug/m3) were the only basis on which this platform judged a total-VOC reading, and they were not a limit - they are a chamber-study dose-response framework, and no regulatory or consensus health-based limit exists for a non-specific sum that identifies no compound. Applying them produced a severity, a citation, a client-facing finding, a live field advisory, a sampling trigger and a causal-chain term. All of it was removed in 2026-08, together with the WELL v2 target that offered a third yardstick. Captioning a tier 'advisory' is what let it spread: a figure printed beside a measured value reads as a limit however it is labeled, and every surface that carried one also carried a disclaimer. no-molhave.test.ts pins the class rather than the instances - behavioral assertions through the real entry points at every tier boundary, plus a source sweep for a TVOC threshold in a rendered position with comments stripped, because twenty-odd files now carry removal records that name the figures and a guard that could not tell a record from a string would fire on its own documentation. It also pins what must REMAIN: the reading is still captured and unit-converted, the report says 'not evaluated' rather than 'acceptable', and the renovation-source TO-17 sampling entry still fires (it keys on a recorded source, not a concentration).",
       "checks": [
         {
           "type": "file_exists",
@@ -2657,7 +2657,7 @@
     {
       "id": "NO-COMPOSITE-SCORE",
       "label": "The 100-point composite, its category weights and every risk band are absent from every layer they reached",
-      "_comment": "Modelled on MOLD-UI-NO-HEALTH-VERDICT: an exclusion pair plus the positive assertion of what replaced it. The patterns match CODE SHAPES (an export declaration, a constant assignment, an object key) because every file involved carries a comment recording what was removed from it, and that record must not be what fails the gate. Band-ladder detection needs comment stripping and so lives in tests/engine/no-scoring.test.ts, which this criterion runs. Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks.",
+      "_comment": "Modeled on MOLD-UI-NO-HEALTH-VERDICT: an exclusion pair plus the positive assertion of what replaced it. The patterns match CODE SHAPES (an export declaration, a constant assignment, an object key) because every file involved carries a comment recording what was removed from it, and that record must not be what fails the gate. Band-ladder detection needs comment stripping and so lives in tests/engine/no-scoring.test.ts, which this criterion runs. Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks.",
       "checks": [
         {
           "type": "file_exists",

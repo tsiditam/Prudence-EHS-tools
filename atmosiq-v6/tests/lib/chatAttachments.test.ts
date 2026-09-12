@@ -95,7 +95,7 @@ describe('classifyAttachment', () => {
   })
 
   // iOS matches the accept list on UTI, resolved from the MIME type, and
-  // greys out anything it does not think is accepted. An extension-only
+  // grays out anything it does not think is accepted. An extension-only
   // list therefore leaves a report untappable in the Files app — which is
   // exactly where a phone user goes to find one.
   it('carries a MIME type alongside every extension, so mobile pickers offer the file', () => {
@@ -129,7 +129,7 @@ describe('pickCsvDigest', () => {
     expect(d.analytes).toContain('Cladosporium')
   })
 
-  it('returns null when nothing is recognisable', () => {
+  it('returns null when nothing is recognizable', () => {
     expect(pickCsvDigest('alpha,beta\n1,2\n3,4', 'x.csv')).toBeNull()
   })
 })
@@ -178,7 +178,7 @@ describe('buildSensorDigest', () => {
 })
 
 describe('buildLabDigest', () => {
-  it('summarises analytes and samples without enumerating every row', () => {
+  it('summarizes analytes and samples without enumerating every row', () => {
     const rows = Array.from({ length: 400 }, (_, i) => ({
       sampleId: `S-${i % 20}`,
       location: 'Suite 300',
@@ -257,10 +257,10 @@ describe('digestForFile', () => {
     expect(r.error).toMatch(/larger than/i)
   })
 
-  it('explains an unrecognisable CSV rather than failing silently', async () => {
+  it('explains an unrecognizable CSV rather than failing silently', async () => {
     const r: any = await digestForFile(fakeFile('junk.csv', 'text/csv', 'a,b\n1,2'))
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/could not recognise/i)
+    expect(r.error).toMatch(/could not recognize/i)
   })
 
   it('uses the injected PDF reader, so no PDF engine is imported here', async () => {

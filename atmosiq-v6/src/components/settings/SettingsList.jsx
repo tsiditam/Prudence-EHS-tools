@@ -84,7 +84,7 @@ export const Row = ({ label, sub, value, action, tone }) => (
   </button>
 )
 
-// Exception: a word in its status colour, only when state is NOT fine.
+// Exception: a word in its status color, only when state is NOT fine.
 export const ExceptionPill = ({ tone = 'warn', text }) => (
   <span style={{ ...V3.T.caption, color: tone === 'warn' ? WARN : DANGER }}>{text}</span>
 )

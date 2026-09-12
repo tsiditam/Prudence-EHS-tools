@@ -1,7 +1,7 @@
 /**
  * monitoringSession — the root entity for Logger Studio.
  *
- * The behaviours pinned here are the ones that protect a record: a session
+ * The behaviors pinned here are the ones that protect a record: a session
  * loads even when partially malformed, calibration is a stored snapshot
  * rather than a live lookup, reserved slots exist from version 1, and
  * readiness advises without blocking.
@@ -110,7 +110,7 @@ describe('events', () => {
     expect(normalizeEvent(null)).toBeNull()
   })
 
-  it('falls back to "other" for an unrecognised type', () => {
+  it('falls back to "other" for an unrecognized type', () => {
     expect(normalizeEvent({ t: T, type: 'nope' })!.type).toBe('other')
   })
 
@@ -221,7 +221,7 @@ describe('recordGeneratedReport', () => {
     expect(s.reports[0]).toMatchObject({ edition: 'client', format: 'pdf', datasetHash: 'a19dd790' })
   })
 
-  it('defaults an unrecognised edition to the client report', () => {
+  it('defaults an unrecognized edition to the client report', () => {
     const s = recordGeneratedReport(createMonitoringSession(), { edition: 'bogus' })
     expect(s.reports[0].edition).toBe('client')
   })

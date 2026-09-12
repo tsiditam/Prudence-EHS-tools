@@ -30,7 +30,7 @@
  * ── What is asserted ──────────────────────────────────────────────────────
  * Two properties, and the first is the general one:
  *
- *   A. **The engine honours the phrase library's bans.** Every finding the
+ *   A. **The engine honors the phrase library's bans.** Every finding the
  *      engine emits classifies to a condition type; that type's entry lists
  *      what may not be said about it. The engine's own sentence must not say
  *      any of it. This is a machine-checkable cross-layer invariant and it
@@ -57,7 +57,7 @@ const BLDG = { assessmentDate: '2026-07-15' }
  * A matrix wide enough that every finding branch in the engine fires at least
  * once. Kept as whole zones rather than single fields because several
  * branches only trip in combination (symptom cluster needs complaints AND
- * severity; the mould chain needs moisture AND odour).
+ * severity; the mold chain needs moisture AND odor).
  */
 const ZONES: Array<Record<string, unknown>> = [
   { dp: 'Standing water' },

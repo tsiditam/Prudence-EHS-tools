@@ -101,7 +101,7 @@ export async function bundleEntry(rootDir, entry, outFile) {
 }
 
 /**
- * Bundle every api/** entry plus the Sentry initialiser into outDir.
+ * Bundle every api/** entry plus the Sentry initializer into outDir.
  * Returns { entries: [{ entry, route, outFile }], sentry: outFile|null }.
  *
  * @param {{ rootDir?: string, outDir?: string }} [opts]

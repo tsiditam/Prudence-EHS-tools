@@ -11,7 +11,7 @@
  * the heading, box every project in a card with an icon-per-count
  * strip and a tinted status pill, and open on an icon-tile empty state
  * with two paragraphs. All of that is gone. Hierarchy comes from
- * weight and colour; rows part with a hairline; the one accent on the
+ * weight and color; rows part with a hairline; the one accent on the
  * screen is the action.
  */
 
@@ -57,7 +57,7 @@ function ProjectRow({ project, first, onOpen, onRequestDelete }) {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginTop: 1 }}>
-        {/* Status is a word, not a chip. Only follow-up carries a colour:
+        {/* Status is a word, not a chip. Only follow-up carries a color:
             it is the one status that asks for something. */}
         <span style={{ ...V3.T.caption, color: project.status === 'follow-up' ? 'var(--warn)' : V3.TEXT_TERTIARY }}>{status}</span>
         <button
@@ -134,7 +134,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
           explanation. On a first run the action lives in the empty state
           instead, so it is never on the screen twice — and the heading
           goes with it: with nothing to head, a title in the top-left
-          corner only pulled the eye off the centred group below. The
+          corner only pulled the eye off the centered group below. The
           empty state names the screen itself. */}
       {(projects === null || list.length > 0) && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
@@ -161,11 +161,11 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       {projects === null ? (
         <div style={{ ...V3.T.bodyDim, textAlign: 'center', padding: '40px 0' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        // Empty state, centred in the open page rather than pinned under
+        // Empty state, centered in the open page rather than pinned under
         // the heading: an icon tile, the title, one line on what a project
         // is for, and the action. The min-height subtracts the chrome above
         // (header spacer, heading) and below (the dock) so the group sits at
-        // the visual centre of what the assessor can see, not of the scroll
+        // the visual center of what the assessor can see, not of the scroll
         // height. A filter with nothing in it uses the same frame without
         // the tile and the line.
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: `calc(${V3.FULL_VH} - 250px)`, padding: '0 24px' }}>

@@ -81,7 +81,7 @@ describe('ProjectDetail', () => {
     await waitFor(() => expect(screen.getByText('Closable Site')).toBeTruthy())
 
     // Discoverable on the default Overview tab (a text action in the danger
-    // colour at the end of the page, not a "Danger zone" card).
+    // color at the end of the page, not a "Danger zone" card).
     fireEvent.click(screen.getByText('Delete project')) // unique pre-sheet
     await waitFor(() => expect(screen.getByText(/Linked assessments themselves are not deleted/i)).toBeTruthy())
 

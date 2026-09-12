@@ -6,7 +6,7 @@
  * VentilationTool — a standalone calculator for the assessor: the ASHRAE
  * 62.1 outdoor-air requirement for a space, an estimate of what is being
  * delivered (from CO₂, by the steady-state or the decay method), and the
- * two side by side. Every number is labelled with its method, its
+ * two side by side. Every number is labeled with its method, its
  * assumptions and its source; the comparison states a ratio and leaves the
  * determination to the professional. The maths lives in
  * src/engines/ventilation — this file is presentation only.
@@ -16,7 +16,7 @@
  * verdict a tinted pill, and every statistic a bordered tile. Now the
  * three parts are sections on the page — a micro heading over a hairline
  * — the method switch is the app's text-tab row, the verdict is a word in
- * its colour, and a statistic is a label over a figure.
+ * its color, and a statistic is a label over a figure.
  *
  * Inputs persist in localStorage so a walk between rooms does not lose
  * them; nothing here writes to an assessment.
@@ -274,7 +274,7 @@ export default function VentilationTool() {
 
       {/* ── 3 · Comparison ── */}
       <Section n="3" title="Comparison">
-        {/* The verdict is a word in its colour; the method beside it. Both
+        {/* The verdict is a word in its color; the method beside it. Both
             figures keep their place before either side exists. */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 15, fontWeight: 600, color: comparison ? LEVEL_TONE[comparison.level] : V3.TEXT_SECONDARY }}>
@@ -285,7 +285,7 @@ export default function VentilationTool() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginTop: 14 }}>
           <div>
             <div style={V3.T.captionDim}>Delivered · est.</div>
-            {/* The figure that matters carries the verdict's colour; the
+            {/* The figure that matters carries the verdict's color; the
                 requirement beside it stays in the primary ink. */}
             <div style={{ ...V3.N.lg, color: comparison ? LEVEL_TONE[comparison.level] : undefined }}>{deliveredPerPerson == null ? '—' : deliveredPerPerson}</div>
             <div style={V3.T.captionDim}>cfm/person</div>

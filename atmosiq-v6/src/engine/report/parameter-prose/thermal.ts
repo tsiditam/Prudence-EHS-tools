@@ -47,12 +47,12 @@ export const TEMPERATURE_PROSE: ParameterProse = {
     // So the comparison is reported as what it is: an observation against
     // the seasonal comfort band, not a determination under the standard.
     if (range.withinStandards) {
-      return `${head} No thermal comfort condition was identified in the areas assessed. Comfort under ASHRAE 55 also depends on clothing, activity level, radiant temperature and air movement, which were not characterised during this assessment.`
+      return `${head} No thermal comfort condition was identified in the areas assessed. Comfort under ASHRAE 55 also depends on clothing, activity level, radiant temperature and air movement, which were not characterized during this assessment.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A`
       : ''
-    return `${head} Measured temperature fell outside the seasonal comfort band applied in this assessment${zones}. Clothing, activity level, radiant temperature and air movement were not characterised, so this is a comfort observation rather than a determination under ASHRAE 55. Deviations of this kind commonly drive occupant comfort complaints.`
+    return `${head} Measured temperature fell outside the seasonal comfort band applied in this assessment${zones}. Clothing, activity level, radiant temperature and air movement were not characterized, so this is a comfort observation rather than a determination under ASHRAE 55. Deviations of this kind commonly drive occupant comfort complaints.`
   },
 }
 
@@ -71,7 +71,7 @@ export const RH_PROSE: ParameterProse = {
     const head = `Relative humidity ranged from ${range.low}${range.unit} to ${range.high}${range.unit}, averaging ${range.average}${range.unit}.`
     if (range.withinStandards === null) return head
     if (range.withinStandards) {
-      return `${head} No humidity condition was identified in the areas assessed. Single-point readings characterise the moment measured; sustained excursion duration is what matters for microbial risk.`
+      return `${head} No humidity condition was identified in the areas assessed. Single-point readings characterize the moment measured; sustained excursion duration is what matters for microbial risk.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Out of range in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`

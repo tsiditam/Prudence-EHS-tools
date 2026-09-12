@@ -362,7 +362,7 @@ describe('key observations', () => {
   })
 })
 
-describe('the status colour scale', () => {
+describe('the status color scale', () => {
   it('gives a section heading the dot its status carries', () => {
     const entry = model().parameters.find((x) => x.param === 'co2')
     const text = JSON.stringify(buildParameterSection(entry, 5).children)

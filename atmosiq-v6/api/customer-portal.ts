@@ -17,7 +17,7 @@
  * customer.subscription.deleted (handled by api/webhook.js).
  *
  * `return_url` is allow-listed (audit 2026-09 H6 sibling): only the
- * production origin or the request's own origin is honoured; anything else
+ * production origin or the request's own origin is honored; anything else
  * falls back to the default account page.
  *
  * Response contract:

@@ -12,7 +12,7 @@
  * incident are gone. The status filter is the app's text-tab row with
  * counts beside the labels; an incident is a row that parts from the
  * next with a hairline, its severity and status as words in their
- * colours. The one accent on the screen is "Report".
+ * colors. The one accent on the screen is "Report".
  */
 
 import { useEffect, useState } from 'react'
@@ -45,7 +45,7 @@ const STATUS_LABEL = {
   escalated: 'Escalated',
 }
 
-// Status as a word in its colour: only resolved and escalated carry one.
+// Status as a word in its color: only resolved and escalated carry one.
 const STATUS_TONE = { resolved: SUCCESS, escalated: DANGER }
 
 // src/utils/formatDate.js is the single definition; this row format drops

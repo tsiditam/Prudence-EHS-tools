@@ -14,7 +14,7 @@
  *     or a report load lands.
  *
  * Typing into the walkthrough used to re-render every consumer because the
- * two lived in one memoised value. A results-only consumer now subscribes
+ * two lived in one memoized value. A results-only consumer now subscribes
  * with `useAssessmentResults()` and is untouched by data edits; a
  * data-only one uses `useAssessmentData()`. `useAssessment()` still returns
  * the merged object for the shell and for existing call sites.

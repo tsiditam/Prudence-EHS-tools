@@ -88,7 +88,7 @@ describe('convertTvoc', () => {
     }
   })
 
-  it('honours the chosen reference compound rather than quietly defaulting', () => {
+  it('honors the chosen reference compound rather than quietly defaulting', () => {
     const iso = convertTvoc(100, 'ppb', 'µg/m³', { reference: 'isobutylene' })!
     const tol = convertTvoc(100, 'ppb', 'µg/m³', { reference: 'toluene' })!
     expect(tol.value).toBeGreaterThan(iso.value)   // MW 92.14 > 56.11
@@ -187,7 +187,7 @@ describe('the equivalence basis is declared once', () => {
     // It was `['tvoc/tvoc_molhave_action', 'tvoc/tvoc_molhave_concern']`, and
     // those were the only two thresholds this platform ever crossed a basis
     // for. The FIELD is kept, with its projection in referenceProfiles and
-    // the rule below, because a field whose behaviour had been deleted would
+    // the rule below, because a field whose behavior had been deleted would
     // silently do nothing the next time somebody set it. So this asserts the
     // contract is idle, not that it was dismantled.
     const withBasis: string[] = []
@@ -230,14 +230,14 @@ describe('parseCalibrationGas', () => {
     expect(parseCalibrationGas('100 ppm isopropyl alcohol').key).toBe('isopropanol')
   })
 
-  it('matches whole words, so a neighbouring compound is not mistaken for one', () => {
+  it('matches whole words, so a neighboring compound is not mistaken for one', () => {
     // Isobutane is C4H10 (MW 58.12), not isobutylene (C4H8, 56.11). A
     // substring test would read "isobutane" as a hit on "ibe"-style aliases
     // and convert through the wrong weight without ever saying so.
     const r = parseCalibrationGas('Isobutane 100 ppm')
     expect(r.key).toBeNull()
     expect(r.recorded).toBe(true)
-    expect(r.recognised).toBe(false)
+    expect(r.recognized).toBe(false)
   })
 
   it('separates "nothing recorded" from "recorded but unknown"', () => {
@@ -247,13 +247,13 @@ describe('parseCalibrationGas', () => {
 
     const unknown = parseCalibrationGas('Freon 12')
     expect(unknown.recorded).toBe(true)
-    expect(unknown.recognised).toBe(false)
+    expect(unknown.recognized).toBe(false)
     expect(unknown.stated).toBe('Freon 12')
   })
 
   it('says which of the three it was, in the disclosure', () => {
-    const recognised = tvocEquivalenceNote(TVOC_REFERENCES.toluene, parseCalibrationGas('Toluene 10 ppm'))
-    expect(recognised).toMatch(/recorded for this survey \(Toluene 10 ppm\)/)
+    const recognized = tvocEquivalenceNote(TVOC_REFERENCES.toluene, parseCalibrationGas('Toluene 10 ppm'))
+    expect(recognized).toMatch(/recorded for this survey \(Toluene 10 ppm\)/)
 
     const unknown = tvocEquivalenceNote(TVOC_REFERENCES.isobutylene, parseCalibrationGas('Freon 12'))
     expect(unknown).toMatch(/Freon 12/)

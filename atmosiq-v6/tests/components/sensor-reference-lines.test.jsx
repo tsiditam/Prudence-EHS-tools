@@ -2,7 +2,7 @@
 /**
  * Logger Studio — togglable standards reference lines (Phase A).
  *
- * Pins (1) the reference-line catalogue logic — which lines apply for a
+ * Pins (1) the reference-line catalog logic — which lines apply for a
  * given parameter set + units, including the TVOC µg/m³-only gate — and
  * (2) that the charts draw their STD-sourced advisory line only when
  * showRefs is on. Threshold values come from STD (standards.js), never
@@ -20,7 +20,7 @@ afterEach(() => cleanup())
 const series = (param, n = 4) =>
   Array.from({ length: n }, (_, i) => ({ t: 1714550400000 + i * 60000, [param]: 400 + i * 200 }))
 
-describe('REF_LINE_DEFS catalogue', () => {
+describe('REF_LINE_DEFS catalog', () => {
   it('exposes a key + source standard for every parameter family', () => {
     const keys = REF_LINE_DEFS.map((d) => d.key)
     expect(keys).toEqual(expect.arrayContaining(['co2', 'rh', 'pm', 'co']))
@@ -61,7 +61,7 @@ describe('GRAPH_DEFS', () => {
     expect(byId.hcho).toBeTruthy()
     expect(byId.hcho.refKey).toBeUndefined()
     // TVOC joined it in 2026-08. Its chart is still drawn — the series is
-    // still worth seeing — but a refKey with no catalogue entry behind it
+    // still worth seeing — but a refKey with no catalog entry behind it
     // would put an empty toggle in front of the reader.
     expect(byId.tvoc.refKey).toBeUndefined()
   })

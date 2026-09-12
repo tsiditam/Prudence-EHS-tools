@@ -18,7 +18,7 @@
  * shafts — instead of through the filtered supply path. That single
  * condition can account for elevated indoor particulate, humidity that
  * tracks the outdoors, odors migrating from a loading dock or a
- * neighbouring tenant, moisture at the envelope, and combustion gases
+ * neighboring tenant, moisture at the envelope, and combustion gases
  * with no indoor source, all at once.
  *
  * So this engine answers two questions and no others:
@@ -404,7 +404,7 @@ export function findCoOccurringMechanisms(d) {
  * Two or more co-occurring observations WITH inward airflow. Below two,
  * a single observation reads better as itself than as the symptom of a
  * mechanism — consolidating one finding is not consolidation, it is
- * re-labelling.
+ * re-labeling.
  */
 export const CONSOLIDATION_MINIMUM = 2
 
@@ -420,7 +420,7 @@ export function shouldConsolidate(assessment, hits) {
  * Every one is an ENGINEERING control under the OSHA 3430 hierarchy,
  * and that is not a judgement call: each changes how the building moves
  * air. None is source management — the source is outdoors, or the
- * neighbouring tenant, and neither is ours to remove — and none is
+ * neighboring tenant, and neither is ours to remove — and none is
  * administrative, because no procedure re-balances a fan.
  *
  * They are written here, in the module that owns the mechanism, rather

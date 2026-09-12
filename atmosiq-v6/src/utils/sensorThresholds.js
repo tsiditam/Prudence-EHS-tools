@@ -195,7 +195,7 @@ export const SCREENING_DETECTION_FLOORS = {
 }
 
 // Project a ppb floor into the unit the data was logged in. Returns null when
-// the unit is not a recognised concentration unit (no guessed comparison).
+// the unit is not a recognized concentration unit (no guessed comparison).
 function floorInUnit(floorPpb, mw, unit) {
   if (isPpb(unit)) return floorPpb
   if (isPpm(unit)) return floorPpb / 1000

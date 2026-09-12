@@ -112,7 +112,7 @@ const TactileButton = forwardRef(function TactileButton({
   const fontSize = size === 'lg' ? 15 : size === 'sm' ? 13 : 14
   const minH = size === 'lg' ? 52 : size === 'sm' ? 38 : 48
 
-  // Per-variant bubble tint — only the fill colour + glow change; the glass
+  // Per-variant bubble tint — only the fill color + glow change; the glass
   // structure (border, shadow, sheen, press) is shared. ghost falls through
   // to the neutral --bubble-* token defaults.
   const bubbleVars = bubble ? { ...(BUBBLE_TINT[variant] || {}), '--bubble-radius': `${pill ? 999 : R.md}px` } : null
@@ -135,7 +135,7 @@ const TactileButton = forwardRef(function TactileButton({
     opacity: disabled ? 0.5 : 1,
     width: fullWidth ? '100%' : undefined,
     // Bubble mode: the .bubble-btn class owns radius/surface/transition; keep
-    // only the variant TEXT colour. Classic mode: inline radius + variant
+    // only the variant TEXT color. Classic mode: inline radius + variant
     // surface + tap transition as before.
     ...(bubble
       ? { color: v.color || TEXT_PRIMARY, ...bubbleVars }
@@ -192,7 +192,7 @@ export default TactileButton
 // Per-variant bubble tint (custom properties consumed by .bubble-btn).
 // Same fills as the classic VARIANT table above — solid or tinted, no
 // gradient, no tap glow — so a bubble button and a classic one are the
-// same pill; `bubble` now only buys the CSS press/hover/focus behaviour.
+// same pill; `bubble` now only buys the CSS press/hover/focus behavior.
 const BUBBLE_TINT = {
   primary: {
     '--bubble-bg': 'var(--accent-fill)',

@@ -137,7 +137,7 @@ describe('the tool is registered honestly', () => {
     expect(tool.input_schema.required).toEqual([])
   })
 
-  it('tells the model when to prefer it over the two neighbouring tools', () => {
+  it('tells the model when to prefer it over the two neighboring tools', () => {
     // Without this the model reaches for read_attached_document (lossy text
     // extraction of our own document) or answers from the raw logger summary.
     expect(tool.description).toMatch(/read_attached_document/)

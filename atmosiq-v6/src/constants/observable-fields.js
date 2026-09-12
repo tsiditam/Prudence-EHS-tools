@@ -167,7 +167,7 @@ function matchOption(opts, raw) {
 /**
  * Validate a proposed write.
  *
- * Returns `{ ok: true, field, value }` with the value NORMALISED to the
+ * Returns `{ ok: true, field, value }` with the value NORMALIZED to the
  * exact schema representation — the canonical option string, or a finite
  * number. Exactness is the point: `scoreZone` matches `mi` with
  * `.includes('Extensive')` and `sampling.js` compares `wd` with `===`, so

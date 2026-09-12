@@ -188,7 +188,7 @@ function assessVent(d, achOverride) {
   const co2Caveat = 'CO₂ is a ventilation effectiveness indicator, not an air quality contaminant. No current ASHRAE standard establishes an indoor CO₂ limit (Persily, ASHRAE Journal 2021). The 700 ppm indoor-outdoor differential is a sedentary-office bioeffluent perception threshold from a since-removed informative appendix.'
   // Every reading through the one parser (H1). A field that was entered but
   // cannot be read is a data gap, stated as such; an empty field keeps the
-  // "not captured" behaviour the sufficiency layer already handles.
+  // "not captured" behavior the sufficiency layer already handles.
   const cfm = readNumber(d.cfm_person), ach = readNumber(d.ach), v = readNumber(d.co2), co2o = readNumber(d.co2o)
   if (cfm == null && isEntered(d.cfm_person)) r.push(dataGapFinding('OA delivery (cfm/person)', 'cfm_person'))
   if (ach == null && isEntered(d.ach)) r.push(dataGapFinding('ACH', 'ach'))
@@ -448,7 +448,7 @@ function assessHVAC(d) {
   // The Legionella / ASHRAE 188 escalation was removed in 2026-08. It fired on
   // this one intake field and nothing else — no water system, no aerosol
   // pathway, no symptom, no building type. ASHRAE 188 scopes itself to
-  // building water systems with a recognised aerosol transmission risk
+  // building water systems with a recognized aerosol transmission risk
   // (cooling towers, evaporative condensers, domestic hot water, decorative
   // fountains, misters); a low-temperature condensate drain pan is not one,
   // and answering a dropdown does not establish an exposure pathway.

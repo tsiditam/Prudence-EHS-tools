@@ -2,7 +2,7 @@
  * Investigation engine — the reasoning layer that decides what to do next.
  *
  * The tests are grouped by the property each one protects. The first two
- * groups are structural guards rather than behaviour checks: they read the
+ * groups are structural guards rather than behavior checks: they read the
  * source of the legacy engines and fail when a hypothesis, causal-chain
  * type, or sampling type is added without being mapped. That is the class
  * of defect this file exists to prevent — a fifth hypothesis vocabulary
@@ -339,7 +339,7 @@ describe('reads the engine\'s verdict rather than re-deriving one', () => {
 
 describe('an explanation is judged only where it was raised', () => {
   /**
-   * The defect this exists for. A basement with moderate visible mould
+   * The defect this exists for. A basement with moderate visible mold
    * and an active leak, humidity never measured there. A clean top floor
    * with RH 40%. Site-wide ranges reported:
    *
@@ -359,10 +359,10 @@ describe('an explanation is judged only where it was raised', () => {
       rh: '40', tf: '73', co2: '600', co2o: '430' },
   ]
 
-  it('does not clear a mouldy basement with a clean floor\'s humidity', () => {
+  it('does not clear a moldy basement with a clean floor\'s humidity', () => {
     const state = investigate(SPLIT)
     const bio = state.hypotheses.find((h) => h.ruleKey === 'hyp_bioaerosol')!
-    expect(bio, 'mould and an active leak must raise the bioaerosol differential').toBeDefined()
+    expect(bio, 'mold and an active leak must raise the bioaerosol differential').toBeDefined()
     expect(bio.status).toBe('untested')
     expect(bio.untestedParameters).toContain('rh')
     expect(
@@ -379,7 +379,7 @@ describe('an explanation is judged only where it was raised', () => {
   it('does not report the assessment as having nothing to investigate', () => {
     const state = investigate(SPLIT)
     expect(state.stage).not.toBe('no_active_differential')
-    expect(state.nextStep, 'a mouldy basement has a next step').not.toBeNull()
+    expect(state.nextStep, 'a moldy basement has a next step').not.toBeNull()
   })
 
   it('names the zone in the open question rather than asking about the site', () => {

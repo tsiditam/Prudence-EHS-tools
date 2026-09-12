@@ -6,7 +6,7 @@
  * samplePoints — the locations an assessment says were sampled, derived once.
  *
  * A pin on the floor plan is a SAMPLE LOCATION. It is not a verdict, and it
- * carries no severity. Until 2026-09 all three floor-plan surfaces coloured
+ * carries no severity. Until 2026-09 all three floor-plan surfaces colored
  * each pin by the worst finding severity in the zone and printed the zone's
  * finding count inside it, which made a site drawing into a fourth statement
  * of a conclusion the hero card, the findings table and the pathway tab had
@@ -14,9 +14,9 @@
  * resolves to the table beneath, because it was already a census.
  *
  * What replaced it: a sequence number, a neutral marker, and a table naming
- * the location and the parameters recorded there. Colour carries no meaning,
+ * the location and the parameters recorded there. Color carries no meaning,
  * so identity never rests on it — which is also what keeps the figure legible
- * in grayscale print and to a colour-blind reader.
+ * in grayscale print and to a color-blind reader.
  *
  * One derivation, three consumers: the assessor's mapping screen
  * (components/SpatialMap.jsx), the Word report figure (report/reportModel.js

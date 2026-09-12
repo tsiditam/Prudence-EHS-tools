@@ -92,7 +92,7 @@ import { getInitials } from './ProfileAvatar'
 import FeatureTour from './FeatureTour'
 import { downloadReportPdf } from '../utils/downloadReportPdf'
 // Code-splitting (audit 2026-09 §6 Performance). The report renderers
-// (DocxReport → `docx`, PrintReport, the logger chart rasteriser →
+// (DocxReport → `docx`, PrintReport, the logger chart rasterizer →
 // recharts + html2canvas) and the heavy screens below are loaded on
 // demand. v2.6.1 had made DocxReport a STATIC import because a stale
 // cached index.html could reference a chunk hash the server no longer
@@ -150,7 +150,7 @@ import { isKnowledgeGraphEnabled, isMoldModuleEnabled } from '../utils/featureFl
 const KG_EVIDENCE_ENABLED = isKnowledgeGraphEnabled()
 // Whether the composite IAQ score (0–100) and risk band are shown. Default
 // hidden; `?score=1` restores per-browser. The engine still computes the score
-// internally (findings, severity colour, sorting, persistence all unaffected);
+// internally (findings, severity color, sorting, persistence all unaffected);
 // this governs display only. Resolved once at module load like KG above.
 import { buildJasperContext } from '../../lib/context/buildJasperContext'
 import { buildAssessmentContext } from '../../lib/context/buildAssessmentContext'
@@ -200,7 +200,7 @@ pressFeedback.style = {
   transition: 'transform 120ms cubic-bezier(0.34,1.4,0.64,1), opacity 120ms ease-out',
 }
 const fD = ts => formatDate(ts)
-// Severity colour helper. The hexes live in tokens.js SEVERITY (the
+// Severity color helper. The hexes live in tokens.js SEVERITY (the
 // single source — v3 primitives read the same table); this only adds the
 // tinted background and the pill label.
 const sv = sev => V3.severityTone(sev)
@@ -2540,7 +2540,7 @@ export default function MobileApp() {
   const zSecs = [...new Set(zVis.map(q=>q.sec))]
 
   // While the cached session resolves: a static frame of the first
-  // screen in the theme's colours, so the real screen draws in the same
+  // screen in the theme's colors, so the real screen draws in the same
   // place with nothing to wait through. The brand intro that used to
   // follow a first sign-in is gone (see LaunchFrame for the reasoning).
   if (loading) return <LaunchFrame heading={homeView(userMode) === 'projects' ? 'Projects' : null} padX={padX} contentMax={contentMax} />
@@ -2789,7 +2789,7 @@ export default function MobileApp() {
         </div>
         {/* Back and Skip are text; Continue / Finish is the app's one
             primary capsule (accent fill), not a gradient — and not green
-            for Finish: green is the safe / severity colour.
+            for Finish: green is the safe / severity color.
             Both buttons gate on `canAdvance`, not just dim when it's
             false: they used to only DIM (opacity .35) while staying
             fully clickable, so a required question — the zone name,
@@ -2917,7 +2917,7 @@ export default function MobileApp() {
     if (id) {
       // Entering the editor without the report loaded is what produced the
       // duplicates: draftId stayed on the previous assessment, so the
-      // re-finalize did not recognise this report and minted a new one.
+      // re-finalize did not recognize this report and minted a new one.
       // Stay put and say so instead.
       const loaded = await resumeDraft(id)
       if (!loaded) {
@@ -3145,7 +3145,7 @@ export default function MobileApp() {
               own padding rhythm.
 
               It carried a footer score readout — a composite indicator and
-              a thin severity bar labelled /100 — beside the serif line.
+              a thin severity bar labeled /100 — beside the serif line.
               Both went with the score; the footer now shows the zone
               denominator and drills into the per-zone breakdown.
 
@@ -3154,7 +3154,7 @@ export default function MobileApp() {
               second surface starts restating the conclusion, that is the
               duplication this comment exists to prevent. ── */}
           {/* The verdict on the page, not in a bordered card: the severity
-              is a word in its colour above the serif headline. */}
+              is a word in its color above the serif headline. */}
           <div style={{...RS_SECTION, paddingTop:18}}>
             <div>
               <div>
@@ -3167,7 +3167,7 @@ export default function MobileApp() {
                       captured, so "High Confidence" above "Ventilation
                       inadequacy" asserted certainty about a conclusion it knows
                       nothing about. It now appears only in the Professional
-                      Assessment panel, where it is labelled and in context. */}
+                      Assessment panel, where it is labeled and in context. */}
                   {/* Serif diagnosis — the screening indicator named in the
                       editorial serif (matches the prototype's Lora .diag). */}
                   <div style={V3.T.title}>{headline}</div>
@@ -3233,7 +3233,7 @@ export default function MobileApp() {
             risk. Restyled with the v3 token surface so they read as
             actionable warnings rather than chrome noise. ── */}
         {/* Completeness prompts — rows, not tinted boxes. The label carries
-            the warn colour; the reason is the sub-line. */}
+            the warn color; the reason is the sub-line. */}
         {!archived && (!presurvey.ps_inst_iaq || !presurvey.ps_inst_iaq_serial || !presurvey.ps_inst_iaq_cal) && (
           <button onClick={()=>{setDqi(Math.max(0, dtVis.findIndex(q=>q.id==='ps_inst_iaq')));setView('details')}} style={{width:'100%',padding:'12px 0',background:'transparent',border:'none',borderTop:`1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
             <div style={{flex:1,minWidth:0}}>
@@ -3333,7 +3333,7 @@ export default function MobileApp() {
         {rTab==='logger' && <Suspense fallback={LAZY_FALLBACK}><LoggerGraphsTab sensorData={loggerSd} editable onToggleInclude={archived ? toggleArchivedLoggerInclude : toggleLoggerInclude} /></Suspense>}
 
         {/* Where each set of readings was taken. Editable on a saved report
-            too, which is the behaviour the overflow-menu entry had: the
+            too, which is the behavior the overflow-menu entry had: the
             marks drive what a re-export embeds, never the findings. On a
             saved report every edit is also written back to the stored
             record, the way the archived logger toggle writes its choice —
@@ -3497,7 +3497,7 @@ export default function MobileApp() {
             const catHasConcern = cat.r.some(r => r.sev==='critical'||r.sev==='high'||r.sev==='medium');
             const findings=cat.r.filter(r => !(r.sev === 'pass' && catHasConcern)).sort((a,b)=>(SEV_RANK[a.sev]??9)-(SEV_RANK[b.sev]??9));
             // A category is a disclosure row: name, one dot per finding in
-            // its severity colour, the count, a chevron. Categories with a
+            // its severity color, the count, a chevron. Categories with a
             // critical or high finding open by default; the rest fold, so
             // the screen shows the shape of the findings before their text.
             const catOpen = findings.some(r => r.sev==='critical' || r.sev==='high');
@@ -3514,9 +3514,9 @@ export default function MobileApp() {
               <div style={{paddingBottom:14}}>
               {/* Findings are sorted most-severe-first and the per-row
                   severity text pill (HIGH/MEDIUM/CRITICAL/INFO) is replaced
-                  by a small colour-coded dot — less label noise, easier to
+                  by a small color-coded dot — less label noise, easier to
                   scan. The dot carries the severity for screen readers via
-                  role="img" + aria-label so the cue isn't colour-only. */}
+                  role="img" + aria-label so the cue isn't color-only. */}
               {findings.map((r,i)=>{const s=sv(r.sev);const sevLabel=r.sev.charAt(0).toUpperCase()+r.sev.slice(1);return(
                 <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,paddingTop: i === 0 ? 0 : 11, paddingBottom: i < findings.length - 1 ? 11 : 0, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
                   <span role="img" aria-label={`${sevLabel} severity`} style={{width:7,height:7,borderRadius:'50%',background:s.c,flexShrink:0,marginTop:7}} />
@@ -3580,7 +3580,7 @@ export default function MobileApp() {
           {causalChains.length===0?<div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No concern pathways identified — no correlated multi-factor findings in this assessment.</div>
           :groupPathways(causalChains).map((g,i)=>{const confLabel=g.confidence==='Strong'?'High':g.confidence==='Moderate'?'Moderate':'Possible';const cc=confColor(g.confidence);const multi=g.byZone.length>1;return(
             // One row per distinct pathway, folded: the name, the zones it
-            // applies to, its confidence as a word in its colour. The
+            // applies to, its confidence as a word in its color. The
             // engine emits a chain per zone, so the same pathway used to
             // appear once for every zone; the fold keeps every zone's
             // hypothesis and evidence inside the row.
@@ -3655,7 +3655,7 @@ export default function MobileApp() {
                   </div>
                   {samples.map((p,i)=>{const pc=p.priority==='critical'?'#EF4444':p.priority==='high'?'#FB923C':'#FBBF24';const priLabel=p.priority.charAt(0).toUpperCase()+p.priority.slice(1);return(
                     // One row per method, folded: the sample type, its zones,
-                    // the priority as a word in its colour. The reason,
+                    // the priority as a word in its color. The reason,
                     // method, controls and reference open beneath it.
                     <details key={`${p.type}-${i}`} className="rs-cat" style={{borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
                       <summary style={{display:'flex',alignItems:'center',gap:10,padding:'11px 0',cursor:'pointer',listStyle:'none',WebkitTapHighlightColor:'transparent'}}>
@@ -3771,7 +3771,7 @@ export default function MobileApp() {
           // Active row: the menu's neutral raised tone, the label and glyph
           // in the primary ink — the same selected state the dock draws. It
           // used to be an accent tint with an accent ring, an accent glyph
-          // and an accent label: four uses of the one colour on one row.
+          // and an accent label: four uses of the one color on one row.
           width:'100%', display:'flex', alignItems:'center', gap:13, padding:'13px 14px',
           margin:'2px 0', borderRadius:16, border:'none', cursor:'pointer', textAlign:'left',
           fontFamily:'inherit', fontSize:15, fontWeight:active?600:500,
@@ -4280,7 +4280,7 @@ export default function MobileApp() {
 
       {/* Logger Studio opened with no assessment in progress: which one
           should the logger data belong to? Listed newest first; "open
-          without attaching" keeps the old behaviour for a quick look at a
+          without attaching" keeps the old behavior for a quick look at a
           file. See openTool. */}
       {attachSheet && (
         <BottomSheet title="Attach logger data to" onClose={()=>setAttachSheet(false)} ariaLabel="Choose the assessment Logger Studio should attach to">
@@ -5612,7 +5612,7 @@ export default function MobileApp() {
           background:var(--bubble-sheen, radial-gradient(120% 100% at 26% 12%, rgba(255,255,255,0.22), transparent 46%));
           pointer-events:none;
         }
-        /* Cyan tap-glow — expands from centre on press, fades fast. */
+        /* Cyan tap-glow — expands from center on press, fades fast. */
         .bubble-btn::after{
           content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
           background:radial-gradient(circle at 50% 50%, var(--bubble-glow), transparent 60%);

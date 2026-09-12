@@ -113,12 +113,12 @@ describe('narrative prompt — plain-English register', () => {
   })
 
   it('names the consultant tics to cut', () => {
-    for (const tic of ['it should be noted', 'in order to', 'utilise', 'prior to', 'with respect to']) {
+    for (const tic of ['it should be noted', 'in order to', 'utilize', 'prior to', 'with respect to']) {
       expect(P, `should name "${tic}"`).toContain(tic)
     }
   })
 
-  // Plain language is a style instruction, not a licence to weaken a claim.
+  // Plain language is a style instruction, not a license to weaken a claim.
   // "may indicate" -> "shows" would be a boundary breach dressed as clarity.
   it('forbids simplifying away a boundary or dropping a measurement', () => {
     expect(P).toMatch(/Do not simplify away a boundary/)
@@ -182,7 +182,7 @@ describe('narrative prompt — length contract', () => {
   it('asks recommendations to carry their purpose', () => {
     expect(P).toMatch(/what finding it would establish or rule out/)
     expect(P).toMatch(/A one-line instruction with no stated purpose is not actionable/)
-    expect(P).toMatch(/not licence to write a method/)
+    expect(P).toMatch(/not license to write a method/)
   })
 
   // Two sections, no more. Extra length must not become extra headings —

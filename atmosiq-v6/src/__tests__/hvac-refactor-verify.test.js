@@ -1,5 +1,5 @@
 /**
- * The sufficiency denominators, and the engine behaviour that rests on
+ * The sufficiency denominators, and the engine behavior that rests on
  * them.
  *
  * Written as `maxAwardable` assertions — `round(sufficiency * maxPoints)`

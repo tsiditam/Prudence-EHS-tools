@@ -125,7 +125,7 @@ describe('the vocabulary comes from the schema', () => {
 })
 
 describe('validation', () => {
-  it('normalises a loose value to the schema\'s exact string', () => {
+  it('normalizes a loose value to the schema\'s exact string', () => {
     const r: any = validateObservation('mi', 'extensive (> 100 SQ FT)')
     expect(r.ok).toBe(true)
     expect(r.value).toBe('Extensive (> 100 sq ft)')

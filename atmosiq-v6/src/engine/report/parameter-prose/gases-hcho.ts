@@ -30,6 +30,6 @@ export const HCHO_PROSE: ParameterProse = {
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`
       : ''
-    return `${head} Concentrations are above typical indoor background. Direct-reading instruments lose specificity in this range; confirm with NIOSH Method 2016 (DNPH cartridge) sampling to characterise the source.${zones}`
+    return `${head} Concentrations are above typical indoor background. Direct-reading instruments lose specificity in this range; confirm with NIOSH Method 2016 (DNPH cartridge) sampling to characterize the source.${zones}`
   },
 }

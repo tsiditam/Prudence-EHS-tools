@@ -100,7 +100,7 @@ describe('InstrumentLogImport', () => {
 
     await waitFor(() => {
       const panel = screen.getByTestId('instrument-log-import')
-      expect(panel.textContent).toMatch(/No recognised IAQ parameter columns|Could not parse the file|recognised parameter column/i)
+      expect(panel.textContent).toMatch(/No recognized IAQ parameter columns|Could not parse the file|recognized parameter column/i)
     })
     expect(screen.queryByText(/Apply mean values/)).toBeNull()
   })

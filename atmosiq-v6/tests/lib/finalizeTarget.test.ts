@@ -54,7 +54,7 @@ describe('resolveFinalizeTarget', () => {
 
   it('reproduces the duplicate when the pointer is NOT advanced (documents the bug)', () => {
     const reportIds = ['rpt-A']
-    // Pointer still at the retired draft id — the pre-fix behaviour.
+    // Pointer still at the retired draft id — the pre-fix behavior.
     const again = resolveFinalizeTarget({ currentId: 'draft-123', reportIds, newId: 'rpt-B' })
     expect(again.reuse).toBe(false)
     expect(again.rid).toBe('rpt-B') // this is the duplicate the fix prevents

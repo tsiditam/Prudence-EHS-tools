@@ -14,7 +14,7 @@
  * the cost of a 1.5 MB (445 KB gzip) first load on field phones.
  *
  * The safety net that makes lazy loading safe again lives in two places:
- *   1. main.jsx — a global `unhandledrejection` listener that recognises
+ *   1. main.jsx — a global `unhandledrejection` listener that recognizes
  *      the chunk-load error signature, evicts the service-worker caches
  *      and offers a reload (that handler predates this module and is
  *      what makes any dynamic import() recoverable);

@@ -25,7 +25,7 @@ const TIER = {
   causal_pathway: 4, standard_reference: 4, recommendation: 4, missing_data: 4, review_flag: 4,
 }
 
-// Node colour by type. CSS vars flip with theme; the two literals are brand
+// Node color by type. CSS vars flip with theme; the two literals are brand
 // accents with no themable equivalent (flagged for the reviewer).
 const NODE_TONE = {
   assessment: 'var(--text)', building: 'var(--sub)', zone: 'var(--accent)',
@@ -109,16 +109,16 @@ export default function KnowledgeGraphView({ zones, zoneScores, causalChains, re
     )
   }
 
-  // Neighbour set for focus highlighting.
-  const neighbours = new Set()
+  // Neighbor set for focus highlighting.
+  const neighbors = new Set()
   if (focus) {
-    neighbours.add(focus)
+    neighbors.add(focus)
     for (const e of edges) {
-      if (e.source_entity_key === focus) neighbours.add(e.target_entity_key)
-      if (e.target_entity_key === focus) neighbours.add(e.source_entity_key)
+      if (e.source_entity_key === focus) neighbors.add(e.target_entity_key)
+      if (e.target_entity_key === focus) neighbors.add(e.source_entity_key)
     }
   }
-  const nodeDim = (k) => (focus && !neighbours.has(k) ? 0.2 : 1)
+  const nodeDim = (k) => (focus && !neighbors.has(k) ? 0.2 : 1)
   const edgeOn = (e) => !focus || e.source_entity_key === focus || e.target_entity_key === focus
 
   const usedTypes = [...new Set(nodes.map((n) => n.node_type))]

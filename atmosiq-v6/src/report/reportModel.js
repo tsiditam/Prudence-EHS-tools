@@ -286,7 +286,7 @@ function zoneObservations(z = {}) {
   }
   if (has(z.mi)) out.push(`Mold indicators: ${String(z.mi).toLowerCase()}.`)
   if (has(z.op)) {
-    out.push(`Odour: ${String(z.op).toLowerCase()}${hasList(z.ot) ? ` — ${listOf(z.ot).toLowerCase()}` : ''}.`)
+    out.push(`Odor: ${String(z.op).toLowerCase()}${hasList(z.ot) ? ` — ${listOf(z.ot).toLowerCase()}` : ''}.`)
   }
   if (hasList(z.src_internal)) out.push(`Potential sources within the zone: ${listOf(z.src_internal).toLowerCase()}.`)
   if (hasList(z.src_adjacent)) out.push(`Adjacent to: ${listOf(z.src_adjacent).toLowerCase()}.`)
@@ -913,7 +913,7 @@ const REF_BASIS = {
  *     illustrates report structure, and it has no profile, no status and
  *     no reviewer. It stays a mode and is handled first, unchanged.
  *
- *   • The legacy `mode: 'final'` opt is still honoured. Callers that
+ *   • The legacy `mode: 'final'` opt is still honored. Callers that
  *     predate the lifecycle pass it, and silently demoting their report
  *     to a draft would be a visible regression in shipped code paths
  *     (api/report-pdf.js, src/utils/downloadReportPdf.js).
@@ -1191,7 +1191,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const pItems = []
   // Photos are keyed `z{zoneIndex}-{fieldId}`. The caption used to be that key
   // run through a title-caser, which stripped the zone prefix and rendered a
-  // zone-3 mould photo as literally "Mi" — a field code, in a client report.
+  // zone-3 mold photo as literally "Mi" — a field code, in a client report.
   // `photoCaption` resolves the label from FIELD_REGISTRY, and thus from the
   // question the assessor actually answered, and names the zone.
   //

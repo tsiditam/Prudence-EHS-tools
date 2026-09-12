@@ -1,5 +1,5 @@
 /**
- * Shared incident constants. The severity→colour map was defined
+ * Shared incident constants. The severity→color map was defined
  * identically in IncidentLog.jsx and IncidentDetail.jsx. Values are
  * theme CSS variables so they flip with light/dark mode.
  */

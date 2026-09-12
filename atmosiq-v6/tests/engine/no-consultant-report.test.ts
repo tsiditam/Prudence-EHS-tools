@@ -15,7 +15,7 @@
  *     `getConsultantDocxBlob`; a silent revert there would mail a client
  *     a document that no longer exists in the picker.
  *   • Editorial suppressions are gone end to end. Only the consultant
- *     renderer honoured them, so leaving the panel would have shipped an
+ *     renderer honored them, so leaving the panel would have shipped an
  *     approval flow that changed no output — the exact "a layer deciding
  *     something independently" defect this codebase fights.
  *

@@ -9,7 +9,7 @@
  * change to `finalizeTarget.js`: record ids are load-bearing across six
  * call sites in `supabaseStorage.js` that split drafts from reports on the
  * id/status shape, and the duplicate-reports bug already lives in that
- * neighbourhood. The uid rides ALONGSIDE the record id. Nothing else moves.
+ * neighborhood. The uid rides ALONGSIDE the record id. Nothing else moves.
  *
  * ── Why anything needs this ───────────────────────────────────────────────
  * Per-report pricing sells one assessment, once, with unlimited regenerations

@@ -134,7 +134,7 @@ describe('what the review must carry with it', () => {
     expect(r.reviewed_chars).toBe(`0-${REVIEW_WINDOW_CHARS} of ${REVIEW_WINDOW_CHARS * 2}`)
     expect(r.more_remains).toBe(true)
     expect(r.next_offset).toBe(REVIEW_WINDOW_CHARS)
-    expect(r.instruction).toMatch(/Do not characterise the report as a whole from one window/)
+    expect(r.instruction).toMatch(/Do not characterize the report as a whole from one window/)
   })
 
   it('carries the pages that were never extracted', async () => {

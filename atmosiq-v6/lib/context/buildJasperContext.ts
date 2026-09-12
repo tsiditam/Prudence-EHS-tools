@@ -125,7 +125,7 @@ export function buildJasperContext(state: JasperContextInput): JasperContext {
     //
     // `supported_by` is `findingsInCat` — every finding in the same
     // category, which is a category join the context already carries, not
-    // evidence linkage. The remainder was a third serialisation of the
+    // evidence linkage. The remainder was a third serialization of the
     // findings (they are already under engine_outputs and walkthrough_findings).
     //
     // Its five grounding rules were the real loss and did not go with it:

@@ -2,7 +2,7 @@
  * Mold module feature flag — staged-rollout resolution + kill switch.
  *
  * The mold module ships dark (MOLD_KILL_SWITCH === true), so isMoldModuleEnabled
- * is OFF everywhere today. These tests pin (1) that master-off behaviour, (2)
+ * is OFF everywhere today. These tests pin (1) that master-off behavior, (2)
  * the pure resolveMoldFlag contract it will use once the switch lifts — proving
  * it reuses the SAME shared resolver as the KG flag with its own keys — and (3)
  * that the mold and KG flags are independent (one cohort never enables the

@@ -3,12 +3,12 @@
  *
  * A red-bordered banner renders immediately BEFORE any AI-generated
  * narrative in the Executive Summary, and nothing renders when the prose
- * is deterministic output from scoring. Both behaviours are asserted so
+ * is deterministic output from scoring. Both behaviors are asserted so
  * the disclosure cannot silently regress.
  *
  * ── Why this survived the report-lifecycle refactor ────────────────────
  *
- * "IH Review Required" used to do two unrelated jobs: it labelled AI
+ * "IH Review Required" used to do two unrelated jobs: it labeled AI
  * prose (this banner) and it stamped every report as unfinished (the old
  * draft chrome). The lifecycle work removed the second — a screening
  * assessment is a finished document and now says so — and it would have

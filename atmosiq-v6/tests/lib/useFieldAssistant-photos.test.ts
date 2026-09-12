@@ -78,7 +78,7 @@ describe('useFieldAssistant — photo attach', () => {
     expect(result.current.error).toMatch(/JPEG|PNG|WebP/i)
   })
 
-  // Behaviour change: an oversized photo used to be rejected outright
+  // Behavior change: an oversized photo used to be rejected outright
   // with "resize and retry", which on a phone in the field is not an
   // instruction anyone can follow. It is now HELD and the user is asked,
   // because resizing rewrites an evidence photo and that is their call.

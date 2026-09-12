@@ -56,7 +56,7 @@ describe('FieldAssistant — L4 photo attach UI', () => {
     expect(fileInput.accept).toContain('image/jpeg')
     expect(fileInput.accept).toContain('image/png')
     expect(fileInput.accept).toContain('image/webp')
-    // ...plus HEIC, so an iPhone pick from Files is not greyed out.
+    // ...plus HEIC, so an iPhone pick from Files is not grayed out.
     expect(fileInput.accept).toContain('image/heic')
     // ...and the data files parsed in the browser.
     expect(fileInput.accept).toContain('.csv')

@@ -78,7 +78,7 @@ export const WATER_CATEGORIES = {
   },
   2: {
     id: 2,
-    label: 'Category 2 — Significantly contaminated ("grey water")',
+    label: 'Category 2 — Significantly contaminated ("gray water")',
     definition:
       'Contains significant contamination and has the potential to cause ' +
       'discomfort or sickness if contacted or consumed (e.g. discharge from ' +
@@ -146,7 +146,7 @@ export const REMEDIATION_CONDITIONS = {
 export const MOISTURE_INDICATORS = {
   // Wood / wood-based materials. 16% MC is the IICRC S500 dry-standard
   // screening line — the ONE wood figure in this codebase (sampling.js reads
-  // it from here; it used to carry its own 19%). 19% is the fibre-saturation
+  // it from here; it used to carry its own 19%). 19% is the fiber-saturation
   // / decay rule of thumb, a different question from "can growth be
   // supported", and is deliberately not the screening line.
   wood: {

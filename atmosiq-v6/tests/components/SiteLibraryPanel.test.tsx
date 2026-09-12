@@ -7,7 +7,7 @@
  * re-assessment cron emails against it. This panel is the only place a
  * user can rename, pause or delete one. It was built, tested and then left
  * unmounted, so the app could create sites and email about them with no
- * management surface at all — these tests pin both the panel's behaviour
+ * management surface at all — these tests pin both the panel's behavior
  * and the fact that Settings actually renders it.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'

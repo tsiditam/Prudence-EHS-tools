@@ -1,13 +1,13 @@
 /**
- * withSentry — the one place server-side Sentry is initialised for the
- * TypeScript Vercel functions, and the last line of defence for a handler
+ * withSentry — the one place server-side Sentry is initialized for the
+ * TypeScript Vercel functions, and the last line of defense for a handler
  * that throws.
  *
  * Audit 2026-09 §2.10: initSentryServer() was called only from
  * server/index.js (the container path, which cannot boot), so no Vercel
- * function ever initialised Sentry and captureException had zero callers —
+ * function ever initialized Sentry and captureException had zero callers —
  * a week of 500s produced no alert. Every handler's default export is now
- * wrapped here, so the first request to a cold instance initialises Sentry
+ * wrapped here, so the first request to a cold instance initializes Sentry
  * (guarded by a module flag; lib/sentry.ts guards again internally) and an
  * uncaught throw is captured before a stable 500 goes back to the client.
  *

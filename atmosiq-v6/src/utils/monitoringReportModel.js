@@ -109,7 +109,7 @@ export function statusFor(stats, reference, opts = {}) {
   }
 
   // TONE is a four-step visual scale; the LABEL stays the locked three-term
-  // vocabulary. A reader takes the colour in before the words, so the extra
+  // vocabulary. A reader takes the color in before the words, so the extra
   // gradation is worth having — but the words are what the report is held to,
   // and "Elevated" or "Investigation Recommended" would be an interpretation
   // of what a measurement means rather than a statement of where it sat.
@@ -403,7 +403,7 @@ export function figureCaption(entry, opts = {}) {
   if (ref && ref.band) {
     parts.push(`Shaded band = ${referenceValueLabel(ref)} comfort range.`)
     // The amber legend is earned only when some reading actually fell outside
-    // the band — otherwise it describes a colour the figure never draws.
+    // the band — otherwise it describes a color the figure never draws.
     if (isNum(st.pctInBand) && st.pctInBand < 100) parts.push('Amber trace = readings outside the band.')
   } else if (ref && isNum(ref.limit)) {
     parts.push(`Dashed line = ${referenceValueLabel(ref)} reference.`)
@@ -711,7 +711,7 @@ export function buildMonitoringReportModel(session, opts = {}) {
     // Presented as metric tiles in the same visual language as the parameter
     // KPI strips (label above, figure below): counts and coverage as the big
     // editorial figure, the compound duration/cadence values a step smaller
-    // (`compact`), and a gap flagged in the warn colour (`emphasis`) — so the
+    // (`compact`), and a gap flagged in the warn color (`emphasis`) — so the
     // page reads as continuous with the parameter cards and shows the report is
     // checking the dataset, not merely plotting it.
     dataQuality: cov

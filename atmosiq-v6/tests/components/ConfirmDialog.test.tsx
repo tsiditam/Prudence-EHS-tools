@@ -4,7 +4,7 @@
  * window.confirm (audit 2026-09 §6 Accessibility).
  *
  * Pins:
- *   • role="alertdialog" + aria-modal, labelled by the title
+ *   • role="alertdialog" + aria-modal, labeled by the title
  *   • focus moves into the dialog on open and returns to the opener on close
  *   • Tab / Shift+Tab cycle inside the dialog (focus trap)
  *   • Escape resolves false; the confirm button resolves true
@@ -33,7 +33,7 @@ function Harness({ destructive = false }: { destructive?: boolean }) {
 }
 
 describe('ConfirmDialog', () => {
-  it('renders an alertdialog labelled by its title and described by its message', () => {
+  it('renders an alertdialog labeled by its title and described by its message', () => {
     render(<ConfirmDialog title="Overwrite?" message="Existing values will be replaced." confirmLabel="Overwrite" onConfirm={() => {}} onCancel={() => {}} />)
     const dialog = screen.getByRole('alertdialog', { name: 'Overwrite?' })
     expect(dialog.getAttribute('aria-modal')).toBe('true')

@@ -367,7 +367,7 @@ function buildSystemBlocks(
           .map((p) => `  - id: "${p.id}"${p.label ? `  (label: "${p.label}")` : ''}`)
           .join('\n')}`
       : '\n\nNo photos are attached to this conversation. analyze_photo will return no_photos_attached if called.'
-  // Files are summarised, not stored: the digest is inlined into this
+  // Files are summarized, not stored: the digest is inlined into this
   // turn's user message, so it is readable now but is NOT retrievable on
   // a later turn. Saying so keeps the model from offering to "look again"
   // at something it can no longer see.
@@ -1447,7 +1447,7 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
   const finalText = finalizeJasperAnswer(safety.finalText, { truncated })
   // The raw text streamed as it was generated, so anything added here has
   // to be pushed to the already-rendered bubble. Compare against the
-  // trailing-trimmed original: finalize normalises trailing whitespace,
+  // trailing-trimmed original: finalize normalizes trailing whitespace,
   // and a stray newline is not a reason to redraw every answer.
   if (finalText !== safety.finalText.replace(/\s+$/, '')) writeSse(res, 'replace', { text: finalText })
   if (truncated) console.warn('[field-assistant] answer truncated at max_tokens:', MAX_OUTPUT_TOKENS)

@@ -1,7 +1,7 @@
 /**
  * api/_with-sentry.ts + api/_with-sentry-cjs.js — the wrapper every handler's
  * default export goes through (audit 2026-09 §2.10: server-side Sentry was
- * never initialised on Vercel and captureException had zero callers).
+ * never initialized on Vercel and captureException had zero callers).
  *
  *   • init runs once per module (guarded), and is a no-op without a DSN
  *   • a throwing handler becomes a 500 with a stable code — never the
@@ -37,7 +37,7 @@ for (const [label, wrap, hooks] of [
   ['CommonJS wrapper', cjs.withSentry, cjs.__test],
 ] as const) {
   describe(label, () => {
-    it('passes a clean handler through and initialises exactly once', async () => {
+    it('passes a clean handler through and initializes exactly once', async () => {
       const inner = vi.fn(async (_req: unknown, res: any) => res.status(200).json({ ok: true }))
       const wrapped = wrap(inner, { route: 'x' })
       const r1 = makeRes()

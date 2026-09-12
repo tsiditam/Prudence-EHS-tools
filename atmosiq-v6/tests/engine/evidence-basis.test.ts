@@ -4,7 +4,7 @@
  * Every instrument-read condition used to be hardcoded to
  * `screening_continuous`, with the rationale "Direct-reading measurement
  * collected during walkthrough" — a sentence describing a grab reading
- * while labelling it continuous. `pm_above_naaqs_documented` carried the
+ * while labeling it continuous. `pm_above_naaqs_documented` carried the
  * mislabel into client-facing prose: "supported by continuous monitoring".
  *
  * The zone record has always known the answer. `meas_duration` is a
@@ -56,7 +56,7 @@ const MEASURED: Zone = {
 const instrumentFindings = (f: Finding[]) =>
   f.filter((x) => /^(pm_|co2|co_|hcho_|tvoc_|temperature_|humidity_|ventilation_)/.test(x.conditionType))
 
-describe('a walkthrough grab reading is labelled a grab reading', () => {
+describe('a walkthrough grab reading is labeled a grab reading', () => {
   it('every instrument finding is screening_grab when nothing was logged', () => {
     const instrument = instrumentFindings(findings(MEASURED))
     expect(instrument.length).toBeGreaterThan(2)

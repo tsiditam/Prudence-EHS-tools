@@ -5,7 +5,7 @@
  * webhook.js and delete-account.js each constructed `stripe(key)` with no
  * version (so they floated with the account default) while
  * customer-portal.ts pinned '2024-11-20.acacia' — four clients, two
- * behaviours, and a Stripe dashboard version bump would have changed the
+ * behaviors, and a Stripe dashboard version bump would have changed the
  * shape of webhook payloads for three of them without warning.
  *
  * CommonJS so the .js handlers can require() it and the .ts handlers can

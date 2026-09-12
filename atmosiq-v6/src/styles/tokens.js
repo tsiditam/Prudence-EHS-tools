@@ -133,7 +133,7 @@ export const SEVERITY = {
   info:     '#94A3B8',
 }
 
-// `{ c, bg, l }` tone for a severity — colour, an ~9% tinted background
+// `{ c, bg, l }` tone for a severity — color, an ~9% tinted background
 // and the pill label. This is what MobileApp's `sv()` returns; it lives
 // here so LabResultsImport / InstrumentLogImport read the same table
 // instead of carrying their own hex copies.
@@ -198,7 +198,7 @@ export const T = {
 // (SF Mono / Cascadia / Roboto Mono) was reading as "default code
 // editor font" on a premium product; tabular Inter keeps the
 // instrument-readout alignment without the developer-tool aesthetic.
-// `cv11` keeps Inter's single-storey 'a' the rest of the system uses.
+// `cv11` keeps Inter's single-story 'a' the rest of the system uses.
 // `display` is for dominant hero numerals (~38 px), `xl` for stat
 // strip (Zone Average / Lowest Zone), `lg` for the Key Indicator
 // score, `md` / `sm` for inline values and timestamps.

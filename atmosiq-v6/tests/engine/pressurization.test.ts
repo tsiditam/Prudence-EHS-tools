@@ -273,7 +273,7 @@ describe('qualitative observation only', () => {
     expect(limitationSentence(a)).toMatch(/test-and-balance/i)
   })
 
-  it('carries the corroborating door behaviour without upgrading confidence', () => {
+  it('carries the corroborating door behavior without upgrading confidence', () => {
     expect(observationSentence(a)).toMatch(/pull shut hard/i)
     expect(a.confidence).toBe(PRESSURIZATION_CONFIDENCE.SUGGESTED_NOT_MEASURED)
   })
@@ -535,7 +535,7 @@ describe('narrative output', () => {
     }
   })
 
-  it('is labelled for IH review in every state', () => {
+  it('is labeled for IH review in every state', () => {
     for (const [, bldg, presurvey] of cases) {
       const a: any = evaluatePressurization({ bldg, zones: [EXPLAINABLE_ZONE], presurvey })
       const narrative: any = buildPressurizationNarrative(a, [], null)

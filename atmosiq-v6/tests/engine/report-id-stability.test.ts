@@ -63,7 +63,7 @@ describe('a report exported twice keeps one identity', () => {
 
   it('the fallback is what USED to make the same report unstable', () => {
     // Demonstrates the defect rather than describing it: with no id, two
-    // renders of identical data can disagree. This is the behaviour that
+    // renders of identical data can disagree. This is the behavior that
     // reached clients, and the reason `id` is now threaded through.
     const a = idOf(base)
     const b = idOf({ ...base })
@@ -75,7 +75,7 @@ describe('a report exported twice keeps one identity', () => {
 
 describe('every export site actually passes the id', () => {
   // The assertions above exercise the RENDERER, and the renderer was never
-  // the bug — it has always honoured `data.id`. The defect was that no caller
+  // the bug — it has always honored `data.id`. The defect was that no caller
   // supplied one, which no unit test of `buildReportModel` can detect.
   //
   // MobileApp.jsx is ~5000 lines with three near-identical `reportData`

@@ -46,7 +46,7 @@ describe('BottomSheet focus trap', () => {
     // From the panel itself Tab goes to the first control.
     await act(async () => { fireEvent.keyDown(document.activeElement as Element, { key: 'Tab' }) })
     // (The browser moves focus for a normal Tab; jsdom does not, so
-    // simulate the browser's step then the wrap behaviour.)
+    // simulate the browser's step then the wrap behavior.)
     last.focus()
     await act(async () => { fireEvent.keyDown(last, { key: 'Tab' }) })
     expect(document.activeElement).toBe(first)

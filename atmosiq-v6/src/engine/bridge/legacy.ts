@@ -417,7 +417,7 @@ function deriveTitle(f: LegacyFinding, conditionType: string): string {
  * Every instrument-read condition used to be hardcoded to
  * `screening_continuous` with the rationale "Direct-reading measurement
  * collected during walkthrough" — a sentence that describes a grab
- * reading while labelling it continuous. `pm_above_naaqs_documented`
+ * reading while labeling it continuous. `pm_above_naaqs_documented`
  * carried it further and told the reader the finding was "supported by
  * continuous monitoring" when a single spot check was all anyone took.
  *

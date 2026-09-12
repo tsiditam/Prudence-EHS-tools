@@ -29,7 +29,7 @@ describe('resolveDraftResumeView', () => {
     expect(resolveDraftResumeView({ bldg: { fn: 'One Liberty Plaza' }, zones: [{ zn: '3rd Floor Conf Room B' }] })).toBe('zone')
   })
 
-  it('honours the legacy `building` key some stored drafts carry instead of `bldg`', () => {
+  it('honors the legacy `building` key some stored drafts carry instead of `bldg`', () => {
     expect(resolveDraftResumeView({ building: { fn: 'Legacy Draft' }, zones: [{}] })).toBe('equipment')
     expect(resolveDraftResumeView({ building: { fn: 'Legacy Draft' }, zones: [{ zn: 'Room 1' }] })).toBe('zone')
     expect(resolveDraftResumeView({ zones: [{ zn: 'Room 1' }] })).toBe('quickstart')

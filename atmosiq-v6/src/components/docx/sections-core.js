@@ -37,7 +37,7 @@ const numbered = (text, idx) => new Paragraph({
  * statement about provenance, not about whether the report is finished.
  *
  * That distinction is why it survived the report-lifecycle refactor. The
- * phrase "IH Review Required" used to do two unrelated jobs: it labelled
+ * phrase "IH Review Required" used to do two unrelated jobs: it labeled
  * AI prose (here) and it stamped every report as unfinished (the old
  * draft chrome). The second job is gone — a screening assessment is a
  * finished document and now says so. The first is not: a client-facing

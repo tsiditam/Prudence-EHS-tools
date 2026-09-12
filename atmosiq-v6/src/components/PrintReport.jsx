@@ -144,7 +144,7 @@ export function generateLegacyPrintHTML(data) {
   const sevColor = (sev) => ({ critical:'#B91C1C', high:'#C2410C', medium:'#A16207', low:'#1B2A41', pass:'#15803D', info:'#475569' }[sev] || '#475569')
   // `scoreColor` and `riskLabel` lived here — local re-implementations of
   // the band ladder with thresholds (70/50 and 80/60/40) that matched
-  // neither each other nor riskBands.js. Colour now comes from a
+  // neither each other nor riskBands.js. Color now comes from a
   // finding's own severity, which has one definition.
   const SEV_HEX = { critical: '#B91C1C', high: '#B91C1C', medium: '#A16207', low: '#64748B' }
   const SEV_ORDER = { low: 0, medium: 1, high: 2, critical: 3 }
@@ -913,7 +913,7 @@ export function generateLegacyPrintHTML(data) {
   })()}
 
   ${/* Sampling locations — only when something was placed on the plan.
-        This was a "Spatial Findings Summary" whose pins were coloured by the
+        This was a "Spatial Findings Summary" whose pins were colored by the
         worst finding severity in each zone and numbered by finding count, with
         severity and primary-concern columns beneath. A site drawing documents
         WHERE readings were taken; the interpretation belongs to the findings

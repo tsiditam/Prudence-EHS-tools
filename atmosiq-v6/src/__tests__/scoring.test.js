@@ -1,5 +1,5 @@
 /**
- * The assessment engine's core behaviour.
+ * The assessment engine's core behavior.
  *
  * The `compositeScore` describe block went with the 100-point score, and
  * every `.tot` / `.risk` / `cat.s` assertion elsewhere in this file went
