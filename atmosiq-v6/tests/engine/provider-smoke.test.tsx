@@ -18,7 +18,7 @@ const ASSESSMENT_KEYS = [
   'draftId', 'setDraftId', 'presurvey', 'setPresurvey', 'bldg', 'setBldg',
   'qsqi', 'setQsqi', 'dqi', 'setDqi', 'zqi', 'setZqi',
   'zones', 'setZones', 'curZone', 'setCurZone',
-  'photos', 'setPhotos', 'floorPlan', 'setFloorPlan',
+  'photos', 'setPhotos', 'floorPlans', 'setFloorPlans',
   'zoneScores', 'setZoneScores', 'comp', 'setComp',
   'oshaResult', 'setOshaResult', 'recs', 'setRecs',
   'narrative', 'setNarrative', 'narrativeLoading', 'setNarrativeLoading',

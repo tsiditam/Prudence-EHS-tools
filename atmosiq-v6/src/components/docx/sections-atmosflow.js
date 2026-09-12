@@ -525,18 +525,21 @@ export function atmosFlowReportChildren(model) {
     ;(M.scope.paras || [M.scope.text]).filter(Boolean).forEach((para) => c.push(body(para)))
   }
 
-  // The client's floor plan, with the sampling locations marked, as site
-  // background. The figure is fitted by the model from the image's own
-  // pixel size (a plan is whatever shape the client uploaded); the table
-  // beneath resolves the pin numbers and names the parameters recorded at
-  // each location, and carries the recorded position when the pins could
-  // not be drawn onto the image. The markers carry no severity — see
-  // utils/samplePoints.js.
-  if (M.floorPlan && isImageDataUrl(M.floorPlan.imageDataUrl)) {
-    const fp = M.floorPlan
-    const img = imageParagraph(fp.imageDataUrl, fp.figure.width, fp.figure.height)
-    if (img) {
-      c.push(h2(fp.heading || 'Site plan and sampling locations'))
+  // The client's floor plans, with the sampling locations marked, as site
+  // background — one figure per plan, in the assessor's order. Each figure
+  // is fitted by the model from the image's own pixel size (a plan is
+  // whatever shape the client uploaded); the table beneath resolves that
+  // plan's pin numbers and names the parameters recorded at each location,
+  // and carries the recorded position when the pins could not be drawn
+  // onto the image. Numbers run across the site, so a table may start at
+  // pin 3. The markers carry no severity — see utils/samplePoints.js.
+  if (M.floorPlans && Array.isArray(M.floorPlans.figures)) {
+    const figs = M.floorPlans.figures.filter((f) => f && isImageDataUrl(f.imageDataUrl))
+    let headed = false
+    for (const fp of figs) {
+      const img = imageParagraph(fp.imageDataUrl, fp.figure.width, fp.figure.height)
+      if (!img) continue
+      if (!headed) { c.push(h2(M.floorPlans.heading || 'Site plan and sampling locations')); headed = true }
       c.push(img)
       if (fp.caption) c.push(caption(fp.caption))
       const pins = Array.isArray(fp.pins) ? fp.pins : []
@@ -555,9 +558,9 @@ export function atmosFlowReportChildren(model) {
             { align: [CEN, null, null, null, null] },
           ),
         )
-        if (fp.note) c.push(caption(fp.note))
       }
     }
+    if (headed && M.floorPlans.note) c.push(caption(M.floorPlans.note))
   }
 
   // ═══ 2. Investigation Methods & QA/QC ═══

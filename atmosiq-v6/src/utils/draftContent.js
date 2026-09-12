@@ -30,12 +30,13 @@ const filled = (v) => {
 /**
  * True once the assessor has entered something worth keeping.
  *
- * @param {object} d  { bldg, zones, equipment, photos, sensorData, floorPlan }
+ * @param {object} d  { bldg, zones, equipment, photos, sensorData, floorPlans }
+ *                    (`floorPlan`, the legacy single plan, still counts)
  */
 export function hasDraftContent(d) {
   if (!d) return false
   if (filled(d.bldg && d.bldg.fn)) return true
-  if (filled(d.equipment) || filled(d.floorPlan) || filled(d.sensorData)) return true
+  if (filled(d.equipment) || filled(d.floorPlans) || filled(d.floorPlan) || filled(d.sensorData)) return true
   // Photos arrive keyed by zone slot; an empty bucket is not content.
   if (d.photos && Object.values(d.photos).some(filled)) return true
   // A zone row is seeded as `{}`. Any value in any zone counts, including

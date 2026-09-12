@@ -63,6 +63,7 @@ import BottomSheet from './ui/BottomSheet'
 import LaunchFrame, { LazyPlaceholder } from './LaunchFrame'
 import PhotoCapture, { PhotoThumb } from './PhotoCapture'
 import { expandPhotos, rekeyPhotos } from '../utils/photoCompaction'
+import { normalizeFloorPlans, expandFloorPlans, compactFloorPlans, rekeyFloorPlans, storeFloorPlanImage, clearPinsOnPlan, newPlanId } from '../utils/floorPlans'
 import { reportStorageWrite } from './ui/storageToast'
 import { useViewHistory, readInitialNav } from '../hooks/useViewHistory'
 import { useNavStack } from '../hooks/useNavStack'
@@ -726,7 +727,7 @@ export default function MobileApp() {
     samplingPlan, setSamplingPlan,
     causalChains, setCausalChains,
     moldResults, setMoldResults,
-    floorPlan, setFloorPlan,
+    floorPlans, setFloorPlans,
     measConf, setMeasConf,
     equipment, setEquipment,
   } = useAssessment()
@@ -1192,7 +1193,7 @@ export default function MobileApp() {
         setDraftId(draftIdNew)
         setCurrentSiteId(site.id)
         setZones([{}]); setCurZone(0); setQsqi(0); setDqi(0); setZqi(0)
-        setPhotos({}); setPhotoOverrides({}); setSensorData(null); setFloorPlan(null)
+        setPhotos({}); setPhotoOverrides({}); setSensorData(null); setFloorPlans([])
         setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
         setNarrative(null); setSamplingPlan(null); setCausalChains([])
         trackEvent('site_link_hydrated', { site_id: site.id, prior_report: !!prior })
@@ -1268,7 +1269,7 @@ export default function MobileApp() {
   // sheets below). The chooser is deliberately not shown when there is
   // nothing to choose — an empty list is not a question.
   const [attachSheet, setAttachSheet] = useState(false)
-  const draftOpen = !!draftId && hasDraftContent({ bldg, zones, equipment, photos, sensorData, floorPlan })
+  const draftOpen = !!draftId && hasDraftContent({ bldg, zones, equipment, photos, sensorData, floorPlans })
   const openTool = (id) => {
     if (id === 'sensor-data' && !draftOpen && (index.drafts || []).length > 0) { setAttachSheet(true); return }
     nav.navigate(id)
@@ -1327,7 +1328,7 @@ export default function MobileApp() {
     // after "New Assessment" with `bldg` still `{}`, so backing out left an
     // "Untitled" draft row forever — and nothing ever pruned one. See
     // utils/draftContent.js for why `presurvey` is not part of the test.
-    if (!hasDraftContent({ bldg, zones, equipment, photos, sensorData, floorPlan })) return
+    if (!hasDraftContent({ bldg, zones, equipment, photos, sensorData, floorPlans })) return
     if (saveRef.current) clearTimeout(saveRef.current)
     saveRef.current = setTimeout(async () => {
       // Merge over the existing stored body. When a finalized report is
@@ -1343,14 +1344,18 @@ export default function MobileApp() {
       // there is one. Record ids are not durable (finalize mints a new one),
       // so anything that has to outlive the draft→report transition keys on
       // this instead. See src/billing/assessmentUid.js.
-      const draft = { ...prev, id:draftId, assessmentUid: ensureAssessmentUid({ ...prev, id: draftId }), presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlan, sensorData, qsqi, dqi, curZone, zqi, site_id: currentSiteId || null, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      // Plan images live in IndexedDB; the record carries the refs. A plan
+      // still inline (IndexedDB unavailable) is saved inline, as before.
+      // The legacy single `floorPlan` is dropped once the list is written.
+      const draft = { ...prev, id:draftId, assessmentUid: ensureAssessmentUid({ ...prev, id: draftId }), presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlans: compactFloorPlans(floorPlans), sensorData, qsqi, dqi, curZone, zqi, site_id: currentSiteId || null, ua:new Date().toISOString(), standardsManifest:STANDARDS_MANIFEST }
+      delete draft.floorPlan
       reportStorageWrite(await STO.set(draftId, draft), 'draft')
       await STO.addDraftToIndex({ id:draftId, facility:bldg.fn||'Untitled', ua:draft.ua })
       await refreshIndex()
       trackEvent('draft_saved', { draft_id: draftId, phase: view, zones: (zones||[]).length })
     }, 1200)
     return () => { if (saveRef.current) clearTimeout(saveRef.current) }
-  }, [presurvey, bldg, zones, equipment, photos, photoOverrides, sensorData, qsqi, dqi, curZone, zqi, view, draftId, currentSiteId])
+  }, [presurvey, bldg, zones, equipment, photos, photoOverrides, floorPlans, sensorData, qsqi, dqi, curZone, zqi, view, draftId, currentSiteId])
 
   // Merge quick start data into both presurvey and bldg depending on field prefix
   const mergedData = useMemo(() => ({ ...presurvey, ...bldg }), [presurvey, bldg])
@@ -1651,7 +1656,7 @@ export default function MobileApp() {
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
     // A suspended finalize belongs to the assessment it was suspended on.
     setFinalizePending(false)
-    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlan(d.floorPlan||null); setSensorData(d.sensorData||null)
+    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlans(await expandFloorPlans(normalizeFloorPlans(d))); setSensorData(d.sensorData||null)
     setCurrentSiteId(d.site_id || null)  // PR 1: inherit site binding if the draft carries one
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
     // Resume at the right phase — see resolveDraftResumeView for why
@@ -1927,7 +1932,10 @@ export default function MobileApp() {
     // below purges that namespace, so copy them under the report id first.
     const { photos: reportPhotos } = await rekeyPhotos(photos, rid)
     if (reportPhotos !== photos) setPhotos(reportPhotos)
-    report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlan, sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
+    // The floor plans' images live in the same namespace; same move.
+    const reportPlans = await rekeyFloorPlans(floorPlans, rid)
+    if (reportPlans !== floorPlans) setFloorPlans(reportPlans)
+    report = { id:rid, assessmentUid, ts:new Date().toISOString(), ver:VER, presurvey, building:bldg, zones, equipment, photos: reportPhotos, floorPlans: compactFloorPlans(reportPlans), sensorData, zoneScores:zScores, comp:composite, oshaEvals:[osha], recs:recommendations, samplingPlan:sp, causalChains:cc, standardsManifest:STANDARDS_MANIFEST, site_id: currentSiteId || null, calibrationAcknowledgement }
     reportStorageWrite(await STO.set(rid, report), 'report')
     await STO.addReportToIndex({ id:rid, ts:report.ts, facility:bldg.fn, ...indexFindings(zScores) })
     await STO.removeFromIndex(rid, 'dft')
@@ -2103,22 +2111,22 @@ export default function MobileApp() {
   //    toggle never captured at all), so the included charts are re-rendered
   //    from their data points — a self-contained-SVG raster every export
   //    (DOCX, AtmosFlow PDF, Web) then embeds.
-  //  - the floor plan with the sampling locations drawn on it as numbered
-  //    pins. A Word document cannot overlay the spatial map's HTML pins, so
-  //    the plan and pins are composed into one image here; if that fails the
-  //    raw plan still renders, sized from its own header, with the recorded
-  //    positions listed beneath it.
+  //  - every floor plan with the sampling locations drawn on it as numbered
+  //    pins, one figure per plan. A Word document cannot overlay the spatial
+  //    map's HTML pins, so each plan and its pins are composed into one
+  //    image here; if that fails the raw plan still renders, sized from its
+  //    own header, with the recorded positions listed beneath it.
   const prepareReportFigures = async () => {
     const { ensureLoggerChartImages } = await loadLoggerChartImages()
     const sensorDataForReport = await ensureLoggerChartImages(reportSensorData())
-    let floorPlanForReport = floorPlan || null
-    if (floorPlan) {
+    let floorPlansForReport = floorPlans || []
+    if (floorPlansForReport.length) {
       try {
-        const { composeFloorPlanFigure } = await loadFloorPlanFigure()
-        floorPlanForReport = (await composeFloorPlanFigure(floorPlan, zones, { building: bldg })) || floorPlan
-      } catch { /* the raw plan is still embedded */ }
+        const { composeFloorPlanFigures } = await loadFloorPlanFigure()
+        floorPlansForReport = await composeFloorPlanFigures({ floorPlans }, zones, { building: bldg })
+      } catch { /* the raw plans are still embedded */ }
     }
-    return { sensorData: sensorDataForReport, floorPlan: floorPlanForReport }
+    return { sensorData: sensorDataForReport, floorPlans: floorPlansForReport }
   }
 
   const executeExport = async (format, filteredPhotos, docxType) => {
@@ -2138,7 +2146,7 @@ export default function MobileApp() {
     // src/report/reportModel.js. `viewRpt` is the opened finalized report;
     // `draftId` is the session pointer, which finalize advances to the new
     // report id, so this resolves to the same value on every re-export.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', findings: comp?.findings?.total, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -2227,7 +2235,7 @@ export default function MobileApp() {
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
       const { getAtmosFlowDocxBlob } = await loadDocxReport()
@@ -2282,7 +2290,7 @@ export default function MobileApp() {
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     const { getAtmosFlowDocxBlob } = await loadDocxReport()
     const built = await getAtmosFlowDocxBlob(reportData)
     // Size pre-check. The DOCX is uploaded to Storage and attached to the
@@ -2498,7 +2506,7 @@ export default function MobileApp() {
     setReportOpenError(null)
     trackEvent('report_viewed', { report_id: meta.id, facility: meta.facility || '', findings: meta.findings })
     setViewRpt(rpt); setPresurvey(rpt.presurvey||{}); setBldg(rpt.building||rpt.bldg||{}); setZones(rpt.zones||[]); setEquipment(rpt.equipment||[])
-    setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlan(rpt.floorPlan||null); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
+    setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlans(await expandFloorPlans(normalizeFloorPlans(rpt))); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
     setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setView('report')
@@ -3052,7 +3060,7 @@ export default function MobileApp() {
       try {
         return checkRenderModel(assembleRenderModel({
           id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp,
-          recs, causalChains, profile, photos, photoOverrides, sensorData: loggerSd, floorPlan, ts: viewRpt?.ts,
+          recs, causalChains, profile, photos, photoOverrides, sensorData: loggerSd, floorPlans, ts: viewRpt?.ts,
         }))
       } catch (e) {
         return [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
@@ -3333,20 +3341,40 @@ export default function MobileApp() {
         {rTab==='locations' && (() => {
           const writeZones = (z) => { setZones(z); if (archived) persistArchivedSitePlan({ zones: z }) }
           const writeBuilding = (b) => { setBldg(b); if (archived) persistArchivedSitePlan({ building: b }) }
+          // The record carries refs; the images are in IndexedDB under the
+          // assessment's namespace (utils/floorPlans). `floorPlan: null`
+          // retires the legacy single-plan field on a saved report.
+          const writePlans = (p) => { setFloorPlans(p); if (archived) persistArchivedSitePlan({ floorPlans: compactFloorPlans(p), floorPlan: null }) }
+          const planOwner = () => (viewRpt && viewRpt.id) || draftId || null
           return (
             <Suspense fallback={LAZY_FALLBACK}>
               <SpatialMap
                 embedded
                 zones={zones}
-                floorPlan={floorPlan}
+                plans={floorPlans}
                 building={bldg}
-                onUploadFloorPlan={(url)=>{ setFloorPlan(url); if (archived) persistArchivedSitePlan({ floorPlan: url }) }}
+                onAddPlan={async (url)=>{
+                  const id = newPlanId()
+                  const idbId = await storeFloorPlanImage(url, planOwner())
+                  writePlans([...floorPlans, { id, label: '', image: url, idbId }])
+                  return id
+                }}
+                onReplacePlan={async (id, url)=>{
+                  const idbId = await storeFloorPlanImage(url, planOwner())
+                  writePlans(floorPlans.map(p => p.id === id ? { ...p, image: url, idbId, _missingBlob: undefined } : p))
+                }}
+                onRenamePlan={(id, label)=>writePlans(floorPlans.map(p => p.id === id ? { ...p, label } : p))}
+                onRemovePlan={(id)=>{
+                  // ONE update per collection, not a loop of per-zone
+                  // updates: each of those derived its zones from the same
+                  // render's `zones`, so every clear but the last was lost.
+                  const cleared = clearPinsOnPlan(zones, bldg, id, floorPlans)
+                  writeZones(cleared.zones)
+                  writeBuilding(cleared.building)
+                  writePlans(floorPlans.filter(p => p.id !== id))
+                }}
                 onUpdateZone={(zi, update)=>{ const z=[...zones]; z[zi]={...z[zi],...update}; writeZones(z) }}
                 onUpdateBuilding={(update)=>writeBuilding({...bldg, ...update})}
-                onClearPins={()=>{
-                  writeZones(zones.map(z => (z && (z.mapX != null || z.mapY != null)) ? {...z, mapX:null, mapY:null} : z))
-                  writeBuilding({...bldg, outdoorMapX:null, outdoorMapY:null})
-                }}
               />
             </Suspense>
           )

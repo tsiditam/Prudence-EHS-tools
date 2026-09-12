@@ -27,6 +27,7 @@ import { worstZoneIndex } from '../utils/assessmentVerdict'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains } from '../engines/causalChains'
+import { normalizeFloorPlans, expandFloorPlans } from '../utils/floorPlans'
 
 const AssessmentDataContext = createContext(null)
 const AssessmentResultsContext = createContext(null)
@@ -43,7 +44,10 @@ export function AssessmentProvider({ children }) {
   // { [zoneName]: { reason } }. Lets a Critical/High photo blocker be
   // cleared with a documented justification instead of a photo.
   const [photoOverrides, setPhotoOverrides] = useState({})
-  const [floorPlan, setFloorPlan] = useState(null)
+  // The floor plans, as a list, images resolved (utils/floorPlans). A
+  // record from before 2026-09 carries one `floorPlan`; the loaders
+  // normalize it into this list, so nothing downstream sees the old shape.
+  const [floorPlans, setFloorPlans] = useState([])
   // HvacEquipment[] captured during the walkthrough. Drives
   // equipment-scoped recommendation grouping in genRecs (v2.8.0+).
   // Drafts that pre-date equipment capture load with [] and trigger
@@ -148,7 +152,7 @@ export function AssessmentProvider({ children }) {
   // ── Reset Assessment ──
   const resetAssessment = useCallback(() => {
     setDraftId(null); setPresurvey({}); setBldg({}); setZones([{}]); setEquipment([])
-    setCurZone(0); setPhotos({}); setPhotoOverrides({}); setFloorPlan(null)
+    setCurZone(0); setPhotos({}); setPhotoOverrides({}); setFloorPlans([])
     setQsqi(0); setDqi(0); setZqi(0)
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
     setNarrative(null); setSamplingPlan(null); setCausalChains([]); setMoldResults([])
@@ -166,7 +170,7 @@ export function AssessmentProvider({ children }) {
     setEquipment(d.equipment || [])
     setPhotos(d.photos || {})
     setPhotoOverrides(d.photoOverrides || {})
-    setFloorPlan(d.floorPlan || null)
+    setFloorPlans(await expandFloorPlans(normalizeFloorPlans(d)))
     setQsqi(d.qsqi || 0)
     setDqi(d.dqi || 0)
     setCurZone(d.curZone || 0)
@@ -184,7 +188,7 @@ export function AssessmentProvider({ children }) {
     setEquipment(rpt.equipment || [])
     setPhotos(rpt.photos || {})
     setPhotoOverrides(rpt.photoOverrides || {})
-    setFloorPlan(rpt.floorPlan || null)
+    setFloorPlans(await expandFloorPlans(normalizeFloorPlans(rpt)))
     setZoneScores(rpt.zoneScores || [])
     setComp(rpt.comp || rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0] || rpt.osha || null)
@@ -200,7 +204,7 @@ export function AssessmentProvider({ children }) {
     draftId, setDraftId, presurvey, setPresurvey, bldg, setBldg,
     zones, setZones, curZone, setCurZone, photos, setPhotos,
     photoOverrides, setPhotoOverrides,
-    floorPlan, setFloorPlan, mergedData, zData,
+    floorPlans, setFloorPlans, mergedData, zData,
     equipment, setEquipment,
     // Question navigation
     qsqi, setQsqi, dqi, setDqi, zqi, setZqi,
@@ -212,7 +216,7 @@ export function AssessmentProvider({ children }) {
     // versa)
     runScoring, resetAssessment, loadDraft, loadReport,
   }), [
-    draftId, presurvey, bldg, zones, curZone, photos, photoOverrides, floorPlan, mergedData, zData, equipment,
+    draftId, presurvey, bldg, zones, curZone, photos, photoOverrides, floorPlans, mergedData, zData, equipment,
     qsqi, dqi, zqi, setQSField, setZF,
     runScoring, resetAssessment, loadDraft, loadReport,
   ])

@@ -32,6 +32,7 @@
  */
 
 import { SENSOR_FIELDS } from '../constants/questions'
+import { resolvePlanId } from './floorPlans'
 
 /** The outdoor baseline's label wherever it is listed. */
 export const OUTDOOR_LABEL = 'Outdoor reference'
@@ -110,14 +111,25 @@ export function outdoorSource(zones = []) {
  * Every sample location placed on the floor plan, numbered in the order a
  * reader meets it: zones in assessment order, then the outdoor reference.
  *
+ * Numbering runs across the whole site — zone order, then the outdoor
+ * reference — whatever plan a pin is on, so "Pin 4" names one location in a
+ * report with three plans. Each point says which plan it is on (`plan`),
+ * and a consumer drawing one plan filters on it (`pointsOnPlan`).
+ *
  * @param zones            assessment zones; those with mapX/mapY are placed
  * @param opts.building    building object; `outdoorMapX` / `outdoorMapY`
  * @param opts.zoneName    (index) => display name; defaults to the zone's own
- * @returns Array<{n, kind, zoneIndex, label, use, x, y, position, readings,
- *                 readingText, values, time, duration}>
+ * @param opts.plans       the assessment's floor plans (utils/floorPlans);
+ *                         a pin on a plan the list does not carry is not a
+ *                         pin. Omitted: every placed pin counts, and `plan`
+ *                         is whatever the pin recorded.
+ * @returns Array<{n, kind, zoneIndex, label, use, plan, x, y, position,
+ *                 readings, readingText, values, time, duration}>
  */
 export function samplePoints(zones = [], opts = {}) {
   const nameOf = opts.zoneName || ((i) => (zones[i] && zones[i].zn) || `Zone ${i + 1}`)
+  const plans = Array.isArray(opts.plans) ? opts.plans : null
+  const planOf = (assigned) => (plans ? resolvePlanId(assigned, plans) : (assigned || null))
   const points = []
 
   const push = (p) => points.push({
@@ -133,10 +145,12 @@ export function samplePoints(zones = [], opts = {}) {
   zones.forEach((z, i) => {
     const xy = coords(z && z.mapX, z && z.mapY)
     if (!xy) return
+    const plan = planOf(z.mapPlan)
+    if (plans && !plan) return
     const { names, values } = readingsOf(z, INDOOR_FIELDS)
     push({
       kind: 'zone', zoneIndex: i,
-      label: nameOf(i), use: spaceUse(z),
+      label: nameOf(i), use: spaceUse(z), plan,
       x: xy.x, y: xy.y,
       readings: names, values,
       time: z.meas_time || '', duration: z.meas_duration || '',
@@ -149,12 +163,13 @@ export function samplePoints(zones = [], opts = {}) {
   const b = opts.building || {}
   const oxy = coords(b.outdoorMapX, b.outdoorMapY)
   const osrc = outdoorSource(zones)
-  if (oxy && osrc) {
+  const oplan = planOf(b.outdoorMapPlan)
+  if (oxy && osrc && !(plans && !oplan)) {
     const { names, values } = readingsOf(osrc, OUTDOOR_FIELDS)
     if (names.length) {
       push({
         kind: 'outdoor', zoneIndex: null,
-        label: OUTDOOR_LABEL, use: 'Outdoor baseline',
+        label: OUTDOOR_LABEL, use: 'Outdoor baseline', plan: oplan,
         x: oxy.x, y: oxy.y,
         readings: names, values,
         time: '', duration: '',
@@ -163,6 +178,11 @@ export function samplePoints(zones = [], opts = {}) {
   }
 
   return points
+}
+
+/** The points on one plan, numbers intact. */
+export function pointsOnPlan(points = [], planId) {
+  return points.filter((p) => p && p.plan === planId)
 }
 
 /** True when an outdoor baseline exists to be placed on the plan. */

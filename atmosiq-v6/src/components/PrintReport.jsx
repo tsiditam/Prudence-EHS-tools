@@ -22,7 +22,8 @@ import { generateClientReportHTML, generateModernClientReportHTML } from './prin
 import { generateModernSummaryHTML } from './print/modern-summary'
 import { extractIncludedLoggerGraphs } from './print/logger-graphs-html'
 import { primaryDataset } from '../utils/sensorParser'
-import { samplePoints, spaceUse } from '../utils/samplePoints'
+import { samplePoints, pointsOnPlan, spaceUse } from '../utils/samplePoints'
+import { normalizeFloorPlans, planLabel, planImage } from '../utils/floorPlans'
 import { actionLine } from '../utils/recFormatting'
 import { CRITERION_CLASS } from '../constants/criteria'
 import { STD } from '../constants/standards'
@@ -917,22 +918,31 @@ export function generateLegacyPrintHTML(data) {
         severity and primary-concern columns beneath. A site drawing documents
         WHERE readings were taken; the interpretation belongs to the findings
         section, which already names every zone. Retired 2026-09 — the shared
-        derivation and the reasoning live in utils/samplePoints.js. */(() => {
-    const points = samplePoints(zones || [], { building: data.building || {} })
-    if (!points.length || !data.floorPlan) return ''
+        derivation and the reasoning live in utils/samplePoints.js.
+        One plan per figure; pin numbers run across the site. */(() => {
+    const plans = normalizeFloorPlans(data).filter(p => planImage(p))
+    if (!plans.length) return ''
+    const points = samplePoints(zones || [], { building: data.building || {}, plans })
+    if (!points.length) return ''
     const PIN = '#2E7B9B'
     return `
     <h2 class="pg-break">Sampling Locations</h2>
-    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The floor plan below records where each set of readings was taken. Pin numbers key to the table beneath; marker color carries no meaning. Positions were marked by the assessor and are approximate.</p>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The floor plan${plans.length > 1 ? 's' : ''} below record${plans.length > 1 ? '' : 's'} where each set of readings was taken. Pin numbers key to the table beneath each plan; marker color carries no meaning. Positions were marked by the assessor and are approximate.</p>
+    ${plans.map((plan, i) => {
+      const pts = pointsOnPlan(points, plan.id)
+      const label = planLabel(plan, i, plans.length)
+      return `
+    ${plans.length > 1 || plan.label ? `<h3 style="font-size:12px;margin:14px 0 6px;">${esc(label)}</h3>` : ''}
     <div style="position:relative;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">
-      <img src="${data.floorPlan}" alt="Floor plan showing sampling locations" style="width:100%;display:block;" />
-      ${points.map(p => `<div style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-100%);">
+      <img src="${planImage(plan)}" alt="${esc(label)} showing sampling locations" style="width:100%;display:block;" />
+      ${pts.map(p => `<div style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-100%);">
           <div style="width:20px;height:20px;border-radius:50%;background:${PIN};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:Cambria,serif;">${p.n}</div>
         </div>`).join('')}
     </div>
-    <table><thead><tr><th style="text-align:center;">Pin</th><th>Location</th><th>Use</th><th>Parameters recorded</th><th>Time</th></tr></thead><tbody>
-    ${points.map(p => `<tr><td style="text-align:center;font-family:Cambria,serif;font-weight:700;">${p.n}</td><td style="font-weight:600;">${esc(p.label)}</td><td style="font-size:10px;color:#475569;">${esc(p.use) || '—'}</td><td style="font-size:10px;color:#475569;">${esc(p.readingText)}</td><td style="font-size:10px;color:#475569;">${esc([p.time, p.duration].filter(Boolean).join(' · ')) || '—'}</td></tr>`).join('')}
-    </tbody></table>`
+    ${pts.length ? `<table><thead><tr><th style="text-align:center;">Pin</th><th>Location</th><th>Use</th><th>Parameters recorded</th><th>Time</th></tr></thead><tbody>
+    ${pts.map(p => `<tr><td style="text-align:center;font-family:Cambria,serif;font-weight:700;">${p.n}</td><td style="font-weight:600;">${esc(p.label)}</td><td style="font-size:10px;color:#475569;">${esc(p.use) || '—'}</td><td style="font-size:10px;color:#475569;">${esc(p.readingText)}</td><td style="font-size:10px;color:#475569;">${esc([p.time, p.duration].filter(Boolean).join(' · ')) || '—'}</td></tr>`).join('')}
+    </tbody></table>` : `<p style="font-size:10px;color:#64748B;margin-bottom:12px;">No sampling locations were marked on this plan.</p>`}`
+    }).join('')}`
   })()}
 
   <!-- ═══ STANDARDS REFERENCE ═══ -->

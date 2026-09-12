@@ -31,7 +31,8 @@ import { readNumber, scoreZone } from '../engines/scoring'
 import { pickPrimaryChain } from '../engines/causalChains'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
 import { imageDimensions, fitWithin } from '../utils/imageDimensions'
-import { samplePoints, spaceUse } from '../utils/samplePoints'
+import { samplePoints, pointsOnPlan, spaceUse } from '../utils/samplePoints'
+import { normalizeFloorPlans, planLabel, planImage } from '../utils/floorPlans'
 import * as NL from './narrativeLibrary'
 import {
   REPORT_PROFILES, REPORT_STATUS, DEFAULT_PROFILE, DEFAULT_STATUS,
@@ -625,65 +626,79 @@ const FLOOR_PLAN_FALLBACK = { width: 620, height: 400 }
 const isImageDataUrl = (s) => typeof s === 'string' && /^data:image\//.test(s) && s.includes(';base64,')
 
 /**
- * The uploaded floor plan as a report figure, or null when none was uploaded.
+ * The uploaded floor plans as report figures, or null when none was uploaded.
  *
  * Until 2026-09 the AtmosFlow report never rendered the plan at all: the
  * model hard-coded `showFloorPlanSchematic: false` and nothing read
  * `data.floorPlan`, so a plan the assessor uploaded and pinned zones onto
  * simply did not appear in the export. (The HTML print path always drew it.)
  *
- * `data.floorPlan` is either the raw data URL the spatial map stores, or the
- * composed figure `{ imageDataUrl, width, height, pinsDrawn }` the export
- * path builds with utils/floorPlanFigure — the plan with numbered pins drawn
- * on it. Either way the figure is fitted to the page from its true pixel
- * size, and the sampled locations are listed beneath it so the numbers
- * resolve. When the pins could not be drawn (no browser, or the image failed
- * to load), each location's recorded position is listed instead, so the
- * placement the assessor made is still in the record.
+ * An assessment may carry several plans (`data.floorPlans`, or the legacy
+ * single `data.floorPlan` — utils/floorPlans reads either). Each becomes
+ * one figure, in the order the assessor keeps them, with the pins that sit
+ * on it. Pin numbers are the site-wide sequence, so a figure may show pins
+ * 1, 2 and 5 while 3 and 4 are on the next; every number resolves through
+ * the table beneath its own figure.
  *
- * This is a SAMPLING-LOCATION plan: the pins say where readings were taken
+ * A plan's image is either the raw data URL the tab stores, or — when the
+ * export path composed it with utils/floorPlanFigure — the plan with its
+ * numbered pins drawn on (`composed: { imageDataUrl, width, height,
+ * pinsDrawn }`). Either way the figure is fitted to the page from its true
+ * pixel size. When the pins could not be drawn (no browser, or the image
+ * failed to load), each location's recorded position is listed instead, so
+ * the placement the assessor made is still in the record.
+ *
+ * These are SAMPLING-LOCATION plans: the pins say where readings were taken
  * and which parameters were recorded there, and carry no severity. See
  * utils/samplePoints.js for the encoding that was retired and why.
  */
-export function buildFloorPlan(data = {}) {
-  const src = data.floorPlan
-  const url = typeof src === 'string' ? src : (src && typeof src === 'object' ? src.imageDataUrl : null)
-  if (!isImageDataUrl(url)) return null
+export function buildFloorPlans(data = {}) {
+  const plans = normalizeFloorPlans(data)
+  if (!plans.length) return null
   const zones = data.zones || []
   const zoneScores = data.zoneScores || []
-  const composed = src && typeof src === 'object' ? src : null
-  const pinsDrawn = !!(composed && composed.pinsDrawn)
   // The label must be the one the measurement-results table uses, so a pin
   // resolves to a row — which `modelConsistency`'s floorplan-pin rule checks.
-  const pins = samplePoints(zones, {
+  const points = samplePoints(zones, {
     building: data.building || data.bldg || {},
     zoneName: (i) => zoneName(zoneScores, zones, i),
-  }).map((p) => ({
-    n: p.n,
-    kind: p.kind,
-    zone: p.label,
-    use: p.use,
-    position: p.position,
-    readings: p.readingText,
-  }))
-  const natural = (composed && composed.width > 0 && composed.height > 0)
-    ? { width: composed.width, height: composed.height }
-    : imageDimensions(url)
-  const figure = fitWithin(natural, FLOOR_PLAN_MAX.width, FLOOR_PLAN_MAX.height) || { ...FLOOR_PLAN_FALLBACK }
-  const n = pins.length
-  const caption = !n
-    ? 'Figure 1. Floor plan as provided. Sampling locations were not marked on the plan.'
-    : pinsDrawn
-      ? `Figure 1. Floor plan as provided, with the ${n} sampling location${n === 1 ? '' : 's'} marked. Pin numbers key to the table below; marker color carries no meaning.`
-      : `Figure 1. Floor plan as provided. The ${n} sampling location${n === 1 ? '' : 's'} placed on the plan ${n === 1 ? 'is' : 'are'} listed below with the recorded position.`
+    plans,
+  })
+  const figures = []
+  plans.forEach((plan, i) => {
+    const composed = plan.composed && isImageDataUrl(plan.composed.imageDataUrl) ? plan.composed : null
+    const url = composed ? composed.imageDataUrl : planImage(plan)
+    if (!isImageDataUrl(url)) return
+    const pinsDrawn = !!(composed && composed.pinsDrawn)
+    const pins = pointsOnPlan(points, plan.id).map((p) => ({
+      n: p.n,
+      kind: p.kind,
+      zone: p.label,
+      use: p.use,
+      position: p.position,
+      readings: p.readingText,
+    }))
+    const natural = (composed && composed.width > 0 && composed.height > 0)
+      ? { width: composed.width, height: composed.height }
+      : imageDimensions(url)
+    const figure = fitWithin(natural, FLOOR_PLAN_MAX.width, FLOOR_PLAN_MAX.height) || { ...FLOOR_PLAN_FALLBACK }
+    const label = planLabel(plan, i, plans.length)
+    const k = figures.length + 1
+    const name = plans.length > 1 || plan.label ? `${label} — floor plan` : 'Floor plan'
+    const n = pins.length
+    const caption = !n
+      ? `Figure ${k}. ${name} as provided. Sampling locations were not marked on this plan.`
+      : pinsDrawn
+        ? `Figure ${k}. ${name} as provided, with the ${n} sampling location${n === 1 ? '' : 's'} marked. Pin numbers key to the table below; marker color carries no meaning.`
+        : `Figure ${k}. ${name} as provided. The ${n} sampling location${n === 1 ? '' : 's'} placed on this plan ${n === 1 ? 'is' : 'are'} listed below with the recorded position.`
+    figures.push({ id: plan.id, label, imageDataUrl: url, figure, pins, pinsDrawn, caption })
+  })
+  if (!figures.length) return null
+  const placed = figures.reduce((s, f) => s + f.pins.length, 0)
   return {
     heading: 'Site plan and sampling locations',
-    imageDataUrl: url,
-    figure,
-    pins,
-    pinsDrawn,
-    caption,
-    note: n ? 'Locations were marked by the assessor on the uploaded plan and are approximate. Pins record where readings were taken, not what was found.' : null,
+    figures,
+    note: placed ? 'Locations were marked by the assessor on the uploaded plans and are approximate. Pins record where readings were taken, not what was found.' : null,
   }
 }
 
@@ -1295,7 +1310,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
     },
     // The uploaded plan with the assessed zones marked, rendered under
     // section 1 as site background. Null when no plan was uploaded.
-    floorPlan: buildFloorPlan(data),
+    floorPlans: buildFloorPlans(data),
     methodology: {
       bullets: NL.methodologyBullets(
         data.presurvey && data.presurvey.ps_inst_iaq,
