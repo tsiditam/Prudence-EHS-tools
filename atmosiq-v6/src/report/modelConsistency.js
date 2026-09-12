@@ -200,6 +200,27 @@ function limitationsAgreeWithSections(M) {
   return out
 }
 
+/**
+ * Every pin on the floor plan names a zone the results table carries.
+ *
+ * The figure's numbers resolve through the table beneath it to a zone
+ * name; a name that appears nowhere else in the report is a pin pointing at
+ * nothing. Zone rows are `results.rows` minus the site mean and the outdoor
+ * reference, which are not places on the plan.
+ */
+function floorPlanPinsResolve(M) {
+  const fp = M.floorPlan
+  if (!fp || !Array.isArray(fp.pins) || !fp.pins.length) return []
+  const named = new Set(
+    ((M.results && M.results.rows) || [])
+      .filter(r => r && r.id !== 'Site mean' && r.id !== 'Outdoor reference')
+      .map(r => String(r.id)),
+  )
+  return fp.pins
+    .filter(p => !named.has(String(p.zone)))
+    .map(p => issue('floorplan-pin', 'Site plan', `Pin ${p.n} on the floor plan is labelled "${p.zone}", which is not a zone in the measurement results.`))
+}
+
 /** The conclusion the summary states is the one the site model tables. */
 function conclusionAgreesWithSiteModel(M) {
   const es = M.execSummary
@@ -264,6 +285,7 @@ const RULES = [
   instrumentsCoverParameters,
   observationsCarryNoVerdict,
   limitationsAgreeWithSections,
+  floorPlanPinsResolve,
   conclusionAgreesWithSiteModel,
 ]
 
@@ -286,5 +308,5 @@ export const RULE_IDS = [
   'site-mean-rank', 'summary-scope', 'summary-finding-orphan', 'citation-missing', 'citation-number',
   'reference-orphan', 'register-location', 'register-owner', 'register-evidence', 'register-action', 'register-timeframe',
   'qa-tvoc', 'qa-tvoc-limitation', 'qa-hcho-limitation', 'observation-verdict',
-  'limitation-photos', 'limitation-logger', 'gap-undisclosed', 'conclusion-vs-site-model',
+  'limitation-photos', 'limitation-logger', 'gap-undisclosed', 'floorplan-pin', 'conclusion-vs-site-model',
 ]

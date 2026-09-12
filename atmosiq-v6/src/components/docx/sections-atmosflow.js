@@ -525,6 +525,34 @@ export function atmosFlowReportChildren(model) {
     ;(M.scope.paras || [M.scope.text]).filter(Boolean).forEach((para) => c.push(body(para)))
   }
 
+  // The client's floor plan, with the assessed zones marked, as site
+  // background. The figure is fitted by the model from the image's own
+  // pixel size (a plan is whatever shape the client uploaded); the table
+  // beneath resolves the pin numbers, and carries each zone's recorded
+  // position when the pins could not be drawn onto the image.
+  if (M.floorPlan && isImageDataUrl(M.floorPlan.imageDataUrl)) {
+    const fp = M.floorPlan
+    const img = imageParagraph(fp.imageDataUrl, fp.figure.width, fp.figure.height)
+    if (img) {
+      c.push(h2(fp.heading || 'Site plan and assessed zones'))
+      c.push(img)
+      if (fp.caption) c.push(caption(fp.caption))
+      const pins = Array.isArray(fp.pins) ? fp.pins : []
+      if (pins.length) {
+        const showPos = !fp.pinsDrawn
+        c.push(
+          table(
+            showPos ? ['Pin', 'Zone', 'Use', 'Position on plan'] : ['Pin', 'Zone', 'Use'],
+            pins.map((p) => (showPos ? [fmt(p.n), fmt(p.zone), fmt(p.use), fmt(p.position)] : [fmt(p.n), fmt(p.zone), fmt(p.use)])),
+            showPos ? [800, 3760, 2300, 2500] : [800, 5560, 3000],
+            { align: [AlignmentType.CENTER, null, null, null] },
+          ),
+        )
+        if (fp.note) c.push(caption(fp.note))
+      }
+    }
+  }
+
   // ═══ 2. Investigation Methods & QA/QC ═══
   //
   // QA/QC lives HERE, not in its own section after the recommendations. A

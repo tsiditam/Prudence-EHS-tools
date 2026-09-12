@@ -105,6 +105,7 @@ import { toast } from 'sonner'
 const loadDocxReport = () => importSafe(() => import('./DocxReport'))
 const loadPrintReport = () => importSafe(() => import('./PrintReport'))
 const loadLoggerChartImages = () => importSafe(() => import('../utils/loggerChartImages'))
+const loadFloorPlanFigure = () => importSafe(() => import('../utils/floorPlanFigure'))
 const AdminDashboard = lazySafe(() => import('./AdminDashboard'))
 const SensorDataPage = lazySafe(() => import('./sensor/SensorDataPage'))
 const LoggerGraphsTab = lazySafe(() => import('./sensor/LoggerGraphsTab'))
@@ -2081,30 +2082,60 @@ export default function MobileApp() {
     executeExport(exportFormat, filtered, docxTypeChoice)
   }
 
+  // The logger dataset a report of THIS assessment reads. On a saved report
+  // (view 'report') it rides on viewRpt — that is where "Send graphs to a
+  // report" writes it and where the Logger tab's include toggle edits it —
+  // while the live sensorData state belongs to whatever assessment was last
+  // worked on in Logger Studio. Until 2026-09 every export read the live
+  // state, so a finalized report opened from the list exported WITHOUT the
+  // graphs attached to it (the toast had promised "open it and re-export"),
+  // and with another assessment's graphs if any happened to be loaded. One
+  // source, used by every export path, the Report-tab consistency check and
+  // the assessment context.
+  const reportSensorData = () => ((view === 'report' && viewRpt) ? (viewRpt.sensorData || null) : sensorData)
+
+  // The figures a report embeds, prepared once per export:
+  //  - every "Include in report" logger timeline with a usable PNG. The
+  //    on-screen capture is unreliable on iOS Safari (and the results-tab
+  //    toggle never captured at all), so the included charts are re-rendered
+  //    from their data points — a self-contained-SVG raster every export
+  //    (DOCX, AtmosFlow PDF, Web) then embeds.
+  //  - the floor plan with the assessed zones drawn on it as numbered pins.
+  //    A Word document cannot overlay the spatial map's HTML pins, so the
+  //    plan and pins are composed into one image here; if that fails the
+  //    raw plan still renders, sized from its own header, with the zone
+  //    positions listed beneath it.
+  const prepareReportFigures = async () => {
+    const { ensureLoggerChartImages } = await loadLoggerChartImages()
+    const sensorDataForReport = await ensureLoggerChartImages(reportSensorData())
+    let floorPlanForReport = floorPlan || null
+    if (floorPlan) {
+      try {
+        const { composeFloorPlanFigure } = await loadFloorPlanFigure()
+        floorPlanForReport = (await composeFloorPlanFigure(floorPlan, zones)) || floorPlan
+      } catch { /* the raw plan is still embedded */ }
+    }
+    return { sensorData: sensorDataForReport, floorPlan: floorPlanForReport }
+  }
+
   const executeExport = async (format, filteredPhotos, docxType) => {
     // Photo records are `{ idbId, ts }` in state; the renderers need the
     // image. Resolve every selected record from IndexedDB here, once.
     filteredPhotos = (await expandPhotos(filteredPhotos || {})).photos
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
+    const figures = await prepareReportFigures()
     const assessmentContext = buildAssessmentContext({
-      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData: figures.sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    // Guarantee every "Include in report" logger timeline carries a usable PNG
-    // before any format embeds it. The on-screen capture is unreliable on iOS
-    // Safari (and the results-tab toggle never captured at all), so re-render
-    // the included charts from their data points here — a self-contained-SVG
-    // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
-    const { ensureLoggerChartImages } = await loadLoggerChartImages()
-    const sensorDataForReport = await ensureLoggerChartImages(sensorData)
     // `id` is the record this export is OF. Without it every export of the
     // same report mints a fresh Report ID downstream — see the fallback in
     // src/report/reportModel.js. `viewRpt` is the opened finalized report;
     // `draftId` is the session pointer, which finalize advances to the new
     // report id, so this resolves to the same value on every re-export.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', findings: comp?.findings?.total, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -2185,14 +2216,15 @@ export default function MobileApp() {
       return out
     })()
     const expandedPhotos = (await expandPhotos(filteredPhotos)).photos
+    const figures = await prepareReportFigures()
     const assessmentContext = buildAssessmentContext({
-      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData: figures.sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
       const { getAtmosFlowDocxBlob } = await loadDocxReport()
@@ -2239,14 +2271,15 @@ export default function MobileApp() {
       return out
     })()
     const expandedPhotos = (await expandPhotos(filteredPhotos)).photos
+    const figures = await prepareReportFigures()
     const assessmentContext = buildAssessmentContext({
-      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData: figures.sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     const { getAtmosFlowDocxBlob } = await loadDocxReport()
     const built = await getAtmosFlowDocxBlob(reportData)
     // Size pre-check. The DOCX is uploaded to Storage and attached to the
@@ -2999,7 +3032,7 @@ export default function MobileApp() {
       try {
         return checkRenderModel(assembleRenderModel({
           id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp,
-          recs, causalChains, profile, photos, photoOverrides, sensorData, ts: viewRpt?.ts,
+          recs, causalChains, profile, photos, photoOverrides, sensorData: loggerSd, floorPlan, ts: viewRpt?.ts,
         }))
       } catch (e) {
         return [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
@@ -3312,7 +3345,7 @@ export default function MobileApp() {
                 <div style={RS_HEAD}>At a glance</div>
                 {[
                   ['Confidence', <span style={{color:confTone, fontWeight:600}}>{comp?.confidence || measConf?.overall || 'Pending'}</span>],
-                  ['Basis', describeAssessmentBasis({ sensorData, labResults: viewRpt?.labResults })],
+                  ['Basis', describeAssessmentBasis({ sensorData: loggerSd, labResults: viewRpt?.labResults })],
                   ['Evidence', `${evCount.meas} measurements · ${evCount.obs} observations · ${evCount.occ} occupant reports · ${photoCount} photo${photoCount===1?'':'s'}`],
                   ['Data gaps', dataGaps.length === 0
                     ? 'None identified'

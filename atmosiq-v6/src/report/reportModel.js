@@ -30,6 +30,8 @@ import { actionLine, HVAC_UNMAPPED_PREFIX } from '../utils/recFormatting'
 import { readNumber, scoreZone } from '../engines/scoring'
 import { pickPrimaryChain } from '../engines/causalChains'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
+import { imageDimensions, fitWithin } from '../utils/imageDimensions'
+import { floorPlanPins } from '../utils/floorPlanFigure'
 import * as NL from './narrativeLibrary'
 import {
   REPORT_PROFILES, REPORT_STATUS, DEFAULT_PROFILE, DEFAULT_STATUS,
@@ -614,6 +616,67 @@ export function unattributedParameters(presurvey = {}, zones = []) {
   return [...orphans]
 }
 
+// The largest box a floor-plan figure may occupy on the page, in px at the
+// 96 dpi the docx ImageRun assumes. 620 is the content width every other
+// embedded figure uses; the height cap keeps a portrait plan on one page.
+export const FLOOR_PLAN_MAX = { width: 620, height: 440 }
+const FLOOR_PLAN_FALLBACK = { width: 620, height: 400 }
+
+const isImageDataUrl = (s) => typeof s === 'string' && /^data:image\//.test(s) && s.includes(';base64,')
+
+/**
+ * The uploaded floor plan as a report figure, or null when none was uploaded.
+ *
+ * Until 2026-09 the AtmosFlow report never rendered the plan at all: the
+ * model hard-coded `showFloorPlanSchematic: false` and nothing read
+ * `data.floorPlan`, so a plan the assessor uploaded and pinned zones onto
+ * simply did not appear in the export. (The HTML print path always drew it.)
+ *
+ * `data.floorPlan` is either the raw data URL the spatial map stores, or the
+ * composed figure `{ imageDataUrl, width, height, pinsDrawn }` the export
+ * path builds with utils/floorPlanFigure — the plan with numbered pins drawn
+ * on it. Either way the figure is fitted to the page from its true pixel
+ * size, and the pinned zones are listed beneath it so the numbers resolve.
+ * When the pins could not be drawn (no browser, or the image failed to
+ * load), each zone's recorded position is listed instead, so the placement
+ * the assessor made is still in the record.
+ */
+export function buildFloorPlan(data = {}) {
+  const src = data.floorPlan
+  const url = typeof src === 'string' ? src : (src && typeof src === 'object' ? src.imageDataUrl : null)
+  if (!isImageDataUrl(url)) return null
+  const zones = data.zones || []
+  const zoneScores = data.zoneScores || []
+  const composed = src && typeof src === 'object' ? src : null
+  const pinsDrawn = !!(composed && composed.pinsDrawn)
+  const pins = floorPlanPins(zones).map((p) => ({
+    n: p.n,
+    zone: zoneName(zoneScores, zones, p.zoneIndex),
+    use: (zones[p.zoneIndex] && (zones[p.zoneIndex].zt || zones[p.zoneIndex].zuse)) || '',
+    // Percent of plan width / height from the top-left corner, as recorded.
+    position: `${Math.round(p.x)}% across, ${Math.round(p.y)}% down`,
+  }))
+  const natural = (composed && composed.width > 0 && composed.height > 0)
+    ? { width: composed.width, height: composed.height }
+    : imageDimensions(url)
+  const figure = fitWithin(natural, FLOOR_PLAN_MAX.width, FLOOR_PLAN_MAX.height) || { ...FLOOR_PLAN_FALLBACK }
+  const n = pins.length
+  const caption = !n
+    ? 'Figure 1. Floor plan as provided. Zone locations were not marked on the plan.'
+    : pinsDrawn
+      ? `Figure 1. Floor plan as provided, with the ${n} assessed zone${n === 1 ? '' : 's'} marked. Pin numbers key to the table below.`
+      : `Figure 1. Floor plan as provided. The ${n} zone${n === 1 ? '' : 's'} placed on the plan ${n === 1 ? 'is' : 'are'} listed below with the recorded position.`
+  return {
+    heading: 'Site plan and assessed zones',
+    imageDataUrl: url,
+    figure,
+    pins,
+    pinsDrawn,
+    caption,
+    note: n ? 'Zone positions were marked by the assessor on the uploaded plan and are approximate.' : null,
+  }
+}
+
 /** Standard limitations + project-specific additions. */
 export function buildLimitations(data) {
   const base = [
@@ -1135,7 +1198,16 @@ export function assembleRenderModel(data = {}, opts = {}) {
   else photos = { intro: 'No project photographs were uploaded.', items: [] }
 
   const flagged = rd.findings.length
-  const elevatedZones = [...new Set(rd.findings.filter(f => f.severity === 'critical' || f.severity === 'high').map(f => f.zone))]
+  // The zones the overall statement names are the zones the results table
+  // marks: any zone row whose governing outcome is advisory or worse. Until
+  // 2026-09 this counted only zones with a critical/high FINDING, so a site
+  // whose rows mostly carried advisory outcomes read "Most areas presented
+  // acceptable…" directly above a table that said otherwise — the exact
+  // disagreement modelConsistency's `summary-scope` rule exists to catch,
+  // and one it caught on ordinary data the moment a fixture had three zones.
+  const elevatedZones = resultsRows
+    .filter(r => r.id !== 'Site mean' && r.id !== 'Outdoor reference' && r.sev !== 'ok' && r.sev !== 'not_evaluated' && r.sev !== 'reference')
+    .map(r => r.id)
 
   const review = buildReviewBlock({
     profile: reportProfile,
@@ -1210,8 +1282,10 @@ export function assembleRenderModel(data = {}, opts = {}) {
         `The assessment covered ${rd.projectSummary.numberOfZones} zone${rd.projectSummary.numberOfZones === 1 ? '' : 's'} at ${meta.facilityName}${rd.projectSummary.buildingDescription ? ` (${rd.projectSummary.buildingDescription})` : ''}${rd.projectSummary.hvacDescription ? `, served by ${rd.projectSummary.hvacDescription}` : ''}. ${rd.projectSummary.assessmentPurpose ? `The assessment was prompted by ${String(rd.projectSummary.assessmentPurpose).toLowerCase()}.` : ''}`.trim(),
         'The objective was to characterize indoor air quality indicators, confirm whether observed conditions fall within recognized comfort and ventilation references, identify any zones warranting follow-up, and provide a defensible, prioritized action list.',
       ],
-      showFloorPlanSchematic: false,
     },
+    // The uploaded plan with the assessed zones marked, rendered under
+    // section 1 as site background. Null when no plan was uploaded.
+    floorPlan: buildFloorPlan(data),
     methodology: {
       bullets: NL.methodologyBullets(
         data.presurvey && data.presurvey.ps_inst_iaq,
