@@ -150,7 +150,6 @@ export async function expandPhotos(photos) {
         }
         // Keep everything else on the record (aiAnalysis, caption…) —
         // only the reference is swapped for the image.
-        // eslint-disable-next-line no-unused-vars
         const { idbId, ...rest } = photo
         outArr.push({ ...rest, src: dataUrl, ts: photo.ts || null })
         expanded++

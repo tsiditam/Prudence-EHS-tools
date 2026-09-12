@@ -40,6 +40,7 @@ import { AI_DISCLAIMER_LINE } from '../constants/field-assistant-prompt'
 import { splitTrailingDisclaimer } from '../utils/jasperDisclaimer'
 import {
   JASPER_SPRING,
+  JASPER_EASE_OUT,
   JASPER_DURATION,
   jasperAtmosphere,
   JASPER_SHEET_SHADOW,
@@ -59,6 +60,29 @@ const HEADER_BTN = (on) => ({
   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
   fontFamily: 'inherit', flexShrink: 0, WebkitTapHighlightColor: 'transparent',
 })
+
+// Desktop (>=1024): the assistant is a PAGE beside the navigation rail,
+// not a phone sheet floating over a scrim. It pins to the content area
+// right of the sidebar at full width (the transcript centers itself in a
+// reading column below), drops the border and shadow, and fades in instead
+// of rising — a page opens in place; only a sheet slides up. Everything
+// else about the surface (header, composer, footer) is shared with the
+// phone layout, so the two never drift.
+const desktopPageStyle = (leftInset) => ({
+  left: leftInset, right: 0, maxWidth: 'none',
+  border: 'none', boxShadow: 'none',
+  padding: '12px 24px',
+  paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))',
+  paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+  animation: `jasperPageIn ${JASPER_DURATION.enter}ms ${JASPER_EASE_OUT} both`,
+})
+
+// Reading column for the desktop transcript. 800px holds roughly 75–90
+// characters of 16px Inter per line, the upper end of the range where
+// line length stops costing reading speed (Dyson & Haselgrove 2001;
+// Nielsen Norman Group's line-length guidance). Wider, and a paragraph of
+// AI prose sprawls across a 1440px window the way it did before this pass.
+const DESKTOP_COLUMN = 800
 
 const CARD = 'var(--card)'
 const SURFACE = 'var(--surface)'
@@ -943,7 +967,7 @@ function DownloadCard({ report, onDownload }) {
   )
 }
 
-export default function FieldAssistant({ onClose, context, onNavigate, initialMessage, onAction }) {
+export default function FieldAssistant({ onClose, context, onNavigate, initialMessage, onAction, desktop = false, leftInset = 0, newChatNonce = 0 }) {
   const {
     messages,
     sending,
@@ -1048,6 +1072,10 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   const signalChips = contextChips.filter((c) => c.id !== 'facility')
   // Nothing said yet: the open canvas with the watermark and prompt row.
   const isEmptyCanvas = introAccepted && messages.length === 0 && !sending
+  // Horizontal padding that centers a DESKTOP_COLUMN-wide column inside
+  // the full-width scroll panels, so the scrollbar stays at the page edge
+  // (ChatGPT / Claude) while the text sits in a reading column.
+  const colPad = desktop ? `max(2px, calc(50% - ${DESKTOP_COLUMN / 2}px))` : '2px'
 
   // Every intake route — paperclip, drop, paste — funnels through the
   // same call, so a CSV behaves identically however it arrived.
@@ -1170,6 +1198,19 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
   // first and the initial message becomes the input value so they
   // can review + send after accepting.
   const initialMessageRef = useRef(null)
+  // Desktop rail "New chat" while the page is already open: start a fresh
+  // conversation (the label promises one). The ref starts at the mounted
+  // value so a bump that happened while the page was closed is not
+  // replayed on mount — a fresh mount is already a fresh conversation.
+  const newChatRef = useRef(newChatNonce)
+  useEffect(() => {
+    if (newChatNonce === newChatRef.current) return
+    newChatRef.current = newChatNonce
+    if (messages.length > 0 || sending) newConversation()
+    setHistoryOpen(false)
+    setPickerOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newChatNonce])
   useEffect(() => {
     if (!initialMessage || initialMessageRef.current === initialMessage) return
     initialMessageRef.current = initialMessage
@@ -1277,6 +1318,9 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           as a defocused hint of the assessment instead of a black
           void. Matches the iOS / macOS sheet pattern (Messages,
           Mail, ChatGPT iOS) and reinforces the sheet's elevation. */}
+      {/* No scrim on desktop: the page sits beside the rail, and the rail
+          stays usable (clicking a destination there closes the chat). */}
+      {!desktop && (
       <div
         onClick={handleBackdropClick}
         className="jasper-backdrop"
@@ -1290,6 +1334,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           animation: 'jasperBackdropIn 280ms ease-out both',
         }}
       />
+      )}
       <div
         onClick={(e) => e.stopPropagation()}
         // Drop and paste are bound to the whole sheet, not the composer:
@@ -1341,6 +1386,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           display: 'flex', flexDirection: 'column',
           boxSizing: 'border-box',
           overflow: 'hidden',
+          ...(desktop ? desktopPageStyle(leftInset) : null),
         }}>
         {/* Drop target overlay. Covers the sheet while a file is over
             it so there is no question about where to let go.
@@ -1466,7 +1512,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         {historyOpen && (
           <div style={{
             flex: 1, overflowY: 'auto', overflowX: 'hidden',
-            padding: '8px 2px', minHeight: 200,
+            padding: `8px ${colPad}`, minHeight: 200,
             minWidth: 0, boxSizing: 'border-box',
           }}>
             <div style={{
@@ -1678,7 +1724,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         {pickerOpen && (
           <div style={{
             flex: 1, overflowY: 'auto', overflowX: 'hidden',
-            padding: '8px 2px', minHeight: 200,
+            padding: `8px ${colPad}`, minHeight: 200,
             minWidth: 0, boxSizing: 'border-box',
           }}>
             <div style={{
@@ -1843,7 +1889,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           ref={scrollRef}
           style={{
             flex: 1, overflowY: 'auto', overflowX: 'hidden',
-            padding: '8px 2px', minHeight: 120,
+            padding: `8px ${colPad}`, minHeight: 120,
             minWidth: 0, boxSizing: 'border-box', wordBreak: 'break-word',
             // Empty canvas: center the watermark. Flex only in that state
             // so a transcript still flows from the top.
@@ -1857,9 +1903,20 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               page (Grok's watermark). The headline, body copy and "Try
               one of these" label are gone: the prompt row above the
               composer says what to ask, and the composer says where. */}
-          {isEmptyCanvas && (
+          {isEmptyCanvas && !desktop && (
             <div aria-hidden="true" style={{ opacity: 0.22, filter: 'grayscale(1)' }}>
               <JasperBrainIcon size={72} animate={false} />
+            </div>
+          )}
+          {/* Desktop empty canvas — a greeting over the composer, the way
+              Claude / ChatGPT / Grok open a new chat: the page asks the
+              question and the composer, pulled up toward the middle of
+              the window, is where it gets answered. */}
+          {isEmptyCanvas && desktop && (
+            <div data-testid="jasper-desktop-greeting" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', maxWidth: 560, padding: '0 16px' }}>
+              <JasperBrainIcon size={44} animate={false} />
+              <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em', color: TEXT, lineHeight: 1.2, marginTop: 6 }}>What can I help you investigate?</div>
+              <div style={{ ...jasperCaption, fontSize: 14, lineHeight: '20px' }}>Ask about this assessment, drop in a logger export or lab report, or have the narrative drafted from the findings.</div>
             </div>
           )}
 
@@ -1943,6 +2000,17 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
           )}
         </div>
 
+        {/* Composer column. Full width on a phone; on desktop a centered
+            DESKTOP_COLUMN so the composer lines up under the transcript.
+            With nothing on the canvas it also lifts toward the middle of
+            the window (the new-chat pose of every current AI app) and
+            settles to the bottom edge once the first turn lands. */}
+        <div style={{
+          width: '100%', maxWidth: desktop ? DESKTOP_COLUMN : 'none', margin: '0 auto',
+          flexShrink: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
+          paddingBottom: desktop && isEmptyCanvas ? '18vh' : 0,
+          transition: 'padding-bottom 220ms ease',
+        }}>
         {/* Offline banner — only shown when network is actually down */}
         {!online && (
           <div style={{
@@ -2331,6 +2399,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
             )}
           </div>
         </div>
+        </div>
         </>)}
 
         {/* Footer — one recessive line. The review note carries the
@@ -2392,6 +2461,14 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         @keyframes faStopIn {
           from { opacity: 0; transform: scale(0.8); }
           to   { opacity: 1; transform: scale(1); }
+        }
+        /* Desktop page entrance — a fade with a 6px settle, no rise. */
+        @keyframes jasperPageIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .jasper-sheet { animation: none !important; }
         }
         /* Neon-brain "thinking" indicator. The bright trace layer draws
            through each groove (stroke-dashoffset 100 → 0), holds fully

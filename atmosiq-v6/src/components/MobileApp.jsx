@@ -142,7 +142,8 @@ import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
-import DesktopSidebar, { SIDEBAR_W } from './desktop/DesktopSidebar'
+import DesktopSidebar, { sidebarWidth, readRailCollapsed, writeRailCollapsed, MOD_LABEL } from './desktop/DesktopSidebar'
+import DesktopCommandPalette from './desktop/DesktopCommandPalette'
 import { isKnowledgeGraphEnabled, isMoldModuleEnabled } from '../utils/featureFlags'
 
 // Knowledge Graph Evidence tab is staged behind a flag — on for preview/
@@ -163,7 +164,7 @@ import { siteSaveMessage } from '../utils/siteSaveMessage'
 import { useAssessment } from '../contexts/AssessmentContext.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useStorage } from '../contexts/StorageContext.jsx'
-import { mix } from '../utils/theme'
+import { mix, getTheme, setTheme } from '../utils/theme'
 import { formatDate } from '../utils/formatDate'
 
 const haptic = (type) => { try { if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? [30,20,30] : type === 'success' ? [10,30,10,30,10] : 12) } catch {} }
@@ -1000,6 +1001,14 @@ export default function MobileApp() {
   // section label — so this state only reaches DesktopSidebar. Open by
   // default there too, so the two surfaces show the same list.
   const [menuGroupsOpen, setMenuGroupsOpen] = useState({ tools: true, resources: true, support: true })
+  // Desktop rail: collapsed to its icon-only width (remembered), and the
+  // command-palette open request the rail's Search row bumps. railW is the
+  // live offset the fixed header and the content surface shift by.
+  const [railCollapsed, setRailCollapsed] = useState(() => readRailCollapsed())
+  const toggleRail = useCallback(() => setRailCollapsed(c => { writeRailCollapsed(!c); return !c }), [])
+  const [paletteNonce, setPaletteNonce] = useState(0)
+  const [newChatNonce, setNewChatNonce] = useState(0)
+  const railW = profile && isDesktop ? sidebarWidth(railCollapsed) : 0
   // Project switcher (top of the side menu). Loads the project list each
   // time the menu opens so the recents are fresh; `menuSwitcherOpen`
   // expands the inline recents list under the chip.
@@ -4378,24 +4387,57 @@ export default function MobileApp() {
     {/* Desktop (>=1024px): persistent left navigation rail replacing the
         mobile bottom dock + hamburger drawer. Fed the same destination data
         as the mobile side menu so the IA is single-source. */}
-    {profile && isDesktop && (
-      <DesktopSidebar
-        primary={sideMenuPrimary}
-        groups={sideMenuGroups}
-        trash={sideMenuTrash}
-        activeView={view}
-        groupsOpen={menuGroupsOpen}
-        onToggleGroup={(k) => setMenuGroupsOpen(m => ({ ...m, [k]: !m[k] }))}
-        profile={profile}
-        onSelect={(it) => go(it.onClick)}
-        onAccount={() => go(() => setView('account'))}
-      />
-    )}
+    {profile && isDesktop && (() => {
+      // The AI launcher leaves the destination list on desktop: it is the
+      // rail's filled "New chat" action instead (the one thing an AI
+      // workspace puts above navigation). Mobile keeps it in the list.
+      const railPrimary = sideMenuPrimary.filter(it => !!it.view)
+      const openChat = (source) => { supabase && trackEvent('jasper_open', { source }); setNewChatNonce(n => n + 1); setFaOpen(true) }
+      // Picking a destination while the chat page is open closes the chat
+      // — on desktop the rail stays usable beside it (no scrim).
+      const closeChat = () => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null) }
+      const drafts = index.drafts || []
+      const reports = index.reports || []
+      const nextTheme = getTheme() === 'light' ? 'dark' : 'light'
+      // Ctrl/⌘ K palette — the same destinations as the rail, plus the
+      // recent drafts and reports (the "search your chats" of an AI app)
+      // and the two shell actions a keyboard user reaches for.
+      const paletteCommands = [
+        { id: 'new-chat', label: 'New chat with AtmosFlow AI', group: 'AtmosFlow AI', renderIcon: () => <JasperBrainIcon size={18} animate={false} />, keywords: ['jasper', 'ask', 'ai', 'assistant'], onSelect: () => openChat('command_palette') },
+        ...railPrimary.map(it => ({ id: `go-${it.view}`, label: it.label, group: 'Workspace', icon: it.icon, keywords: ['go to', 'open'], onSelect: () => { closeChat(); go(it.onClick) } })),
+        ...drafts.slice(0, 8).map(d => ({ id: `draft-${d.id}`, label: d.facility || 'Untitled assessment', group: 'Drafts', icon: 'draft', hint: fD(d.ua || d.ts), keywords: ['draft', 'resume', 'assessment'], onSelect: () => { closeChat(); resumeDraft(d.id) } })),
+        ...reports.slice(0, 8).map(r => ({ id: `report-${r.id}`, label: r.facility || 'Untitled report', group: 'Reports', icon: 'report', hint: fD(r.ts), keywords: ['report', 'finalized'], onSelect: () => { closeChat(); openReport(r) } })),
+        ...sideMenuGroups.flatMap(g => (g.items || []).map(it => ({ id: `grp-${g.key}-${it.label}`, label: it.label, group: g.label, icon: it.icon, onSelect: () => { closeChat(); go(it.onClick) } }))),
+        { id: 'trash', label: sideMenuTrash.label, group: 'Support', icon: 'trash', onSelect: () => { closeChat(); go(sideMenuTrash.onClick) } },
+        { id: 'theme', label: `Switch to ${nextTheme} theme`, group: 'Appearance', icon: nextTheme === 'light' ? 'sun' : 'moon', keywords: ['dark', 'light', 'appearance', 'mode'], onSelect: () => setTheme(nextTheme) },
+        { id: 'rail', label: `${railCollapsed ? 'Expand' : 'Collapse'} sidebar`, group: 'Appearance', icon: 'layers', hint: `${MOD_LABEL} B`, keywords: ['sidebar', 'rail', 'navigation'], onSelect: toggleRail },
+      ]
+      return (
+        <>
+          <DesktopSidebar
+            primary={railPrimary}
+            groups={sideMenuGroups}
+            trash={sideMenuTrash}
+            activeView={view}
+            groupsOpen={menuGroupsOpen}
+            onToggleGroup={(k) => setMenuGroupsOpen(m => ({ ...m, [k]: !m[k] }))}
+            profile={profile}
+            onSelect={(it) => { closeChat(); go(it.onClick) }}
+            onAccount={() => { closeChat(); go(() => setView('account')) }}
+            collapsed={railCollapsed}
+            onToggleCollapse={toggleRail}
+            onNewChat={() => openChat('desktop_rail')}
+            onSearch={() => setPaletteNonce(n => n + 1)}
+          />
+          <DesktopCommandPalette commands={paletteCommands} openNonce={paletteNonce} />
+        </>
+      )
+    })()}
     <div
       className={profile && showHomeMenu ? 'af-content-surface is-open' : 'af-content-surface'}
       onTouchStart={onShellTouchStart}
       onTouchEnd={onShellTouchEnd}
-      style={{minHeight:V3.FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: profile && isDesktop ? SIDEBAR_W : 0}}>
+      style={{minHeight:V3.FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: railW}}>
       {/* Global offline banner — sits above the header so the
           offline state is impossible to miss. PendingSyncIndicator
           below stays as the source-of-truth for queue depth + last
@@ -4405,7 +4447,7 @@ export default function MobileApp() {
       <header
         data-scrolled={chromeScrolled ? 'true' : undefined}
         style={{
-          position:'fixed', top:0, left: profile && isDesktop ? SIDEBAR_W : 0, right:0, zIndex:100,
+          position:'fixed', top:0, left: railW, right:0, zIndex:100,
           paddingTop:'env(safe-area-inset-top, 0px)',
           // Transparent at rest; a tinted, blurred bar with a hairline foot
           // once content scrolls beneath it (see chromeScrolled). The blur
@@ -5566,7 +5608,6 @@ export default function MobileApp() {
                     })
                     try { trackEvent('portfolio_report_exported', { assessments: (index.reports||[]).length, sites: sites.length }) } catch { /* analytics best-effort */ }
                   } catch (e) {
-                    // eslint-disable-next-line no-console
                     console.error('portfolio report failed', e)
                   } finally {
                     setPortfolioBusy(false)
@@ -5755,6 +5796,9 @@ export default function MobileApp() {
       {profile && faOpen && (
         <Suspense fallback={LAZY_FALLBACK}>
         <FieldAssistant
+          desktop={isDesktop}
+          leftInset={railW}
+          newChatNonce={newChatNonce}
           onClose={() => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null) }}
           onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); if (v === 'dash') goHome(); else setView(v) }}
           initialMessage={voicePrefill || reviewPrefill}

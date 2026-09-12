@@ -1,5 +1,36 @@
 # AtmosFlow Changelog
 
+## Desktop shell modernization (September 2026)
+
+The desktop layout (≥ 1024px) had the shape of the phone app with a rail
+bolted on: a 640px chat sheet floating over a dimmed page, a fixed-width
+sidebar with no hover states, and no keyboard route to anything. This pass
+brings the shell to the conventions every current AI workspace shares
+(Claude, ChatGPT, Grok) without touching the phone/tablet layout, which
+stays byte-identical below 1024px.
+
+- **AtmosFlow AI is a page, not a sheet, on desktop.** `FieldAssistant`
+  takes `desktop` + `leftInset`: no scrim, pinned to the content area right
+  of the rail at full width, transcript and composer centered in an 800px
+  reading column, a fade instead of the sheet rise, and a greeting on the
+  empty canvas with the composer lifted toward the middle of the window.
+  Choosing a rail destination while the chat is open closes it.
+- **Collapsible rail.** `DesktopSidebar` collapses to a 68px icon rail from
+  its header toggle or **Ctrl/⌘ B** (ignored inside a text field) and
+  remembers the choice (`KEYS.desktopRailCollapsed`). The header, content
+  surface and chat page follow the live rail width. Rows gained
+  pointer-only hover states; the AI launcher became the rail's filled
+  **New chat** action; a **Search** row shows the palette shortcut.
+- **Command palette.** New `DesktopCommandPalette` on **Ctrl/⌘ K**: filters
+  and ranks every rail destination, the eight most recent drafts and
+  reports, New chat, the theme switch and the rail toggle; arrows + Enter,
+  Escape, focus-trapped, reduced-motion aware.
+- Tests: `DesktopSidebar.test.jsx` (collapse, chord, New chat / Search,
+  persistence), `DesktopCommandPalette.test.jsx`,
+  `FieldAssistant-desktop.test.tsx`. `docs/DESKTOP.md` describes the shell.
+- Three stale `eslint-disable` directives removed so the `lint:src` ratchet
+  holds at 416 with the new files' JSX-only imports counted.
+
 ## Audit remediation (September 2026)
 
 The engineering audit (`docs/AUDIT-2026-09.md`) found that nothing gated a
