@@ -185,7 +185,19 @@ export function summarizeAssessment(zoneAssessments) {
 function assessVent(d, achOverride) {
   const r = []
   const co2Ref = 'ASHRAE Position Document on Indoor CO₂ (2022)'
-  const co2Caveat = 'CO₂ is a ventilation effectiveness indicator, not an air quality contaminant. No current ASHRAE standard establishes an indoor CO₂ limit (Persily, ASHRAE Journal 2021). The 700 ppm indoor-outdoor differential is a sedentary-office bioeffluent perception threshold from a since-removed informative appendix.'
+  // The three-sentence Persily block that used to be appended to EVERY CO2
+  // finding was removed in 2026-09. It is not wrong, it was in the wrong
+  // place: five tiers each carried it, so a two-zone report restated the same
+  // methodology paragraph four times, and `headline()` in reportModel.js
+  // exists solely to cut it back off for the summary. The substance is
+  // already stated once, where a reader looks it up — Appendix A's carbon
+  // dioxide background (narrativeLibrary.js) says CO2 "is not itself a health
+  // hazard" at office concentrations and is "the most practical real-time
+  // indicator of ventilation adequacy" — and every finding still cites
+  // `co2Ref`, which names the position document rather than a standard that
+  // sets no limit. Repeated qualification is what CLAUDE.md's working
+  // principles tell us not to reach for; the boundary lives in the criterion
+  // and the limitation statement, not in a caveat on every row.
   // Every reading through the one parser (H1). A field that was entered but
   // cannot be read is a data gap, stated as such; an empty field keeps the
   // "not captured" behavior the sufficiency layer already handles.
@@ -248,12 +260,20 @@ function assessVent(d, achOverride) {
     // unreachable until 2026-09 — the medium tier's condition swallowed it —
     // so an 850 ppm reading without a baseline was rated the same as one with
     // a measured differential behind it.
-    if (v > STD.v.co2.act)                              { r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicating significant ventilation inadequacy. ' + co2Caveat, std: co2Ref, sev: capSeverity('critical', 'ventilation_indicator'), p: 'co2', cid: 'co2_action' }) }
-    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor) — ventilation rate appears inadequate for occupant load. ' + co2Caveat, std: co2Ref, sev: 'high', p: 'co2', cid: 'co2_concern' }) }
-    else if (hasOutdoor && df > 500)                    { r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor ' + o + ') — ventilation approaching concern for sedentary occupancy. ' + co2Caveat, std: co2Ref, sev: 'medium', p: 'co2', cid: 'co2_concern' }) }
-    else if (!hasOutdoor && v > 800)                    { r.push({ t: 'CO₂ ' + v + ' ppm — approaching concern (no outdoor baseline for differential). ' + co2Caveat, std: co2Ref, sev: 'low', p: 'co2' }) }
-    else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' — within the reference range for ventilation adequacy. ' + co2Caveat, std: co2Ref, sev: 'pass', p: 'co2' })
-    if (!hasAirflow) r.push({ t: 'Ventilation assessed from CO₂ only — Limited Confidence. CO₂ is a ventilation indicator and should not be interpreted as a contaminant measurement.', sev: 'info' })
+    if (v > STD.v.co2.act)                              { r.push({ t: 'CO₂ ' + v + ' ppm — severely elevated, indicating significant ventilation inadequacy.', std: co2Ref, sev: capSeverity('critical', 'ventilation_indicator'), p: 'co2', cid: 'co2_action' }) }
+    else if (df > STD.v.co2.diff || v > STD.v.co2.con) { r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor) — ventilation rate appears inadequate for occupant load.', std: co2Ref, sev: 'high', p: 'co2', cid: 'co2_concern' }) }
+    else if (hasOutdoor && df > 500)                    { r.push({ t: 'CO₂ ' + v + ' ppm (Δ' + df + ' ppm above outdoor ' + o + ') — ventilation approaching concern for sedentary occupancy.', std: co2Ref, sev: 'medium', p: 'co2', cid: 'co2_concern' }) }
+    else if (!hasOutdoor && v > 800)                    { r.push({ t: 'CO₂ ' + v + ' ppm — approaching concern (no outdoor baseline for differential).', std: co2Ref, sev: 'low', p: 'co2' }) }
+    else r.push({ t: 'CO₂ ' + v + ' ppm' + (hasOutdoor ? ' (Δ' + df + ' ppm)' : '') + ' — within the reference range for ventilation adequacy.', std: co2Ref, sev: 'pass', p: 'co2' })
+    // An 'info' row reading "Ventilation assessed from CO2 only — Limited
+    // Confidence" was removed in 2026-09. It graded the assessment in the
+    // findings list, restated the caveat above, and proposed nothing. The
+    // disclosure it gestured at is made properly and once, by the report's
+    // own scope limitation ("No quantified ventilation-rate measurement was
+    // made; ventilation adequacy is inferred from CO2 as an indicator only"),
+    // which is derived independently of this row and is unaffected —
+    // evidencePackage.js `lim-ventilation-inferred` keys off
+    // `model.limitations`, not off a finding.
   } else if (!hasAirflow) {
     let f = 0
     if (d.sa === 'No airflow detected') f += 3
@@ -579,7 +599,7 @@ function assessEnv(d, rhOverride, tempOverride) {
   const needsSeason = tempOverride?.min == null || tempOverride?.max == null
   if (t != null && needsSeason && !ssn) {
     r.push({
-      t: 'Temperature ' + t + '°F recorded — assessment date not recorded, so the ASHRAE 55 seasonal comfort band cannot be selected (Data Gap; not evaluated)',
+      t: 'Temperature ' + t + '°F recorded; not evaluated — no survey date on record to select the seasonal comfort band',
       std: STD.t.ref, sev: 'info', p: 'temperature', dataGap: true,
     })
   } else if (t != null) {

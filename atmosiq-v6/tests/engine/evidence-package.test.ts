@@ -190,26 +190,48 @@ describe('buildEvidencePackage — a projection of the report, not a second opin
     }
   })
 
-  it('the wire form carries each pathway once with its confidence and hypothesis flag', () => {
+  it('the wire form carries each pathway once, with no confidence and the verification it needs', () => {
     const { pkg, causalChains } = build()
     const wire = packageForWriter(pkg)
     expect(wire.pathways.length).toBe(causalChains.filter((c: any) => c && c.type).length)
     for (const p of wire.pathways) {
-      expect(['Possible', 'Moderate', 'Strong']).toContain(p.confidence)
+      // The engine still weighs every chain — it ranks them and it decides
+      // what may be claimed. The WEIGHT never crosses the wire: the report
+      // publishes no confidence rating, so handing the writer one invites the
+      // sentence the report no longer contains. A closed package does not
+      // carry a value it forbids the use of.
+      expect(p.confidence).toBeUndefined()
       expect(typeof p.hypothesis).toBe('boolean')
       expect(p.type).not.toMatch(/\(Hypothesis\)/)
     }
     expect(wire.pathways.some((p: any) => p.hypothesis)).toBe(causalChains.some((c: any) => /\(Hypothesis\)/.test(c.type)))
+    // And what replaces it: what would settle the pathway.
+    expect(wire.pathways.some((p: any) => typeof p.verification === 'string' && p.verification.length > 20)).toBe(true)
     expect(wire.pathway_rule).toMatch(/never as the cause/)
+    expect(wire.pathway_rule).toMatch(/Do NOT rate, rank, score or grade a pathway/)
     expect(wire.allowed_interpretations.every((a: any) => a.subject_kind === 'parameter')).toBe(true)
     expect(wire.prohibited_claims.every((p: any) => p.subject_kind === 'parameter')).toBe(true)
   })
 
-  it('the wire form drops the evidentiary caveat the token now encodes, and the audit copy keeps it', () => {
+  it('the wire form still strips the evidentiary caveat, for records scored before it was dropped', () => {
+    // `buildStatement` stopped appending the caveat in 2026-09, so a freshly
+    // scored assessment has none to strip. The stripper is NOT dead: an issued
+    // report keeps the `zoneScores` it was finalized with (runScoring
+    // early-returns for a finalized report), so findings carrying the old
+    // sentence will reach this function for as long as those reports are
+    // re-exported. Asserted over a synthetic legacy finding rather than a
+    // fresh one, because a fresh one can no longer produce the input.
     const { pkg } = build()
-    const wire = packageForWriter(pkg)
     const caveat = /A short-duration reading (is indicative but not determinative|cannot establish compliance)/
-    expect(pkg.findings.some((f: any) => caveat.test(f.text))).toBe(true)
+    expect(pkg.findings.some((f: any) => caveat.test(f.text))).toBe(false)
+
+    const legacy = {
+      ...pkg,
+      findings: pkg.findings.map((f: any, i: number) => (i === 0
+        ? { ...f, text: `${f.text} A short-duration reading cannot establish compliance with this averaging period.` }
+        : f)),
+    }
+    const wire = packageForWriter(legacy)
     expect(wire.findings.some((f: any) => caveat.test(f.text))).toBe(false)
     expect(wire.findings.length).toBe(pkg.findings.length)
   })
@@ -384,6 +406,58 @@ describe('auditNarrative — supported prose passes, altered prose does not', ()
     const issues = auditNarrative('The reading exceeds the ACGIH threshold of 500 ppm for this contaminant.', pkg)
     expect(issues.map((i: any) => i.id)).toContain('criterion-unattested')
     expect(issues.find((i: any) => i.id === 'criterion-unattested').where).toBe('acgih')
+  })
+
+  describe('pathway-rated — no causal explanation may be graded or ranked', () => {
+    // The report stopped publishing Possible / Moderate / Strong in 2026-09:
+    // it read as a measurement of certainty over a methodology the document
+    // never states, so a client could ask what makes a pathway Moderate
+    // rather than Low and get no answer. The confidence word no longer
+    // reaches the writer either — which removes the source but not the
+    // temptation, since a model that knows the genre supplies "the most
+    // likely explanation" unprompted. This is the gate for that.
+    const withPathway = () => ({
+      immutable_values: [], references: [], findings: [], recommendation_options: [],
+      required_limitations: [], prohibited_claims: [],
+      allowed_interpretations: [{ id: 'a1', subject: 'chain-0', subject_kind: 'pathway', statement: 'x' }],
+    })
+
+    it('catches a named grade', () => {
+      for (const text of [
+        'Ventilation deficiency is the working hypothesis, at moderate confidence.',
+        'There is a high likelihood that outdoor-air delivery is the mechanism.',
+        'Confidence level: moderate.',
+      ]) {
+        expect(auditNarrative(text, withPathway()).map((i: any) => i.id), text).toContain('pathway-rated')
+      }
+    })
+
+    it('catches the superlative form, which is what a writer reaches for instead', () => {
+      for (const text of [
+        'Reduced outdoor-air delivery is the most likely explanation for the pattern.',
+        'This is the strongest hypothesis available from the walkthrough.',
+      ]) {
+        expect(auditNarrative(text, withPathway()).map((i: any) => i.id), text).toContain('pathway-rated')
+      }
+    })
+
+    it('leaves the evidence-based wording the report actually uses alone', () => {
+      // Exactly the vocabulary the deterministic prose now carries. A rule
+      // that flagged this would block every compliant section.
+      const text = 'Reduced outdoor-air delivery is the leading working hypothesis on the observations available. '
+        + 'No causal relationship has been established; outdoor-air delivery should be measured directly before a causal conclusion is drawn.'
+      expect(auditNarrative(text, withPathway()).map((i: any) => i.id)).not.toContain('pathway-rated')
+    })
+
+    it('says nothing about a MEASUREMENT being uncertain, which is the hedging the report wants', () => {
+      const text = 'The carbon dioxide result is a single grab reading and cannot establish an eight-hour average.'
+      expect(auditNarrative(text, withPathway()).map((i: any) => i.id)).not.toContain('pathway-rated')
+    })
+
+    it('does not fire on an assessment with no causal pathway at all', () => {
+      const pkg = { ...withPathway(), allowed_interpretations: [] }
+      expect(auditNarrative('This is the most likely explanation.', pkg).map((i: any) => i.id)).not.toContain('pathway-rated')
+    })
   })
 
   it('interpretation-exceeded — catches a settled comparison on a criterion the reading cannot settle', () => {

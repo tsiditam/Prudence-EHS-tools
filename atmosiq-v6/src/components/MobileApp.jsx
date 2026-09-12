@@ -26,7 +26,7 @@ import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { withAiSections, lockAiSections, applyOverride, removeOverride, isOverridden, MIN_OVERRIDE_JUSTIFICATION } from '../report/aiSections'
+import { withAiSections, evidencePackageFor, lockAiSections, applyOverride, removeOverride, isOverridden, applyEdit, removeEdit, isEdited, sectionText, MIN_OVERRIDE_JUSTIFICATION, MIN_SECTION_TEXT } from '../report/aiSections'
 import { checkRenderModel } from '../report/modelConsistency'
 import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
@@ -279,13 +279,10 @@ const AI_SECTION_LABELS = {
 // borrowing it.
 const RS_LINK = { background: 'none', border: 'none', color: V3.TEXT_PRIMARY, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4, WebkitTapHighlightColor: 'transparent' }
 
-// Confidence tones for the results cards. High = green (confident),
-// Moderate = amber, Possible = a cool slate-blue — deliberately lower-
-// energy but still chromatic, so the lowest tier reads as an intentional
-// confidence state rather than disabled gray body text.
-const confColor = (conf) => conf === 'Strong' ? '#22C55E'
-  : conf === 'Moderate' ? '#FBBF24'
-  : '#8AA4CC'
+// `confColor` (High = green, Moderate = amber, Possible = slate-blue) was
+// deleted in 2026-09 with the Pathways tab's confidence word. Nothing else
+// used it, and a palette kept alive for a label that no longer renders is how
+// the label comes back.
 const ON_ACCENT = 'var(--on-accent)'
 // Hero heading font. Was an editorial serif (Tiempos/Lora); switched to
 // the app's sans (var(--font-sans), Inter) so the result acard + Home
@@ -2183,6 +2180,7 @@ export default function MobileApp() {
   // Which blocked section has its override editor open, and what has been
   // typed into it. Never persisted — only the committed override is.
   const [overrideDraft, setOverrideDraft] = useState({ key: null, text: '' })
+  const [editDraft, setEditDraft] = useState({ key: null, text: '' })
 
   /**
    * Keep an AI section the evidence check could not support.
@@ -2218,6 +2216,63 @@ export default function MobileApp() {
     trackEvent('ai_section_override_withdrawn', { section: key })
   }
 
+  /**
+   * The assessment data the AI-sections path reads, in one place.
+   *
+   * Generation and an assessor's later edit have to be judged against the SAME
+   * evidence package — a revision audited against a differently-built package
+   * could pass a check the generated text failed for reasons that have nothing
+   * to do with the words. One builder, two callers.
+   */
+  const reportDataForAi = () => ({
+    building: bldg, presurvey, zones, zoneScores, recs, causalChains,
+    id: viewRpt?.id || draftId || null, equipment, comp, profile, photos, photoOverrides, floorPlans,
+    ts: viewRpt?.ts, sensorData: (viewRpt && viewRpt.sensorData) || sensorData,
+  })
+
+  /**
+   * Revise one AI-authored section by hand, and re-run its evidence check.
+   *
+   * The remedy the override is not. An override keeps prose the check could
+   * not support by WAIVING the finding and disclosing that; an edit changes
+   * the prose so the finding no longer holds, and the section then passes on
+   * its own. Where the blocker is a missing limitation the audit message
+   * quotes the exact sentence that is absent, so the fix is usually to paste
+   * it in. `applyEdit` re-audits — a revision is checked exactly like
+   * generated text, never trusted because a person typed it.
+   */
+  const editSection = async (key) => {
+    const text = (editDraft.text || '').trim()
+    if (text.length < MIN_SECTION_TEXT) return
+    let pkg = null
+    try { pkg = evidencePackageFor(reportDataForAi()) } catch { pkg = null }
+    if (!pkg) { toast.error('That section could not be re-checked, so the edit was not saved.'); return }
+    const next = applyEdit(aiSections, key, { text, by: profile?.name || presurvey?.ps_assessor || null }, pkg)
+    if (next === aiSections) { toast.error('That section could not be edited.'); return }
+    setAiSections(next)
+    setEditDraft({ key: null, text: '' })
+    await persistAiOutput({ aiSections: next })
+    const summary = next.auditSummary && next.auditSummary[key]
+    emitEvent('ai_section_edited', {
+      target_id: viewRpt?.id || draftId || null,
+      target_type: 'assessment',
+      details: { section: key, supported: !!(summary && summary.supported !== false), issues: ((next.audit && next.audit[key]) || []).map(i => i.id) },
+    })
+    trackEvent('ai_section_edited', { section: key })
+    toast.success(summary && summary.supported !== false
+      ? 'Edit saved — the section now passes the evidence check.'
+      : 'Edit saved, but the check still objects. See what it says below.')
+  }
+
+  const revertSection = async (key) => {
+    const next = removeEdit(aiSections, key)
+    if (next === aiSections) return
+    setAiSections(next)
+    setEditDraft({ key: null, text: '' })
+    await persistAiOutput({ aiSections: next })
+    trackEvent('ai_section_edit_reverted', { section: key })
+  }
+
   const requestReportSections = async () => {
     if (!PAYWALL_DISABLED && credits < 5) { setShowPricing(true); return }
     trackEvent('report_sections_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
@@ -2225,11 +2280,7 @@ export default function MobileApp() {
     // Same report data narrative already threads through, so the evidence
     // package this writes from and the one the DOCX export will fingerprint
     // against (src/report/aiSections.js) describe the same assessment.
-    const { record: rec, error: genError } = await generateReportSections({
-      building: bldg, presurvey, zones, zoneScores, recs, causalChains,
-      id: viewRpt?.id || draftId || null, equipment, comp, profile, photos, photoOverrides, floorPlans,
-      ts: viewRpt?.ts, sensorData: (viewRpt && viewRpt.sensorData) || sensorData,
-    })
+    const { record: rec, error: genError } = await generateReportSections(reportDataForAi())
     // An issued report gets exactly one generation, the same as one that
     // was finalized with sections already attached (lockAiSections at
     // finalize): the document a client was sent must not read differently
@@ -3541,7 +3592,7 @@ export default function MobileApp() {
                 <div style={{...V3.T.caption, color:aiSectionsStale?WARN:SUB, marginBottom:10}}>
                   {aiSectionsStale
                     ? 'This report is finalized. Its report sections were written for an earlier version of the assessment, so the export uses the report’s own text.'
-                    : 'This report is finalized. Its report sections are saved with it and reused by every export at no further cost.'}
+                    : 'This report is finalized, so the sections are not written again — they are saved with it and reused by every export at no further cost. You can still edit any of them below.'}
                 </div>
               )}
               {!reportSectionsLoading && !aiSectionsLocked && aiSections && aiSectionsSummaryCounts.total > 0 && (
@@ -3572,20 +3623,63 @@ export default function MobileApp() {
                       const blocked = !!(summary && summary.supported === false)
                       const kept = blocked && isOverridden(aiSections, key)
                       const editing = overrideDraft.key === key
+                      const revised = isEdited(aiSections, key)
+                      const revising = editDraft.key === key
                       return (
                         <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5}}>
                           <span style={{color:!blocked||kept?'var(--success)':WARN,fontWeight:600}}>{!blocked?'✓':kept?'✓':'⚠'} {AI_SECTION_LABELS[key] || key}</span>
+                          {revised && <span style={{color:SUB}}> · your wording</span>}
                           {blocked && !kept && <>{' — '}{(aiSections.audit && aiSections.audit[key] || []).map(i=>i.message).join(' ')}</>}
                           {kept && <>{' — '}<span style={{color:SUB}}>Kept over the evidence check; the reason prints in the report’s QA notes.</span></>}
-                          {/* The assessor's call, recorded — never a silent switch.
-                              Mirrors the calibration acknowledgement: a written
-                              reason, an audit-log entry, and a QA/QC disclosure. */}
-                          {blocked && !aiSectionsLocked && !kept && !editing && (
+                          {/* Two remedies, and they are not the same thing. An
+                              EDIT changes the prose so the finding no longer
+                              holds — the section then passes on its own, which
+                              is the honest fix and the only one that needs no
+                              disclosure. An OVERRIDE keeps prose the check
+                              could not support, and costs the calibration
+                              acknowledgement's price: a written reason, an
+                              audit-log entry, and a QA/QC note in the report.
+                              Neither is gated on the lock. `aiSectionsLocked`
+                              stops REGENERATION, so an issued report does not
+                              read differently because the model was asked
+                              again — it was never meant to strand the assessor
+                              with a warning and no way to act on it. */}
+                          {!revising && (
+                            <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap'}}>
+                              <TactileButton variant="secondary" size="sm" pill onClick={()=>setEditDraft({ key, text: sectionText(aiSections, key) || '' })}>
+                                {revised ? 'Edit your wording…' : 'Edit this section…'}
+                              </TactileButton>
+                              {revised && <TactileButton variant="secondary" size="sm" pill onClick={()=>revertSection(key)}>Restore the AI text</TactileButton>}
+                            </div>
+                          )}
+                          {revising && (
+                            <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:8}}>
+                              <div style={{...V3.T.caption,color:SUB}}>
+                                {blocked
+                                  ? 'Edit the text so the check is satisfied — where a limitation is missing, the message above quotes the exact sentence to add. Your version is re-checked when you save.'
+                                  : 'Your version is re-checked against the assessment record when you save, the same as the generated text.'}
+                              </div>
+                              <textarea
+                                value={editDraft.text}
+                                onChange={(e)=>setEditDraft({ key, text: e.target.value })}
+                                rows={10}
+                                style={{width:'100%',boxSizing:'border-box',fontSize:16,lineHeight:1.6,padding:'10px 12px',borderRadius:RADII.sm,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontFamily:'inherit',resize:'vertical'}}
+                              />
+                              <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                                <TactileButton variant="primary" size="sm" pill onClick={()=>editSection(key)} disabled={editDraft.text.trim().length < MIN_SECTION_TEXT || editDraft.text.trim() === (sectionText(aiSections, key) || '')}>
+                                  Save and re-check
+                                </TactileButton>
+                                <TactileButton variant="secondary" size="sm" pill onClick={()=>setEditDraft({ key:null, text:'' })}>Cancel</TactileButton>
+                                <span style={V3.T.captionDim}>Blank lines start a new paragraph</span>
+                              </div>
+                            </div>
+                          )}
+                          {blocked && !kept && !editing && !revising && (
                             <div style={{marginTop:6}}>
                               <TactileButton variant="secondary" size="sm" pill onClick={()=>setOverrideDraft({ key, text: '' })}>Use this section anyway…</TactileButton>
                             </div>
                           )}
-                          {blocked && !aiSectionsLocked && !kept && editing && (
+                          {blocked && !kept && editing && (
                             <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:8}}>
                               <div style={{...V3.T.caption,color:SUB}}>Why is this section sound despite the check? This prints in the report’s QA notes, beside what the check said.</div>
                               <textarea
@@ -3608,7 +3702,7 @@ export default function MobileApp() {
                               </div>
                             </div>
                           )}
-                          {kept && !aiSectionsLocked && (
+                          {kept && !revising && (
                             <div style={{marginTop:6}}>
                               <TactileButton variant="secondary" size="sm" pill onClick={()=>withdrawOverride(key)}>Withdraw override</TactileButton>
                             </div>
@@ -3934,27 +4028,33 @@ export default function MobileApp() {
         })()}
 
         {rTab==='rootcause'&&<div style={{display:'flex',flexDirection:'column',gap:0}}>
-          <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5, marginBottom:6}}>Pathways correlate field observations, measurements and occupant reports. They support, but do not confirm, root-cause determination.</div>
+          <div style={{...V3.T.caption, fontWeight:400, lineHeight:1.5, marginBottom:6}}>Pathways correlate field observations, measurements and occupant reports. No causal relationship has been established for any of them; each names the verification it requires.</div>
           {causalChains.length===0?<div style={{...V3.T.bodyDim, textAlign:'center', padding:'40px 20px 0'}}>No concern pathways identified — no correlated multi-factor findings in this assessment.</div>
-          :groupPathways(causalChains).map((g,i)=>{const confLabel=g.confidence==='Strong'?'High':g.confidence==='Moderate'?'Moderate':'Possible';const cc=confColor(g.confidence);const multi=g.byZone.length>1;return(
-            // One row per distinct pathway, folded: the name, the zones it
-            // applies to, its confidence as a word in its color. The
-            // engine emits a chain per zone, so the same pathway used to
-            // appear once for every zone; the fold keeps every zone's
-            // hypothesis and evidence inside the row.
+          :groupPathways(causalChains).map((g,i)=>{const multi=g.byZone.length>1;return(
+            // One row per distinct pathway, folded: the name and the zones
+            // it applies to. The engine emits a chain per zone, so the same
+            // pathway used to appear once for every zone; the fold keeps
+            // every zone's hypothesis and evidence inside the row.
+            //
+            // The row used to end in the chain's confidence as a colored word
+            // — High / Moderate / Possible. It came off with the report's
+            // (CLAUDE.md: a causal pathway is never given a published
+            // confidence rating), and nothing replaces it: every pathway here
+            // is an unconfirmed hypothesis, so a label identical on every row
+            // carries no information. What the assessor actually needs is at
+            // the foot of the fold — what would settle it.
             <details key={g.type} className="rs-cat" style={{borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
               <summary style={{display:'flex',alignItems:'center',gap:10,padding:'13px 0',cursor:'pointer',listStyle:'none',WebkitTapHighlightColor:'transparent'}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{...V3.T.bodyStrong, fontSize:15}}>{g.type}</div>
                   <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{g.zones.join(' · ')}</div>
                 </div>
-                <span style={{...V3.T.caption, color:cc, whiteSpace:'nowrap'}}>{confLabel}</span>
                 <span className="rs-chev" aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1,display:'inline-block'}}>›</span>
               </summary>
               <div style={{paddingBottom:16}}>
                 {g.byZone.map((z, zi) => (
                   <div key={z.zone || zi} style={{paddingTop: zi === 0 ? 0 : 12, marginTop: zi === 0 ? 0 : 12, borderTop: zi === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
-                    {multi && <div style={{...V3.T.captionDim, fontWeight:600, color:V3.TEXT_SECONDARY, marginBottom:6}}>{z.zone}{z.confidence !== g.confidence ? <span style={{color:confColor(z.confidence), fontWeight:500}}> · {z.confidence==='Strong'?'High':z.confidence==='Moderate'?'Moderate':'Possible'}</span> : null}</div>}
+                    {multi && <div style={{...V3.T.captionDim, fontWeight:600, color:V3.TEXT_SECONDARY, marginBottom:6}}>{z.zone}</div>}
                     <div style={{...V3.T.body, lineHeight:'20px'}}>{z.rootCause}</div>
                     {z.evidence.length > 0 && (
                       <div style={{marginTop:8}}>
@@ -3963,6 +4063,12 @@ export default function MobileApp() {
                     )}
                   </div>
                 ))}
+                {g.verification && (
+                  <div style={{marginTop:12, paddingTop:10, borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
+                    <span style={{...V3.T.caption, fontWeight:600, color:V3.TEXT_SECONDARY}}>Verification: </span>
+                    <span style={{...V3.T.caption, lineHeight:1.55}}>{g.verification.charAt(0).toUpperCase() + g.verification.slice(1)}.</span>
+                  </div>
+                )}
               </div>
             </details>
           )})}

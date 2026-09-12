@@ -41,12 +41,16 @@ function pmFindings(pm: string, outdoor = '9'): Array<Record<string, string>> {
 
 const threshold = (pm: string) => pmFindings(pm).find((f) => f.sev !== 'pass' && f.sev !== 'info')
 
-describe('PM2.5 carries the averaging caveat every other analyte gets', () => {
-  it('states the criterion, its averaging period, and what a survey cannot settle', () => {
+describe('PM2.5 states its averaging period like every other analyte', () => {
+  it('states the criterion and the averaging period it is expressed over', () => {
     const f = threshold('38')!
     expect(f.t).toContain('above the EPA 24-hour NAAQS of 35 µg/m³')
     expect(f.t).toContain('which is a 24-hour average')
-    expect(f.t).toContain('A short-duration reading cannot establish compliance with this averaging period')
+    // The trailing "A short-duration reading cannot establish compliance with
+    // this averaging period" went in 2026-09: the clause above already names
+    // the period, and the report's Limitations section states the principle.
+    // Three statements of one point read as hedging, not rigor.
+    expect(f.t).not.toContain('A short-duration reading cannot establish')
   })
 
   it('never says "exceeds" a standard a grab reading cannot exceed', () => {

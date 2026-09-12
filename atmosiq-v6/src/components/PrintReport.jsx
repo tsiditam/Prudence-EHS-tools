@@ -711,18 +711,18 @@ export function generateLegacyPrintHTML(data) {
   <!-- ═══ CAUSAL CHAIN ANALYSIS ═══ -->
   ${(causalChains || []).length > 0 ? `
   <h2 class="pg-break">Causal Chain Analysis</h2>
-  <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following concern pathways were identified through correlation of field observations, instrument measurements, and occupant reports. These are presented as structured evidence chains rather than confirmed root-cause determinations. Confidence levels reflect the strength and consistency of supporting evidence.</p>
+  <p style="font-size:11px;color:#475569;margin-bottom:12px;">The following concern pathways were identified through correlation of field observations, instrument measurements, and occupant reports. These are presented as structured evidence chains rather than confirmed root-cause determinations. No causal relationship has been established for any of them; each names the verification it requires.</p>
   ${causalChains.map(ch => `
     <div class="chain-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <strong style="font-size:12px;">${ch.type}</strong>
-        <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0.3px;background:${ch.confidence === 'Strong' ? '#F0FDF4' : ch.confidence === 'Moderate' ? '#FFFBEB' : '#F8FAFC'};color:${ch.confidence === 'Strong' ? '#15803D' : ch.confidence === 'Moderate' ? '#A16207' : '#64748B'};">${ch.confidence}</span>
+        <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0.3px;background:#F8FAFC;color:#64748B;">Working hypothesis</span>
       </div>
       <div style="font-size:10px;color:#1B2A41;font-family:Cambria,serif;margin-bottom:8px;">${ch.zone}</div>
       <div style="padding:8px 14px;background:#F8FAFC;border-left:2px solid #1B2A41;border-radius:0 4px 4px 0;font-size:11px;color:#334155;margin-bottom:8px;">${ch.rootCause}</div>
       <div style="font-size:10px;font-weight:600;color:#64748B;margin-bottom:4px;">Supporting evidence:</div>
       ${ch.evidence.map(e => `<div class="evidence-item">${e}</div>`).join('')}
-      <div style="font-size:10px;color:#64748B;margin-top:6px;font-style:italic;">This pathway would warrant targeted follow-up to confirm contributing conditions.</div>
+      <div style="font-size:10px;color:#64748B;margin-top:6px;font-style:italic;">${ch.verification ? `Verification: ${ch.verification.charAt(0).toUpperCase()}${ch.verification.slice(1)}.` : 'This pathway would warrant targeted follow-up to confirm contributing conditions.'}</div>
     </div>
   `).join('')}` : ''}
 

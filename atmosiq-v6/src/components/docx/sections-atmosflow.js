@@ -175,10 +175,16 @@ const toParas = (t) => (Array.isArray(t) ? t : t ? [t] : [])
 // its per-section counterpart for five paragraphs woven into one otherwise
 // deterministic report, sized to not read as five alarms in one document.
 const isAiAuthored = (M, key) => Array.isArray(M.aiAuthoredSections) && M.aiAuthoredSections.includes(key)
-const aiNote = () =>
+// The label states WHO WROTE the text, so a paragraph the assessor revised
+// may not print the caption that names the model alone. `aiEditedSections`
+// (src/report/aiSections.js) names the ones with two authors.
+const isAiEdited = (M, key) => Array.isArray(M.aiEditedSections) && M.aiEditedSections.includes(key)
+const AI_NOTE = 'AI-assisted — verify before issue.'
+const AI_NOTE_EDITED = 'AI-assisted, revised by the assessor — verify before issue.'
+const aiNote = (M, key) =>
   new Paragraph({
     spacing: { before: 20, after: 70, line: 240 },
-    children: [new TextRun({ text: 'AI-assisted — verify before issue.', font: F, size: 16, bold: true, color: PILL.amb })],
+    children: [new TextRun({ text: isAiEdited(M, key) ? AI_NOTE_EDITED : AI_NOTE, font: F, size: 16, bold: true, color: PILL.amb })],
   })
 
 // Reader-facing names for the AI-authored sections, for the override
@@ -511,7 +517,7 @@ export function atmosFlowReportChildren(model) {
     // before the summary carried its own findings and actions) or as the
     // structured shape. Both render.
     const es = typeof M.execSummary === 'string' ? { paragraphs: [M.execSummary] } : M.execSummary
-    if (isAiAuthored(M, 'executive_summary')) c.push(aiNote())
+    if (isAiAuthored(M, 'executive_summary')) c.push(aiNote(M, 'executive_summary'))
     ;(es.paragraphs || []).forEach((para) => c.push(body(para)))
     if ((es.findings || []).length) {
       c.push(...label('Leading findings'))
@@ -742,7 +748,7 @@ export function atmosFlowReportChildren(model) {
     // field with no deterministic counterpart — absent simply means no
     // paragraph here, which is today's report.
     if (M.discussion && M.discussion.paragraphs && M.discussion.paragraphs.length) {
-      if (isAiAuthored(M, 'discussion')) c.push(aiNote())
+      if (isAiAuthored(M, 'discussion')) c.push(aiNote(M, 'discussion'))
       M.discussion.paragraphs.forEach((para) => c.push(body(para)))
     }
     if (M.findings.intro) c.push(body(M.findings.intro))
@@ -767,9 +773,12 @@ export function atmosFlowReportChildren(model) {
     // Conceptual site model — primary finding.
     if (M.conceptualModel && M.conceptualModel.rows && M.conceptualModel.rows.length) {
       const rows = M.conceptualModel.rows
-      const confIdx = rows.findIndex((row) => String(row[0]).toLowerCase() === 'confidence')
+      // The emphasized cell is the one that says the pathway is NOT settled.
+      // It used to be 'Confidence', printing Possible / Moderate / Strong in
+      // bold teal — a rating this report never defined (reportModel.js).
+      const confIdx = rows.findIndex((row) => String(row[0]).toLowerCase() === 'status')
       c.push(...label('Conceptual site model — primary finding'))
-      if (isAiAuthored(M, 'conceptual_site_model')) c.push(aiNote())
+      if (isAiAuthored(M, 'conceptual_site_model')) c.push(aiNote(M, 'conceptual_site_model'))
       toParas(M.conceptualModel.intro).forEach((para) => c.push(body(para)))
       c.push(
         table(
@@ -801,7 +810,7 @@ export function atmosFlowReportChildren(model) {
   const rec = M.recommendations
   if (rec && rec.register && rec.register.length) {
     c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
-    if (isAiAuthored(M, 'recommendations_prose')) c.push(aiNote())
+    if (isAiAuthored(M, 'recommendations_prose')) c.push(aiNote(M, 'recommendations_prose'))
     toParas(rec.intro).forEach((para) => c.push(body(para)))
     const rows = rec.register
     // Priority and timeframe share a cell, as do control and owner, so the
@@ -818,7 +827,7 @@ export function atmosFlowReportChildren(model) {
   } else if (rec && ((rec.immediate || []).length || (rec.shortTerm || []).length || (rec.mediumTerm || []).length)) {
     // Fallback for a stored report predating the register.
     c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
-    if (isAiAuthored(M, 'recommendations_prose')) c.push(aiNote())
+    if (isAiAuthored(M, 'recommendations_prose')) c.push(aiNote(M, 'recommendations_prose'))
     toParas(rec.intro).forEach((para) => c.push(body(para)))
     if ((rec.immediate || []).length) {
       c.push(...label('Immediate (0–7 days)'))
@@ -876,7 +885,7 @@ export function atmosFlowReportChildren(model) {
     if (M.results.perParamIntro) c.push(body(M.results.perParamIntro))
     M.results.parameters.forEach((param) => {
       c.push(h2(param.title))
-      if (param.key && isAiAuthored(M, `parameter_background.${param.key}`)) c.push(aiNote())
+      if (param.key && isAiAuthored(M, `parameter_background.${param.key}`)) c.push(aiNote(M, `parameter_background.${param.key}`))
       ;(param.body || []).forEach((line, li, arr) => {
         const isLast = li === arr.length - 1
         const parts = splitLead(line)

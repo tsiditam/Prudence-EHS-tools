@@ -70,7 +70,51 @@ const weighChain = ({ measured = false, corroborating = 0, hypothesisOnly = fals
 }
 
 // Confidence vocabulary above, weakest to strongest.
+//
+// INTERNAL ONLY since 2026-09. It still ranks the chains (pickPrimaryChain)
+// and still constrains what a narrative may assert about one
+// (evidencePackage.js), but no client-facing surface prints the word. A
+// published Possible / Moderate / Strong reads as a measurement of certainty,
+// and AtmosFlow does not document a methodology that would let a client ask
+// "what makes this Moderate rather than Low?" and get an answer. What the
+// report states instead is what it can defend: the evidence, that no causal
+// relationship is established, and what would verify it (`verification`).
 const CHAIN_CONFIDENCE_RANK = { Possible: 1, Moderate: 2, Strong: 3 }
+
+/**
+ * What would settle each pathway, keyed by chain type.
+ *
+ * The report's Working Hypotheses section has always promised that each
+ * hypothesis "names the verification it requires". It never did: `refutableBy`
+ * was declared on the type (`src/types/assessment.ts`) and read by
+ * `reportModel.js`, and nothing in this file — the only producer of chains —
+ * ever set it. Every report carried the promise and bare root-cause sentences.
+ *
+ * That mattered more once the confidence label came off. A reader who is told
+ * a pathway is unconfirmed needs to know what would confirm it, or the section
+ * is a list of things the assessment declined to conclude.
+ *
+ * Written as a lowercase clause so one string serves the summary sentence, the
+ * pathway table and the bullet. Each names an OBSERVATION or MEASUREMENT that
+ * would resolve the question — never a remedy, which belongs to the action
+ * register and nowhere else.
+ */
+const VERIFICATION = {
+  'Ventilation Deficiency': 'outdoor-air delivery should be measured directly and compared against the design ventilation rate for this occupancy',
+  'Microbial / Bioaerosol': 'concealed moisture should be investigated where it is suspected, and the extent of any affected material defined',
+  'VOC Source': 'speciated VOC sampling should identify which compounds are present and where they originate',
+  'Moisture / Biological': 'the moisture source should be located and the extent of affected material defined',
+  'Chemical Exposure': 'the contaminant should be identified by speciated sampling and characterized over a full work period',
+  'Cross-Contamination Pathway': 'the pathway should be confirmed by differential-pressure measurement or tracer testing between the two spaces',
+  'Building Pressurization': 'building pressure should be measured across the envelope under normal operating conditions',
+  'Building Pressurization — Not Evaluated': 'exterior-door airflow and differential pressure across the envelope should be observed and recorded',
+}
+
+/** The verification clause for a chain type, ignoring its (Hypothesis) suffix. */
+const verificationFor = (type) => {
+  const base = String(type || '').replace(/\s*\((?:Hypothesis|Mechanism)\)\s*$/, '').trim()
+  return VERIFICATION[base] || null
+}
 
 /**
  * The chain a surface should LEAD with.
@@ -341,7 +385,11 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
     })
   }
 
-  return chains
+  // Stamped in ONE place rather than on eight push sites: a chain added later
+  // gets its verification clause without anyone remembering to attach it, and
+  // a type with no entry in VERIFICATION carries null rather than silently
+  // inheriting another pathway's.
+  return chains.map(c => (c && !c.verification ? { ...c, verification: verificationFor(c.type) } : c))
 }
 
 /**

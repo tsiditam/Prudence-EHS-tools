@@ -463,6 +463,9 @@ const FLAGGED = new Set(['critical', 'high', 'medium'])
 // The first clause of a finding sentence — "CO 55 ppm", "Visible mold growth
 // (Small (< 10 sq ft))" — for the usage column.
 const headline = (t) => String(t || '').split(' — ')[0].split('. ')[0].trim().slice(0, 90)
+// Sentence-start a clause written lowercase so one stored string serves a
+// summary sentence, a table cell and a bullet (causalChains.js VERIFICATION).
+const upperFirst = (s) => { const t = String(s || ''); return t ? t.charAt(0).toUpperCase() + t.slice(1) : t }
 
 /**
  * The references this report actually cites, with what cited each one.
@@ -1161,15 +1164,25 @@ export function assembleRenderModel(data = {}, opts = {}) {
   // only when it adds clarity beyond the findings".
   const distinctPathways = new Set(chains.map(c => String(c.type || '').replace(/\s*\(Hypothesis\)\s*$/, '').trim())).size
   const siteModelEarnsIts = distinctPathways > 1 || (data.zones || []).length > 2
+  // The 'Confidence' row printed Possible / Moderate / Strong in bold teal —
+  // the most rating-like element left in the report, and one this document
+  // never defines. A client could reasonably ask what makes a pathway Moderate
+  // rather than Low, and the report had no answer: the weighing is real
+  // (weighChain) but it is not published, so the label was quasi-quantitative
+  // with nothing behind it a reader could check. What replaces it is what the
+  // assessment can actually defend — that nothing is established, and what
+  // would settle it. The engine still weighs chains internally; see
+  // causalChains.js CHAIN_CONFIDENCE_RANK.
   const conceptualModel = primary && siteModelEarnsIts ? {
-    intro: 'Following standard IAQ investigation logic, the primary finding is expressed as a source → pathway → receptor chain with its supporting evidence and confidence.',
+    intro: 'Following standard IAQ investigation logic, the primary finding is expressed as a source → pathway → receptor chain with the evidence that supports it. The chain is a working hypothesis, not an established cause.',
     heading: `${primary.type || primary.name || 'Primary finding'}${primary.zone ? ` — ${primary.zone}` : ''}`,
     rows: [
       ['Pathway / concern', primary.type || primary.name || '—'],
       ['Receptor (location)', primary.zone || (Array.isArray(primary.contributingZones) ? primary.contributingZones.join(', ') : '—')],
       ['Source & mechanism', primary.rootCause || '—'],
       ['Evidence', Array.isArray(primary.evidence) ? primary.evidence.join('; ') : (primary.evidence || '—')],
-      ['Confidence', primary.confidence || (primary.causationSupported ? 'Supported' : 'Screening') ],
+      ['Status', 'Working hypothesis — no causal relationship has been established'],
+      ...(primary.verification ? [['Verification required', `${upperFirst(primary.verification)}.`]] : []),
     ],
   } : null
   // The primary is already set out in full immediately above, with its own
@@ -1182,12 +1195,20 @@ export function assembleRenderModel(data = {}, opts = {}) {
   // concealed-moisture hypothesis produce two chains carrying identical
   // rootCause text, and the list printed the sentence twice. The zones are
   // named in the pathway table, not here.
+  // The intro has always promised that each hypothesis "names the verification
+  // it requires". Until 2026-09 none did: `refutableBy` was declared on the
+  // type and read right here, and `causalChains.js` — the only producer of
+  // chains — never set it, so every report printed the promise over bare
+  // root-cause sentences. `verification` fills it. The promise matters more
+  // now that the confidence label is gone: a reader told a pathway is
+  // unconfirmed needs to know what would confirm it, or the section is a list
+  // of things the assessment declined to conclude.
   const secondary = chains.filter(c => c !== primary)
   const items = [...new Set(secondary.map(c =>
-    `${c.rootCause || c.name || c.type}${c.refutableBy ? ` Verification: ${c.refutableBy}` : ''}`,
+    `${c.rootCause || c.name || c.type}${c.verification ? ` Verification: ${upperFirst(c.verification)}.` : ''}`,
   ))]
   const workingHypotheses = items.length ? {
-    intro: 'The data support the hypotheses below. None is a confirmed cause; each names the verification it requires.',
+    intro: 'The observations are consistent with the hypotheses below. No causal relationship has been established for any of them; each names the verification it requires.',
     items: items.slice(0, 4),
   } : null
 
@@ -1298,8 +1319,13 @@ export function assembleRenderModel(data = {}, opts = {}) {
       hasOccupantReports: (data.zones || []).some(z => z && z.cx === 'Yes — complaints reported'),
       // The conclusion the rest of the report supports, named once, at the
       // top. `primary` is the strongest causal chain (pickPrimaryChain).
+      // This sentence used to close "— moderate confidence on the evidence
+      // gathered", which is the one place the report put a certainty rating on
+      // a causal claim, in its opening paragraph. It says the same thing in
+      // terms a reviewer can check: what the observations point to, that it is
+      // not established, and what would settle it.
       conclusion: primary
-        ? `The leading explanation is ${String(primary.type).replace(/\s*\(Hypothesis\)\s*$/, '').toLowerCase()} in ${primary.zone || 'the assessed area'} — ${String(primary.confidence || 'Possible').toLowerCase()} confidence on the evidence gathered.`
+        ? `${upperFirst(String(primary.type).replace(/\s*\((?:Hypothesis|Mechanism)\)\s*$/, '').toLowerCase())} in ${primary.zone || 'the assessed area'} is the leading working hypothesis on the observations available. No causal relationship has been established${primary.verification ? `; ${primary.verification} before a causal conclusion is drawn` : ', and verification is required before a causal conclusion is drawn'}.`
         : null,
       // The substance a count cannot carry: the worst findings, and the
       // actions that open the register. Already ranked upstream.

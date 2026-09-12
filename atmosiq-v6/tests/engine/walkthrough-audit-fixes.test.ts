@@ -229,7 +229,7 @@ describe('the survey date is reachable from the mobile walkthrough', () => {
     const z = zone({ tf: '76.8' })
     const withDate = scoreZone(z, { ...BLDG, assessmentDate: '2026-07-15' })
     const noDate = scoreZone(z, BLDG)
-    const gap = (s: any) => s.cats.flatMap((c: any) => c.r).some((r: any) => r.dataGap && /assessment date not recorded/.test(r.t))
+    const gap = (s: any) => s.cats.flatMap((c: any) => c.r).some((r: any) => r.dataGap && /no survey date on record/.test(r.t))
     expect(gap(withDate)).toBe(false)
     expect(gap(noDate)).toBe(true)
   })
@@ -400,7 +400,13 @@ describe('report structure follows the CIH-reviewed order', () => {
 
   it('states the conclusion and the leading findings, not a count', () => {
     const es = model().execSummary
-    expect(es.paragraphs.join(' ')).toMatch(/The leading explanation is/)
+    // Was "The leading explanation is X — moderate confidence on the evidence
+    // gathered". The confidence clause was the report's only certainty rating
+    // on a causal claim, in its opening paragraph, over a methodology the
+    // document never states.
+    expect(es.paragraphs.join(' ')).toMatch(/is the leading working hypothesis on the observations available/)
+    expect(es.paragraphs.join(' ')).toMatch(/No causal relationship has been established/)
+    expect(es.paragraphs.join(' ')).not.toMatch(/confidence on the evidence gathered/)
     expect(es.paragraphs.join(' ')).not.toMatch(/flagged \d+ item/)
     expect(es.findings.length).toBeGreaterThan(0)
     expect(es.findings.length).toBeLessThanOrEqual(4)

@@ -23,9 +23,20 @@ describe('the report-sections prompt frames the evidence package as closed and r
     expect(P).toMatch(/"observation"/)
   })
 
-  it('states the pathway rule: exact confidence, never the cause, hypothesis never promoted', () => {
+  it('states the pathway rule: never the cause, and never rated', () => {
     expect(P).toMatch(/never as the established cause/)
-    expect(P).toMatch(/Strong is unreachable for a hypothesis by construction/)
+    // The prompt used to license the opposite — "at EXACTLY the confidence
+    // stated" — because the package carried a confidence word and the report
+    // printed one. Both stopped in 2026-09: a published Possible / Moderate /
+    // Strong is a certainty rating over a methodology this report never
+    // defines. The prompt must not invite it back, and must name the
+    // superlative form too, which is what a writer reaches for when the word
+    // "confidence" is forbidden.
+    expect(P).not.toMatch(/at EXACTLY the confidence stated/)
+    expect(P).toMatch(/Do NOT rate, rank, score or grade one/)
+    expect(P).toMatch(/not "most likely"/)
+    expect(P).toMatch(/no causal relationship has been established/)
+    expect(P).toMatch(/`verification`/)
   })
 
   it('tells the model not to restate what the immutable sections already carry', () => {

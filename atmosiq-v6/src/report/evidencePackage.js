@@ -401,14 +401,20 @@ function buildInterpretations(findings, measurements, chains) {
       id: `allow-${id}`,
       subject: id,
       subject_kind: 'pathway',
-      statement: `${str(c.type).replace(/\s*\(Hypothesis\)\s*$/, '')} in ${str(c.zone) || 'the assessed area'} may be described as a candidate explanation at ${str(c.confidence || 'Possible').toLowerCase()} confidence.`,
+      // No confidence word travels. The engine still weighs every chain and
+      // still uses the result to rank them and to decide what may be claimed
+      // — but Possible / Moderate / Strong is not published in the report
+      // (reportModel.js), so handing it to the writer would invite the one
+      // sentence the report itself no longer contains. A closed package does
+      // not carry a value it forbids the use of.
+      statement: `${str(c.type).replace(/\s*\(Hypothesis\)\s*$/, '')} in ${str(c.zone) || 'the assessed area'} may be described as a working hypothesis consistent with the observations, never as an established cause.`,
       // The same facts as fields, so the wire form can carry a row instead of
       // parsing the sentence back.
       pathway: {
         type: str(c.type).replace(/\s*\(Hypothesis\)\s*$/, ''),
         zone: str(c.zone) || null,
-        confidence: str(c.confidence || 'Possible'),
         hypothesis,
+        verification: nonEmpty(c.verification) ? str(c.verification) : null,
       },
     })
     prohibited.push({
@@ -417,8 +423,8 @@ function buildInterpretations(findings, measurements, chains) {
       subject_kind: 'pathway',
       claim: 'causation',
       why: hypothesis
-        ? 'This pathway is a hypothesis. It may not be stated as the cause, and its confidence may not be raised above what the engine assigned.'
-        : `This pathway was weighed at ${str(c.confidence || 'Possible')} confidence. It may not be stated as the established cause.`,
+        ? 'This pathway is a hypothesis: nothing measured supports the mechanism it proposes. It may not be stated as the cause, and it may not be ranked, scored or given a confidence level.'
+        : 'This pathway rests on what was measured and observed, and no more. It may not be stated as the established cause, and it may not be ranked, scored or given a confidence level.',
     })
   }
 
@@ -607,7 +613,8 @@ export function fingerprintPackage(pkg) {
  * @param {object} model   output of `assembleRenderModel(data)`
  * @param {object} [engine]
  * @param {Array}  [engine.zoneScores]    engine zone results, for criterion fields
- * @param {Array}  [engine.causalChains]  weighed pathways, for permitted confidence
+ * @param {Array}  [engine.causalChains]  weighed pathways. The weighing decides
+ *   what may be claimed about each; the weight itself never reaches the wire.
  * @returns {object} the package — a plain, serializable, frozen-at-top object
  */
 /**
@@ -799,7 +806,7 @@ export function packageForWriter(pkg, opts = {}) {
     may_assert_legend: { ...MAY_ASSERT_LEGEND },
     context_standards_rule: 'These standards are named by the report itself, for scale, and no finding here was evaluated against any of them. You may name one the same way the report does — as context for what a number means — and you must never present one as a threshold this assessment met, cleared or exceeded. A standard that is on neither this list nor in `references` is not in this report at all.',
     pathways,
-    pathway_rule: 'A pathway may be described as a candidate explanation at exactly the confidence stated, never as the cause. A hypothesis may not be promoted; Strong was unreachable for it by construction.',
+    pathway_rule: 'A pathway is a working hypothesis, and the report states it as one: it may be described as consistent with the observations, and never as the cause. Do NOT rate, rank, score or grade a pathway, and do not attach a confidence, likelihood, probability or certainty to one in any form — not "moderate confidence", not "high likelihood", not "most likely", not "strongest". No such rating appears anywhere in this report and the assessment defines no methodology that would support one. Say what the evidence is, say that no causal relationship has been established, and give the `verification` the package carries for that pathway.',
     // Whole-parameter rules only. Finding rules are the `may_assert` token;
     // pathway rules are the row above.
     allowed_interpretations: (rest.allowed_interpretations || []).filter(a => a.subject_kind === 'parameter'),

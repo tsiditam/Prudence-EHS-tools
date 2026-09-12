@@ -561,6 +561,41 @@ When working on report generation:
     change, because a justification written about one draft must not silently
     carry onto prose nobody approved. Tests:
     `tests/engine/ai-sections-override.test.ts`.
+  - **The assessor may also REWRITE a section, and the rewrite is re-audited.**
+    `applyEdit` / `removeEdit` / `sectionText` (`aiSections.js`). There are now
+    three responses to a blocked section and they are not interchangeable:
+    falling back is silent and costs the reader a paragraph; an override keeps
+    the prose by WAIVING the finding and disclosing that; an edit changes the
+    prose so the finding no longer holds. Only the third answers the check.
+    It is usually the easy one, because `limitation-missing` — much the most
+    common blocker — quotes the exact sentence that is absent, so the repair is
+    to paste it in, after which the section passes and needs no waiver at all.
+    Four properties: a revision goes through the SAME `auditSection` against the
+    SAME package (`evidencePackageFor`, so generation and edit cannot be judged
+    against differently-built packages) and is **refused outright without one**
+    — an unchecked revision is never stored; an edit CLEARS any override on
+    that section, by the same rule that drops one on regeneration; "restore the
+    AI text" reaches the model's FIRST wording with the verdict it carried,
+    however many passes happened in between; and only a section the model
+    actually wrote can be revised — this edits AI prose, it is not a report
+    editor, and a section the banned-language gate dropped cannot be typed back
+    into existence. A revised section keeps a provenance label and gets a
+    DIFFERENT one ("AI-assisted, revised by the assessor"), carried by
+    `aiEditedSections`: the label states who wrote the text, so a paragraph
+    with two authors may not print the caption naming one. Unlike an override,
+    an edit prints no QA/QC row — there is nothing to disclose about a section
+    that passes its own check, and the in-place label already tells the reader
+    who wrote it. Tests: `tests/engine/ai-sections-edit.test.ts`.
+  - **The lock stops REGENERATION, and nothing else.** `aiSectionsLocked` gates
+    the "Regenerate report sections" button; it must never gate a remedy. The
+    override shipped gated on it, which made it nearly unreachable — sections
+    lock the moment they are generated on an issued report, and the Report tab
+    of an issued report is where the audit panel is read. The first production
+    report to hit a blocked section showed the assessor a warning quoting the
+    exact missing sentence and offered no control of any kind. `applyOverride`
+    had worked on a locked record the whole time; only the button was missing.
+    The UI pin in `ai-sections-edit.test.ts` reads the Report tab source and
+    fails if any remedy is conditioned on the lock again.
   - **Lock at finalize.** `lockAiSections`, mirroring `runScoring`'s existing
     early-return for a finalized report: an issued report's sections do not
     change on a later export because someone regenerated them. Freshness
@@ -771,6 +806,105 @@ When working on report generation:
   note was not updated when the AtmosFlow version was written. The
   model-vs-itself half was added 2026-09 after a walkthrough audit found
   every defect it surfaced was one section disagreeing with another.*
+- **Say it once, in the place a reader looks it up.** Four caveats were cut in
+  2026-09 — not because any was wrong, but because each was the second or third
+  statement of something the report already said, and a finding list where
+  every row apologizes for itself reads as an assessor who is unsure.
+
+  1. **The three-sentence Persily block** ("CO₂ is a ventilation effectiveness
+     indicator, not an air quality contaminant… a since-removed informative
+     appendix") was appended to ALL FIVE CO₂ finding tiers, so a two-zone
+     report restated one methodology paragraph four times. `headline()` in
+     `reportModel.js` exists only to cut it back off for the summary. It stays
+     stated once, in Appendix A's carbon dioxide background
+     (`narrativeLibrary.js`), and every finding still cites `co2Ref` — the
+     ASHRAE position document, not a standard that sets no limit. **The
+     anti-pattern above is unchanged**: never cite ASHRAE 62.1 as a CO₂
+     contaminant limit. Not citing it at all is how you comply, not by
+     explaining on every row why you didn't.
+  2. **The `info` row** "Ventilation assessed from CO₂ only — Limited
+     Confidence" graded the assessment inside the findings list and proposed
+     nothing. The disclosure it gestured at is made properly by the report's
+     scope limitation, which `evidencePackage.js` derives from
+     `model.limitations` and NOT from this row — `lim-ventilation-inferred` is
+     unaffected.
+  3. **The trailing evidentiary sentence** on a non-determinative finding ("A
+     short-duration reading cannot establish compliance with this averaging
+     period"). The statement already names the period *in* the sentence
+     ("above the OSHA PEL of 50 ppm, which is an 8-hour time-weighted
+     average"), and the Limitations section states the principle plainly. Three
+     statements of one point. **`determinative` and `indicative` are unchanged
+     and still do the load-bearing work** — they ride on the evaluation object,
+     `allowed_interpretations` / `prohibited_claims` derive from them, and
+     `interpretation-exceeded` enforces them against the narrative. Only the
+     third echo in the prose is gone. `stripEvidentiaryCaveat`
+     (`evidencePackage.js`) is therefore NOT dead code: an issued report keeps
+     the `zoneScores` it was finalized with, so legacy findings carrying the
+     sentence keep arriving for as long as those reports are re-exported.
+  4. **The temperature data gap** kept its finding and lost its apology:
+     "Temperature 70°F recorded; not evaluated — no survey date on record to
+     select the seasonal comfort band". The gap is real and must still be
+     stated; it does not need to explain the engine's band-selection logic.
+
+  The rule this leaves: **a caveat earns its place by being the only statement
+  of its point.** Before adding one, find where the report already says it. If
+  it does, that is the place — a criterion citation, the parameter background,
+  or the Limitations section — and the finding row is not.
+- **A causal pathway is never given a published confidence rating.** The
+  report used to print the chain's weight — Possible / Moderate / Strong — in
+  three places: the opening summary sentence ("— moderate confidence on the
+  evidence gathered"), a bold teal **Confidence** row in the conceptual-site-
+  model table, and a colored pill in `PrintReport`. It came off in 2026-09, on
+  the author's reading: the label is quasi-quantitative, the report defines no
+  methodology behind it, and a client could reasonably ask what makes a pathway
+  Moderate rather than Low and get no answer from the document.
+
+  **The weighing is not deleted, it is unpublished.** `weighChain` still ranks
+  the chains (`pickPrimaryChain` — a measured chain must outrank a
+  complaint-only hypothesis) and still constrains what a narrative may assert
+  about one. Deleting it to fix a wording problem would remove a guardrail.
+  Two narrower rules replace the old behavior: the word appears on **no
+  client-facing surface**, and it **does not reach the AI writer** — the
+  `pathways` wire rows carry no `confidence`, because a closed package must not
+  hand the model a value it forbids the use of.
+
+  **What the report states instead is what it can defend**: the evidence, that
+  no causal relationship has been established, and what would settle it.
+  `pathwaysAreNotRated` (`narrativeAudit.js`, `pathway-rated`) is the gate, and
+  it catches TWO shapes — the named grade ("moderate confidence", "high
+  likelihood") and the **superlative** ("the most likely explanation", "the
+  strongest hypothesis"), which is the form a writer reaches for once the word
+  "confidence" is forbidden and which asserts the same ordering. It is scoped
+  to causal language: a MEASUREMENT described as uncertain ("a single grab
+  reading") is exactly the hedging the report wants and must never trip it.
+
+  **Severity and prioritization on ACTIONS are untouched.** They rank what to
+  do about a measured condition against a named criterion; they do not rate how
+  sure anyone is about a cause. The distinction is the whole point — do not
+  read this as a second pass at the composite-score removal.
+
+  **The app agrees with the report.** The results Pathways tab printed the same
+  word as a colored label (`confColor`, High / Moderate / Possible) and lost it
+  too. A tab that grades a pathway trains the assessor in a scale the
+  deliverable will not carry, and the claim does not become better founded for
+  being on a screen instead of a page. Nothing replaced it in the row: every
+  pathway there is an unconfirmed hypothesis, so a label identical on every row
+  carries no information. The fold now ends in the `verification` instead,
+  which is the question the assessor actually has. `confColor` was DELETED
+  rather than left unused — a palette kept alive for a label that no longer
+  renders is how the label comes back. `groupPathways` still folds
+  `confidence`; it is simply never read by a renderer.
+
+  This also closed a promise the report had never kept: the Working Hypotheses
+  intro has always said "each names the verification it requires", while
+  `refutableBy` was declared on the type and read by `reportModel.js` and
+  `causalChains.js` — the only producer of chains — never set it. Every report
+  printed the promise over bare root-cause sentences. `VERIFICATION` (keyed by
+  chain type, stamped in ONE place on the way out so a new chain cannot miss
+  it) fills it, and it matters more now: a reader told a pathway is unconfirmed
+  needs to know what would confirm it, or the section is a list of things the
+  assessment declined to conclude. Guard:
+  `tests/engine/no-published-confidence.test.ts`.
 - **A comfort band travels with its assumptions, and ASHRAE 55 has ONE.**
   `STD.t.temp` is a single acceptable range per season — winter 68–76°F,
   summer 73–79°F — and `tests/engine/thermal-comfort-band.test.ts` holds it

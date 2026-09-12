@@ -107,8 +107,16 @@ describe('the Report tab writes what it generates onto the stored record', () =>
     const literals = app.match(/reportData = \{ id: viewRpt\?\.id \|\| draftId \|\| null,[^\n]*/g) || []
     expect(literals.length).toBe(3)
     for (const literal of literals) expect(literal).toMatch(/ts: viewRpt\?\.ts/)
-    // And the generation call it must agree with.
-    expect(app).toMatch(/generateReportSections\(\{[\s\S]{0,400}ts: viewRpt\?\.ts/)
+    // And the AI path it must agree with. That path is now ONE builder
+    // (`reportDataForAi`) feeding both generation and an assessor's later
+    // edit, so the two cannot be judged against differently-built packages —
+    // check the builder carries `ts`, and that both callers go through it
+    // rather than assembling a literal of their own.
+    const builder = app.match(/const reportDataForAi = \(\) => \(\{[\s\S]{0,500}?\}\)/)
+    expect(builder, 'reportDataForAi has moved or been inlined').toBeTruthy()
+    expect(builder![0]).toMatch(/ts: viewRpt\?\.ts/)
+    expect(app).toMatch(/generateReportSections\(reportDataForAi\(\)\)/)
+    expect(app).toMatch(/evidencePackageFor\(reportDataForAi\(\)\)/)
   })
 
   it('re-finalize carries a narrative forward only on a fingerprint match', () => {

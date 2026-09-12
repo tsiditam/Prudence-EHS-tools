@@ -21,7 +21,7 @@ describe('evalOSHA — occupational flags come from the criterion registry (audi
     expect(co).toBeDefined()
     expect(co).toMatch(/above the OSHA PEL of 50 ppm/)
     expect(co).toMatch(/8-hour time-weighted average/)
-    expect(co).toMatch(/cannot establish compliance/)
+    expect(co).not.toMatch(/cannot establish compliance/)
     expect(co).not.toMatch(/above OSHA PEL threshold/)
   })
 

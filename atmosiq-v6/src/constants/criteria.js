@@ -755,7 +755,7 @@ export function evaluateCriteria(parameter, value, evidenceBasis = 'screening_gr
       severity: capSeverity(c.severity, c.class),
       determinative,
       indicative,
-      statement: buildStatement(c, value, determinative, indicative),
+      statement: buildStatement(c, value),
       // Which side of a band was missed. Null for a limit criterion. The
       // engine's causal chains and the recommendation layer need this: a room
       // that is too cold and a room that is too warm want opposite advice,
@@ -767,11 +767,13 @@ export function evaluateCriteria(parameter, value, evidenceBasis = 'screening_gr
 }
 
 /**
- * The finding sentence. Generated rather than hand-written at each branch,
- * which is what let the averaging-period caveat be present on one branch and
- * missing from the two above it.
+ * The finding sentence: the value, the criterion it was compared against, and
+ * the averaging period that criterion is expressed over. Generated rather than
+ * hand-written at each branch, which is what let the averaging-period caveat
+ * be present on one branch and missing from the two above it back when the
+ * sentence carried one.
  */
-export function buildStatement(c, value, determinative, indicative) {
+export function buildStatement(c, value) {
   const avg = AVERAGING[c.averaging]
   const band = c.band && Number.isFinite(c.band.min) && Number.isFinite(c.band.max) ? c.band : null
   // "outside the X of A-B", not "above" — a band is missed in two directions
@@ -782,13 +784,24 @@ export function buildStatement(c, value, determinative, indicative) {
     ? `${value} ${c.unit} — ${value < band.min ? 'below' : 'above'} the ${c.label} of ${band.min}–${band.max} ${c.unit}`
     : `${value} ${c.unit} — above the ${c.label} of ${c.value} ${c.unit}`
   const period = avg && avg.id !== 'instantaneous' ? `, which is ${avg.phrase}` : ''
-  let basis = ''
-  if (!determinative) {
-    basis = indicative
-      ? ' A short-duration reading is indicative but not determinative for this averaging period.'
-      : ' A short-duration reading cannot establish compliance with this averaging period.'
-  }
-  // `c.action` is deliberately NOT appended. A finding states what was
+  // The trailing evidentiary sentence — "A short-duration reading cannot
+  // establish compliance with this averaging period" — was removed in 2026-09
+  // as a third statement of something the reader has already been told twice.
+  // `period` above names the averaging period IN the finding ("which is an
+  // 8-hour time-weighted average"), and the report's Limitations section
+  // states the principle once and plainly ("direct-reading values are
+  // short-duration and do not represent time-weighted exposures",
+  // reportModel.js). A professional reading "above the NIOSH REL of 10 ppm,
+  // which is an 8-hour TWA" does not need to be told a grab sample is not a
+  // TWA, and saying it on every such row reads as the assessor hedging.
+  //
+  // `determinative` is UNCHANGED and still does the load-bearing work: it is
+  // what `evidencePackage.js` derives `allowed_interpretations` and
+  // `prohibited_claims` from, and what `interpretation-exceeded` enforces
+  // against the narrative. The constraint survives; only its third echo in
+  // the finding text is gone. `indicative` is still read by callers that
+  // classify on it.
+  // `c.action` is deliberately NOT appended either. A finding states what was
   // measured and against which criterion; what to DO about it belongs to the
   // recommendations, which the report and the app both render in their own
   // sections. Carrying it here printed the recommendation twice and made the
@@ -796,10 +809,11 @@ export function buildStatement(c, value, determinative, indicative) {
   // speciation if source investigation is warranted." in a list whose whole
   // job is to say what was found.
   //
-  // The evidentiary caveat above (`basis`) stays: it is a property of the
-  // measurement, not advice — it says what this reading can and cannot
-  // settle, which changes how the finding itself should be read.
-  return `${head}${period}.${basis}`.trimEnd()
+  // So the sentence is now exactly what was measured and what it was compared
+  // against, including the averaging period. `determinative` and `indicative`
+  // are still computed and still ride on the evaluation object above — they
+  // are simply no longer narrated here.
+  return `${head}${period}.`.trimEnd()
 }
 
 /**
