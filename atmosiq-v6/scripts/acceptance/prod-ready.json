@@ -2933,6 +2933,75 @@
         }
       ],
       "_comment": "Test-suite run removed 2026-09: BUILD-02 runs `npm test` once for the whole config (it used to run eight times, ~10 minutes). The suite files this criterion relies on are asserted by the file_exists checks."
+    },
+    {
+      "id": "AI-EVIDENCE-PACKAGE",
+      "label": "The AI narrative writes from a closed evidence package and its output is audited against it: only applied criteria travel, permitted interpretation comes off the engine's determinative flag, and an unsupported figure, criterion or recommendation is named to the assessor",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "src/report/evidencePackage.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/report/narrativeAudit.js"
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/engine/evidence-package.test.ts"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "const payload = \\{ evidence: packageForWriter\\(evidence\\) \\}",
+          "paths": [
+            "src/engines/narrative.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "auditNarrative\\(text, evidence\\)",
+          "paths": [
+            "src/engines/narrative.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "^import \\{ STANDARDS_MANIFEST",
+          "paths": [
+            "src/engines/narrative.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "The evidence package is the whole world",
+          "paths": [
+            "src/engines/narrative.js",
+            "api/_narrative-prompt.js"
+          ]
+        },
+        {
+          "type": "grep_excludes",
+          "pattern": "standardsManifest",
+          "paths": [
+            "api/_narrative-prompt.js"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "setNarrativeAudit",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "Checked against the assessment record",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        }
+      ],
+      "_comment": "The package is a PROJECTION of assembleRenderModel, never a re-derivation, so it cannot disagree with the report it describes. The banned-language scan in api/_banned-language.js is unchanged and still runs first: that is the liability floor (phrases wrong in any report), while the audit asks whether THIS assessment supports THIS sentence."
     }
   ]
 }

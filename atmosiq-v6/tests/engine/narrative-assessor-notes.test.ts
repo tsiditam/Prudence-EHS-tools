@@ -65,12 +65,30 @@ describe('the prose reaches the request', () => {
     expect(p.assessorNotes.truncated).toBe(true)
   })
 
-  it('does not disturb what the payload already carried', async () => {
+  it('rides alongside the evidence package rather than inside it', async () => {
     const p = await payloadFor({ ps_complaint_narrative: 'Something.' })
-    expect(p.facility).toBe('Summani Plaza')
-    expect(p.zones).toHaveLength(2)
-    expect(p.zones[0].findings[0].text).toBe('CO2 elevated')
-    expect(p.standardsManifest).toBeTruthy()
+    // The notes are context, not evidence for a claim. The prompt's four
+    // limits say a note is never a measurement and never a conclusion, so it
+    // stays OUT of the closed package the model draws its assertions from and
+    // arrives as its own key.
+    expect(p.assessorNotes).toBeTruthy()
+    expect(p.evidence.observations.some((o: any) => o.text === 'Something.')).toBe(false)
+    // The facts, findings and references the package does carry.
+    expect(p.evidence.facts.some((f: any) => f.value === 'Summani Plaza')).toBe(true)
+    expect(p.evidence.findings[0].text).toBe('CO2 elevated')
+    expect(p.evidence.references.map((r: any) => r.name)).toContain('Persily 2021')
+  })
+
+  it('sends the closed package and no longer ships the whole threshold store', async () => {
+    const p = await payloadFor({ ps_complaint_narrative: 'Something.' })
+    // The old payload carried `standardsManifest: { bibliography, referenceValues }`
+    // — every threshold in the product — under an instruction to cite only
+    // from it. A closed instruction over an open set is not a constraint.
+    expect(p.standardsManifest).toBeUndefined()
+    expect(Object.keys(p).sort()).toEqual(['assessorNotes', 'evidence'])
+    expect(p.evidence.sections.writable).toContain('executive_summary')
+    // The audit's own index is bookkeeping and is not sent to the writer.
+    expect(p.evidence.immutable_values).toBeUndefined()
   })
 })
 
@@ -91,7 +109,7 @@ describe('nothing written means nothing sent', () => {
   it('still sends the narrative when the prose cannot be derived', async () => {
     // The draft is worth more than the notes.
     const p = await payloadFor({ get ps_complaint_narrative() { throw new Error('boom') } })
-    expect(p.facility).toBe('Summani Plaza')
+    expect(p.evidence.facts.some((f: any) => f.value === 'Summani Plaza')).toBe(true)
     expect('assessorNotes' in p).toBe(false)
   })
 })

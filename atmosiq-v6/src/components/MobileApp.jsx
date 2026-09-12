@@ -2053,14 +2053,36 @@ export default function MobileApp() {
     showMilestone('check', 'Details Complete', 'Assessment rescored with updated data', () => { setView('results') })
   }
 
+  // What the deterministic audit found in the last generated narrative
+  // (src/report/narrativeAudit.js). Not persisted: it describes one draft, and
+  // a stale verdict beside re-generated prose is worse than none.
+  const [narrativeAudit, setNarrativeAudit] = useState(null)
+
   const requestNarrative = async () => {
     if (!PAYWALL_DISABLED && credits < 3) { setShowPricing(true); return }
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setNarrativeLoading(true)
-    const text = await generateNarrative(bldg, zones, zoneScores, recs, presurvey)
-    setNarrative(text); setNarrativeLoading(false)
-    if (text) trackEvent('narrative_generated', { word_count: text.split(/\s+/).length })
+    setNarrativeAudit(null)
+    // The rest of the report data rides along so the evidence package the
+    // model writes from describes the same report the client will receive —
+    // same criteria, same action register, same limitations.
+    const result = await generateNarrative(bldg, zones, zoneScores, recs, presurvey, {
+      id: viewRpt?.id || draftId || null, equipment, comp,
+      causalChains, profile, photos, photoOverrides, floorPlans, ts: viewRpt?.ts,
+      sensorData: (viewRpt && viewRpt.sensorData) || sensorData,
+    })
+    const text = result && result.narrative
+    setNarrative(text || null)
+    setNarrativeAudit(text ? { issues: result.audit || [], summary: result.auditSummary } : null)
+    setNarrativeLoading(false)
+    if (text) {
+      trackEvent('narrative_generated', {
+        word_count: text.split(/\s+/).length,
+        audit_blocking: (result.auditSummary && result.auditSummary.blocking) || 0,
+        audit_warnings: (result.auditSummary && result.auditSummary.warnings) || 0,
+      })
+    }
   }
 
   // Equipment-capture working state (the equipment array itself
@@ -3315,6 +3337,33 @@ export default function MobileApp() {
               {narrativeLoading&&<div style={{padding:'8px 0',display:'flex',alignItems:'center',gap:12}}><div style={{width:20,height:20,borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite',flexShrink:0}} /><div style={V3.T.bodyDim}>Generating narrative from assessment data…</div></div>}
               {narrative&&<div>
                 <Markdown style={{fontSize:14,color:TEXT,lineHeight:1.75}}>{narrative}</Markdown>
+                {/* What the deterministic audit could not support in the prose
+                    above (src/report/narrativeAudit.js). Advisory, like the
+                    readiness blockers and the report-consistency panel: it
+                    names the statement and the reason, and never discards the
+                    draft — three credits of work suppressed silently is how
+                    the old banned-language gate behaved, and the assessor
+                    could not see why. */}
+                {narrativeAudit && narrativeAudit.issues.length > 0 && (
+                  <div style={{marginTop:14,padding:'12px 14px',borderRadius:RADII.md,border:`1px solid ${narrativeAudit.summary && narrativeAudit.summary.supported ? 'var(--border)' : `color-mix(in srgb, ${WARN} 45%, transparent)`}`,background:`color-mix(in srgb, ${narrativeAudit.summary && narrativeAudit.summary.supported ? 'var(--surface)' : WARN} 8%, transparent)`}}>
+                    <div style={{...V3.T.caption,color:narrativeAudit.summary && narrativeAudit.summary.supported?SUB:WARN,marginBottom:8}}>
+                      Checked against the assessment record — {narrativeAudit.summary ? narrativeAudit.summary.summary : ''}
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                      {narrativeAudit.issues.map((iss,i)=>(
+                        <div key={`${iss.id}-${i}`} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5}}>
+                          <span style={{color:iss.severity==='blocking'?WARN:SUB,fontWeight:600}}>{iss.where}</span>
+                          {' — '}{iss.message}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {narrativeAudit && narrativeAudit.issues.length === 0 && (
+                  <div style={{...V3.T.caption,color:SUB,marginTop:14}} role="status">
+                    Checked against the assessment record — every figure, criterion and recommendation in this narrative traces to the report.
+                  </div>
+                )}
                 <div style={{...V3.T.caption, fontWeight:400, marginTop:14, lineHeight:1.5}}>Generated from deterministic findings. Review, edit and approve before it goes into any client deliverable.</div>
                 {/* Share the narrative as a lightweight DOCX so the
                     reviewing IH can hand it off as an editable draft

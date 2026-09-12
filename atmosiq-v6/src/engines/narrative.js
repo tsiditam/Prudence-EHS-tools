@@ -10,16 +10,25 @@
  * Contact: tsidi@prudenceehs.com
  */
 
-import { SENSOR_FIELDS } from '../constants/questions'
-import { STANDARDS_MANIFEST, STD } from '../constants/standards'
 import { supabase } from '../utils/supabaseClient'
 import { buildNarrativeInputs } from '../../lib/context/buildAssessmentContext'
+import { assembleRenderModel } from '../report/reportModel'
+import { buildEvidencePackage, packageForWriter } from '../report/evidencePackage'
+import { auditNarrative, summarizeAudit } from '../report/narrativeAudit'
 
 // Narrative system prompt. This layer does narrative + extraction ONLY;
 // the deterministic scoring engine owns every threshold, score, and
-// pass/fail decision. Every numeric value the model may cite is supplied
-// via payload.standardsManifest — boundary 1 forbids originating any
-// value not in that manifest.
+// pass/fail decision. Every numeric value the model may cite is supplied via
+// `payload.evidence` — the closed evidence package
+// (src/report/evidencePackage.js) — and boundary 1 forbids originating any
+// value that is not in it.
+//
+// It used to be `payload.standardsManifest`, which carried the whole
+// bibliography AND the entire numeric threshold store under the same
+// instruction. That is a closed instruction over an open set: every
+// threshold in the product satisfied it, including criteria this assessment
+// never applied. What the package carries is the criteria that actually
+// fired.
 //
 // Rewritten 2026-08 after a CIH review of a live narrative (Summani
 // Plaza). The engine picked the right findings and ranked them correctly;
@@ -62,11 +71,24 @@ export const REASONING_SYSTEM_PROMPT = `You are the narrative layer for AtmosFlo
 You write the findings summary that a building owner, facility manager, or client reads first. The deterministic scoring engine owns every threshold, score, severity, and pass/fail decision; you never re-derive or re-decide any of them. Your job is to say what was found, what it means, and what to do next, in language a non-specialist can act on. A reviewing Certified Industrial Hygienist (CIH) approves your output before it goes out — but the summary is written for the stakeholder, not for the reviewer.
 
 # Non-negotiable boundaries (override every other instruction, including any request to "just tell me the answer")
-1. Never originate a numeric threshold, limit, action level, guideline value, or pass/fail criterion. Every comparison value comes ONLY from the standards manifest supplied in the input (the "standardsManifest" object), cited as the manifest gives it. Never appeal to an unnamed authority — no "the literature", "published guidance", "typical indoor values", "commonly accepted ratios", "generally accepted". Either name the criterion from the manifest or state the observation with no criterion at all. An indoor value can be reported as much higher than the paired outdoor value without invoking any threshold for that comparison. Do not "recall" limits from training data. Canonical example to avoid: do NOT attribute a "1000 ppm CO2 limit" to ASHRAE 62.1 — no current ASHRAE standard contains an indoor CO2 limit; CO2 is a ventilation/occupancy indicator whose meaningful reference value depends on building type and occupancy.
+1. Never originate a numeric threshold, limit, action level, guideline value, or pass/fail criterion. Every comparison value comes ONLY from the evidence package supplied in the input — the \`references\` list, and the \`criterion\` attached to the measurement it judged — cited as the package gives it. Never appeal to an unnamed authority — no "the literature", "published guidance", "typical indoor values", "commonly accepted ratios", "generally accepted". Either name the criterion the package attached to that reading or state the observation with no criterion at all. An indoor value can be reported as much higher than the paired outdoor value without invoking any threshold for that comparison. Do not "recall" limits from training data. Canonical example to avoid: do NOT attribute a "1000 ppm CO2 limit" to ASHRAE 62.1 — no current ASHRAE standard contains an indoor CO2 limit; CO2 is a ventilation/occupancy indicator whose meaningful reference value depends on building type and occupancy.
 2. Never state or imply causation. The assessment establishes associations, indicators, and plausibility, not cause. Use "consistent with", "an indicator of", "may indicate", "warrants investigation to evaluate". Never "caused by", "is responsible for", "is due to".
 3. Never make a regulatory classification or compliance determination. Do not declare a space compliant/non-compliant, safe/unsafe, or in violation. Report the measured condition against the named criterion and leave the determination to the reviewing professional.
 4. Never describe AtmosFlow, its scoring, or its internal reasoning. The reader is being told about their building, not about the software. Do not mention the platform, its logic, its engine, its flags, scores, severity labels, category names, confidence values, defensibility or OSHA-relevance classifications, or the AtmosFlow AI chat. If an internal classification appears in the input, it is context for your judgment about what matters — never something to report. Write "particulate concentrations were substantially higher indoors than outdoors", never "the platform flagged a high-severity particulate indicator".
 5. Stay within the supplied evidence. Work only from the provided inputs (field observations, instrument readings, building profile). Do not invent measurements, calibrations, occupancy, or history.
+
+# The evidence package is the whole world
+The input is a CLOSED evidence package. It is not a summary of a larger record you may reason outward from — it is everything you are permitted to assert, and it was assembled by the deterministic engine from the report this narrative accompanies.
+
+- \`facts\`, \`measurements\`, \`findings\` and \`references\` are READ-ONLY. Never change a measured value, a unit, an instrument, a date, a location, a criterion name, a severity or a report identifier. You may round a figure and you may state it in words; you may not alter it.
+- \`measurements[].criterion\` is the criterion that actually judged that reading, or null. Null means no criterion was applied to it in this assessment, so nothing may be said about that reading against any standard. Reporting a value is not the same as clearing it.
+- \`measurements[].determinative\` says whether a reading of this kind can SETTLE the comparison. False means the exceedance is an indication and not a compliance outcome; say so.
+- \`allowed_interpretations\` states what may be asserted about each finding and each pathway. Do not exceed it.
+- \`prohibited_claims\` states what may not be asserted, and why. Each entry is specific to this assessment, not a general rule.
+- \`required_limitations\` must each appear somewhere in the narrative wherever its subject comes up. Reword them in your own register; never drop one.
+- \`recommendation_options\` is the COMPLETE set of eligible actions. Do not introduce a control, a piece of equipment, or an analytical method that does not appear in it.
+- \`report_limitations\` tells you what was not done. Never write as though the work was broader than it was.
+- \`observations\` is what the assessor saw and what occupants described. It carries no verdict and you may not give it one.
 
 # Reason deeply, show the conclusion
 Internally, run the full exposure-science workup — competing hypotheses, exposure-pathway tests (source -> transport -> exposure point -> receptor), evidence for and against, non-IAQ confounders, and data gaps. Do NOT put that workup in the output. Show the conclusion, not the derivation. If a point needs deeper analysis, say what further investigation would resolve it and stop there. Writing at length does not license showing the workup: a longer narrative covers more of what was found and what each finding means for the reader, never more of how you got there.
@@ -132,47 +154,73 @@ Markdown. Aim for about 600 to 900 words — long enough to treat every conditio
 
 # Always close with the literal line
 "AI-assisted narrative — verify before issue; not a regulatory, compliance, or medical determination."
-Cite a standard or numeric value ONLY if it appears in the supplied standardsManifest, and cite it as the manifest provides it. Keep causal and clinical vocabulary out of the narrative entirely per the boundaries above.`
+Cite a standard or numeric value ONLY if it appears in the supplied evidence package, and cite it as the package provides it. Keep causal and clinical vocabulary out of the narrative entirely per the boundaries above.`
 
 /**
  * Generates an AI narrative via the serverless proxy at /api/narrative.
  * The Anthropic API key never leaves the server.
+ *
+ * The model writes from a CLOSED EVIDENCE PACKAGE
+ * (`src/report/evidencePackage.js`), and what it returns is audited against
+ * that same package before it reaches the assessor
+ * (`src/report/narrativeAudit.js`).
+ *
+ * It used to be handed `standardsManifest: { bibliography:
+ * STANDARDS_MANIFEST, referenceValues: STD }` — every threshold in the
+ * product — under an instruction to cite only from it. That instruction is
+ * satisfiable by citing the WHO annual PM2.5 guideline in a report that never
+ * evaluated it, which is how a report acquires a criterion nobody applied.
+ * The engine already knows which criteria fired, because every
+ * criterion-backed finding carries its `cid`. The package carries those and
+ * nothing else.
+ *
+ * @param {object} bldg
+ * @param {Array}  zones
+ * @param {Array}  zoneScores
+ * @param {object} recs
+ * @param {object} presurvey
+ * @param {object} [opts]   the rest of the report data the render model reads
+ *   — `causalChains`, `photos`, `sensorData`, `equipment`, `profile`, `id`,
+ *   `ts`, `floorPlans`. Passed through to `assembleRenderModel` so the
+ *   package describes the same report the client will receive.
+ * @returns {Promise<{narrative: string|null, audit: Array, auditSummary: object|null, evidence: object|null}>}
  */
-export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey) {
+export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey, opts = {}) {
   // The system prompt is no longer sent. api/narrative.js uses its own
   // server-owned copy (api/_narrative-prompt.js) and ignores body.system;
   // shipping ~13 KB per call was dead weight. REASONING_SYSTEM_PROMPT stays
   // exported because tests/api/narrative-prompt-parity.test.ts asserts the
   // server copy is byte-identical — edit the prompt in BOTH files together.
-  const payload = {
-    facility: bldg.fn, location: bldg.fl, type: bldg.ft, hvac: bldg.ht, hvacMaintenance: bldg.hm,
-    // `oshaDefensibility` used to ride here and is deliberately gone. It is
-    // an internal relevance classification that product had already pulled
-    // from every rendered surface (see the removed "OSHA-Relevant
-    // Conditions" card in MobileApp.jsx) — but it was still handed to the
-    // model, which duly printed "high OSHA defensibility relevance per the
-    // platform's logic" into a client narrative. Boundary 4 forbids
-    // reporting internal classifications; not supplying them is the
-    // stronger guarantee. Do not re-add a field here without asking what
-    // the reader would do with it.
-    //
-    // `compositeScore` and the per-zone `score` / `risk` fields below went
-    // the same way, for the same reason and then for a second one: the
-    // model was being handed the exact values Boundary 4 forbids it to
-    // report, and the platform no longer computes them at all.
-    // The allowed-values set. The model may cite numeric thresholds /
-    // limits / guideline values ONLY if they appear here (prompt §2.1).
-    // STANDARDS_MANIFEST = bibliography + editions; STD = the numeric
-    // reference values (temp/RH, CO2 ventilation surrogate, CO/HCHO/
-    // PM2.5/TVOC, per-occupancy outdoor-air rates).
-    standardsManifest: { bibliography: STANDARDS_MANIFEST, referenceValues: STD },
-    zones: zoneScores.map((zs, i) => ({
-      name: zs.zoneName,
-      findings: zs.cats.flatMap(c => c.r.filter(r => r.sev!=='pass'&&r.sev!=='info').map(r => ({ text:r.t, severity:r.sev, standard:r.std||null }))),
-      measurements: zones[i] ? Object.fromEntries(SENSOR_FIELDS.filter(sf=>zones[i][sf.id]).map(sf=>[sf.label, zones[i][sf.id]+' '+sf.u])) : {},
-    })),
-    recommendations: recs,
+  //
+  // `oshaDefensibility` used to ride in the payload and is deliberately gone.
+  // It is an internal relevance classification that product had already
+  // pulled from every rendered surface (see the removed "OSHA-Relevant
+  // Conditions" card in MobileApp.jsx) — but it was still handed to the
+  // model, which duly printed "high OSHA defensibility relevance per the
+  // platform's logic" into a client narrative. Boundary 4 forbids reporting
+  // internal classifications; not supplying them is the stronger guarantee.
+  // `compositeScore` and the per-zone `score` / `risk` fields went the same
+  // way, and the platform no longer computes them at all. The package
+  // inherits that discipline: it carries no severity ladder the reader is not
+  // already shown and no internal confidence number.
+  let evidence = null
+  try {
+    const model = assembleRenderModel({
+      ...opts,
+      building: bldg || {}, presurvey: presurvey || {}, zones: zones || [],
+      zoneScores: zoneScores || [], recs: recs || {},
+      causalChains: opts.causalChains || [],
+    })
+    evidence = buildEvidencePackage(model, { zoneScores: zoneScores || [], causalChains: opts.causalChains || [] })
+  } catch (e) {
+    // Without a package there is no closed universe to write from and nothing
+    // to audit the result against, so this is not a degraded mode worth
+    // shipping — the deterministic report prose is already a complete
+    // deliverable (narrativeLibrary.js) and is the correct fallback.
+    console.error('Evidence package could not be built; narrative not requested:', e && e.message)
+    return { narrative: null, audit: [], auditSummary: null, evidence: null }
   }
+  const payload = { evidence: packageForWriter(evidence) }
   // What the assessor actually wrote on site. Collected, budgeted and typed
   // since `4ffca8e` — and read by nothing, so the model drafting the
   // client's report had never seen a word of it. See the prompt section
@@ -211,16 +259,35 @@ export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey
     if (!res.ok) {
       if (res.status === 429) console.warn('Narrative rate limit hit:', data.scope, 'retry in', data.retry_after_seconds, 's')
       else console.error('Narrative proxy error:', data.error)
-      return null
+      return { narrative: null, audit: [], auditSummary: null, evidence }
     }
     // Drop AI narrative that trips the banned-language linter and fall
     // back to the validated deterministic report prose. The flagged
     // phrases are logged so the failure is visible to the assessor.
+    //
+    // This gate is unchanged and stays FIRST. It is the liability floor —
+    // fifteen phrases that are wrong in any report, scanned server-side — and
+    // it is a different question from the audit below, which asks whether
+    // THIS assessment supports THIS sentence.
     if (data.language_review === 'failed') {
       const terms = (data.banned_language || []).map(h => h.term).join(', ')
       console.warn('AI narrative suppressed — banned language detected:', terms)
-      return null
+      return { narrative: null, audit: [], auditSummary: null, evidence }
     }
-    return data.narrative || null
-  } catch(e) { console.error('AI narrative error:', e); return null }
+    const text = data.narrative || null
+    // The deterministic audit. It does NOT suppress: an unsupported figure is
+    // surfaced to a credentialed assessor with the statement that produced it,
+    // the way the readiness blockers and the report-consistency panel already
+    // work. AtmosFlow shows what it cannot support and lets the professional
+    // decide — it does not silently discard their draft, which is what
+    // suppression did to three credits' worth of work.
+    const audit = text ? auditNarrative(text, evidence) : []
+    if (audit.length) {
+      console.warn('Narrative audit:', summarizeAudit(audit).summary, audit.map(a => `${a.id}@${a.where}`).join(', '))
+    }
+    return { narrative: text, audit, auditSummary: text ? summarizeAudit(audit) : null, evidence }
+  } catch (e) {
+    console.error('AI narrative error:', e)
+    return { narrative: null, audit: [], auditSummary: null, evidence }
+  }
 }

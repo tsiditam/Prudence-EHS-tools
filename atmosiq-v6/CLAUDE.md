@@ -126,7 +126,7 @@ Read these directories first when investigating any task:
   readiness diagnostic, smoke test, password-reset verification, Stripe
   setup, cron implementations, sample-report PDF generator.
 - `scripts/acceptance/` — JSON acceptance configs:
-  `prod-ready.json` (77 criteria), `pricing-rollout.json` (19),
+  `prod-ready.json` (78 criteria), `pricing-rollout.json` (19),
   `go-live.json` (22), `api-boot.json` (the `API-BOOT` criterion alone,
   for CI), plus `kg.json` and `mold.json`. The legacy v2.X engine
   configs no longer exist.
@@ -327,6 +327,88 @@ When working on report generation:
   consultant reports in this field are normally written. Do not reintroduce a
   standards list; `tests/engine/no-standards-register.test.ts` fails if one
   reappears in the DOCX. Tracking is unchanged — only printing stopped.
+- **The AI narrative writes from a CLOSED evidence package, and what it
+  returns is audited against that package.** AtmosFlow is a deterministic IAQ
+  assessment engine with AI-assisted reporting — not an AI that decides
+  whether a building has a problem. The engine decides what was measured,
+  which criterion applied, whether a walkthrough reading can settle that
+  comparison, how severe the condition is, and which actions are eligible. An
+  AI pass improves how that READS. It decides none of it.
+
+  That split only holds if the model is handed a closed universe, and until
+  2026-09 it was not. The payload carried `standardsManifest: { bibliography:
+  STANDARDS_MANIFEST, referenceValues: STD }` — **every threshold in the
+  product** — under the instruction "cite only from the manifest". That is a
+  closed instruction over an open set: citing the WHO annual PM2.5 guideline
+  in a report that never evaluated it satisfies it exactly.
+
+  Two modules, both pure:
+  - **`src/report/evidencePackage.js`** — `buildEvidencePackage(model,
+    { zoneScores, causalChains })`. A **PROJECTION of
+    `assembleRenderModel`**, never a re-derivation, so it cannot disagree
+    with the report it describes. Carries `facts`, `measurements` (each with
+    the criterion that judged it, **or null**), `observations`, `findings`
+    (the engine's sentence verbatim), `references` (**only** the criteria
+    that fired), `allowed_interpretations`, `prohibited_claims`,
+    `required_limitations`, `recommendation_options` (the action register, and
+    nothing else is eligible), `report_limitations`, `sections.writable` vs
+    `sections.immutable`, and `immutable_values`.
+  - **`src/report/narrativeAudit.js`** — `auditNarrative(text, pkg)`. Same
+    shape and discipline as `modelConsistency.js`: `{ id, where, message,
+    severity }`, rule ids exported, a negative case per rule. Catches an
+    altered figure, a standard used as a criterion that never applied, a
+    settled comparison on a non-determinative criterion, a comparison drawn
+    against a parameter no criterion judged, causation asserted over a weighed
+    pathway, a dropped limitation, prose clearing a parameter the engine
+    flagged, and a control the register never proposed.
+
+  Four rules to keep, each load-bearing:
+
+  1. **The three constraint arrays are DERIVED, never authored.**
+     `allowed_interpretations` and `prohibited_claims` come off the engine's
+     own `determinative` flag (`AVERAGING[x].determinativeFrom` in
+     `constants/criteria.js`) and off chain confidence, which already makes
+     Strong unreachable for a hypothesis. Hand-writing them would be a second
+     opinion beside the registry — the defect class that gave this codebase a
+     comfort band nobody could trace.
+  2. **`criterion: null` is the constraint, not missing data.** No criterion
+     applied, so nothing may be said about that reading against any standard.
+     Reporting a value is not clearing it.
+  3. **A figure is checked only when it carries a UNIT.** `45 µg/m³` is a
+     measurement claim; "three areas" and "roughly twenty times higher" are
+     arithmetic over the package, and the prompt explicitly asks for them.
+     Rounding passes, alteration does not. A rule that flags the prose the
+     prompt requests gets switched off, and then nothing is checked at all.
+     The same reasoning scopes `required_limitations` with `when`: a narrative
+     that never mentions TVOC owes no TVOC caveat.
+  4. **The audit does NOT suppress.** It names the statement and the reason in
+     the Report tab, like the readiness blockers and the consistency panel.
+     Suppression is what the old path did — `language_review === 'failed'`
+     silently discarded three credits of work with no reason shown.
+
+  `api/_banned-language.js` is **unchanged and still runs first.** It is a
+  different question: fifteen phrases that are wrong in *any* report, scanned
+  server-side. The audit asks whether *this* assessment supports *this*
+  sentence — "exceeds the OSHA PEL" is correct from an 8-hour TWA and false
+  from a grab reading, and only the package knows which. Gate:
+  `AI-EVIDENCE-PACKAGE`; tests in `tests/engine/evidence-package.test.ts`,
+  which also guards the wiring, because a package the model never receives and
+  an audit nobody sees are the two ways this becomes decoration (see
+  `aiProvenanceBanner`, below, for the precedent).
+
+  **Still true and not addressed by this layer:** the AI narrative reaches the
+  AtmosFlow client DOCX through **no path** — `assembleRenderModel` never
+  reads `data.narrative`, so the only client deliverable carries the
+  deterministic `narrativeLibrary` prose. The narrative surfaces in the
+  standalone "Share narrative as Word" one-pager and in `PrintReport.jsx`
+  (where it is interpolated raw, so `**Overall Finding**` prints its
+  asterisks). It is also **never persisted**: no write path carries
+  `narrative`, though `toCloudRow` / `fromCloudRow` / `INDEX_COLUMNS` all map
+  it, so generating a narrative and reopening the report loses it along with
+  the credits. Section-scoped AI refinement of the report (exec summary,
+  discussion, conceptual site model, recommendations prose, parameter
+  background — the set `WRITABLE_SECTIONS` names) needs those two fixed
+  first.
 - **Qualitative-only propagation.** Findings derived from instruments
   not in the accuracy database inherit a `qualitative_only: true` flag
   that propagates to every rendered output of that finding.
@@ -602,7 +684,7 @@ Three feature-level acceptance configs gate completion claims:
 
 | Gate | Script | Criteria |
 |---|---|---|
-| Production readiness (Group A) | `npm run accept:prod-ready` | 77 |
+| Production readiness (Group A) | `npm run accept:prod-ready` | 78 |
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
 | Go-live experience (Group C) | `npm run accept:go-live` | 22 |
 | API boot (CI job, also inside A and C) | `npm run accept:api-boot` | 1 |

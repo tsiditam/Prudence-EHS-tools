@@ -20,5 +20,6 @@
 
 export * from './photo-analysis'
 export * from './narrative'
+export * from './evidence-package'
 export * from './report-render'
 export * from './jasper-turn'
