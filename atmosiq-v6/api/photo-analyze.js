@@ -35,6 +35,7 @@ const { createClient } = require('@supabase/supabase-js')
 const { auditLog } = require('./_audit.js')
 const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const rateLimit = require('./_rate-limit.js')
+const { classifyUpstream, statusForUpstream } = require('./_upstream-error.js')
 const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 10
@@ -282,8 +283,10 @@ async function handler(req, res) {
     const errText = typeof response.text === 'function' ? await response.text() : ''
     console.error('[photo-analyze] anthropic non-2xx:', response.status, String(errText).slice(0, 300))
     await rateLimit.releaseGeneration(supabase, reservation.id, 'photo-analyze')
-    const status = response.status === 429 ? 429 : 502
-    return res.status(status).json({ error: `upstream_${response.status}` })
+    const { code, message, retryable } = classifyUpstream(response.status, errText, 'Photo analysis is')
+    return res.status(statusForUpstream(response.status, code)).json({
+      error: `upstream_${response.status}`, code, message, retryable,
+    })
   }
 
   const data = await response.json()

@@ -31,6 +31,7 @@ const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const { scan: scanBannedLanguage, scanStyle } = require('./_banned-language.js')
 const { REASONING_SYSTEM_PROMPT } = require('./_narrative-prompt.js')
 const rateLimit = require('./_rate-limit.js')
+const { classifyUpstream, statusForUpstream } = require('./_upstream-error.js')
 const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 10
@@ -199,8 +200,12 @@ async function handler(req, res) {
     const errText = typeof response.text === 'function' ? await response.text() : ''
     console.error('[narrative] anthropic non-2xx:', response.status, String(errText).slice(0, 300))
     await rateLimit.releaseGeneration(supabase, reservation.id, 'narrative')
-    const status = response.status === 429 ? 429 : 502
-    return res.status(status).json({ error: `upstream_${response.status}` })
+    // See api/_upstream-error.js — an exhausted API account is a 400, and
+    // telling the assessor to retry it is wrong.
+    const { code, message, retryable } = classifyUpstream(response.status, errText, 'The narrative is')
+    return res.status(statusForUpstream(response.status, code)).json({
+      error: `upstream_${response.status}`, code, message, retryable,
+    })
   }
 
   const data = await response.json()

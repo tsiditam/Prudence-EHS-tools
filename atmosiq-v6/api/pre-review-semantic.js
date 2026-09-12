@@ -45,6 +45,7 @@ const { createClient } = require('@supabase/supabase-js')
 const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const { auditLog } = require('./_audit.js')
 const rateLimit = require('./_rate-limit.js')
+const { classifyUpstream, statusForUpstream } = require('./_upstream-error.js')
 const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 10
@@ -311,7 +312,8 @@ async function handler(req, res) {
     const errText = typeof upstream.text === 'function' ? await upstream.text() : ''
     console.error('[pre-review-semantic] anthropic non-2xx:', upstream.status, String(errText).slice(0, 300))
     await rateLimit.releaseGeneration(supabase, reservation.id, 'pre-review-semantic')
-    writeSse(res, 'error', { error: `upstream_${upstream.status}` })
+    const { code, message } = classifyUpstream(upstream.status, errText, 'The semantic review is')
+    writeSse(res, 'error', { error: `upstream_${upstream.status}`, code, message })
     return res.end()
   }
 

@@ -41,7 +41,8 @@ The input is a CLOSED evidence package — everything you are permitted to asser
 - \`allowed_interpretations\` and \`prohibited_claims\` carry the rules for whole PARAMETERS — what may and may not be said about a parameter no criterion judged in this assessment (a reading with no matching entry in \`measurements[].criterion\` anywhere in the assessment). Each entry is specific to this report, not a general rule.
 - \`recommendation_options\` is the COMPLETE set of eligible actions. Never introduce a control, a piece of equipment, or an analytical method that does not appear in it.
 - \`observations\` is what the assessor saw and what occupants described. It carries no verdict; do not give it one.
-- \`report_limitations\` states what was not done on this assessment (no logger data, no destructive investigation, whatever applies). Never write as though the work was broader than it was. You do not need to restate any of these lines yourself — the report's own Limitations section states them, unconditionally, wherever your prose appears.
+- \`report_limitations\` states what was not done on this assessment (no logger data, no destructive investigation, whatever applies). Never write as though the work was broader than it was. You need not reproduce this list — the report's own Limitations section already carries it in full.
+- \`required_limitations\` is the exception, and it BINDS the prose you write. Each entry carries a \`when\` list and a \`must_mention\` list. Where \`when\` is null the report's own Limitations section covers it and you owe nothing. Where \`when\` is a list of topics the rule is mechanical, and it is checked section by section: if a section you write contains ANY word from that entry's \`when\`, the SAME section must also contain EVERY word of at least one \`must_mention\` alternative. The caveat may sit in any sentence of that section, but it cannot live in a different section, and a section that raises the topic without it is thrown away — the reader gets the deterministic text instead and your work on that section is wasted. Two entries catch nearly every draft. Name total VOCs or TVOC and you must also say it has no applicable threshold and is reported, not judged. Write \"ventilation\", \"outdoor air\" or \"fresh air\" ANYWHERE — in passing, in a sentence about particulate, about filtration, about anything — and you must also say the airflow rate was not measured directly, or call CO₂ an indicator, or say the adequacy is inferred.
 - \`context_omitted\` names context left out of this package to fit the request. Empty means you were shown everything. Non-empty means do not describe what you were not shown; it does not license inventing it.
 - \`sections.immutable\` names the parts of the report you are not writing and must not attempt to recreate — the measurement tables, the findings table, QA/QC, instrument records, the reference list, the Limitations section, the action register, floor plans, photographs. Write around them; never restate their content in your own words as if it were new.
 
@@ -97,9 +98,7 @@ Separate paragraphs within one string with a blank line. Cite a standard or nume
 
 /**
  * Generates the five AI-eligible AtmosFlow DOCX sections via the serverless
- * proxy at /api/report-sections. Returns the record ready to persist as
- * `data.aiSections` (src/report/aiSections.js), or null on any failure — the
- * deterministic report is always a complete document without this.
+ * proxy at /api/report-sections.
  *
  * The system prompt is not sent — api/report-sections.js uses its own
  * server-owned copy (api/_report-sections-prompt.js); see the file header.
@@ -107,9 +106,16 @@ Separate paragraphs within one string with a blank line. Cite a standard or nume
  * @param {object} data   the same object `assembleRenderModel` takes —
  *   building, presurvey, zones, zoneScores, recs, causalChains, and so on.
  *   `data.aiSections`, if present, is ignored — this call REPLACES it.
- * @returns {Promise<object|null>}
+ * @returns {Promise<{record: object|null, error: string|null}>}
+ *   `record` is ready to persist as `data.aiSections`
+ *   (src/report/aiSections.js); null means nothing was generated and the
+ *   deterministic report stands unchanged, which is always a complete
+ *   document. `error` is the sentence to show the assessor when it is null —
+ *   the server's own classification where there is one (api/_upstream-error.js),
+ *   because "try again" is the wrong advice for an exhausted API account.
  */
 export async function generateReportSections(data) {
+  const fail = (error) => ({ record: null, error })
   let evidence = null
   try {
     const model = assembleRenderModel(data || {})
@@ -119,7 +125,7 @@ export async function generateReportSections(data) {
     // nothing to audit against — the deterministic report is the correct
     // fallback, the same reasoning generateNarrative uses.
     console.error('Evidence package could not be built; report sections not requested:', e && e.message)
-    return null
+    return fail('Report sections could not be prepared from this assessment. The report itself is unaffected.')
   }
   const payload = { evidence: packageForWriter(evidence) }
   try {
@@ -139,7 +145,7 @@ export async function generateReportSections(data) {
     if (!res.ok) {
       if (res.status === 429) console.warn('Report-sections rate limit hit:', body.scope, 'retry in', body.retry_after_seconds, 's')
       else console.error('Report-sections proxy error:', body.error)
-      return null
+      return fail((body && body.message) || 'Report sections could not be generated. Please try again.')
     }
     const rawSections = (body && body.sections) || {}
     const review = (body && body.language_review) || {}
@@ -165,9 +171,9 @@ export async function generateReportSections(data) {
       }
       if (Object.keys(cleanPbg).length) clean.parameter_background = cleanPbg
     }
-    return buildAiSectionsRecord(clean, evidence, { model: (body && body.model) || null })
+    return { record: buildAiSectionsRecord(clean, evidence, { model: (body && body.model) || null }), error: null }
   } catch (e) {
     console.error('Report sections generation error:', e)
-    return null
+    return fail('Report sections could not be generated — the service could not be reached. Please try again.')
   }
 }

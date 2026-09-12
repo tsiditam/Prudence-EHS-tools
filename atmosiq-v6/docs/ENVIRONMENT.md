@@ -26,8 +26,14 @@ read from `process.env` at request time. Never put a server secret behind a
 |---|---|---|
 | `SUPABASE_URL` | every `api/**` handler (falls back to `VITE_SUPABASE_URL`) | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | every `api/**` handler, `scripts/cron-*.ts`, `scripts/verify-password-reset.ts` | Service-role key — server only, never `VITE_` |
-| `ANTHROPIC_API_KEY` | `api/narrative.js`, `api/inline-ai.js`, `api/inline-complete.js`, `api/pre-review-semantic.js`, `api/field-assistant.ts`, `api/photo-analyze.js`, `api/marketing-agent/chat.js` | Claude API key for every AI route |
+| `ANTHROPIC_API_KEY` | `api/narrative.js`, `api/report-sections.js`, `api/inline-ai.js`, `api/inline-complete.js`, `api/pre-review-semantic.js`, `api/field-assistant.ts`, `api/photo-analyze.js`, `api/marketing-agent/chat.js` | Claude API key for every AI route. **Billed to the `tsidi@prudenceehs.com` Anthropic account** — see below |
 | `CRON_SECRET` | `api/_cron-auth.ts` (the five `cron-*` routes), `api/reset-credits.js` | Bearer token the scheduler must send; unset = 503 (fail closed) |
+
+### Which Anthropic account pays for `ANTHROPIC_API_KEY`
+
+**`tsidi@prudenceehs.com`**, at [console.anthropic.com](https://console.anthropic.com). Recorded here because there is more than one Anthropic account and topping up the wrong one looks identical from the billing page while fixing nothing.
+
+**What an empty balance looks like:** every AI route fails at once — narrative, report sections, Jasper, inline AI, photo analysis. Anthropic returns an ordinary `400` whose body reads *"Your credit balance is too low to access the Anthropic API"*, which the server logs verbatim and the app reports as a billing issue that retrying will not fix (`api/_upstream-error.js`). The key itself is still valid; nothing needs rotating and no redeploy is required after topping up.
 
 ## Stripe
 

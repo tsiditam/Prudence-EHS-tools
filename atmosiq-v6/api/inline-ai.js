@@ -37,6 +37,7 @@ const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const { auditLog } = require('./_audit.js')
 const { scan: scanBannedLanguage } = require('./_banned-language.js')
 const rateLimit = require('./_rate-limit.js')
+const { friendlyUpstreamError: sharedFriendlyUpstreamError } = require('./_upstream-error.js')
 const { withSentry } = require('./_with-sentry-cjs.js')
 
 // ── Quota / model / pricing ────────────────────────────────────────
@@ -103,13 +104,8 @@ function getFetch() {
   return _fetch || global.fetch
 }
 
-function friendlyUpstreamError(raw) {
-  if (raw.includes('credit balance')) return 'AI temporarily unavailable due to a billing issue. Please contact your administrator.'
-  if (raw.startsWith('upstream_429')) return 'AI is busy — please try again in a moment.'
-  if (raw.startsWith('upstream_401')) return 'AI authentication failed. Please contact your administrator.'
-  if (raw.startsWith('upstream_5')) return 'AI service temporarily unavailable. Try again shortly.'
-  return raw
-}
+// One classifier for every surface that calls the model — api/_upstream-error.js.
+const friendlyUpstreamError = (raw) => sharedFriendlyUpstreamError(raw, 'AI assistance is')
 
 function estimateCost(inputTokens, outputTokens) {
   if (inputTokens == null || outputTokens == null) return null

@@ -2168,6 +2168,7 @@ export default function MobileApp() {
     setNarrative(text || null)
     setNarrativeMeta(meta)
     setNarrativeLoading(false)
+    if (!text) toast.error((result && result.error) || 'The narrative could not be generated. Please try again.')
     if (text) {
       await persistAiOutput({ narrative: text, narrativeMeta: meta })
       trackEvent('narrative_generated', {
@@ -2187,7 +2188,7 @@ export default function MobileApp() {
     // Same report data narrative already threads through, so the evidence
     // package this writes from and the one the DOCX export will fingerprint
     // against (src/report/aiSections.js) describe the same assessment.
-    const rec = await generateReportSections({
+    const { record: rec, error: genError } = await generateReportSections({
       building: bldg, presurvey, zones, zoneScores, recs, causalChains,
       id: viewRpt?.id || draftId || null, equipment, comp, profile, photos, photoOverrides, floorPlans,
       ts: viewRpt?.ts, sensorData: (viewRpt && viewRpt.sensorData) || sensorData,
@@ -2200,8 +2201,11 @@ export default function MobileApp() {
     setReportSectionsLoading(false)
     if (!record) {
       // A failed call is not a generation: nothing is charged, and the
-      // assessor is told rather than left looking at an unchanged screen.
-      toast.error('Report sections could not be generated. No credits were charged — try again in a moment.')
+      // assessor is told WHY rather than left looking at an unchanged screen.
+      // The reason comes from the server's own classification — an exhausted
+      // API account is not something "try again in a moment" ever resolves
+      // (api/_upstream-error.js).
+      toast.error(genError || 'Report sections could not be generated. No credits were charged.')
       return
     }
     // Charged on success only. The server-side ledger and rate limit
