@@ -5,40 +5,41 @@
  *
  * DesktopSidebar — the persistent left navigation rail for the desktop layout
  * (screens >= 1024px). It replaces the mobile bottom floating dock + slide-in
- * hamburger drawer with an always-visible sidebar.
+ * hamburger drawer with an always-visible sidebar. Mobile/tablet (<1024px)
+ * never render this; MobileApp gates it on useMediaQuery().isDesktop.
  *
- * It is fed the SAME destination data the mobile side menu uses
- * (sideMenuPrimary / sideMenuGroups / sideMenuTrash from MobileApp), so the
- * information architecture stays single-source — this component only owns the
- * desktop presentation (fixed rail, wordmark, collapsible groups, account
- * footer). Mobile/tablet (<1024px) never render this; MobileApp gates it on
- * useMediaQuery().isDesktop.
+ * Desktop pro pass (2026-09). The rail is organized around the assessor's
+ * WORKFLOW, not the software's feature list — Home / Projects / Sites /
+ * Reports, then Analysis, the AI, the Library, and recent work — the way
+ * Linear, Notion and Claude lay out a workspace. Its shape:
  *
- * Desktop pass (2026-09) — the rail now follows the shape every current AI
- * workspace shares (Claude, ChatGPT, Grok, Linear, Notion):
+ *   • Slim. 232px wide, 34px rows, 13.5px labels; it collapses to a 64px
+ *     icon rail (header toggle or Ctrl/⌘ B, remembered) and every collapsed
+ *     row keeps a `title` and an aria-label.
+ *   • Quiet. The selected row is a raised tile in the primary ink; the
+ *     brand cyan appears nowhere on the rail except the AI mark. Cyan is
+ *     for the primary action, the selected data point and the AI, and it
+ *     stays precious by being absent here.
+ *   • Search leads (Ctrl/⌘ K), then the sections. A RECENT section lists
+ *     the projects touched last, which is what a returning user wants
+ *     before any destination.
+ *   • Rows have hover states, scoped to (hover: hover) so a touch device
+ *     with a wide window is unaffected.
  *
- *   • It COLLAPSES to an icon rail (68px) and remembers the choice. The
- *     toggle sits in the header; Ctrl/⌘ + B flips it from anywhere, which is
- *     the shortcut those apps settled on. Collapsed rows keep a native
- *     `title` so the label is one hover away.
- *   • A filled "New chat" action leads the rail — the one thing an AI app
- *     puts above navigation — and a "Search" row opens the command palette
- *     (Ctrl/⌘ + K) so a keyboard user never has to find a destination by
- *     reading a list.
- *   • Rows have HOVER states. Mobile has none (no pointer), and their absence
- *     is the single biggest reason a phone layout reads as "old" under a
- *     mouse: nothing acknowledges the cursor. Scoped to (hover: hover) so a
- *     touch device with a wide window is unaffected.
- *
- * Item shape (matches the mobile menu rows): { label, icon, view?, onClick,
- * renderIcon? }. `view` drives the active highlight against `activeView`.
+ * Data shape — `sections` is an ordered list of { key, label?, items },
+ * `recent` the same with a `label`, `bottom` a flat item list pinned above
+ * the account footer. Items: { label, icon, view?, onClick, renderIcon?,
+ * active?, hint? }. `view` (or an explicit `active`) drives the highlight
+ * against `activeView`.
  */
 import { useEffect } from 'react'
 import { I } from '../Icons'
 import { KEYS } from '../../utils/storageKeys'
 
-export const SIDEBAR_W = 240
-export const SIDEBAR_W_COLLAPSED = 68
+export const SIDEBAR_W = 232
+export const SIDEBAR_W_COLLAPSED = 64
+/** Width of the docked AtmosFlow AI panel on the right (Ctrl/⌘ J). */
+export const AI_PANEL_W = 420
 
 /** Current rail width for the shell's header / content offsets. */
 export const sidebarWidth = (collapsed) => (collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W)
@@ -75,16 +76,16 @@ if (typeof document !== 'undefined' && !document.getElementById('afds-style')) {
     @media (hover: hover) and (pointer: fine) {
       .af-rail-row:hover:not([aria-current="page"]) { background: var(--raised) !important; }
       .af-rail-row:hover:not([aria-current="page"]) .af-rail-ink { color: var(--text) !important; }
-      .af-rail-cta:hover { filter: brightness(1.06); }
+      .af-rail-row:hover:not([aria-current="page"]) .af-rail-label { color: var(--text) !important; }
       .af-rail-icon-btn:hover { background: var(--raised) !important; color: var(--text) !important; }
     }
-    .af-rail-row:focus-visible, .af-rail-cta:focus-visible, .af-rail-icon-btn:focus-visible {
+    .af-rail-row:focus-visible, .af-rail-icon-btn:focus-visible {
       outline: 2px solid var(--accent); outline-offset: -2px;
     }
     .af-rail-kbd {
-      font-size: 11px; font-weight: 600; letter-spacing: 0.2px; line-height: 1;
-      padding: 3px 6px; border-radius: 6px; color: var(--sub);
-      border: 1px solid var(--border); background: var(--card);
+      font-size: 11px; font-weight: 500; letter-spacing: 0.2px; line-height: 1;
+      padding: 3px 6px; border-radius: 5px; color: var(--dim);
+      border: 1px solid var(--border); background: transparent;
     }
     @media (prefers-reduced-motion: reduce) { .af-rail, .af-rail-row { transition: none !important; } }
   `
@@ -92,20 +93,21 @@ if (typeof document !== 'undefined' && !document.getElementById('afds-style')) {
 }
 
 const rowStyle = (active, collapsed) => ({
-  width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-  padding: collapsed ? '0' : '0 12px',
+  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+  padding: collapsed ? '0' : '0 10px',
   justifyContent: collapsed ? 'center' : 'flex-start',
-  margin: '2px 0', borderRadius: 12, border: 'none', cursor: 'pointer', textAlign: 'left',
-  fontFamily: 'inherit', fontSize: 14, fontWeight: active ? 600 : 500, minHeight: 40, height: 40,
+  margin: '1px 0', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left',
+  fontFamily: 'inherit', fontSize: 13.5, fontWeight: active ? 600 : 500, minHeight: 34, height: 34,
   color: active ? 'var(--text)' : 'var(--text-secondary)',
-  // The selected row is a quiet raised tile (the way Claude and ChatGPT mark
-  // the open chat), not a tinted accent box — the accent is kept for the
-  // one filled action above the list.
+  // The selected row is a quiet raised tile in the primary ink — not a
+  // tinted accent box. Cyan is reserved (see the header comment).
   background: active ? 'var(--raised)' : 'transparent',
   WebkitTapHighlightColor: 'transparent',
-  transition: 'background 140ms ease, color 140ms ease',
+  transition: 'background 120ms ease, color 120ms ease',
   boxSizing: 'border-box',
 })
+
+const isActive = (item, activeView) => (typeof item.active === 'boolean' ? item.active : !!item.view && item.view === activeView)
 
 function Row({ item, active, onSelect, collapsed }) {
   return (
@@ -117,14 +119,27 @@ function Row({ item, active, onSelect, collapsed }) {
       aria-label={collapsed ? item.label : undefined}
       title={collapsed ? item.label : undefined}
       style={rowStyle(active, collapsed)}>
-      <span className="af-rail-ink" style={{ display: 'inline-flex', flexShrink: 0, color: active ? 'var(--text)' : 'var(--sub)', transition: 'color 140ms ease' }}>
-        {item.renderIcon ? item.renderIcon() : <I n={item.icon} s={19} c="currentColor" w={1.7} />}
+      <span className="af-rail-ink" style={{ display: 'inline-flex', flexShrink: 0, width: 18, justifyContent: 'center', color: active ? 'var(--text)' : 'var(--sub)', transition: 'color 120ms ease' }}>
+        {item.renderIcon ? item.renderIcon(active) : <I n={item.icon} s={17} c="currentColor" w={1.7} />}
       </span>
       {!collapsed && (
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+        <>
+          <span className="af-rail-label" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+          {item.hint && <span className="af-rail-kbd" aria-hidden="true">{item.hint}</span>}
+        </>
       )}
     </button>
   )
+}
+
+function SectionLabel({ children }) {
+  return (
+    <div style={{ padding: '14px 10px 4px', fontSize: 11, fontWeight: 500, letterSpacing: '0.7px', textTransform: 'uppercase', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{children}</div>
+  )
+}
+
+function Divider() {
+  return <div aria-hidden="true" style={{ height: 1, background: 'var(--border)', margin: '8px 6px' }} />
 }
 
 function getInitials(profile) {
@@ -135,18 +150,15 @@ function getInitials(profile) {
 }
 
 export default function DesktopSidebar({
-  primary = [],
-  groups = [],
-  trash,
+  sections = [],
+  recent,
+  bottom = [],
   activeView,
-  groupsOpen = {},
-  onToggleGroup,
   profile,
   onSelect,
   onAccount,
   collapsed = false,
   onToggleCollapse,
-  onNewChat,
   onSearch,
 }) {
   // Ctrl/⌘ + B toggles the rail from anywhere except a text field.
@@ -165,11 +177,15 @@ export default function DesktopSidebar({
 
   const width = sidebarWidth(collapsed)
   const iconBtn = {
-    width: 34, height: 34, borderRadius: 10, border: 'none', background: 'transparent',
+    width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent',
     color: 'var(--sub)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
     justifyContent: 'center', fontFamily: 'inherit', flexShrink: 0, padding: 0,
-    transition: 'background 140ms ease, color 140ms ease', WebkitTapHighlightColor: 'transparent',
+    transition: 'background 120ms ease, color 120ms ease', WebkitTapHighlightColor: 'transparent',
   }
+  const sidePad = collapsed ? '0 12px' : '0 10px'
+  const renderItems = (items) => (items || []).map((item) => (
+    <Row key={item.key || item.label} item={item} active={isActive(item, activeView)} onSelect={onSelect} collapsed={collapsed} />
+  ))
 
   return (
     <nav
@@ -181,8 +197,8 @@ export default function DesktopSidebar({
         display: 'flex', flexDirection: 'column',
         background: 'var(--surface-deep, var(--surface))',
         borderRight: '1px solid var(--border)',
-        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)',
         boxSizing: 'border-box',
         transition: 'width 200ms cubic-bezier(.22,1,.36,1)',
         overflow: 'hidden',
@@ -192,11 +208,11 @@ export default function DesktopSidebar({
           toggle remains, centered, so the rail reads as a column of glyphs. */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
-        padding: collapsed ? '0 0 8px' : '0 10px 8px 16px',
-        justifyContent: collapsed ? 'center' : 'space-between', minHeight: 42,
+        padding: collapsed ? '0 0 6px' : '0 8px 6px 18px',
+        justifyContent: collapsed ? 'center' : 'space-between', minHeight: 36,
       }}>
         {!collapsed && (
-          <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text)', whiteSpace: 'nowrap' }}>AtmosFlow</span>
+          <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)', whiteSpace: 'nowrap' }}>AtmosFlow</span>
         )}
         {onToggleCollapse && (
           <button
@@ -209,7 +225,7 @@ export default function DesktopSidebar({
             style={iconBtn}>
             {/* A panel with its left third divided off — the mark Claude /
                 Notion / VS Code use for "collapse the sidebar". */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <rect x="3" y="4" width="18" height="16" rx="3" />
               <line x1="9" y1="4" x2="9" y2="20" />
             </svg>
@@ -217,95 +233,62 @@ export default function DesktopSidebar({
         )}
       </div>
 
-      {/* New chat + Search — the two actions an AI workspace leads with. */}
-      {(onNewChat || onSearch) && (
-        <div style={{ padding: collapsed ? '0 14px 6px' : '0 10px 6px', flexShrink: 0 }}>
-          {onNewChat && (
-            <button
-              type="button"
-              className="af-rail-cta"
-              onClick={onNewChat}
-              aria-label="New chat with AtmosFlow AI"
-              title={collapsed ? 'New chat' : undefined}
-              style={{
-                width: '100%', height: 40, borderRadius: 12, border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10,
-                padding: collapsed ? 0 : '0 12px', fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
-                background: 'var(--accent-fill)', color: 'var(--on-accent-fill)',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.25)', transition: 'filter 140ms ease',
-                WebkitTapHighlightColor: 'transparent', boxSizing: 'border-box',
-              }}>
-              <I n="plus" s={18} c="currentColor" w={2.2} />
-              {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>New chat</span>}
-            </button>
-          )}
-          {onSearch && (
-            <button
-              type="button"
-              className="af-rail-row"
-              onClick={onSearch}
-              aria-label="Search and commands"
-              title={collapsed ? `Search (${MOD_LABEL} K)` : undefined}
-              style={{ ...rowStyle(false, collapsed), marginTop: 6 }}>
-              <span className="af-rail-ink" style={{ display: 'inline-flex', flexShrink: 0, color: 'var(--sub)', transition: 'color 140ms ease' }}>
-                <I n="search" s={19} c="currentColor" w={1.7} />
-              </span>
-              {!collapsed && (
-                <>
-                  <span style={{ flex: 1, whiteSpace: 'nowrap' }}>Search</span>
-                  <span className="af-rail-kbd" aria-hidden="true">{MOD_LABEL} K</span>
-                </>
-              )}
-            </button>
-          )}
+      {/* Search — the one row above navigation. */}
+      {onSearch && (
+        <div style={{ padding: sidePad, flexShrink: 0 }}>
+          <button
+            type="button"
+            className="af-rail-row"
+            onClick={onSearch}
+            aria-label="Search and commands"
+            title={collapsed ? `Search (${MOD_LABEL} K)` : undefined}
+            style={{ ...rowStyle(false, collapsed), border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--sub)', fontWeight: 500 }}>
+            <span className="af-rail-ink" style={{ display: 'inline-flex', flexShrink: 0, width: 18, justifyContent: 'center', color: 'var(--sub)' }}>
+              <I n="search" s={16} c="currentColor" w={1.8} />
+            </span>
+            {!collapsed && (
+              <>
+                <span className="af-rail-label" style={{ flex: 1, whiteSpace: 'nowrap' }}>Search</span>
+                <span className="af-rail-kbd" aria-hidden="true">{MOD_LABEL} K</span>
+              </>
+            )}
+          </button>
         </div>
       )}
 
-      {/* Scrollable destinations */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: collapsed ? '0 14px' : '0 10px', scrollbarWidth: 'thin' }}>
-        {!collapsed && (
-          <div style={{ padding: '10px 12px 4px', fontSize: 11, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--sub)' }}>Workspace</div>
-        )}
-        {collapsed && <div aria-hidden="true" style={{ height: 1, background: 'var(--border)', margin: '6px 4px 8px' }} />}
-        {primary.map((item) => (
-          <Row key={item.label} item={item} active={!!item.view && item.view === activeView} onSelect={onSelect} collapsed={collapsed} />
+      {/* Scrollable sections */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: sidePad, scrollbarWidth: 'thin', marginTop: 6 }}>
+        {sections.map((sec, i) => (
+          <div key={sec.key || i}>
+            {sec.label
+              ? (collapsed ? <Divider /> : <SectionLabel>{sec.label}</SectionLabel>)
+              : (i > 0 && <Divider />)}
+            {renderItems(sec.items)}
+          </div>
         ))}
 
-        {groups.map((g) => {
-          // Collapsed rail: group headers cannot be read, so every group is
-          // shown open behind a hairline — the same list, less chrome.
-          const open = collapsed || !!groupsOpen[g.key]
-          return (
-            <div key={g.key} style={{ marginTop: 4 }}>
-              {collapsed ? (
-                <div aria-hidden="true" style={{ height: 1, background: 'var(--border)', margin: '8px 4px' }} />
-              ) : (
-                <button
-                  type="button"
-                  className="af-rail-row"
-                  onClick={() => onToggleGroup?.(g.key)}
-                  aria-expanded={open}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px 4px', marginTop: 6, borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent' }}
-                >
-                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--sub)' }}>{g.label}</span>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-                    style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 180ms cubic-bezier(.22,1,.36,1)' }}>
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-              )}
-              {open && (g.items || []).map((item) => (
-                <Row key={item.label} item={item} active={!!item.view && item.view === activeView} onSelect={onSelect} collapsed={collapsed} />
-              ))}
-            </div>
-          )
-        })}
-
-        {trash && <div style={{ marginTop: 8 }}><Row item={trash} active={!!trash.view && trash.view === activeView} onSelect={onSelect} collapsed={collapsed} /></div>}
+        {recent && (recent.items || []).length > 0 && !collapsed && (
+          <div>
+            <SectionLabel>{recent.label || 'Recent'}</SectionLabel>
+            {(recent.items || []).map((item) => (
+              <button
+                key={item.key || item.label}
+                type="button"
+                className="af-rail-row"
+                onClick={() => onSelect(item)}
+                aria-current={isActive(item, activeView) ? 'page' : undefined}
+                title={item.label}
+                style={{ ...rowStyle(isActive(item, activeView), false), height: 30, minHeight: 30, fontSize: 13, fontWeight: 400, color: isActive(item, activeView) ? 'var(--text)' : 'var(--text-secondary)' }}>
+                <span className="af-rail-label" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: 2 }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Account footer (pinned) */}
-      <div style={{ flexShrink: 0, padding: collapsed ? '10px 14px 0' : '10px 10px 0', borderTop: '1px solid var(--border)', marginTop: 8 }}>
+      {/* Bottom — Settings / Help / Trash, then the account footer. */}
+      <div style={{ flexShrink: 0, padding: sidePad, paddingTop: 6, borderTop: '1px solid var(--border)', marginTop: 6 }}>
+        {renderItems(bottom)}
         <button
           type="button"
           className="af-rail-row"
@@ -313,21 +296,21 @@ export default function DesktopSidebar({
           aria-current={activeView === 'account' ? 'page' : undefined}
           aria-label="Account"
           title={collapsed ? (profile?.name || 'Account') : undefined}
-          style={{ ...rowStyle(activeView === 'account', collapsed), gap: 11, height: 44, minHeight: 44 }}
+          style={{ ...rowStyle(activeView === 'account', collapsed), gap: 10, height: 40, minHeight: 40, marginTop: 4 }}
         >
           <span aria-hidden="true" style={{
-            width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+            width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            border: '1.5px solid color-mix(in srgb, var(--accent) 30%, transparent)',
-            background: profile?.avatar_url ? 'transparent' : 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 8%, transparent))',
-            color: 'var(--text)', fontSize: 11, fontWeight: 700,
+            border: '1px solid var(--border-strong)',
+            background: profile?.avatar_url ? 'transparent' : 'var(--raised)',
+            color: 'var(--text)', fontSize: 10, fontWeight: 600,
           }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               : <span>{getInitials(profile)}</span>}
           </span>
           {!collapsed && (
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.name || 'Account'}</span>
+            <span className="af-rail-label" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.name || 'Account'}</span>
           )}
         </button>
       </div>

@@ -142,8 +142,9 @@ import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
 import JasperWatchPanel from './JasperWatchPanel'
 import ReadinessPanel from './ReadinessPanel'
-import DesktopSidebar, { sidebarWidth, readRailCollapsed, writeRailCollapsed, MOD_LABEL } from './desktop/DesktopSidebar'
+import DesktopSidebar, { sidebarWidth, readRailCollapsed, writeRailCollapsed, isTypingTarget, MOD_LABEL, AI_PANEL_W } from './desktop/DesktopSidebar'
 import DesktopCommandPalette from './desktop/DesktopCommandPalette'
+import DesktopHome from './desktop/DesktopHome'
 import { isKnowledgeGraphEnabled, isMoldModuleEnabled } from '../utils/featureFlags'
 
 // Knowledge Graph Evidence tab is staged behind a flag — on for preview/
@@ -788,7 +789,10 @@ export default function MobileApp() {
   // First view comes from the browser history / URL hash when the route
   // can be restored without in-memory draft state (see routes.js
   // `restore`); id-bearing routes are hydrated once storage is ready.
-  const initialNav = useRef(readInitialNav('projects')).current
+  // Desktop (consultant mode) lands on Home — the state of the work; phones
+  // and the FM / mold modes keep their own landing (terminology.homeView).
+  const shellHome = isDesktop && userMode === 'ih' ? 'home' : homeView(userMode)
+  const initialNav = useRef(readInitialNav(shellHome)).current
   // Navigation is a stack (hooks/useNavStack): `view` is the top entry,
   // `setView` pushes a screen, a dock tab resets the stack to itself, and
   // the header back pill pops — so "back" means the screen you came from,
@@ -796,7 +800,7 @@ export default function MobileApp() {
   // shell remembering it. The page-transition direction (tab / forward /
   // back) comes from the same stack, so it is right the instant the new
   // page mounts.
-  const nav = useNavStack(initialNav.view, homeView(userMode))
+  const nav = useNavStack(initialNav.view, shellHome)
   const view = nav.view
   const setView = nav.navigate
   const navDir = nav.dir
@@ -1009,6 +1013,16 @@ export default function MobileApp() {
   const [paletteNonce, setPaletteNonce] = useState(0)
   const [newChatNonce, setNewChatNonce] = useState(0)
   const railW = profile && isDesktop ? sidebarWidth(railCollapsed) : 0
+  // Projects for the rail's RECENT section and the Home screen. Reloaded
+  // whenever the index or the screen changes so a rename or a new project
+  // shows without a reload; desktop only.
+  const [desktopProjects, setDesktopProjects] = useState([])
+  useEffect(() => {
+    if (!isDesktop || !profile) return undefined
+    let alive = true
+    import('../utils/projectStore').then(m => m.getProjects()).then(p => { if (alive) setDesktopProjects(p || []) }).catch(() => {})
+    return () => { alive = false }
+  }, [isDesktop, profile, index, view])
   // Project switcher (top of the side menu). Loads the project list each
   // time the menu opens so the recents are fresh; `menuSwitcherOpen`
   // expands the inline recents list under the chip.
@@ -1052,6 +1066,22 @@ export default function MobileApp() {
   // UI is hidden whenever there's no profile (auth screen), during a
   // milestone overlay, or while another full-screen modal is up.
   const [faOpen, setFaOpen] = useState(false)
+  // Desktop: Ctrl/⌘ J toggles the docked AI panel from anywhere except a
+  // text field (the chord every AI-native editor gives its assistant).
+  useEffect(() => {
+    if (!isDesktop || !profile) return undefined
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
+      if ((e.key || '').toLowerCase() !== 'j') return
+      if (isTypingTarget(e.target) && !faOpen) return
+      e.preventDefault()
+      setFaOpen(v => !v)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isDesktop, profile, faOpen])
+  // Width the content surface and header give up to the docked AI panel.
+  const aiW = profile && isDesktop && faOpen ? AI_PANEL_W : 0
   // Light project-portfolio index for the AI — refreshed each time the
   // assistant opens so it can answer "what projects do I have" from any
   // view. Minimal fields only; capped at the 20 most-recent.
@@ -1251,9 +1281,9 @@ export default function MobileApp() {
   // "Go home" — the consultant home is the Projects landing; FM home stays
   // the dashboard. Used by every exit-to-home flow so the two modes don't
   // fork at each call site.
-  const goHome = () => { nav.reset(homeView(userMode)); setViewRpt(null) }
+  const goHome = () => { nav.reset(shellHome); setViewRpt(null) }
   // A dock tab / menu primary: the stack becomes that one screen.
-  const goTab = (v) => { nav.reset(v); if (v === 'dash' || v === 'projects') setViewRpt(null) }
+  const goTab = (v) => { nav.reset(v); if (v === 'dash' || v === 'projects' || v === 'home') setViewRpt(null) }
 
   // Sustained "liquid-glass" press for the header glass controls (hamburger,
   // kebab, back pill). While held, the control grows and a cyan glow blooms;
@@ -3271,7 +3301,20 @@ export default function MobileApp() {
     // resolveVerdict still returns both for the report surfaces.
     const sevPillTone = V3.SEVERITY[verdict.severity]
     const sevPillLabel = verdict.label
-    const confTone = measConf?.overall === 'High' ? V3.CONFIDENCE.high : measConf?.overall === 'Low' ? V3.CONFIDENCE.low : V3.CONFIDENCE.medium
+    // Evidence census for the hero's stat strip — measurements, observations
+    // and occupant reports, from the category each finding belongs to (the
+    // same heuristic the At-a-glance panel used). Heuristic mapping — refine
+    // once provenance is a first-class field on Finding.
+    const heroCensus = (() => {
+      const c = { meas: 0, obs: 0, occ: 0 }
+      zoneScores.forEach(z => (z.cats || []).forEach(cat => {
+        const n = (cat.r || []).length
+        if (cat.l === 'Ventilation' || cat.l === 'Environment' || cat.l === 'Contaminants') c.meas += n
+        else if (cat.l === 'HVAC') c.obs += n
+        else if (cat.l === 'Complaints') c.occ += n
+      }))
+      return c
+    })()
     const headline = (() => {
       // Name the screening indicator, not a likelihood on the attribution —
       // confidence/likelihood belongs to the measurement layer, not the
@@ -3457,16 +3500,33 @@ export default function MobileApp() {
               <div style={{...V3.T.bodyDim, lineHeight:'21px', marginTop:10}}>
                 {verdict.prose}
               </div>
-              {/* Footer — the zone denominator and the one link out of the
-                  hero, into Actions. The verdict answers "what is wrong";
-                  Actions answers "what next". The findings breakdown is the
-                  default tab directly below, so it needs no link of its own. */}
+              {/* What the assessment rests on, as four counts — the census
+                  that used to be one line of the At-a-glance list. A reader
+                  sees the scale of the investigation before the verdict's
+                  reasoning, which is how a consultant report opens. */}
+              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(118px, 1fr))', gap:12, marginTop:18, maxWidth:620}}>
+                {[
+                  [comp.count, userMode === 'fm' ? (comp.count===1?'Area assessed':'Areas assessed') : (comp.count===1?'Zone assessed':'Zones assessed')],
+                  [heroCensus.meas, heroCensus.meas===1?'Measurement':'Measurements'],
+                  [heroCensus.obs, heroCensus.obs===1?'Observation':'Observations'],
+                  [heroCensus.occ, heroCensus.occ===1?'Occupant report':'Occupant reports'],
+                ].map(([v, l]) => (
+                  <div key={l} style={{padding:'10px 0 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
+                    <div style={{...V3.N.lg}}>{v}</div>
+                    <div style={{...V3.T.captionDim, marginTop:2}}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Footer — the one link out of the hero, into Actions. The
+                  verdict answers "what is wrong"; Actions answers "what
+                  next". The findings breakdown is the default tab directly
+                  below, so it needs no link of its own. */}
               <button
                 onClick={()=>{ haptic('light'); supabase && trackEvent('plan_open', { source: 'hero' }); setRTab('plan') }}
                 aria-label="See the actions: recommended actions and sampling."
                 {...pressFeedback('soft')}
-                style={{display:'flex',alignItems:'center',gap:8,marginTop:12,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',padding:0,...pressFeedback.style}}>
-                <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {userMode === 'fm' ? (comp.count===1?'area':'areas') : (comp.count===1?'zone':'zones')} assessed</span>
+                style={{display:'flex',alignItems:'center',gap:8,marginTop:14,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',padding:0,...pressFeedback.style}}>
+                <span style={{flex:1}} />
                 <span style={{...RS_LINK}}>See the actions <span aria-hidden="true">›</span></span>
               </button>
             </div>
@@ -3865,38 +3925,25 @@ export default function MobileApp() {
           // De-dupe + cap at 4 visible entries
           const dataGaps = Array.from(new Set(gapItems)).slice(0, 4)
 
-          // Evidence Summary breakdown. The engine does not separately
-          // tag finding provenance (measurement vs observation vs
-          // occupant report), so the breakdown is derived from the
-          // category each finding belongs to. Heuristic mapping —
-          // refine in a future slice once provenance is a first-class
-          // field on Finding.
-          const evCount = { meas: 0, obs: 0, occ: 0 }
-          zoneScores.forEach(z => (z.cats || []).forEach(c => {
-            const n = (c.r || []).length
-            if (c.l === 'Ventilation' || c.l === 'Environment' || c.l === 'Contaminants') evCount.meas += n
-            else if (c.l === 'HVAC') evCount.obs += n
-            else if (c.l === 'Complaints') evCount.occ += n
-          }))
+          // The evidence census (measurements / observations / occupant
+          // reports) now lives in the hero's stat strip — see heroCensus.
           const photoCount = Object.keys(photos || {}).length
 
           return (
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
 
               {/* At a glance — what the hero does not already say: the
-                  measurement confidence (comp.confidence — the worst zone's,
-                  which is what the report prints under the same label), the
-                  assessment basis, the evidence census and the data-gap
-                  count. The driver, contributing cause, complaint pattern
-                  and key indicator that used to lead this list restated the
-                  headline and the first pathway in other words; the verdict
-                  is stated once, above, and the pathway on its own tab. */}
+                  assessment basis, the photo count and the data-gap count.
+                  The measurement-confidence word that led this list is gone
+                  (2026-09, with the Pathways tab's confidence rating): it
+                  scored how many parameters were captured, and beside a
+                  verdict it read as confidence in the conclusion. The
+                  evidence census moved into the hero's stat strip. */}
               <div style={{...RS_SECTION, borderTop:'none', paddingTop:4}}>
                 <div style={RS_HEAD}>At a glance</div>
                 {[
-                  ['Confidence', <span style={{color:confTone, fontWeight:600}}>{comp?.confidence || measConf?.overall || 'Pending'}</span>],
                   ['Basis', describeAssessmentBasis({ sensorData: loggerSd, labResults: viewRpt?.labResults })],
-                  ['Evidence', `${evCount.meas} measurements · ${evCount.obs} observations · ${evCount.occ} occupant reports · ${photoCount} photo${photoCount===1?'':'s'}`],
+                  ['Photos', `${photoCount} photo${photoCount===1?'':'s'}`],
                   ['Data gaps', dataGaps.length === 0
                     ? 'None identified'
                     : <><span style={{color:WARN, fontWeight:600}}>{dataGaps.length}</span> <button onClick={()=>{ haptic('light'); setRTab('report') }} style={{...RS_LINK, marginLeft:8}}>Review <span aria-hidden="true">›</span></button></>],
@@ -4388,45 +4435,80 @@ export default function MobileApp() {
         mobile bottom dock + hamburger drawer. Fed the same destination data
         as the mobile side menu so the IA is single-source. */}
     {profile && isDesktop && (() => {
-      // The AI launcher leaves the destination list on desktop: it is the
-      // rail's filled "New chat" action instead (the one thing an AI
-      // workspace puts above navigation). Mobile keeps it in the list.
-      const railPrimary = sideMenuPrimary.filter(it => !!it.view)
       const openChat = (source) => { supabase && trackEvent('jasper_open', { source }); setNewChatNonce(n => n + 1); setFaOpen(true) }
-      // Picking a destination while the chat page is open closes the chat
-      // — on desktop the rail stays usable beside it (no scrim).
+      // Picking a destination while the AI panel is open leaves it open —
+      // it is docked beside the work, and the work is what changes.
       const closeChat = () => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null) }
       const drafts = index.drafts || []
       const reports = index.reports || []
       const nextTheme = getTheme() === 'light' ? 'dark' : 'light'
-      // Ctrl/⌘ K palette — the same destinations as the rail, plus the
-      // recent drafts and reports (the "search your chats" of an AI app)
-      // and the two shell actions a keyboard user reaches for.
+      const homeItem = userMode === 'fm'
+        ? { label: 'Home', icon: 'home', view: 'dash', onClick: () => goTab('dash') }
+        : { label: 'Home', icon: 'home', view: 'home', onClick: () => goTab('home') }
+      // Workflow-ordered rail (desktop pro pass): the work, the analysis
+      // tools, the AI, the library, recent projects, then Settings / Help /
+      // Trash above the account. The phone menu keeps its own list.
+      const railSections = [
+        { key: 'work', items: [
+          homeItem,
+          { label: 'Projects', icon: 'bldg',     view: 'projects', onClick: () => goTab('projects') },
+          { label: 'Sites',    icon: 'location', view: 'sites',    onClick: () => openTool('sites') },
+          { label: 'Reports',  icon: 'report',   view: 'history',  onClick: () => goTab('history') },
+        ] },
+        { key: 'analysis', label: 'Analysis', items: [
+          { label: 'Logger Studio', icon: 'chartLine', view: 'sensor-data', onClick: () => openTool('sensor-data') },
+          { label: 'Ventilation',   icon: 'wind',      view: 'ventilation', onClick: () => openTool('ventilation') },
+        ] },
+        { key: 'ai', items: [
+          // The one cyan mark on the rail. Toggles the docked panel.
+          { label: 'AtmosFlow AI', icon: 'sparkle', active: faOpen, hint: `${MOD_LABEL} J`,
+            renderIcon: () => <I n="sparkle" s={17} c="var(--accent)" w={1.8} />,
+            onClick: () => (faOpen ? closeChat() : openChat('desktop_rail')) },
+        ] },
+        { key: 'library', label: 'Library', items: [
+          { label: 'Templates', icon: 'template', view: 'report-templates', onClick: () => openTool('report-templates') },
+          { label: 'Forms',     icon: 'findings', view: 'sampling-forms',   onClick: () => openTool('sampling-forms') },
+          { label: 'Incidents', icon: 'flag',     view: 'incident-log',     onClick: () => openTool('incident-log') },
+          { label: 'All tools', icon: 'wrench',   view: 'tools',            onClick: () => goTab('tools') },
+        ] },
+      ]
+      const openProject = (pid) => { setActiveProjectId(pid); setView('project-detail') }
+      const railRecent = { label: 'Recent', items: desktopProjects.slice(0, 4).map(p => ({
+        key: p.id, label: p.name, active: view === 'project-detail' && activeProjectId === p.id, onClick: () => openProject(p.id),
+      })) }
+      const railBottom = [
+        { label: 'Settings', icon: 'gear',  view: 'settings', onClick: () => setView('settings') },
+        { label: 'Help',     icon: 'help',  view: 'help',     onClick: () => setView('help') },
+        { label: 'Trash',    icon: 'trash', view: 'trash',    onClick: () => setView('trash') },
+      ]
+      const select = (it) => go(it.onClick)
+      // Ctrl/⌘ K palette — every rail destination, the recent projects,
+      // drafts and reports (the "search your chats" of an AI app) and the
+      // shell actions a keyboard user reaches for.
       const paletteCommands = [
-        { id: 'new-chat', label: 'New chat with AtmosFlow AI', group: 'AtmosFlow AI', renderIcon: () => <JasperBrainIcon size={18} animate={false} />, keywords: ['jasper', 'ask', 'ai', 'assistant'], onSelect: () => openChat('command_palette') },
-        ...railPrimary.map(it => ({ id: `go-${it.view}`, label: it.label, group: 'Workspace', icon: it.icon, keywords: ['go to', 'open'], onSelect: () => { closeChat(); go(it.onClick) } })),
-        ...drafts.slice(0, 8).map(d => ({ id: `draft-${d.id}`, label: d.facility || 'Untitled assessment', group: 'Drafts', icon: 'draft', hint: fD(d.ua || d.ts), keywords: ['draft', 'resume', 'assessment'], onSelect: () => { closeChat(); resumeDraft(d.id) } })),
-        ...reports.slice(0, 8).map(r => ({ id: `report-${r.id}`, label: r.facility || 'Untitled report', group: 'Reports', icon: 'report', hint: fD(r.ts), keywords: ['report', 'finalized'], onSelect: () => { closeChat(); openReport(r) } })),
-        ...sideMenuGroups.flatMap(g => (g.items || []).map(it => ({ id: `grp-${g.key}-${it.label}`, label: it.label, group: g.label, icon: it.icon, onSelect: () => { closeChat(); go(it.onClick) } }))),
-        { id: 'trash', label: sideMenuTrash.label, group: 'Support', icon: 'trash', onSelect: () => { closeChat(); go(sideMenuTrash.onClick) } },
+        { id: 'ai', label: faOpen ? 'Close AtmosFlow AI' : 'Ask AtmosFlow AI', group: 'AtmosFlow AI', hint: `${MOD_LABEL} J`, renderIcon: () => <JasperBrainIcon size={18} animate={false} />, keywords: ['jasper', 'ask', 'ai', 'assistant', 'chat'], onSelect: () => (faOpen ? closeChat() : openChat('command_palette')) },
+        { id: 'new-investigation', label: 'New investigation', group: 'Actions', icon: 'plus', keywords: ['start', 'assessment', 'walkthrough', 'survey'], onSelect: () => startNew() },
+        ...railSections.filter(sec => sec.key !== 'ai').flatMap(sec => sec.items.map(it => ({ id: `go-${it.view}`, label: it.label, group: sec.label || 'Workspace', icon: it.icon, keywords: ['go to', 'open'], onSelect: () => go(it.onClick) }))),
+        ...desktopProjects.slice(0, 8).map(p => ({ id: `project-${p.id}`, label: p.name, group: 'Projects', icon: 'bldg', hint: [p.client, p.siteType].filter(Boolean).join(' · '), keywords: ['project', 'site', p.client || ''], onSelect: () => openProject(p.id) })),
+        ...drafts.slice(0, 8).map(d => ({ id: `draft-${d.id}`, label: d.facility || 'Untitled assessment', group: 'Drafts', icon: 'draft', hint: fD(d.ua || d.ts), keywords: ['draft', 'resume', 'assessment'], onSelect: () => resumeDraft(d.id) })),
+        ...reports.slice(0, 8).map(r => ({ id: `report-${r.id}`, label: r.facility || 'Untitled report', group: 'Reports', icon: 'report', hint: fD(r.ts), keywords: ['report', 'finalized'], onSelect: () => openReport(r) })),
+        ...railBottom.map(it => ({ id: `go-${it.view}`, label: it.label, group: 'System', icon: it.icon, onSelect: () => go(it.onClick) })),
+        { id: 'feedback', label: 'Send feedback', group: 'System', icon: 'flag', onSelect: () => openFeedback('Command palette') },
         { id: 'theme', label: `Switch to ${nextTheme} theme`, group: 'Appearance', icon: nextTheme === 'light' ? 'sun' : 'moon', keywords: ['dark', 'light', 'appearance', 'mode'], onSelect: () => setTheme(nextTheme) },
         { id: 'rail', label: `${railCollapsed ? 'Expand' : 'Collapse'} sidebar`, group: 'Appearance', icon: 'layers', hint: `${MOD_LABEL} B`, keywords: ['sidebar', 'rail', 'navigation'], onSelect: toggleRail },
       ]
       return (
         <>
           <DesktopSidebar
-            primary={railPrimary}
-            groups={sideMenuGroups}
-            trash={sideMenuTrash}
+            sections={railSections}
+            recent={railRecent}
+            bottom={railBottom}
             activeView={view}
-            groupsOpen={menuGroupsOpen}
-            onToggleGroup={(k) => setMenuGroupsOpen(m => ({ ...m, [k]: !m[k] }))}
             profile={profile}
-            onSelect={(it) => { closeChat(); go(it.onClick) }}
-            onAccount={() => { closeChat(); go(() => setView('account')) }}
+            onSelect={select}
+            onAccount={() => go(() => setView('account'))}
             collapsed={railCollapsed}
             onToggleCollapse={toggleRail}
-            onNewChat={() => openChat('desktop_rail')}
             onSearch={() => setPaletteNonce(n => n + 1)}
           />
           <DesktopCommandPalette commands={paletteCommands} openNonce={paletteNonce} />
@@ -4437,7 +4519,7 @@ export default function MobileApp() {
       className={profile && showHomeMenu ? 'af-content-surface is-open' : 'af-content-surface'}
       onTouchStart={onShellTouchStart}
       onTouchEnd={onShellTouchEnd}
-      style={{minHeight:V3.FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: railW}}>
+      style={{minHeight:V3.FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: railW, paddingRight: aiW}}>
       {/* Global offline banner — sits above the header so the
           offline state is impossible to miss. PendingSyncIndicator
           below stays as the source-of-truth for queue depth + last
@@ -4447,7 +4529,7 @@ export default function MobileApp() {
       <header
         data-scrolled={chromeScrolled ? 'true' : undefined}
         style={{
-          position:'fixed', top:0, left: railW, right:0, zIndex:100,
+          position:'fixed', top:0, left: railW, right: aiW, zIndex:100,
           paddingTop:'env(safe-area-inset-top, 0px)',
           // Transparent at rest; a tinted, blurred bar with a hairline foot
           // once content scrolls beneath it (see chromeScrolled). The blur
@@ -4475,7 +4557,7 @@ export default function MobileApp() {
                 Hidden on the home screens (nothing beneath). The project
                 workspace used to draw its own "← Projects" and hide this
                 one; it now relies on this control like every other screen. */}
-            {profile && nav.backView && view!=='dash' && view!=='projects' && (
+            {profile && nav.backView && view!=='dash' && view!=='projects' && view!=='home' && (
               <button
                 onClick={()=>{ nav.back(); setViewRpt(null) }}
                 {...triggerPress('back')}
@@ -5669,14 +5751,30 @@ export default function MobileApp() {
           ))}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
-        {view==='tools'&&<ToolsHub onOpen={openTool} />}
+        {view==='tools'&&<ToolsHub onOpen={openTool} desktop={isDesktop} />}
         {view==='sampling-forms'&&<Suspense fallback={LAZY_FALLBACK}><SamplingFormsView profile={profile} onBack={nav.back} /></Suspense>}
         {view==='ventilation'&&<Suspense fallback={LAZY_FALLBACK}><VentilationTool /></Suspense>}
         {/* A tool carries the project it was opened from as its params
             (see ProjectDetail's onOpenLogger) — nothing in the shell
             remembers it. */}
         {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} /></Suspense>}
-        {view==='projects'&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} />}
+        {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} />}
+        {/* Desktop landing — the state of the work. A phone that restores a
+            'home' entry (window resized below 1024) gets Projects above. */}
+        {view==='home' && isDesktop && (
+          <DesktopHome
+            profile={profile}
+            index={index}
+            projects={desktopProjects}
+            loadDraft={(id)=>STO.get(id)}
+            onNewInvestigation={()=>startNew()}
+            onResumeDraft={(id)=>resumeDraft(id)}
+            onOpenReport={(r)=>openReport(r)}
+            onOpenProject={(pid)=>{setActiveProjectId(pid);setView('project-detail')}}
+            onOpenProjects={()=>goTab('projects')}
+            onOpenReports={()=>goTab('history')}
+          />
+        )}
         {view==='project-detail'&&<ProjectDetail id={activeProjectId} profile={profile} editSignal={projectEditNonce} onBack={nav.back} onNewAssessment={(seed)=>startNew(seed)} onOpenReport={(r)=>openReport(r)} onOpenLogger={()=>nav.navigate('sensor-data', { projectId: activeProjectId })} onOpenSampling={()=>nav.navigate('sampling-forms', { projectId: activeProjectId })} onAskAI={()=>{ supabase && trackEvent('jasper_open', { source: 'project_workspace' }); setFaOpen(true) }} />}
         {view==='settings'&&<SettingsScreen onNavigate={(v)=>{if(v==='pricing'){setShowPricing(true)}else if(v==='tour'){setView('dash');setShowTour(true)}else if(v==='mold'){handleModeSwitch('mold')}else{setView(v)}}} adminActive={!!adminSecret} onActivateAdmin={(secret)=>{setAdminSecret(secret);setView('admin')}} />}
         {view==='account'&&<AccountScreen profile={profile} onEditProfile={()=>{sessionStorage.setItem('aiq_welcomed','1');setWelcomeDone(true);setProfile({...profile,isNew:true});setEditingProfile(true);setViewRpt(null)}} onLogout={handleLogout} onNavigate={(v)=>setView(v)} />}
@@ -5765,7 +5863,7 @@ export default function MobileApp() {
           bottom-right edge. Rendered outside the dock's !isDesktop gate so it
           appears in both layouts. Consultant mode only, and hidden during the
           assessment / milestone flows just like the dock. */}
-      {!isAssessing && !milestone && userMode !== 'fm' && (
+      {!isAssessing && !milestone && userMode !== 'fm' && !isDesktop && (
         <JasperFloatingButton
           active={faOpen}
           bottomOffset={isDesktop ? 24 : 78}
@@ -5797,7 +5895,7 @@ export default function MobileApp() {
         <Suspense fallback={LAZY_FALLBACK}>
         <FieldAssistant
           desktop={isDesktop}
-          leftInset={railW}
+          panelWidth={AI_PANEL_W}
           newChatNonce={newChatNonce}
           onClose={() => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null) }}
           onNavigate={(v) => { setFaOpen(false); setVoicePrefill(null); setReviewPrefill(null); setReviewPayload(null); if (v === 'dash') goHome(); else setView(v) }}

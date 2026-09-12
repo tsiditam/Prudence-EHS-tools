@@ -248,6 +248,17 @@ export default [
     rules: {
       ...CORE_RULES,
       ...REACT_HOOKS_RULES,
+      // No React plugin here, so the core rule cannot see a component used
+      // only in JSX: every `import GlassCard` and every local `function Row`
+      // counted as unused, and that class was most of the ratchet. PascalCase
+      // identifiers are components by convention; ignore them (an unused
+      // component still surfaces through the build's tree-shaking, not here).
+      'no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^(_|[A-Z])',
+        caughtErrorsIgnorePattern: '^_',
+        ignoreRestSiblings: true,
+      }],
     },
   },
 

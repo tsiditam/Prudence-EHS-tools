@@ -42,39 +42,58 @@ desktop PWA window ≥1024 also gets the desktop layout.
 Everything desktop is gated on `isDesktop`, so **mobile/tablet behavior is
 unchanged**:
 
-- **Persistent left sidebar** — `src/components/desktop/DesktopSidebar.jsx`
-  (width `SIDEBAR_W = 240`, or `SIDEBAR_W_COLLAPSED = 68` as an icon rail),
-  rendered fixed on the left when `isDesktop`. It is fed the **same
-  destination data** the mobile side menu uses (`sideMenuPrimary` /
-  `sideMenuGroups` / `sideMenuTrash`), so the information architecture stays
-  single-source: primary destinations, collapsible Tools/Resources/Support
-  groups, Trash, and an account footer. Active state tracks the current
-  `view`. The AI launcher leaves the destination list on desktop — it is
-  the rail's filled **New chat** action instead.
-- **Collapsible rail** (desktop pass, 2026-09). The header toggle and
-  **Ctrl/⌘ B** flip the rail between 240px and a 68px icon rail; the choice
-  is remembered (`KEYS.desktopRailCollapsed`). Collapsed rows keep a native
-  `title` and an `aria-label`. Rows have pointer-only hover states
+- **Home is the desktop landing** (consultant mode) —
+  `src/components/desktop/DesktopHome.jsx`, view `home`. The state of the
+  work: a greeting, four counts (active investigations, reports issued,
+  needing attention, projects), a **Needs attention** card (the active
+  draft with its zones / readings / observations census, else the report
+  with findings needing attention, else an empty state), recent projects
+  with status, and a recent-activity feed merged from drafts, reports and
+  project activity. Reads the same index and project store the Reports and
+  Projects screens read. `shellHome` in MobileApp is `home` on desktop and
+  `homeView(userMode)` elsewhere; a phone that restores a `home` entry
+  renders Projects.
+- **Workflow-ordered rail** — `src/components/desktop/DesktopSidebar.jsx`
+  (`SIDEBAR_W = 232`, `SIDEBAR_W_COLLAPSED = 64`). Search (Ctrl/⌘ K), then
+  Home / Projects / Sites / Reports, **Analysis** (Logger Studio,
+  Ventilation), **AtmosFlow AI** (the one cyan mark on the rail; toggles
+  the panel), **Library** (Templates, Forms, Incidents, All tools),
+  **Recent** (the four projects touched last), then Settings / Help /
+  Trash above the account footer. The desktop rail has its own data
+  (`railSections` / `railRecent` / `railBottom` in MobileApp); the phone
+  menu keeps its list. The selected row is a raised tile in the primary
+  ink, not an accent tint.
+- **Collapsible rail.** The header toggle and **Ctrl/⌘ B** flip the rail
+  between 232px and a 64px icon rail; the choice is remembered
+  (`KEYS.desktopRailCollapsed`). Collapsed rows keep a native `title` and
+  an `aria-label`. Rows have pointer-only hover states
   (`@media (hover: hover) and (pointer: fine)`), which touch layouts never
   see.
 - **Command palette** — `src/components/desktop/DesktopCommandPalette.jsx`.
   **Ctrl/⌘ K** (or the rail's Search row) opens a filter over every rail
-  destination, the eight most recent drafts and reports, "New chat", the
-  theme switch and the rail toggle. Arrow keys + Enter run a command; Escape
-  closes. `matchCommands()` is the pure filter/ranker.
-- **AtmosFlow AI is a page, not a sheet.** `FieldAssistant` takes
-  `desktop` + `leftInset` (the live rail width): on desktop it drops the
-  scrim, pins to the content area right of the rail at full width, centers
-  the transcript and composer in an 800px reading column, fades in instead
-  of rising, and greets on the empty canvas with the composer lifted toward
-  the middle of the window. Picking a rail destination while the chat is
-  open closes it. Below 1024px the phone sheet is byte-identical.
+  destination, the recent projects, the eight most recent drafts and
+  reports, Ask AtmosFlow AI, New investigation, feedback, the theme switch
+  and the rail toggle. Arrow keys + Enter run a command; Escape closes.
+  `matchCommands()` is the pure filter/ranker.
+- **AtmosFlow AI is a docked panel, not a sheet or an orb.** `FieldAssistant`
+  takes `desktop` + `panelWidth` (`AI_PANEL_W = 420`): on desktop it drops
+  the scrim, docks to the right edge beside the work (the header and the
+  content surface give up `aiW` to it), slides in from that edge, and
+  greets on the empty canvas. **Ctrl/⌘ J** toggles it; so does the rail's
+  AtmosFlow AI row. The floating launcher orb is not rendered on desktop.
+  Below 1024px the phone sheet and the orb are byte-identical.
+- **Tools is a toolkit dashboard** on desktop (`ToolsHub desktop`): the
+  seven tools as grouped cards (Analysis / Field & documentation / System)
+  with a sentence each and the criterion or output they work against.
+- **Results hero** carries a four-count stat strip (zones, measurements,
+  observations, occupant reports) under the verdict; the At-a-glance list
+  no longer prints the measurement-confidence word (see the CHANGELOG).
 - **Bottom floating dock is hidden** on desktop (its destinations live in the
   sidebar); the **hamburger trigger is hidden** (the sidebar is persistent).
   The mobile slide-in drawer stays mobile-only.
-- **Offsets**: the fixed header's `left`, the content surface's
-  `paddingLeft` and the chat page's `left` shift by the live rail width
-  (`railW` in MobileApp) on desktop.
+- **Offsets**: the fixed header's `left` and the content surface's
+  `paddingLeft` shift by the live rail width (`railW`); their right edges
+  shift by the AI panel width (`aiW`) while it is open.
 - **Wider content**: `contentMax = 1280` and `padX = 40` on desktop (vs.
   620/860/1080 and 20/28 below). Existing `isTablet`-gated grid flips (results
   two-up, findings table, zone split, etc.) already activate at ≥1024, so
@@ -91,17 +110,22 @@ unchanged**:
 
 - `tests/components/useMediaQuery.test.tsx` — the `isDesktop` gate at 1280 /
   800 / 375 and the standalone-desktop case.
-- `tests/components/DesktopSidebar.test.jsx` — destinations render, active
-  highlight, `onSelect`, group collapse/toggle, account footer; the New chat
-  and Search actions, the icon-rail collapse (labels gone, accessible names
-  kept), the Ctrl/⌘ B chord (ignored inside a text field), and the
-  remembered preference.
+- `tests/components/DesktopSidebar.test.jsx` — sections, recent and bottom
+  items render, active highlight by view or explicit flag, `onSelect`,
+  account footer, the Search row, the icon-rail collapse (labels gone,
+  accessible names kept), the Ctrl/⌘ B chord (ignored inside a text
+  field), and the remembered preference.
 - `tests/components/DesktopCommandPalette.test.jsx` — closed by default,
   Ctrl/⌘ K toggles, `openNonce` opens, filter + ranking, arrows / Enter /
   click / Escape.
-- `tests/components/FieldAssistant-desktop.test.tsx` — desktop page mode:
-  no scrim, pinned right of the rail and following its width, the greeting;
-  and the default render is still the phone sheet.
+- `tests/components/DesktopHome.test.jsx` — greeting, counts, the
+  Needs-attention card's three states and the async census, recent
+  projects, the activity feed, and the pure helpers.
+- `tests/components/ToolsHub-desktop.test.jsx` — grouped cards on desktop,
+  the phone list otherwise.
+- `tests/components/FieldAssistant-desktop.test.tsx` — desktop panel mode:
+  no scrim, docked right at the panel width, the greeting; and the default
+  render is still the phone sheet.
 - Full suite stays green (no mobile regressions).
 
 ## Verification
@@ -114,20 +138,27 @@ unchanged**:
    returns to the exact mobile layout (dock + hamburger). Verify in **both
    light and dark** themes. Confirm the desktop marketing landing CTA enters
    the app and that the choice sticks across reload.
-4. Press **Ctrl/⌘ B**: the rail collapses to icons and the header / content
-   / open chat shift left with it; reload and it stays collapsed. Press
-   **Ctrl/⌘ K**, type a report name, Enter: it opens. Click **New chat**:
-   the AI page fills the area right of the rail with no scrim, the greeting
-   sits over a centered composer, and clicking Projects in the rail closes
-   it.
+4. Sign in on desktop: the landing is **Home** (greeting, counts, Needs
+   attention, recent projects, activity). Press **Ctrl/⌘ B**: the rail
+   collapses to icons and the header / content shift left with it; reload
+   and it stays collapsed. Press **Ctrl/⌘ K**, type a project or report
+   name, Enter: it opens. Press **Ctrl/⌘ J** (or click AtmosFlow AI in the
+   rail): the AI panel docks on the right with no scrim, the content and
+   header narrow to make room, and the floating orb is absent. Open Tools:
+   grouped cards. Open a finalized report: the stat strip sits under the
+   verdict and At a glance has no Confidence row.
 
 ## Follow-ups (not in this change)
 
 - Per-screen desktop compositions (e.g., split-pane results: zone list +
   zone detail side-by-side) building on this shell.
-- Recent AI conversations listed in the rail under New chat (the
-  Claude / ChatGPT history column). The palette's Drafts / Reports groups
-  cover the "search my work" half today; the chat history still lives
-  behind the clock button on the AI page.
-- A reading-width column (~800px) for prose-heavy screens (Help, report
-  narrative review) the way the AI page has one; data screens keep 1280.
+- Contextual AI actions in place (✦ Refine on the executive summary,
+  ✦ Summarize relationships on the findings, ✦ Explain this pattern in
+  Logger Studio) that open the docked panel with the question pre-filled.
+- A "Zones" list on the results screen that drills into a per-zone
+  measurement grid (CO₂ / PM₂.₅ / temperature / RH with their criterion
+  state), observations and occupant input.
+- A cyan audit of the remaining screens: the accent should be the primary
+  action, the selected data point and the AI mark, nothing else.
+- Recent AI conversations listed in the panel (the history column) rather
+  than behind its clock button.
