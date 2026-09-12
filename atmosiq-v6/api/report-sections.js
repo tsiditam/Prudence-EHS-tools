@@ -38,6 +38,7 @@ const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const { scan: scanBannedLanguage, scanStyle } = require('./_banned-language.js')
 const { REPORT_SECTIONS_SYSTEM_PROMPT } = require('./_report-sections-prompt.js')
 const rateLimit = require('./_rate-limit.js')
+const { classifyUpstream, statusForUpstream } = require('./_upstream-error.js')
 const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 10
@@ -242,8 +243,13 @@ async function handler(req, res) {
     const errText = typeof response.text === 'function' ? await response.text() : ''
     console.error('[report-sections] anthropic non-2xx:', response.status, String(errText).slice(0, 300))
     await rateLimit.releaseGeneration(supabase, reservation.id, 'report_sections')
-    const status = response.status === 429 ? 429 : 502
-    return res.status(status).json({ error: `upstream_${response.status}` })
+    // `message` is what the assessor is shown. An exhausted API account
+    // arrives as a 400, so "try again" is the wrong advice for it —
+    // see api/_upstream-error.js.
+    const { code, message, retryable } = classifyUpstream(response.status, errText, 'Report sections are')
+    return res.status(statusForUpstream(response.status, code)).json({
+      error: `upstream_${response.status}`, code, message, retryable,
+    })
   }
 
   const data = await response.json()

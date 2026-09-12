@@ -42,6 +42,7 @@ import { scrubPii } from '../lib/sentry.js'
 import { auditLog } from './_audit.js'
 import { hasUnlimitedUsage } from '../lib/unlimited-usage.js'
 import { checkRateLimits as sharedCheckRateLimits, countRowsSince as sharedCountRowsSince, reserveGeneration, finalizeGeneration, releaseGeneration } from './_rate-limit.js'
+import { friendlyUpstreamError as sharedFriendlyUpstreamError } from './_upstream-error.js'
 import { withSentry } from './_with-sentry.js'
 import { lintJasperOutput, checkUnbackedThresholds, looksLikeThresholdQuestion, withThresholdVerifyNote, buildRevisionInstruction, finalizeJasperAnswer, SAFE_FALLBACK } from './_jasper-lint.js'
 
@@ -171,23 +172,12 @@ function getFetch(): typeof fetch {
   return _fetch || (global.fetch as typeof fetch)
 }
 
+// One classifier for every surface that calls the model — api/_upstream-error.js.
+// Returns the raw string unchanged when it is not an upstream failure at all,
+// so the caller's own fallback still applies.
 function friendlyUpstreamError(raw: string): string {
-  if (raw.includes('credit balance')) {
-    return 'The AI assistant is temporarily unavailable due to a billing issue. Please contact your administrator.'
-  }
-  if (raw.startsWith('upstream_429')) {
-    return 'The AI assistant is receiving too many requests. Please wait a moment and try again.'
-  }
-  if (raw.startsWith('upstream_401')) {
-    return 'AI assistant authentication failed. Please contact your administrator.'
-  }
-  if (raw.startsWith('upstream_5')) {
-    return 'The AI service is temporarily unavailable. Please try again in a few minutes.'
-  }
-  if (raw.startsWith('upstream_')) {
-    return 'The AI assistant encountered an unexpected error. Please try again.'
-  }
-  return raw
+  if (!/^upstream_/.test(raw) && !/credit balance/i.test(raw)) return raw
+  return sharedFriendlyUpstreamError(raw, 'The AI assistant is')
 }
 
 function estimateCost(

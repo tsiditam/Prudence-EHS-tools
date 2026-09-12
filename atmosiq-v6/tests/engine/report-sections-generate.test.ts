@@ -61,7 +61,7 @@ describe('generateReportSections — the response', () => {
         discussion: 'Carbon dioxide is an indicator of outdoor-air delivery. No ventilation rate was measured directly.',
       },
     }
-    const rec = await generateReportSections(assessmentData())
+    const { record: rec } = await generateReportSections(assessmentData())
     expect(rec).toBeTruthy()
     expect(rec.model).toBe('claude-test')
     expect(rec.locked).toBe(false)
@@ -80,7 +80,7 @@ describe('generateReportSections — the response', () => {
         discussion: 'Carbon dioxide is an indicator of outdoor-air delivery. No ventilation rate was measured directly.',
       },
     }
-    const rec = await generateReportSections(assessmentData())
+    const { record: rec } = await generateReportSections(assessmentData())
     expect(rec).toBeTruthy()
     expect('executive_summary' in rec.sections).toBe(false)
     expect(rec.sections.discussion).toBeTruthy()
@@ -97,23 +97,37 @@ describe('generateReportSections — the response', () => {
         },
       },
     }
-    const rec = await generateReportSections(assessmentData())
+    const { record: rec } = await generateReportSections(assessmentData())
     expect(rec.sections.parameter_background.co2).toBeUndefined()
     expect(rec.sections.parameter_background.thermal).toBeTruthy()
   })
 
-  it('returns null on a 429 and on any network failure, never throwing', async () => {
+  it('returns no record on a 429 and on any network failure, never throwing', async () => {
     response = { error: 'rate_limit_exceeded', scope: 'per_minute', retry_after_seconds: 30 }
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 429, json: async () => response })))
-    expect(await generateReportSections(assessmentData())).toBeNull()
+    expect((await generateReportSections(assessmentData())).record).toBeNull()
 
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
-    expect(await generateReportSections(assessmentData())).toBeNull()
+    const offline = await generateReportSections(assessmentData())
+    expect(offline.record).toBeNull()
+    expect(offline.error).toMatch(/could not be reached/)
   })
 
-  it('returns null rather than throwing when no section came back at all', async () => {
+  it('surfaces the server\'s own reason so a billing failure never reads as "try again"', async () => {
+    // api/_upstream-error.js classifies an exhausted API account (which
+    // Anthropic reports as a 400) and sends the sentence to show. Retrying
+    // cannot fix it, so the generic retry copy would be wrong advice.
+    response = { error: 'upstream_400', code: 'billing', retryable: false, message: 'Report sections are temporarily unavailable because of a service billing issue. Retrying will not help — please contact your administrator.' }
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503, json: async () => response })))
+    const out = await generateReportSections(assessmentData())
+    expect(out.record).toBeNull()
+    expect(out.error).toBe(response.message)
+    expect(out.error).not.toMatch(/try again/i)
+  })
+
+  it('returns a record rather than throwing when no section came back at all', async () => {
     response = { sections: {}, language_review: {}, model: 'claude-test' }
-    const rec = await generateReportSections(assessmentData())
+    const { record: rec } = await generateReportSections(assessmentData())
     // buildAiSectionsRecord still runs — an empty `sections` object is a
     // legitimate (if unhelpful) record, not a failure.
     expect(rec).toBeTruthy()

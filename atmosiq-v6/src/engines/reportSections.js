@@ -97,9 +97,7 @@ Separate paragraphs within one string with a blank line. Cite a standard or nume
 
 /**
  * Generates the five AI-eligible AtmosFlow DOCX sections via the serverless
- * proxy at /api/report-sections. Returns the record ready to persist as
- * `data.aiSections` (src/report/aiSections.js), or null on any failure — the
- * deterministic report is always a complete document without this.
+ * proxy at /api/report-sections.
  *
  * The system prompt is not sent — api/report-sections.js uses its own
  * server-owned copy (api/_report-sections-prompt.js); see the file header.
@@ -107,9 +105,16 @@ Separate paragraphs within one string with a blank line. Cite a standard or nume
  * @param {object} data   the same object `assembleRenderModel` takes —
  *   building, presurvey, zones, zoneScores, recs, causalChains, and so on.
  *   `data.aiSections`, if present, is ignored — this call REPLACES it.
- * @returns {Promise<object|null>}
+ * @returns {Promise<{record: object|null, error: string|null}>}
+ *   `record` is ready to persist as `data.aiSections`
+ *   (src/report/aiSections.js); null means nothing was generated and the
+ *   deterministic report stands unchanged, which is always a complete
+ *   document. `error` is the sentence to show the assessor when it is null —
+ *   the server's own classification where there is one (api/_upstream-error.js),
+ *   because "try again" is the wrong advice for an exhausted API account.
  */
 export async function generateReportSections(data) {
+  const fail = (error) => ({ record: null, error })
   let evidence = null
   try {
     const model = assembleRenderModel(data || {})
@@ -119,7 +124,7 @@ export async function generateReportSections(data) {
     // nothing to audit against — the deterministic report is the correct
     // fallback, the same reasoning generateNarrative uses.
     console.error('Evidence package could not be built; report sections not requested:', e && e.message)
-    return null
+    return fail('Report sections could not be prepared from this assessment. The report itself is unaffected.')
   }
   const payload = { evidence: packageForWriter(evidence) }
   try {
@@ -139,7 +144,7 @@ export async function generateReportSections(data) {
     if (!res.ok) {
       if (res.status === 429) console.warn('Report-sections rate limit hit:', body.scope, 'retry in', body.retry_after_seconds, 's')
       else console.error('Report-sections proxy error:', body.error)
-      return null
+      return fail((body && body.message) || 'Report sections could not be generated. Please try again.')
     }
     const rawSections = (body && body.sections) || {}
     const review = (body && body.language_review) || {}
@@ -165,9 +170,9 @@ export async function generateReportSections(data) {
       }
       if (Object.keys(cleanPbg).length) clean.parameter_background = cleanPbg
     }
-    return buildAiSectionsRecord(clean, evidence, { model: (body && body.model) || null })
+    return { record: buildAiSectionsRecord(clean, evidence, { model: (body && body.model) || null }), error: null }
   } catch (e) {
     console.error('Report sections generation error:', e)
-    return null
+    return fail('Report sections could not be generated — the service could not be reached. Please try again.')
   }
 }

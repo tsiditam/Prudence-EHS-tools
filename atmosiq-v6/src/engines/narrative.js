@@ -225,7 +225,7 @@ export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey
     // shipping — the deterministic report prose is already a complete
     // deliverable (narrativeLibrary.js) and is the correct fallback.
     console.error('Evidence package could not be built; narrative not requested:', e && e.message)
-    return { narrative: null, audit: [], auditSummary: null, evidence: null }
+    return { narrative: null, audit: [], auditSummary: null, evidence: null, error: 'The narrative could not be prepared from this assessment. The report itself is unaffected.' }
   }
   const payload = { evidence: packageForWriter(evidence) }
   // What the assessor actually wrote on site. Collected, budgeted and typed
@@ -266,7 +266,7 @@ export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey
     if (!res.ok) {
       if (res.status === 429) console.warn('Narrative rate limit hit:', data.scope, 'retry in', data.retry_after_seconds, 's')
       else console.error('Narrative proxy error:', data.error)
-      return { narrative: null, audit: [], auditSummary: null, evidence }
+      return { narrative: null, audit: [], auditSummary: null, evidence, error: (data && data.message) || 'The narrative could not be generated. Please try again.' }
     }
     // Drop AI narrative that trips the banned-language linter and fall
     // back to the validated deterministic report prose. The flagged
@@ -279,7 +279,7 @@ export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey
     if (data.language_review === 'failed') {
       const terms = (data.banned_language || []).map(h => h.term).join(', ')
       console.warn('AI narrative suppressed — banned language detected:', terms)
-      return { narrative: null, audit: [], auditSummary: null, evidence }
+      return { narrative: null, audit: [], auditSummary: null, evidence, error: (data && data.message) || 'The narrative could not be generated. Please try again.' }
     }
     const text = data.narrative || null
     // The deterministic audit. It does NOT suppress: an unsupported figure is
@@ -295,6 +295,6 @@ export async function generateNarrative(bldg, zones, zoneScores, recs, presurvey
     return { narrative: text, audit, auditSummary: text ? summarizeAudit(audit) : null, evidence, fingerprint: fingerprintPackage(evidence) }
   } catch (e) {
     console.error('AI narrative error:', e)
-    return { narrative: null, audit: [], auditSummary: null, evidence }
+    return { narrative: null, audit: [], auditSummary: null, evidence, error: 'The narrative could not be generated — the service could not be reached. Please try again.' }
   }
 }

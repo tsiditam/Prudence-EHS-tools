@@ -38,6 +38,7 @@
 const { createClient } = require('@supabase/supabase-js')
 const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const rateLimit = require('./_rate-limit.js')
+const { classifyUpstream, statusForUpstream } = require('./_upstream-error.js')
 const { withSentry } = require('./_with-sentry-cjs.js')
 
 const PER_MINUTE_LIMIT = 60
@@ -240,8 +241,10 @@ async function handler(req, res) {
     const errText = typeof upstream.text === 'function' ? await upstream.text() : ''
     console.error('[inline-complete] anthropic non-2xx:', upstream.status, String(errText).slice(0, 300))
     await rateLimit.releaseGeneration(supabase, reservation.id, 'inline-complete')
-    const status = upstream.status === 429 ? 429 : 502
-    return res.status(status).json({ error: `upstream_${upstream.status}` })
+    const { code, message, retryable } = classifyUpstream(upstream.status, errText, 'AI assistance is')
+    return res.status(statusForUpstream(upstream.status, code)).json({
+      error: `upstream_${upstream.status}`, code, message, retryable,
+    })
   }
 
   let data
