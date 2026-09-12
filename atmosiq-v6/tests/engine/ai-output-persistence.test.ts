@@ -98,6 +98,19 @@ describe('the Report tab writes what it generates onto the stored record', () =>
     expect(app).toMatch(/setNarrative\(rpt\.narrative\|\|null\); setNarrativeMeta\(rpt\.narrativeMeta\|\|null\)/)
   })
 
+  it('every export literal carries the record\'s `ts`, so the exported package fingerprints like the one generated against', () => {
+    // `ts` is the assessment date whenever no survey date was entered
+    // (utils/assessmentDate.js). The download path used to omit it, so a
+    // report reopened on a later day was exported with THAT day as its
+    // assessment date — a different evidence fingerprint from the Report
+    // tab's, and every AI section silently fell back to deterministic prose.
+    const literals = app.match(/reportData = \{ id: viewRpt\?\.id \|\| draftId \|\| null,[^\n]*/g) || []
+    expect(literals.length).toBe(3)
+    for (const literal of literals) expect(literal).toMatch(/ts: viewRpt\?\.ts/)
+    // And the generation call it must agree with.
+    expect(app).toMatch(/generateReportSections\(\{[\s\S]{0,400}ts: viewRpt\?\.ts/)
+  })
+
   it('re-finalize carries a narrative forward only on a fingerprint match', () => {
     expect(app).toMatch(/current === priorMeta\.fingerprint/)
     expect(app).toMatch(/report = \{ \.\.\.report, narrative: priorBody\.narrative, narrativeMeta: priorMeta \}/)

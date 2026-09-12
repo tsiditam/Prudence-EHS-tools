@@ -2293,7 +2293,13 @@ export default function MobileApp() {
     // src/report/reportModel.js. `viewRpt` is the opened finalized report;
     // `draftId` is the session pointer, which finalize advances to the new
     // report id, so this resolves to the same value on every re-export.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, aiSections: viewRpt?.aiSections || aiSections, assessmentContext }
+    // `ts` — the finalize timestamp, which is the assessment date whenever no
+    // survey date was entered (utils/assessmentDate.js). The share and PDF
+    // paths already pass it; without it a report reopened on a later day
+    // printed THAT day as the assessment date, and the evidence package the
+    // export fingerprints carried a different date from the one the Report
+    // tab generated the AI sections against — so they silently fell back.
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlans: figures.floorPlans, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, aiSections: viewRpt?.aiSections || aiSections, ts: viewRpt?.ts, assessmentContext }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', findings: comp?.findings?.total, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
