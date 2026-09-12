@@ -525,6 +525,41 @@ export function atmosFlowReportChildren(model) {
     ;(M.scope.paras || [M.scope.text]).filter(Boolean).forEach((para) => c.push(body(para)))
   }
 
+  // The client's floor plan, with the sampling locations marked, as site
+  // background. The figure is fitted by the model from the image's own
+  // pixel size (a plan is whatever shape the client uploaded); the table
+  // beneath resolves the pin numbers and names the parameters recorded at
+  // each location, and carries the recorded position when the pins could
+  // not be drawn onto the image. The markers carry no severity — see
+  // utils/samplePoints.js.
+  if (M.floorPlan && isImageDataUrl(M.floorPlan.imageDataUrl)) {
+    const fp = M.floorPlan
+    const img = imageParagraph(fp.imageDataUrl, fp.figure.width, fp.figure.height)
+    if (img) {
+      c.push(h2(fp.heading || 'Site plan and sampling locations'))
+      c.push(img)
+      if (fp.caption) c.push(caption(fp.caption))
+      const pins = Array.isArray(fp.pins) ? fp.pins : []
+      if (pins.length) {
+        const showPos = !fp.pinsDrawn
+        const CEN = AlignmentType.CENTER
+        c.push(
+          table(
+            showPos
+              ? ['Pin', 'Location', 'Use', 'Parameters recorded', 'Position on plan']
+              : ['Pin', 'Location', 'Use', 'Parameters recorded'],
+            pins.map((p) => (showPos
+              ? [fmt(p.n), fmt(p.zone), fmt(p.use), fmt(p.readings), fmt(p.position)]
+              : [fmt(p.n), fmt(p.zone), fmt(p.use), fmt(p.readings)])),
+            showPos ? [700, 2500, 1700, 2360, 2100] : [760, 3200, 2200, 3200],
+            { align: [CEN, null, null, null, null] },
+          ),
+        )
+        if (fp.note) c.push(caption(fp.note))
+      }
+    }
+  }
+
   // ═══ 2. Investigation Methods & QA/QC ═══
   //
   // QA/QC lives HERE, not in its own section after the recommendations. A

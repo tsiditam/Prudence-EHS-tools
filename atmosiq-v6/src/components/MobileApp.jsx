@@ -105,6 +105,7 @@ import { toast } from 'sonner'
 const loadDocxReport = () => importSafe(() => import('./DocxReport'))
 const loadPrintReport = () => importSafe(() => import('./PrintReport'))
 const loadLoggerChartImages = () => importSafe(() => import('../utils/loggerChartImages'))
+const loadFloorPlanFigure = () => importSafe(() => import('../utils/floorPlanFigure'))
 const AdminDashboard = lazySafe(() => import('./AdminDashboard'))
 const SensorDataPage = lazySafe(() => import('./sensor/SensorDataPage'))
 const LoggerGraphsTab = lazySafe(() => import('./sensor/LoggerGraphsTab'))
@@ -241,6 +242,8 @@ const RESULT_TAB_ALIASES = {
   findings: 'overview', pathways: 'rootcause',
   sampling: 'plan', actions: 'plan',
   narrative: 'report', readiness: 'report', review: 'report',
+  // 'spatial' was the standalone route this screen used to be.
+  spatial: 'locations', floorplan: 'locations', map: 'locations',
 }
 // Results screen (restraint pass, 2026-09): a section is a micro heading
 // over content that parts from the previous section with a hairline — no
@@ -1773,10 +1776,11 @@ export default function MobileApp() {
     // and handleExport builds its DOCX from component state — so the exported
     // document would differ from the one that was issued, silently.
     //
-    // This is reachable: the actions menu renders on view==='report', offers
-    // "Map zones on floor plan", and SpatialMap's onClose calls runScoring.
-    // Guarding here rather than at that one call site, so any future entry
-    // point is covered too.
+    // The one call site this was written for is gone — the floor-plan screen
+    // used to re-score on its way back to Results, and is now a tab that
+    // never leaves the screen. The guard stays because it is about the whole
+    // class, not that caller: any future entry point that re-scores while a
+    // finalized report is open is covered here rather than at each site.
     if (viewRpt) {
       return {
         zScores: zoneScores, composite: comp, osha: oshaResult, recommendations: recs,
@@ -2081,30 +2085,60 @@ export default function MobileApp() {
     executeExport(exportFormat, filtered, docxTypeChoice)
   }
 
+  // The logger dataset a report of THIS assessment reads. On a saved report
+  // (view 'report') it rides on viewRpt — that is where "Send graphs to a
+  // report" writes it and where the Logger tab's include toggle edits it —
+  // while the live sensorData state belongs to whatever assessment was last
+  // worked on in Logger Studio. Until 2026-09 every export read the live
+  // state, so a finalized report opened from the list exported WITHOUT the
+  // graphs attached to it (the toast had promised "open it and re-export"),
+  // and with another assessment's graphs if any happened to be loaded. One
+  // source, used by every export path, the Report-tab consistency check and
+  // the assessment context.
+  const reportSensorData = () => ((view === 'report' && viewRpt) ? (viewRpt.sensorData || null) : sensorData)
+
+  // The figures a report embeds, prepared once per export:
+  //  - every "Include in report" logger timeline with a usable PNG. The
+  //    on-screen capture is unreliable on iOS Safari (and the results-tab
+  //    toggle never captured at all), so the included charts are re-rendered
+  //    from their data points — a self-contained-SVG raster every export
+  //    (DOCX, AtmosFlow PDF, Web) then embeds.
+  //  - the floor plan with the sampling locations drawn on it as numbered
+  //    pins. A Word document cannot overlay the spatial map's HTML pins, so
+  //    the plan and pins are composed into one image here; if that fails the
+  //    raw plan still renders, sized from its own header, with the recorded
+  //    positions listed beneath it.
+  const prepareReportFigures = async () => {
+    const { ensureLoggerChartImages } = await loadLoggerChartImages()
+    const sensorDataForReport = await ensureLoggerChartImages(reportSensorData())
+    let floorPlanForReport = floorPlan || null
+    if (floorPlan) {
+      try {
+        const { composeFloorPlanFigure } = await loadFloorPlanFigure()
+        floorPlanForReport = (await composeFloorPlanFigure(floorPlan, zones, { building: bldg })) || floorPlan
+      } catch { /* the raw plan is still embedded */ }
+    }
+    return { sensorData: sensorDataForReport, floorPlan: floorPlanForReport }
+  }
+
   const executeExport = async (format, filteredPhotos, docxType) => {
     // Photo records are `{ idbId, ts }` in state; the renderers need the
     // image. Resolve every selected record from IndexedDB here, once.
     filteredPhotos = (await expandPhotos(filteredPhotos || {})).photos
     const esc = evaluateEscalation({ zones, comp, moldResults }, [], [])
+    const figures = await prepareReportFigures()
     const assessmentContext = buildAssessmentContext({
-      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData: figures.sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
-    // Guarantee every "Include in report" logger timeline carries a usable PNG
-    // before any format embeds it. The on-screen capture is unreliable on iOS
-    // Safari (and the results-tab toggle never captured at all), so re-render
-    // the included charts from their data points here — a self-contained-SVG
-    // raster that every export (DOCX, AtmosFlow PDF, Web) then embeds.
-    const { ensureLoggerChartImages } = await loadLoggerChartImages()
-    const sensorDataForReport = await ensureLoggerChartImages(sensorData)
     // `id` is the record this export is OF. Without it every export of the
     // same report mints a fresh Report ID downstream — see the fallback in
     // src/report/reportModel.js. `viewRpt` is the opened finalized report;
     // `draftId` is the session pointer, which finalize advances to the new
     // report id, so this resolves to the same value on every re-export.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan, sensorData: sensorDataForReport, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: filteredPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, escalationTriggers: esc, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, assessmentContext }
     trackEvent('report_exported', { format: docxType || format, facility: bldg.fn || '', findings: comp?.findings?.total, zones: zones.length, has_narrative: !!narrative, photos: Object.values(filteredPhotos).flat().length })
 
     try {
@@ -2185,14 +2219,15 @@ export default function MobileApp() {
       return out
     })()
     const expandedPhotos = (await expandPhotos(filteredPhotos)).photos
+    const figures = await prepareReportFigures()
     const assessmentContext = buildAssessmentContext({
-      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData: figures.sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     let blob, fileName
     try {
       const { getAtmosFlowDocxBlob } = await loadDocxReport()
@@ -2239,14 +2274,15 @@ export default function MobileApp() {
       return out
     })()
     const expandedPhotos = (await expandPhotos(filteredPhotos)).photos
+    const figures = await prepareReportFigures()
     const assessmentContext = buildAssessmentContext({
-      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData,
+      view, presurvey, bldg, zones, curZone, photos: filteredPhotos, sensorData: figures.sensorData,
       comp, zoneScores, recs, narrative, samplingPlan, causalChains,
       profile, draftId,
       calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null,
     })
     // `id` — the record this export is OF. See the note in executeExport.
-    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan, sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
+    const reportData = { id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp, oshaResult, recs, samplingPlan, causalChains, narrative, profile, photos: expandedPhotos, photoOverrides, version: VER, standardsManifest: viewRpt?.standardsManifest || STANDARDS_MANIFEST, userMode, floorPlan: figures.floorPlan, sensorData: figures.sensorData, labResults: viewRpt?.labResults || null, calibrationAcknowledgement: viewRpt?.calibrationAcknowledgement || calAck || null, ts: viewRpt?.ts, assessmentContext }
     const { getAtmosFlowDocxBlob } = await loadDocxReport()
     const built = await getAtmosFlowDocxBlob(reportData)
     // Size pre-check. The DOCX is uploaded to Storage and attached to the
@@ -2776,6 +2812,23 @@ export default function MobileApp() {
     )
   }
 
+  // Site-plan marks on a SAVED report, persisted the same way the archived
+  // logger toggle below persists its choice. A finalized report's zones,
+  // building and floor plan ride on viewRpt; marks made on the Site plan tab
+  // used to update component state only, so they drove the export and then
+  // vanished on reopen — the same "I attached it and it did not stick"
+  // failure the logger toggle was written to fix. Patch viewRpt and the
+  // stored record together, local-only like that toggle: a mark changes what
+  // a re-export embeds, never a finding.
+  const persistArchivedSitePlan = async (patch) => {
+    if (!viewRpt) return
+    setViewRpt(prev => (prev ? { ...prev, ...patch } : prev))
+    try {
+      const base = await STO.get(viewRpt.id)
+      if (base) await STO.set(viewRpt.id, { ...base, ...patch, ua: new Date().toISOString() })
+    } catch { /* keep the optimistic UI even if persistence fails */ }
+  }
+
   // Toggle a logger graph's report inclusion from the results Logger tab.
   // Mirrors Logger Studio's "Include in report" switch but operates on the
   // live sensorData state, which is what report generation reads — so dropping
@@ -2999,7 +3052,7 @@ export default function MobileApp() {
       try {
         return checkRenderModel(assembleRenderModel({
           id: viewRpt?.id || draftId || null, building: bldg, presurvey, zones, equipment, zoneScores, comp,
-          recs, causalChains, profile, photos, photoOverrides, sensorData, ts: viewRpt?.ts,
+          recs, causalChains, profile, photos, photoOverrides, sensorData: loggerSd, floorPlan, ts: viewRpt?.ts,
         }))
       } catch (e) {
         return [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
@@ -3116,16 +3169,16 @@ export default function MobileApp() {
                 {verdict.prose}
               </div>
               {/* Footer — the zone denominator and the one link out of the
-                  hero, into the plan. The verdict answers "what is wrong";
-                  the plan answers "what next". The findings breakdown is the
+                  hero, into Actions. The verdict answers "what is wrong";
+                  Actions answers "what next". The findings breakdown is the
                   default tab directly below, so it needs no link of its own. */}
               <button
                 onClick={()=>{ haptic('light'); supabase && trackEvent('plan_open', { source: 'hero' }); setRTab('plan') }}
-                aria-label="See the plan: actions and sampling."
+                aria-label="See the actions: recommended actions and sampling."
                 {...pressFeedback('soft')}
                 style={{display:'flex',alignItems:'center',gap:8,marginTop:12,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',padding:0,...pressFeedback.style}}>
                 <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {userMode === 'fm' ? (comp.count===1?'area':'areas') : (comp.count===1?'zone':'zones')} assessed</span>
-                <span style={{...RS_LINK}}>See the plan <span aria-hidden="true">›</span></span>
+                <span style={{...RS_LINK}}>See the actions <span aria-hidden="true">›</span></span>
               </button>
             </div>
             {measConf?.overall === 'Low' && (
@@ -3136,9 +3189,9 @@ export default function MobileApp() {
           </div>
 
           {/* The "Next steps" list that sat here was the Immediate tier of
-              the plan, verbatim, three lines above the tab that lists it in
-              full. The hero states the verdict once and links to the plan;
-              it no longer carries a second list. */}
+              the Actions tab, verbatim, three lines above the tab that lists
+              it in full. The hero states the verdict once and links to
+              Actions; it no longer carries a second list. */}
         </div>
 
         {/* ── v2.1 Engine InternalReport (operator dashboard) ──
@@ -3193,21 +3246,34 @@ export default function MobileApp() {
         )}
 
         {/* ── Workflow tabs, ordered by the assessor's questions (2026-09):
-            Findings ("what did we find"), Pathways ("why"), Plan ("what
-            next": actions and sampling), Report ("what will be written and
-            what blocks sign-off": narrative and readiness). Six tabs became
-            four; Sampling and Actions merged into Plan, Narrative and
+            Findings ("what did we find"), Pathways ("why"), Actions ("what
+            next": recommended actions and sampling), Report ("what will be
+            written and what blocks sign-off": narrative and readiness). Six
+            tabs became four; Sampling and Actions merged, Narrative and
             Review into Report. The old keys (sampling / actions / narrative
             / readiness) still arrive from Jasper's tab_target and are
-            mapped in RESULT_TAB_ALIASES at the propose_action site. ── */}
+            mapped in RESULT_TAB_ALIASES at the propose_action site.
+
+            The Actions tab keeps the id `plan`, as Findings keeps `overview`
+            and Pathways keeps `rootcause`: an id is a stable key, and
+            renaming this one would churn the alias map, the `plan_open`
+            analytics series and every stored draft stage for a label.
+
+            Site plan and Logger close the strip as the two RECORD tabs —
+            where the readings were taken and what the loggers saw — after
+            the four that reason about them. Site plan was a header
+            overflow-menu item until 2026-09, which put the floor plan
+            somewhere no one looks; Logger stays last because it is the only
+            conditional one, so its arrival never shifts another tab. ── */}
         <AssessmentSegmentedPillNav
           id="result-tabs-anchor"
           style={{marginBottom:16}}
           active={rTab}
           onChange={(k)=>{ setRTab(k); haptic('light') }}
           tabs={[...(userMode === 'fm'
-            ? [['overview','findings','Findings'],['plan','check','Plan'],['report','notes','Report']]
-            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Plan'],['report','notes','Report']]),
+            ? [['overview','findings','Findings'],['plan','check','Actions'],['report','notes','Report']]
+            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Actions'],['report','notes','Report']]),
+            ['locations','bldg','Site plan'],
             ...(hasLoggerData ? [['logger','chart','Logger']] : [])
           ].map(([tid,icon,label])=>({ id:tid, icon, label, badge: tid === 'report' && readiness.finalization_blockers.length > 0 ? readiness.finalization_blockers.length : undefined }))}
         />
@@ -3257,6 +3323,34 @@ export default function MobileApp() {
         )}
 
         {rTab==='logger' && <Suspense fallback={LAZY_FALLBACK}><LoggerGraphsTab sensorData={loggerSd} editable onToggleInclude={archived ? toggleArchivedLoggerInclude : toggleLoggerInclude} /></Suspense>}
+
+        {/* Where each set of readings was taken. Editable on a saved report
+            too, which is the behaviour the overflow-menu entry had: the
+            marks drive what a re-export embeds, never the findings. On a
+            saved report every edit is also written back to the stored
+            record, the way the archived logger toggle writes its choice —
+            otherwise a mark survives only until the report is reopened. */}
+        {rTab==='locations' && (() => {
+          const writeZones = (z) => { setZones(z); if (archived) persistArchivedSitePlan({ zones: z }) }
+          const writeBuilding = (b) => { setBldg(b); if (archived) persistArchivedSitePlan({ building: b }) }
+          return (
+            <Suspense fallback={LAZY_FALLBACK}>
+              <SpatialMap
+                embedded
+                zones={zones}
+                floorPlan={floorPlan}
+                building={bldg}
+                onUploadFloorPlan={(url)=>{ setFloorPlan(url); if (archived) persistArchivedSitePlan({ floorPlan: url }) }}
+                onUpdateZone={(zi, update)=>{ const z=[...zones]; z[zi]={...z[zi],...update}; writeZones(z) }}
+                onUpdateBuilding={(update)=>writeBuilding({...bldg, ...update})}
+                onClearPins={()=>{
+                  writeZones(zones.map(z => (z && (z.mapX != null || z.mapY != null)) ? {...z, mapX:null, mapY:null} : z))
+                  writeBuilding({...bldg, outdoorMapX:null, outdoorMapY:null})
+                }}
+              />
+            </Suspense>
+          )
+        })()}
 
         {rTab==='overview' && zs && (() => {
           // ── v3 Findings tab — derive panels from existing engine state ──
@@ -3312,7 +3406,7 @@ export default function MobileApp() {
                 <div style={RS_HEAD}>At a glance</div>
                 {[
                   ['Confidence', <span style={{color:confTone, fontWeight:600}}>{comp?.confidence || measConf?.overall || 'Pending'}</span>],
-                  ['Basis', describeAssessmentBasis({ sensorData, labResults: viewRpt?.labResults })],
+                  ['Basis', describeAssessmentBasis({ sensorData: loggerSd, labResults: viewRpt?.labResults })],
                   ['Evidence', `${evCount.meas} measurements · ${evCount.obs} observations · ${evCount.occ} occupant reports · ${photoCount} photo${photoCount===1?'':'s'}`],
                   ['Data gaps', dataGaps.length === 0
                     ? 'None identified'
@@ -3960,7 +4054,6 @@ export default function MobileApp() {
           { label:'Generate reports',         icon:'notes',    onClick:()=>handleExport('docx','atmosflow') },
           { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
           { label:'Send for peer review',     icon:'check',    onClick:()=>{ setActionsOpen(false); setPeerReviewOpen(true) } },
-          { label:'Map zones on floor plan',  icon:'bldg',     onClick:()=>setView('spatial') },
           { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
           { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
         ] : [
@@ -4558,7 +4651,7 @@ export default function MobileApp() {
           const stages = [
             { id: 'findings',  label: 'Findings',  icon: 'findings' },
             { id: 'pathways',  label: 'Pathways',  icon: 'chain' },
-            { id: 'plan',      label: 'Plan',      icon: 'check' },
+            { id: 'plan',      label: 'Actions',   icon: 'check' },
             { id: 'report',    label: 'Report',    icon: 'notes' },
           ]
           const activeStage = activeDraft?.stage || 'findings'
@@ -5065,7 +5158,6 @@ export default function MobileApp() {
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={goHome} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(target,arg)=>{if(target==='building'){openBuildingProject(arg)}else{setView(target)}}} assessmentIndex={index} />}
-        {view==='spatial'&&<Suspense fallback={LAZY_FALLBACK}><SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} /></Suspense>}
 
        </AnimatedPageTransition>
       </div>

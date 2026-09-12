@@ -225,6 +225,16 @@ describe('buildAssessmentContext', () => {
     ])
   })
 
+  it('reads space use from the field the questionnaire writes', () => {
+    // `su` is the Q_ZONE space-use answer. The builder used to fall through
+    // use → zoneType → zt, none of which the app writes, so a real zone's
+    // use was always null in the context.
+    const withZones = (zones: Array<Record<string, unknown>>) => ({ ...fullState(), zones })
+    expect(buildAssessmentContext(withZones([{ zid: 'A1', zn: 'Front Office', su: 'office' }])).zones[0].use).toBe('office')
+    // A legacy shape still resolves, and `su` wins when both are present.
+    expect(buildAssessmentContext(withZones([{ zid: 'A1', zn: 'Front Office', su: 'lab', zt: 'Open office' }])).zones[0].use).toBe('lab')
+  })
+
   it('rolls up findings, excluding pass/info severities, tagging qualitative_only + zone', () => {
     const ctx = buildAssessmentContext(fullState())
     // 2 surfaced (high + critical); the info + 2 pass results are dropped.

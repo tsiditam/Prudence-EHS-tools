@@ -49,7 +49,9 @@ export const ROUTES = {
   zone: { label: 'Zone walkthrough', short: 'Assessment', reachedBy: ['flow'], parent: 'projects', restore: false },
   details: { label: 'Assessment details', short: 'Assessment', reachedBy: ['flow'], parent: 'projects', restore: false },
   results: { label: 'Results', short: 'Results', reachedBy: ['flow'], parent: 'projects', restore: false },
-  spatial: { label: 'Floor-plan zone map', short: 'Floor plan', reachedBy: ['flow'], parent: 'zone', restore: false },
+  // The floor plan is no longer a route. It became the "Site plan" tab of
+  // the results screen in 2026-09; as a standalone view behind the header
+  // overflow menu it was somewhere nobody looked. See SpatialMap.jsx.
 
   // ── Detail / sub-screens (opened from a list or another screen) ──
   report: { label: 'Saved report view', short: 'Report', reachedBy: ['detail', 'flow'], parent: 'history', restore: 'rptId' },

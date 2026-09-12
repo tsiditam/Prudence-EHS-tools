@@ -64,6 +64,7 @@ export interface ZoneData {
   meas_duration?: string
   meas_conditions?: string
   // Spatial
+  /** Position on the uploaded floor plan, as a percentage of its width/height. */
   mapX?: number
   mapY?: number
   // Notes
@@ -75,6 +76,14 @@ export interface BuildingData {
   fn?: string
   fl?: string
   ft?: string
+  /**
+   * Where the OUTDOOR REFERENCE was taken, as a percentage of the uploaded
+   * floor plan's width and height. Site-wide rather than per-zone, because
+   * the outdoor baseline is captured once (SENSOR_FIELDS `outdoor:1`) — a
+   * zone carries its own `mapX` / `mapY`. See utils/samplePoints.js.
+   */
+  outdoorMapX?: number
+  outdoorMapY?: number
   ba?: string
   rn?: string
   ht?: string
