@@ -806,6 +806,49 @@ When working on report generation:
   note was not updated when the AtmosFlow version was written. The
   model-vs-itself half was added 2026-09 after a walkthrough audit found
   every defect it surfaced was one section disagreeing with another.*
+- **A causal pathway is never given a published confidence rating.** The
+  report used to print the chain's weight — Possible / Moderate / Strong — in
+  three places: the opening summary sentence ("— moderate confidence on the
+  evidence gathered"), a bold teal **Confidence** row in the conceptual-site-
+  model table, and a colored pill in `PrintReport`. It came off in 2026-09, on
+  the author's reading: the label is quasi-quantitative, the report defines no
+  methodology behind it, and a client could reasonably ask what makes a pathway
+  Moderate rather than Low and get no answer from the document.
+
+  **The weighing is not deleted, it is unpublished.** `weighChain` still ranks
+  the chains (`pickPrimaryChain` — a measured chain must outrank a
+  complaint-only hypothesis) and still constrains what a narrative may assert
+  about one. Deleting it to fix a wording problem would remove a guardrail.
+  Two narrower rules replace the old behavior: the word appears on **no
+  client-facing surface**, and it **does not reach the AI writer** — the
+  `pathways` wire rows carry no `confidence`, because a closed package must not
+  hand the model a value it forbids the use of.
+
+  **What the report states instead is what it can defend**: the evidence, that
+  no causal relationship has been established, and what would settle it.
+  `pathwaysAreNotRated` (`narrativeAudit.js`, `pathway-rated`) is the gate, and
+  it catches TWO shapes — the named grade ("moderate confidence", "high
+  likelihood") and the **superlative** ("the most likely explanation", "the
+  strongest hypothesis"), which is the form a writer reaches for once the word
+  "confidence" is forbidden and which asserts the same ordering. It is scoped
+  to causal language: a MEASUREMENT described as uncertain ("a single grab
+  reading") is exactly the hedging the report wants and must never trip it.
+
+  **Severity and prioritization on ACTIONS are untouched.** They rank what to
+  do about a measured condition against a named criterion; they do not rate how
+  sure anyone is about a cause. The distinction is the whole point — do not
+  read this as a second pass at the composite-score removal.
+
+  This also closed a promise the report had never kept: the Working Hypotheses
+  intro has always said "each names the verification it requires", while
+  `refutableBy` was declared on the type and read by `reportModel.js` and
+  `causalChains.js` — the only producer of chains — never set it. Every report
+  printed the promise over bare root-cause sentences. `VERIFICATION` (keyed by
+  chain type, stamped in ONE place on the way out so a new chain cannot miss
+  it) fills it, and it matters more now: a reader told a pathway is unconfirmed
+  needs to know what would confirm it, or the section is a list of things the
+  assessment declined to conclude. Guard:
+  `tests/engine/no-published-confidence.test.ts`.
 - **A comfort band travels with its assumptions, and ASHRAE 55 has ONE.**
   `STD.t.temp` is a single acceptable range per season — winter 68–76°F,
   summer 73–79°F — and `tests/engine/thermal-comfort-band.test.ts` holds it

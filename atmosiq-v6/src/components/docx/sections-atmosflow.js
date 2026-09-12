@@ -773,7 +773,10 @@ export function atmosFlowReportChildren(model) {
     // Conceptual site model — primary finding.
     if (M.conceptualModel && M.conceptualModel.rows && M.conceptualModel.rows.length) {
       const rows = M.conceptualModel.rows
-      const confIdx = rows.findIndex((row) => String(row[0]).toLowerCase() === 'confidence')
+      // The emphasized cell is the one that says the pathway is NOT settled.
+      // It used to be 'Confidence', printing Possible / Moderate / Strong in
+      // bold teal — a rating this report never defined (reportModel.js).
+      const confIdx = rows.findIndex((row) => String(row[0]).toLowerCase() === 'status')
       c.push(...label('Conceptual site model — primary finding'))
       if (isAiAuthored(M, 'conceptual_site_model')) c.push(aiNote(M, 'conceptual_site_model'))
       toParas(M.conceptualModel.intro).forEach((para) => c.push(body(para)))

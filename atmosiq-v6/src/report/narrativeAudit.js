@@ -47,6 +47,7 @@ export const AUDIT_RULE_IDS = Object.freeze([
   'limitation-missing',
   'finding-contradicted',
   'recommendation-unsupported',
+  'pathway-rated',
   'rule-error',
 ])
 
@@ -423,6 +424,53 @@ function recommendationsComeFromTheRegister(text, pkg) {
   return out
 }
 
+/**
+ * Certainty language applied to a causal pathway.
+ *
+ * Two shapes, and the second is the one that slips through. A NAMED grade
+ * ("moderate confidence", "high likelihood") is obvious. A superlative that
+ * ranks one explanation over the others — "the most likely explanation", "the
+ * strongest hypothesis" — asserts the same ordering in prose and is the form a
+ * writer reaches for when the word "confidence" is forbidden.
+ */
+const CONFIDENCE_GRADE_RE = /\b(?:high|moderate|medium|low|strong|reasonable|limited|possible|probable)[a-z]*\s+(?:degree\s+of\s+)?(?:confidence|certainty|likelihood|probability)\b|\b(?:confidence|certainty|likelihood|probability)\s*(?:level|rating|score)?\s*[:=]\s*\S|\b(?:confidence|certainty)\s+(?:level|rating|score)\b/i
+const CONFIDENCE_RANK_RE = /\b(?:most|more|less|least)\s+likely\b|\b(?:the\s+)?(?:strongest|likeliest|leading)\s+(?:hypothesis|explanation|candidate|pathway|cause)\b|\bhighly\s+(?:likely|probable)\b|\bwe\s+are\s+(?:confident|certain)\b/i
+
+/**
+ * No pathway may be rated, and the report contains no rating to copy.
+ *
+ * The engine still weighs every chain — it ranks them and it decides what may
+ * be asserted about each — but Possible / Moderate / Strong stopped being
+ * published in 2026-09 (reportModel.js, causalChains.js): it read as a
+ * measurement of certainty over a methodology this report never states, so a
+ * client could ask what makes a pathway Moderate rather than Low and the
+ * document had no answer. The confidence word no longer travels in the package
+ * either, which removes the source but not the temptation — a model that knows
+ * the genre will supply "the most likely explanation" on its own. This is the
+ * gate for that.
+ *
+ * Scoped to causal language deliberately. It says nothing about a MEASUREMENT
+ * being uncertain ("the reading is a single grab sample"), which is exactly
+ * the hedging the report wants.
+ */
+function pathwaysAreNotRated(text, pkg) {
+  if (!(pkg.allowed_interpretations || []).some(a => a.subject_kind === 'pathway')) return []
+  const out = []
+  for (const [id, re] of [['grade', CONFIDENCE_GRADE_RE], ['rank', CONFIDENCE_RANK_RE]]) {
+    const m = re.exec(text)
+    if (!m) continue
+    out.push({
+      id: 'pathway-rated',
+      where: m[0].trim(),
+      severity: 'blocking',
+      message: id === 'grade'
+        ? `The narrative grades a causal explanation ("${m[0].trim()}"). This report publishes no confidence, likelihood or certainty rating for a pathway, and defines no methodology behind one. State the evidence, state that no causal relationship has been established, and name the verification required.`
+        : `The narrative ranks one explanation above the others ("${m[0].trim()}"), which asserts a confidence ordering the report does not publish. Describe each pathway as a working hypothesis consistent with the observations, and name what would verify it.`,
+    })
+  }
+  return out
+}
+
 const RULES = [
   figuresAreSupported,
   citedStandardsAreInThePackage,
@@ -432,6 +480,7 @@ const RULES = [
   requiredLimitationsSurvive,
   findingsAreNotContradicted,
   recommendationsComeFromTheRegister,
+  pathwaysAreNotRated,
 ]
 
 /**
