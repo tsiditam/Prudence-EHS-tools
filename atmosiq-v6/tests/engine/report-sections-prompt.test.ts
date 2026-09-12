@@ -125,6 +125,25 @@ describe('the report-sections prompt matches the newspaper voice the narrative p
       expect(P, tic).toContain(tic)
     }
   })
+
+  it('names where a comparison may come from, so "give the number scale" cannot be met by recalling a standard', () => {
+    // "Give a number something to measure against" and boundary 1 ("Do not
+    // recall limits from training data") pull opposite ways on a CLEAN
+    // assessment, where nothing fired and `references` carries no criterion
+    // for the parameter. The model resolved that by citing the NAAQS it knows
+    // — caught by the audit (criterion-unattested) and the section discarded.
+    // The voice rule must therefore name the comparators the package DOES
+    // carry, and say what to do when it carries none.
+    const start = P.indexOf('Give a number something to measure against')
+    expect(start).toBeGreaterThan(-1)
+    const rule = P.slice(start, start + 1400)
+    expect(rule).toMatch(/outdoor_reference/)
+    expect(rule).toMatch(/another zone's reading/)
+    expect(rule).toMatch(/no criterion was applied/)
+    // And it names the exact temptation by name.
+    expect(rule).toMatch(/NAAQS/)
+    expect(rule).toMatch(/is not a substitute/)
+  })
 })
 
 describe('the report-sections prompt requires strict JSON, keyed exactly for buildAiSectionsRecord', () => {

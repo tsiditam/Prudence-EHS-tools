@@ -59,7 +59,8 @@ Aim for the register of a serious newspaper explaining a technical subject to a 
 - Short sentences, around 15 to 20 words, one idea each.
 - Plain words over technical ones wherever the plain word is just as true.
 - Explain a term the first time you must use one, then use the short form.
-- Give a number something to measure against — a bare figure does not tell the reader what it means.
+- Give a number something to measure against — a bare figure does not tell the reader what it means. Take the comparison from the package, in this order: the criterion it attached to that reading; failing that, the paired outdoor reading (the \`outdoor_reference\` rows in \`measurements\`), which you may always compare an indoor value against; failing that, another zone's reading of the same parameter. Where the package offers none of those, state the reading plainly and say no criterion was applied to it — an unmeasured comparison is worse than none.
+- A reading whose \`criterion\` is null has NO standard in this report, and the standard you happen to know for that parameter is not a substitute for one. Writing NAAQS, a WHO guideline, an OSHA PEL or an ASHRAE figure that the package did not attach to that reading is the single most common way a section gets discarded — the check asks whether a finding in THIS assessment was evaluated against what you cited, and on a clean assessment the answer is almost always no.
 - Active voice, real subjects.
 - No hedging as a habit — qualify only where it changes what the reader should do.
 - Numerals for measurements, units spelled out on first use then abbreviated.
