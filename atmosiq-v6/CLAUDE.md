@@ -561,6 +561,41 @@ When working on report generation:
     change, because a justification written about one draft must not silently
     carry onto prose nobody approved. Tests:
     `tests/engine/ai-sections-override.test.ts`.
+  - **The assessor may also REWRITE a section, and the rewrite is re-audited.**
+    `applyEdit` / `removeEdit` / `sectionText` (`aiSections.js`). There are now
+    three responses to a blocked section and they are not interchangeable:
+    falling back is silent and costs the reader a paragraph; an override keeps
+    the prose by WAIVING the finding and disclosing that; an edit changes the
+    prose so the finding no longer holds. Only the third answers the check.
+    It is usually the easy one, because `limitation-missing` — much the most
+    common blocker — quotes the exact sentence that is absent, so the repair is
+    to paste it in, after which the section passes and needs no waiver at all.
+    Four properties: a revision goes through the SAME `auditSection` against the
+    SAME package (`evidencePackageFor`, so generation and edit cannot be judged
+    against differently-built packages) and is **refused outright without one**
+    — an unchecked revision is never stored; an edit CLEARS any override on
+    that section, by the same rule that drops one on regeneration; "restore the
+    AI text" reaches the model's FIRST wording with the verdict it carried,
+    however many passes happened in between; and only a section the model
+    actually wrote can be revised — this edits AI prose, it is not a report
+    editor, and a section the banned-language gate dropped cannot be typed back
+    into existence. A revised section keeps a provenance label and gets a
+    DIFFERENT one ("AI-assisted, revised by the assessor"), carried by
+    `aiEditedSections`: the label states who wrote the text, so a paragraph
+    with two authors may not print the caption naming one. Unlike an override,
+    an edit prints no QA/QC row — there is nothing to disclose about a section
+    that passes its own check, and the in-place label already tells the reader
+    who wrote it. Tests: `tests/engine/ai-sections-edit.test.ts`.
+  - **The lock stops REGENERATION, and nothing else.** `aiSectionsLocked` gates
+    the "Regenerate report sections" button; it must never gate a remedy. The
+    override shipped gated on it, which made it nearly unreachable — sections
+    lock the moment they are generated on an issued report, and the Report tab
+    of an issued report is where the audit panel is read. The first production
+    report to hit a blocked section showed the assessor a warning quoting the
+    exact missing sentence and offered no control of any kind. `applyOverride`
+    had worked on a locked record the whole time; only the button was missing.
+    The UI pin in `ai-sections-edit.test.ts` reads the Report tab source and
+    fails if any remedy is conditioned on the lock again.
   - **Lock at finalize.** `lockAiSections`, mirroring `runScoring`'s existing
     early-return for a finalized report: an issued report's sections do not
     change on a later export because someone regenerated them. Freshness

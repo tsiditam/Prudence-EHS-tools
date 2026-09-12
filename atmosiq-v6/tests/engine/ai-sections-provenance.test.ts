@@ -25,13 +25,14 @@ import { buildCausalChains } from '../../src/engines/causalChains.js'
 // @ts-ignore js
 import { buildEvidencePackage } from '../../src/report/evidencePackage.js'
 // @ts-ignore js
-import { buildAiSectionsRecord, applyAiSections } from '../../src/report/aiSections.js'
+import { buildAiSectionsRecord, applyAiSections, applyEdit } from '../../src/report/aiSections.js'
 // @ts-ignore js
 import { buildAtmosFlowDoc } from '../../src/components/docx/sections-atmosflow.js'
 // @ts-ignore js
 import { DEMO_FINDINGS_BUILDING as BLDG, DEMO_FINDINGS_ZONES as ZONES, DEMO_FINDINGS_PRESURVEY as PRESURVEY } from '../../src/constants/demoDataFindings'
 
 const NOTE = 'AI-assisted — verify before issue.'
+const NOTE_EDITED = 'AI-assisted, revised by the assessor — verify before issue.'
 
 function build() {
   const zoneScores = ZONES.map((z: any) => scoreZone(z, { ...BLDG, assessmentDate: '2026-06-10' }))
@@ -101,6 +102,28 @@ describe('the live DOCX marks every AI-authored section, and nothing else', () =
     // goodResponse() authors 6 keys (4 sections + 2 parameter-background
     // groups); blocking the exec summary alone leaves 5.
     expect(count).toBe(5)
+  })
+
+  it('a section the assessor revised is labeled as revised, not as the model\'s alone', async () => {
+    // The label states WHO WROTE the text. Once an assessor edits an
+    // AI-authored paragraph it has two authors, and printing the caption that
+    // names one would be the same misstatement in the opposite direction as
+    // printing nothing at all.
+    const { model, pkg } = build()
+    const rec = buildAiSectionsRecord(goodResponse(), pkg)
+    const revised = applyEdit(rec, 'discussion', {
+      text: 'Carbon dioxide tracked outdoor-air delivery through the day. No ventilation rate was measured directly, so the reading is an indicator only.',
+      by: 'T. Tamakloe',
+    }, pkg)
+    const withAi = applyAiSections(model, revised, pkg)
+    expect(withAi.aiEditedSections).toEqual(['discussion'])
+
+    const xml = await renderXml(withAi)
+    expect(xml).toContain(NOTE_EDITED)
+    expect(xml.split(NOTE_EDITED).length - 1).toBe(1)
+    // Every section still carries exactly one label; the revised one just
+    // carries a different label, so the plain note drops by one.
+    expect(xml.split(NOTE).length - 1).toBe(withAi.aiAuthoredSections.length - 1)
   })
 
   it('a stale record marks nothing — the whole document falls back silently', async () => {
