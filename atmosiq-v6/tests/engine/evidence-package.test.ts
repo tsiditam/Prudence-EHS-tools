@@ -60,8 +60,36 @@ describe('buildEvidencePackage — a projection of the report, not a second opin
       'facts', 'findings', 'immutable_values', 'measurements', 'observations',
       'prohibited_claims', 'recommendation_options', 'references', 'report_id',
       'report_limitations', 'required_limitations', 'allowed_interpretations',
-      'sections', 'version',
+      'context_standards', 'sections', 'version',
     ].sort())
+  })
+
+  describe('context_standards — what the report names for scale, not what it applied', () => {
+    // The report's own deterministic prose names standards on every report:
+    // REFERENCE_FRAMEWORK lists ASHRAE 62.1, ASHRAE 55, the EPA NAAQS and the
+    // OSHA PELs, and the PM2.5 background quotes the NAAQS figure "for scale
+    // only". `references` carries only the criteria that FIRED, so the audit
+    // read a writer naming one of those as a fabricated citation and discarded
+    // the section — for doing exactly what the prose beside it does.
+    it('names standards the report states but no finding was evaluated against', () => {
+      const { pkg } = build()
+      expect(pkg.context_standards.length).toBeGreaterThan(0)
+      expect(pkg.context_standards).toContain('naaqs')
+    })
+
+    it('never duplicates a standard that IS an applied criterion', () => {
+      const { pkg } = build()
+      const cited = (pkg.references || []).map((r: any) => String(r.name).toLowerCase())
+      for (const token of pkg.context_standards) {
+        expect(cited.some((n: string) => n.includes(token)), token).toBe(false)
+      }
+    })
+
+    it('is derived from the report text, so it empties when the report names nothing', () => {
+      const { pkg } = build()
+      const bare = buildEvidencePackage({ ...pkg, methodology: {}, results: { parameters: [] }, references: [] } as any, {})
+      expect(bare.context_standards).toEqual([])
+    })
   })
 
   it('every measurement value is a number the results table prints', () => {
@@ -328,6 +356,34 @@ describe('auditNarrative — supported prose passes, altered prose does not', ()
     const { pkg } = build()
     // The mandated limitation names OSHA and is not a citation.
     expect(auditNarrative(cleanNarrative(pkg), pkg).some((i: any) => i.id === 'criterion-unattested')).toBe(false)
+  })
+
+  it('criterion-unattested — allows a standard the report itself names for scale', () => {
+    // The deterministic PM2.5 background quotes this exact figure "for scale
+    // only … cited here for context rather than as a pass/fail threshold", and
+    // REFERENCE_FRAMEWORK names the NAAQS on every report. Blocking the writer
+    // for saying what the paragraph beside it says is the writer and the
+    // document disagreeing, not the writer over-reaching.
+    const pkg = {
+      immutable_values: [], references: [], findings: [], recommendation_options: [],
+      required_limitations: [], prohibited_claims: [],
+      context_standards: ['naaqs', 'epa'],
+    }
+    const text = 'For scale, the US EPA 24-hour NAAQS is 35 µg/m³, an outdoor population-level standard rather than an office screening limit.'
+    expect(auditNarrative(text, pkg).some((i: any) => i.id === 'criterion-unattested')).toBe(false)
+  })
+
+  it('criterion-unattested — still catches a standard on neither list', () => {
+    // The skip is scoped to what the report states. A standard the document
+    // never names is still an invented citation.
+    const pkg = {
+      immutable_values: [], references: [], findings: [], recommendation_options: [],
+      required_limitations: [], prohibited_claims: [],
+      context_standards: ['naaqs', 'epa'],
+    }
+    const issues = auditNarrative('The reading exceeds the ACGIH threshold of 500 ppm for this contaminant.', pkg)
+    expect(issues.map((i: any) => i.id)).toContain('criterion-unattested')
+    expect(issues.find((i: any) => i.id === 'criterion-unattested').where).toBe('acgih')
   })
 
   it('interpretation-exceeded — catches a settled comparison on a criterion the reading cannot settle', () => {

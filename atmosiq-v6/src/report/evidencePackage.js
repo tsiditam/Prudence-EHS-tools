@@ -610,6 +610,56 @@ export function fingerprintPackage(pkg) {
  * @param {Array}  [engine.causalChains]  weighed pathways, for permitted confidence
  * @returns {object} the package — a plain, serializable, frozen-at-top object
  */
+/**
+ * Standard names this product recognizes when they appear in prose.
+ *
+ * Lives here rather than in `narrativeAudit.js` because two things need the
+ * same list and a second copy is how two layers start disagreeing: the audit
+ * matches them to catch an invented citation, and `buildContextStandards`
+ * matches them to find the ones the report ALREADY states.
+ */
+export const STANDARD_TOKENS = Object.freeze([
+  'ashrae 62.1', 'ashrae 55', 'ashrae 241', 'ashrae',
+  'osha', 'niosh', 'acgih', 'naaqs', 'iicrc s520', 'iicrc',
+  'well v2', 'well building', 'atsdr', 'who', 'epa',
+])
+
+/**
+ * Standards the report's OWN deterministic text names for scale.
+ *
+ * `references` carries only the criteria that actually FIRED — what Appendix B
+ * lists. But the report says more than that: `REFERENCE_FRAMEWORK` names
+ * ASHRAE 62.1, ASHRAE 55, the EPA NAAQS and the OSHA PELs on every report, and
+ * the per-parameter background prose quotes the NAAQS figure "for scale only
+ * … cited here for context rather than as a pass/fail threshold". Those
+ * standards ARE in the document.
+ *
+ * Without this, the audit read a writer naming one of them as inventing a
+ * citation, and discarded the section — for doing exactly what the
+ * deterministic prose beside it already does. That is the writer and the
+ * document disagreeing, not the writer over-reaching.
+ *
+ * Derived by reading the model's own rendered text, never hand-listed: if the
+ * deterministic prose stops naming a standard, it stops being context here,
+ * with nothing to keep in step.
+ */
+function buildContextStandards(model, references) {
+  const cited = (references || []).map(r => str(r.name).toLowerCase())
+  const methodology = (model && model.methodology) || {}
+  const parameters = (model && model.results && model.results.parameters) || []
+  const corpus = [
+    str(methodology.referenceFramework),
+    ...(methodology.bullets || []).map(str),
+    ...parameters.flatMap(p => [...(p && p.body || []).map(str), str(p && p.blurb)]),
+  ].join(' ').toLowerCase()
+
+  return STANDARD_TOKENS.filter((token) => {
+    if (!corpus.includes(token)) return false
+    // Already an applied criterion — it belongs to `references`, not here.
+    return !cited.some(name => name.includes(token))
+  })
+}
+
 export function buildEvidencePackage(model = {}, engine = {}) {
   const index = engineFindingIndex(engine.zoneScores || [])
   const chains = (engine.causalChains || []).filter(Boolean)
@@ -635,6 +685,11 @@ export function buildEvidencePackage(model = {}, engine = {}) {
     observations,
     findings,
     references,
+    // Standards the report itself names for scale, which are NOT applied
+    // criteria. Naming one the way the report does is not an invented
+    // citation; presenting one as a pass/fail still is. See
+    // `buildContextStandards`.
+    context_standards: buildContextStandards(model, references),
     allowed_interpretations: allowed,
     prohibited_claims: prohibited,
     required_limitations,
@@ -742,6 +797,7 @@ export function packageForWriter(pkg, opts = {}) {
       standard: f.standard, parameter: f.parameter, averaging: f.averaging, may_assert: f.may_assert,
     })),
     may_assert_legend: { ...MAY_ASSERT_LEGEND },
+    context_standards_rule: 'These standards are named by the report itself, for scale, and no finding here was evaluated against any of them. You may name one the same way the report does — as context for what a number means — and you must never present one as a threshold this assessment met, cleared or exceeded. A standard that is on neither this list nor in `references` is not in this report at all.',
     pathways,
     pathway_rule: 'A pathway may be described as a candidate explanation at exactly the confidence stated, never as the cause. A hypothesis may not be promoted; Strong was unreachable for it by construction.',
     // Whole-parameter rules only. Finding rules are the `may_assert` token;

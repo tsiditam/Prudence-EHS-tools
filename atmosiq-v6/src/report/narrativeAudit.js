@@ -193,11 +193,9 @@ const INTERVENTIONS = [
 ]
 
 /** Standards a narrative can cite. Matched only when used AS a criterion. */
-const STANDARD_TOKENS = [
-  'ashrae 62.1', 'ashrae 55', 'ashrae 241', 'ashrae',
-  'osha', 'niosh', 'acgih', 'naaqs', 'iicrc s520', 'iicrc',
-  'well v2', 'well building', 'atsdr', 'who', 'epa',
-]
+// One list, shared with the package that derives `context_standards` from it
+// — a second copy is how the auditor and the document start disagreeing.
+import { STANDARD_TOKENS } from './evidencePackage'
 
 const has = (re, s) => re.test(s)
 
@@ -237,6 +235,10 @@ function figuresAreSupported(text, pkg) {
 function citedStandardsAreInThePackage(text, pkg) {
   const out = []
   const names = (pkg.references || []).map(r => str(r.name).toLowerCase())
+  // Standards the report's own deterministic prose names for scale. Naming
+  // one is not a fabricated citation — the document states it. Presenting it
+  // as a settled comparison is caught by the determinative rules instead.
+  const context = new Set((pkg.context_standards || []).map(t => str(t).toLowerCase()))
   const seen = new Set()
   const lower = text.toLowerCase()
   for (const token of STANDARD_TOKENS) {
@@ -248,6 +250,10 @@ function citedStandardsAreInThePackage(text, pkg) {
       FIGURE_RE.lastIndex = 0
       if (!usedAsCriterion) continue
       if (names.some(n => n.includes(token))) continue
+      // The report's own prose names this one for scale, so the writer may
+      // too. What it may NOT do — state it as a settled outcome — is the
+      // determinative rules' job, not this one's.
+      if (context.has(token)) continue
       // A longer token already reported covers this one ("ashrae" under
       // "ashrae 62.1") — report the most specific name only.
       if ([...seen].some(s => s.includes(token))) continue
