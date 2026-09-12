@@ -26,7 +26,7 @@ import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { withAiSections, lockAiSections } from '../report/aiSections'
+import { withAiSections, lockAiSections, applyOverride, removeOverride, isOverridden, MIN_OVERRIDE_JUSTIFICATION } from '../report/aiSections'
 import { checkRenderModel } from '../report/modelConsistency'
 import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
@@ -2180,6 +2180,43 @@ export default function MobileApp() {
   }
 
   const [reportSectionsLoading, setReportSectionsLoading] = useState(false)
+  // Which blocked section has its override editor open, and what has been
+  // typed into it. Never persisted — only the committed override is.
+  const [overrideDraft, setOverrideDraft] = useState({ key: null, text: '' })
+
+  /**
+   * Keep an AI section the evidence check could not support.
+   *
+   * The calibration-acknowledgement bargain (CLAUDE.md): a credentialed
+   * assessor owns defensibility and may proceed, but it costs a written
+   * reason, it is emitted append-only to the audit log, and it is DISCLOSED
+   * in the report's QA/QC notes beside what the check objected to. It adds an
+   * artifact; it removes nothing. Sections the server's banned-language gate
+   * rejected never reach the record at all, so they cannot be overridden here.
+   */
+  const overrideSection = async (key) => {
+    const justification = (overrideDraft.text || '').trim()
+    if (justification.length < MIN_OVERRIDE_JUSTIFICATION) return
+    const next = applyOverride(aiSections, key, { justification, by: profile?.name || presurvey?.ps_assessor || null })
+    if (next === aiSections) { toast.error('That section could not be overridden.'); return }
+    setAiSections(next)
+    setOverrideDraft({ key: null, text: '' })
+    await persistAiOutput({ aiSections: next })
+    emitEvent('ai_section_override_recorded', {
+      target_id: viewRpt?.id || draftId || null,
+      target_type: 'assessment',
+      details: { section: key, justification, issues: (aiSections.audit && aiSections.audit[key] || []).map(i => i.id) },
+    })
+    trackEvent('ai_section_overridden', { section: key })
+  }
+
+  const withdrawOverride = async (key) => {
+    const next = removeOverride(aiSections, key)
+    if (next === aiSections) return
+    setAiSections(next)
+    await persistAiOutput({ aiSections: next })
+    trackEvent('ai_section_override_withdrawn', { section: key })
+  }
 
   const requestReportSections = async () => {
     if (!PAYWALL_DISABLED && credits < 5) { setShowPricing(true); return }
@@ -3531,12 +3568,54 @@ export default function MobileApp() {
                       : `Checked against the assessment record — ${aiSectionsSummaryCounts.blocked} of ${aiSectionsSummaryCounts.total} section${aiSectionsSummaryCounts.total===1?'':'s'} could not be supported and will use the deterministic report text instead.`}
                   </div>
                   <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                    {Object.entries(aiSections.auditSummary || {}).map(([key, summary]) => (
-                      <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5}}>
-                        <span style={{color:summary && summary.supported===false?WARN:'var(--success)',fontWeight:600}}>{summary && summary.supported===false?'⚠':'✓'} {AI_SECTION_LABELS[key] || key}</span>
-                        {summary && summary.supported===false && <>{' — '}{(aiSections.audit && aiSections.audit[key] || []).map(i=>i.message).join(' ')}</>}
-                      </div>
-                    ))}
+                    {Object.entries(aiSections.auditSummary || {}).map(([key, summary]) => {
+                      const blocked = !!(summary && summary.supported === false)
+                      const kept = blocked && isOverridden(aiSections, key)
+                      const editing = overrideDraft.key === key
+                      return (
+                        <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5}}>
+                          <span style={{color:!blocked||kept?'var(--success)':WARN,fontWeight:600}}>{!blocked?'✓':kept?'✓':'⚠'} {AI_SECTION_LABELS[key] || key}</span>
+                          {blocked && !kept && <>{' — '}{(aiSections.audit && aiSections.audit[key] || []).map(i=>i.message).join(' ')}</>}
+                          {kept && <>{' — '}<span style={{color:SUB}}>Kept over the evidence check; the reason prints in the report’s QA notes.</span></>}
+                          {/* The assessor's call, recorded — never a silent switch.
+                              Mirrors the calibration acknowledgement: a written
+                              reason, an audit-log entry, and a QA/QC disclosure. */}
+                          {blocked && !aiSectionsLocked && !kept && !editing && (
+                            <div style={{marginTop:6}}>
+                              <TactileButton variant="secondary" size="sm" pill onClick={()=>setOverrideDraft({ key, text: '' })}>Use this section anyway…</TactileButton>
+                            </div>
+                          )}
+                          {blocked && !aiSectionsLocked && !kept && editing && (
+                            <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:8}}>
+                              <div style={{...V3.T.caption,color:SUB}}>Why is this section sound despite the check? This prints in the report’s QA notes, beside what the check said.</div>
+                              <textarea
+                                value={overrideDraft.text}
+                                onChange={(e)=>setOverrideDraft({ key, text: e.target.value })}
+                                rows={3}
+                                placeholder="e.g. The ventilation reference here describes a particle pathway, not an adequacy claim; no ventilation conclusion is drawn."
+                                style={{width:'100%',boxSizing:'border-box',fontSize:16,lineHeight:1.5,padding:'10px 12px',borderRadius:RADII.sm,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontFamily:'inherit',resize:'vertical'}}
+                              />
+                              <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                                <TactileButton variant="primary" size="sm" pill onClick={()=>overrideSection(key)} disabled={overrideDraft.text.trim().length < MIN_OVERRIDE_JUSTIFICATION}>
+                                  Record and keep
+                                </TactileButton>
+                                <TactileButton variant="secondary" size="sm" pill onClick={()=>setOverrideDraft({ key:null, text:'' })}>Cancel</TactileButton>
+                                <span style={V3.T.captionDim}>
+                                  {overrideDraft.text.trim().length < MIN_OVERRIDE_JUSTIFICATION
+                                    ? `${MIN_OVERRIDE_JUSTIFICATION - overrideDraft.text.trim().length} more characters`
+                                    : 'Recorded with your name and the date'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {kept && !aiSectionsLocked && (
+                            <div style={{marginTop:6}}>
+                              <TactileButton variant="secondary" size="sm" pill onClick={()=>withdrawOverride(key)}>Withdraw override</TactileButton>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}

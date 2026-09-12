@@ -229,7 +229,8 @@ describe('withAiSections — the call-site wrapper every export uses', () => {
   it('matches assembleRenderModel exactly when there is no aiSections record', () => {
     const { data, model } = build()
     const out = withAiSections(data, { now: new Date('2026-06-11T12:00:00Z') })
-    const { aiSectionsStatus, aiAuthoredSections, evidenceFingerprint, ...rest } = out
+    const { aiSectionsStatus, aiAuthoredSections, aiOverrides, evidenceFingerprint, ...rest } = out
+    expect(aiOverrides).toEqual([])
     expect(aiSectionsStatus).toBe('none')
     expect(aiAuthoredSections).toEqual([])
     expect(evidenceFingerprint).toMatch(/^[0-9a-f]{8}$/)
