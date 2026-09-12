@@ -399,6 +399,44 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     expect(read('src/components/SpatialMap.jsx')).toContain('embedded = false')
   })
 
+  it('marks made on a saved report are written back to the stored record', () => {
+    // The archived logger toggle's method, applied to the site plan. Without
+    // it a mark drove the export and then vanished on reopen, because a saved
+    // report's zones / building / floorPlan ride on viewRpt and the tab was
+    // only touching component state.
+    const app = read('src/components/MobileApp.jsx')
+    expect(app).toContain('const persistArchivedSitePlan = async (patch)')
+    // Same shape as toggleArchivedLoggerInclude: patch viewRpt, then the record.
+    expect(app).toMatch(/persistArchivedSitePlan[\s\S]{0,400}await STO\.set\(viewRpt\.id, \{ \.\.\.base, \.\.\.patch/)
+    // Every edit the tab can make is persisted, not just the pin drop.
+    for (const patch of ['{ zones: z }', '{ building: b }', '{ floorPlan: url }']) {
+      expect(app, `site-plan edit not persisted: ${patch}`).toContain(`persistArchivedSitePlan(${patch})`)
+    }
+    // And only on a saved report; a draft autosaves already.
+    expect(app).toMatch(/if \(archived\) persistArchivedSitePlan/)
+  })
+
+  it('clearing the plan is one update, not a per-zone loop', () => {
+    // The loop built each new zones array from the same render's `zones`, so
+    // every clear but the last was discarded and pins survived "Remove".
+    const screen = read('src/components/SpatialMap.jsx')
+    expect(screen).toContain('onClearPins')
+    expect(screen, 'the per-zone clear loop is back').not.toMatch(/zones\.forEach\([\s\S]{0,120}onUpdateZone/)
+    expect(read('src/components/MobileApp.jsx')).toMatch(/onClearPins=\{\(\)=>\{/)
+  })
+
+  it('the Plan tab is labelled Actions and keeps its id', () => {
+    const app = read('src/components/MobileApp.jsx')
+    expect(app).toContain("['plan','check','Actions']")
+    expect(app, 'a tab is still labelled Plan').not.toContain("['plan','check','Plan']")
+    expect(app).toContain('See the actions')
+    // The id is the stable key, as with overview/Findings and
+    // rootcause/Pathways — renaming it would churn the alias map and the
+    // analytics series for a label.
+    expect(app).toContain("actions: 'plan'")
+    expect(app).toMatch(/rTab==='plan'/)
+  })
+
   it('the HTML print path pins carry a sequence number, not a finding count', () => {
     const code = read('src/components/PrintReport.jsx')
     expect(code).toContain('Sampling Locations')

@@ -39,7 +39,7 @@ const PIN_INK = 'var(--on-accent-fill)'
 
 const zoneLabel = (z, i) => (z && z.zn) || `Zone ${i + 1}`
 
-export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpdateZone, onUpdateBuilding, onUploadFloorPlan, onClose, embedded = false }) {
+export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpdateZone, onUpdateBuilding, onUploadFloorPlan, onClearPins, onClose, embedded = false }) {
   const [selected, setSelected] = useState(null) // pin number
   const [placing, setPlacing] = useState(null)   // {kind:'zone',index} | {kind:'outdoor'}
   const [lastTouch, setLastTouch] = useState(null)
@@ -99,9 +99,11 @@ export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpd
   }
 
   const clearPlan = () => {
+    // ONE call, not a loop of per-zone updates. The loop this replaces built
+    // each new zones array from the same render's `zones`, so every clear but
+    // the last was thrown away and pins survived "Remove".
+    if (onClearPins) onClearPins()
     onUploadFloorPlan(null)
-    zones.forEach((z, i) => { if (z && z.mapX != null) onUpdateZone(i, { mapX: null, mapY: null }) })
-    if (building.outdoorMapX != null) onUpdateBuilding({ outdoorMapX: null, outdoorMapY: null })
     setSelected(null)
     setPlacing(null)
   }

@@ -2812,6 +2812,23 @@ export default function MobileApp() {
     )
   }
 
+  // Site-plan marks on a SAVED report, persisted the same way the archived
+  // logger toggle below persists its choice. A finalized report's zones,
+  // building and floor plan ride on viewRpt; marks made on the Site plan tab
+  // used to update component state only, so they drove the export and then
+  // vanished on reopen — the same "I attached it and it did not stick"
+  // failure the logger toggle was written to fix. Patch viewRpt and the
+  // stored record together, local-only like that toggle: a mark changes what
+  // a re-export embeds, never a finding.
+  const persistArchivedSitePlan = async (patch) => {
+    if (!viewRpt) return
+    setViewRpt(prev => (prev ? { ...prev, ...patch } : prev))
+    try {
+      const base = await STO.get(viewRpt.id)
+      if (base) await STO.set(viewRpt.id, { ...base, ...patch, ua: new Date().toISOString() })
+    } catch { /* keep the optimistic UI even if persistence fails */ }
+  }
+
   // Toggle a logger graph's report inclusion from the results Logger tab.
   // Mirrors Logger Studio's "Include in report" switch but operates on the
   // live sensorData state, which is what report generation reads — so dropping
@@ -3152,16 +3169,16 @@ export default function MobileApp() {
                 {verdict.prose}
               </div>
               {/* Footer — the zone denominator and the one link out of the
-                  hero, into the plan. The verdict answers "what is wrong";
-                  the plan answers "what next". The findings breakdown is the
+                  hero, into Actions. The verdict answers "what is wrong";
+                  Actions answers "what next". The findings breakdown is the
                   default tab directly below, so it needs no link of its own. */}
               <button
                 onClick={()=>{ haptic('light'); supabase && trackEvent('plan_open', { source: 'hero' }); setRTab('plan') }}
-                aria-label="See the plan: actions and sampling."
+                aria-label="See the actions: recommended actions and sampling."
                 {...pressFeedback('soft')}
                 style={{display:'flex',alignItems:'center',gap:8,marginTop:12,width:'100%',cursor:'pointer',fontFamily:'inherit',textAlign:'left',background:'none',border:'none',padding:0,...pressFeedback.style}}>
                 <span style={{flex:1,...V3.T.captionDim}}>{comp.count} {userMode === 'fm' ? (comp.count===1?'area':'areas') : (comp.count===1?'zone':'zones')} assessed</span>
-                <span style={{...RS_LINK}}>See the plan <span aria-hidden="true">›</span></span>
+                <span style={{...RS_LINK}}>See the actions <span aria-hidden="true">›</span></span>
               </button>
             </div>
             {measConf?.overall === 'Low' && (
@@ -3172,9 +3189,9 @@ export default function MobileApp() {
           </div>
 
           {/* The "Next steps" list that sat here was the Immediate tier of
-              the plan, verbatim, three lines above the tab that lists it in
-              full. The hero states the verdict once and links to the plan;
-              it no longer carries a second list. */}
+              the Actions tab, verbatim, three lines above the tab that lists
+              it in full. The hero states the verdict once and links to
+              Actions; it no longer carries a second list. */}
         </div>
 
         {/* ── v2.1 Engine InternalReport (operator dashboard) ──
@@ -3229,13 +3246,18 @@ export default function MobileApp() {
         )}
 
         {/* ── Workflow tabs, ordered by the assessor's questions (2026-09):
-            Findings ("what did we find"), Pathways ("why"), Plan ("what
-            next": actions and sampling), Report ("what will be written and
-            what blocks sign-off": narrative and readiness). Six tabs became
-            four; Sampling and Actions merged into Plan, Narrative and
+            Findings ("what did we find"), Pathways ("why"), Actions ("what
+            next": recommended actions and sampling), Report ("what will be
+            written and what blocks sign-off": narrative and readiness). Six
+            tabs became four; Sampling and Actions merged, Narrative and
             Review into Report. The old keys (sampling / actions / narrative
             / readiness) still arrive from Jasper's tab_target and are
             mapped in RESULT_TAB_ALIASES at the propose_action site.
+
+            The Actions tab keeps the id `plan`, as Findings keeps `overview`
+            and Pathways keeps `rootcause`: an id is a stable key, and
+            renaming this one would churn the alias map, the `plan_open`
+            analytics series and every stored draft stage for a label.
 
             Site plan and Logger close the strip as the two RECORD tabs —
             where the readings were taken and what the loggers saw — after
@@ -3249,8 +3271,8 @@ export default function MobileApp() {
           active={rTab}
           onChange={(k)=>{ setRTab(k); haptic('light') }}
           tabs={[...(userMode === 'fm'
-            ? [['overview','findings','Findings'],['plan','check','Plan'],['report','notes','Report']]
-            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Plan'],['report','notes','Report']]),
+            ? [['overview','findings','Findings'],['plan','check','Actions'],['report','notes','Report']]
+            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Actions'],['report','notes','Report']]),
             ['locations','bldg','Site plan'],
             ...(hasLoggerData ? [['logger','chart','Logger']] : [])
           ].map(([tid,icon,label])=>({ id:tid, icon, label, badge: tid === 'report' && readiness.finalization_blockers.length > 0 ? readiness.finalization_blockers.length : undefined }))}
@@ -3304,20 +3326,31 @@ export default function MobileApp() {
 
         {/* Where each set of readings was taken. Editable on a saved report
             too, which is the behaviour the overflow-menu entry had: the
-            marks drive what a re-export embeds, never the findings. */}
-        {rTab==='locations' && (
-          <Suspense fallback={LAZY_FALLBACK}>
-            <SpatialMap
-              embedded
-              zones={zones}
-              floorPlan={floorPlan}
-              building={bldg}
-              onUploadFloorPlan={setFloorPlan}
-              onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}}
-              onUpdateBuilding={(update)=>setBldg(prev=>({...prev,...update}))}
-            />
-          </Suspense>
-        )}
+            marks drive what a re-export embeds, never the findings. On a
+            saved report every edit is also written back to the stored
+            record, the way the archived logger toggle writes its choice —
+            otherwise a mark survives only until the report is reopened. */}
+        {rTab==='locations' && (() => {
+          const writeZones = (z) => { setZones(z); if (archived) persistArchivedSitePlan({ zones: z }) }
+          const writeBuilding = (b) => { setBldg(b); if (archived) persistArchivedSitePlan({ building: b }) }
+          return (
+            <Suspense fallback={LAZY_FALLBACK}>
+              <SpatialMap
+                embedded
+                zones={zones}
+                floorPlan={floorPlan}
+                building={bldg}
+                onUploadFloorPlan={(url)=>{ setFloorPlan(url); if (archived) persistArchivedSitePlan({ floorPlan: url }) }}
+                onUpdateZone={(zi, update)=>{ const z=[...zones]; z[zi]={...z[zi],...update}; writeZones(z) }}
+                onUpdateBuilding={(update)=>writeBuilding({...bldg, ...update})}
+                onClearPins={()=>{
+                  writeZones(zones.map(z => (z && (z.mapX != null || z.mapY != null)) ? {...z, mapX:null, mapY:null} : z))
+                  writeBuilding({...bldg, outdoorMapX:null, outdoorMapY:null})
+                }}
+              />
+            </Suspense>
+          )
+        })()}
 
         {rTab==='overview' && zs && (() => {
           // ── v3 Findings tab — derive panels from existing engine state ──
@@ -4618,7 +4651,7 @@ export default function MobileApp() {
           const stages = [
             { id: 'findings',  label: 'Findings',  icon: 'findings' },
             { id: 'pathways',  label: 'Pathways',  icon: 'chain' },
-            { id: 'plan',      label: 'Plan',      icon: 'check' },
+            { id: 'plan',      label: 'Actions',   icon: 'check' },
             { id: 'report',    label: 'Report',    icon: 'notes' },
           ]
           const activeStage = activeDraft?.stage || 'findings'
