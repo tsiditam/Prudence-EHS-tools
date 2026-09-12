@@ -33,8 +33,38 @@ describe('the report-sections prompt frames the evidence package as closed and r
     expect(P).toMatch(/measurement tables, the findings table, QA\/QC/)
   })
 
-  it('tells the model the report already discloses its Limitations, unconditionally', () => {
-    expect(P).toMatch(/the report's own Limitations section states them, unconditionally/)
+  it('tells the model the report already carries its Limitations list', () => {
+    expect(P).toMatch(/the report's own Limitations section already carries it in full/)
+  })
+
+  it('states the required_limitations contract, because the audit enforces it section by section', () => {
+    // The prompt used to close this bullet with "You do not need to restate
+    // any of these lines yourself" — while auditSection (aiSections.js, with
+    // requireUnconditional:false) discards any section that raises a
+    // TOPIC-SCOPED limitation without its caveat. The writer was told one
+    // thing and the gate enforced another, so on the first real production
+    // run three of nine sections were thrown away, including the Executive
+    // Summary. Whatever this prompt says, it must never say that again.
+    expect(P).not.toMatch(/You do not need to restate any of these lines yourself/)
+    expect(P).toMatch(/required_limitations/)
+    expect(P).toMatch(/must_mention/)
+  })
+
+  it('names the topic triggers the package actually derives, inside that bullet', () => {
+    // evidencePackage.js derives lim-tvoc with when ['tvoc','volatile
+    // organic'] and lim-ventilation-inferred with when ['ventilation',
+    // 'fresh air','outdoor air']. A writer never shown those exact words
+    // cannot satisfy a gate that matches on them — which is how a paragraph
+    // about PARTICULATE lost itself by saying "outdoor air" in passing.
+    const start = P.indexOf('`required_limitations`')
+    const bullet = P.slice(start, P.indexOf('`context_omitted`', start))
+    expect(start).toBeGreaterThan(-1)
+    for (const trigger of ['TVOC', 'ventilation', 'outdoor air', 'fresh air']) {
+      expect(bullet, trigger).toContain(trigger)
+    }
+    // And the phrasings that satisfy them.
+    expect(bullet).toMatch(/no applicable threshold/)
+    expect(bullet).toMatch(/not measured directly|indicator|inferred/)
   })
 
   it('names context_omitted and forbids inventing what was left out', () => {
