@@ -22,7 +22,7 @@ import { generateClientReportHTML, generateModernClientReportHTML } from './prin
 import { generateModernSummaryHTML } from './print/modern-summary'
 import { extractIncludedLoggerGraphs } from './print/logger-graphs-html'
 import { primaryDataset } from '../utils/sensorParser'
-import { samplePoints } from '../utils/samplePoints'
+import { samplePoints, spaceUse } from '../utils/samplePoints'
 import { actionLine } from '../utils/recFormatting'
 import { CRITERION_CLASS } from '../constants/criteria'
 import { STD } from '../constants/standards'
@@ -544,7 +544,7 @@ export function generateLegacyPrintHTML(data) {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div>
           <strong style="font-size:14px;color:#0F172A;">${zs.zoneName || 'Zone ' + (zi+1)}</strong>
-          <div style="font-size:10px;color:#64748B;margin-top:2px;">${z.zt || ''} ${z.zo ? `· ${z.zo} occupants` : ''} ${z.za ? `· ${z.za} sq ft` : ''}${z.meas_time ? ` · Assessed at ${z.meas_time}` : ''}</div>
+          <div style="font-size:10px;color:#64748B;margin-top:2px;">${spaceUse(z)} ${z.oc ? `· ${z.oc} occupants` : ''} ${z.sf ? `· ${z.sf} sq ft` : ''}${z.meas_time ? ` · Assessed at ${z.meas_time}` : ''}</div>
         </div>
         <div style="text-align:right;">
           ${(() => {

@@ -114,6 +114,15 @@ export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpd
     setSelected(null)
   }
 
+  // A pin dropped in the wrong place is moved in one gesture: lift it and
+  // arm the plan for the same location, so the next tap on the plan is the
+  // new position. It used to take three — unpin, find the location under
+  // "Not yet placed", tap it — to get back to where "tap the plan" starts.
+  const move = (p) => {
+    unpin(p)
+    setPlacing(p.kind === 'outdoor' ? { kind: 'outdoor' } : { kind: 'zone', index: p.zoneIndex })
+  }
+
   const chip = (active) => ({
     padding: '10px 14px', minHeight: 44, borderRadius: 20,
     background: active ? mix('accent', 13) : CARD,
@@ -183,9 +192,16 @@ export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpd
                 aria-label={`Location ${p.n}, ${p.label}`}
                 aria-pressed={selected === p.n}
                 onClick={(e) => { e.stopPropagation(); setSelected(selected === p.n ? null : p.n) }}
-                style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -100%)', cursor: 'pointer', zIndex: 10, background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit' }}
+                // The tip of the tail is the recorded point. Scaling about the
+                // bottom centre keeps it there while the marker grows.
+                style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: `translate(-50%, -100%)${selected === p.n ? ' scale(1.2)' : ''}`, transformOrigin: '50% 100%', transition: 'transform 120ms ease', cursor: 'pointer', zIndex: selected === p.n ? 11 : 10, background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit' }}
               >
-                <div style={{ width: 26, height: 26, borderRadius: '50%', background: PIN, border: `2px solid ${selected === p.n ? TEXT : '#fff'}`, boxShadow: '0 2px 8px rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* The selected marker grows and takes a halo: accent, then a
+                    white edge, so it reads against a light plan and a dark one.
+                    It used to swap its white ring for the theme's text colour,
+                    which in the dark theme is near-white — no visible change. */}
+                <div style={{ width: 26, height: 26, borderRadius: '50%', background: PIN, border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow 120ms ease',
+                  boxShadow: selected === p.n ? `0 0 0 3px ${ACCENT}, 0 0 0 5px #fff, 0 3px 10px rgba(0,0,0,0.45)` : '0 2px 8px rgba(0,0,0,0.35)' }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: PIN_INK, fontFamily: 'var(--font-mono)' }}>{p.n}</span>
                 </div>
                 <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `8px solid ${PIN}`, margin: '-1px auto 0' }} />
@@ -222,9 +238,10 @@ export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpd
               {[selectedPoint.time, selectedPoint.duration].filter(Boolean).join(' · ')}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 14, marginTop: 10 }}>
-            <button onClick={() => unpin(selectedPoint)} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Unpin &amp; reposition</button>
-            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Close</button>
+          <div style={{ display: 'flex', gap: 18, marginTop: 10 }}>
+            <button onClick={() => move(selectedPoint)} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0, minHeight: 32 }}>Move pin</button>
+            <button onClick={() => unpin(selectedPoint)} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0, minHeight: 32 }}>Remove pin</button>
+            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: SUB, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: 0, minHeight: 32, marginLeft: 'auto' }}>Close</button>
           </div>
         </div>
       )}
@@ -269,7 +286,7 @@ export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpd
               key={p.n}
               onClick={() => setSelected(selected === p.n ? null : p.n)}
               aria-pressed={selected === p.n}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 0', background: 'transparent', border: 'none', borderTop: `1px solid ${BORDER}`, cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 44, textAlign: 'left', padding: '8px 6px', background: selected === p.n ? mix('accent', 10) : 'transparent', border: 'none', borderTop: `1px solid ${BORDER}`, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: PIN, color: PIN_INK, fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{p.n}</span>
               <span style={{ flex: 1, minWidth: 0 }}>

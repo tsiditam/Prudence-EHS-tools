@@ -30,7 +30,7 @@ import { checkRenderModel } from '../../src/report/modelConsistency.js'
 // @ts-expect-error js
 import { imageDimensions, fitWithin } from '../../src/utils/imageDimensions.js'
 // @ts-expect-error js
-import { samplePoints, hasOutdoorBaseline, PARAM_SHORT, INDOOR_FIELDS, OUTDOOR_FIELDS } from '../../src/utils/samplePoints.js'
+import { samplePoints, hasOutdoorBaseline, spaceUse, PARAM_SHORT, INDOOR_FIELDS, OUTDOOR_FIELDS } from '../../src/utils/samplePoints.js'
 // @ts-expect-error js
 import { buildAtmosFlowDocument } from '../../src/components/DocxReport'
 
@@ -84,9 +84,11 @@ function gifDataUrl(width: number, height: number): string {
 }
 
 const ZONES = [
-  { zn: 'Open Office', zt: 'Open office', co2: '1300', co: '2', tf: '75', rh: '55', pm: '12', mapX: 41.3, mapY: 62.8 },
-  { zn: 'Conference 2B', zt: 'Conference room', co2: '900', co: '1', tf: '74', rh: '50', pm: '8', mapX: 80, mapY: 20 },
-  { zn: 'Server Room', zt: 'Server room', co2: '600', co: '0.5', tf: '70', rh: '40', pm: '3' }, // not placed on the plan
+  // `su` is the field the questionnaire writes for space use (Q_ZONE); the
+  // values are its option ids.
+  { zn: 'Open Office', su: 'office', co2: '1300', co: '2', tf: '75', rh: '55', pm: '12', mapX: 41.3, mapY: 62.8 },
+  { zn: 'Conference 2B', su: 'conference', co2: '900', co: '1', tf: '74', rh: '50', pm: '8', mapX: 80, mapY: 20 },
+  { zn: 'Server Room', su: 'server / telecom room', co2: '600', co: '0.5', tf: '70', rh: '40', pm: '3' }, // not placed on the plan
 ]
 
 function fixture(extra: Record<string, unknown> = {}): any {
@@ -146,7 +148,7 @@ describe('the uploaded floor plan is a report figure', () => {
     expect(fp.figure).toEqual({ width: 400, height: 300 })
     expect(fp.pinsDrawn).toBe(false)
     // Two of three zones were placed; numbered in zone order; the third is not a pin.
-    expect(fp.pins.map((p: any) => [p.n, p.zone, p.use])).toEqual([[1, 'Open Office', 'Open office'], [2, 'Conference 2B', 'Conference room']])
+    expect(fp.pins.map((p: any) => [p.n, p.zone, p.use])).toEqual([[1, 'Open Office', 'Office'], [2, 'Conference 2B', 'Conference']])
     expect(fp.pins[0].position).toBe('41% across, 63% down')
     // The pin says what was measured there, and never how bad it was.
     expect(fp.pins[0].readings).toBe('CO₂, T, RH, PM2.5, CO')
@@ -202,8 +204,28 @@ describe('samplePoints is the one source the three floor-plan surfaces read', ()
     const p = samplePoints(ZONES)[0]
     expect(p.readings).toEqual(['CO₂', 'T', 'RH', 'PM2.5', 'CO'])
     expect(p.values[0]).toEqual({ label: 'CO₂', value: '1300', unit: 'ppm' })
+    // The questionnaire keys mass units in ASCII; a reader gets the symbol.
+    expect(p.values.find((v: any) => v.label === 'PM2.5')).toEqual({ label: 'PM2.5', value: '12', unit: 'µg/m³' })
+    expect(p.values.some((v: any) => /ug\/m3/.test(v.unit))).toBe(false)
     const bare = samplePoints([{ zn: 'Empty', mapX: 10, mapY: 10 }])[0]
     expect(bare.readingText).toBe('None recorded')
+  })
+
+  it('the Use column reads the field the questionnaire writes', () => {
+    // `su` is the space-use answer (Q_ZONE). The column used to read `zt` /
+    // `zuse`, which nothing writes, and printed an em dash on every row.
+    expect(spaceUse({ su: 'office' })).toBe('Office')
+    expect(spaceUse({ su: 'data_center' })).toBe('Data center')
+    expect(spaceUse({ su: 'restaurant / kitchen' })).toBe('Restaurant / kitchen')
+    // A free-text "Other" answer is stored in the same field, unchanged.
+    expect(spaceUse({ su: 'Cleanroom, ISO 7' })).toBe('Cleanroom, ISO 7')
+    expect(spaceUse({ su: '' })).toBe('')
+    expect(spaceUse({ zt: 'Open office' })).toBe('')
+    expect(spaceUse(null)).toBe('')
+    // And every table that has a Use column reads it: the results rows and
+    // the observation blocks, not only the pins.
+    const m = assembleRenderModel(fixture({ floorPlan: PNG_400x300 }))
+    expect(m.results.rows.map((r: any) => r.use).filter(Boolean)).toEqual(['Office', 'Conference', 'Server / telecom room'])
   })
 
   it('places the outdoor reference last, and only when a baseline exists', () => {
@@ -414,6 +436,33 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     }
     // And only on a saved report; a draft autosaves already.
     expect(app).toMatch(/if \(archived\) persistArchivedSitePlan/)
+  })
+
+  it('no surface reads a space-use field the questionnaire never writes', () => {
+    // `zt` / `zuse` were read by the results rows, the pins and the print
+    // zone header; none of them is written anywhere. Every reader goes
+    // through spaceUse(), which reads `su`.
+    for (const file of ['src/report/reportModel.js', 'src/utils/samplePoints.js', 'src/components/PrintReport.jsx']) {
+      const code = read(file)
+      expect(code, `${file} still reads zt/zuse`).not.toMatch(/\.zt\b|zuse/)
+      expect(code).toContain('spaceUse(')
+    }
+  })
+
+  it('a misplaced pin is moved in one gesture', () => {
+    // "Move pin" lifts the pin AND arms the plan for that location, so the
+    // next tap is the new position. It used to be unpin, then find the
+    // location under "Not yet placed", then tap it, then tap the plan.
+    const screen = read('src/components/SpatialMap.jsx')
+    expect(screen).toMatch(/const move = \(p\) => \{\s*unpin\(p\)\s*setPlacing\(/)
+    expect(screen).toContain('Move pin')
+    expect(screen).toContain('Remove pin')
+    expect(screen, 'the three-tap label is back').not.toContain('Unpin')
+    // The selected marker is distinguished by a halo, not by swapping its
+    // ring to the theme's text colour — which in the dark theme is near-white
+    // on a white ring, i.e. invisible.
+    expect(screen).not.toMatch(/border: `2px solid \$\{selected === p\.n \? TEXT/)
+    expect(screen).toMatch(/boxShadow: selected === p\.n \? `0 0 0 3px \$\{ACCENT\}, 0 0 0 5px #fff/)
   })
 
   it('clearing the plan is one update, not a per-zone loop', () => {

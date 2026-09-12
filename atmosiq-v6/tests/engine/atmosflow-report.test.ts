@@ -17,7 +17,7 @@ import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 import { buildAtmosFlowDocument } from '../../src/components/DocxReport'
 
 function buildFixture(): any {
-  const zone = { zn: 'Zone 1', zt: 'Open office', co2: '1300', co: '2', tf: '75', rh: '55', pm: '12', tv: '300' }
+  const zone = { zn: 'Zone 1', su: 'office', co2: '1300', co: '2', tf: '75', rh: '55', pm: '12', tv: '300' }
   const lz = scoreZone(zone, {})
   const cs = summarizeAssessment([lz])
   return {

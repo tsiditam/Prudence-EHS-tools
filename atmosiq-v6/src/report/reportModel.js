@@ -31,7 +31,7 @@ import { readNumber, scoreZone } from '../engines/scoring'
 import { pickPrimaryChain } from '../engines/causalChains'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
 import { imageDimensions, fitWithin } from '../utils/imageDimensions'
-import { samplePoints } from '../utils/samplePoints'
+import { samplePoints, spaceUse } from '../utils/samplePoints'
 import * as NL from './narrativeLibrary'
 import {
   REPORT_PROFILES, REPORT_STATUS, DEFAULT_PROFILE, DEFAULT_STATUS,
@@ -153,7 +153,7 @@ export function zoneRows(zones = [], zoneScores = []) {
     }
     return {
       id: zoneName(zoneScores, zones, i),
-      use: (z && (z.zt || z.zuse)) || '',
+      use: spaceUse(z),
       ...cells,
       // A zone with no judged reading is not "acceptable"; it was not
       // evaluated, and the row says so.
@@ -338,7 +338,7 @@ export function buildObservations(data = {}) {
   const building = buildingObservations(bldg, presurvey)
   const zoneBlocks = zones.map((z, i) => ({
     zone: (z && z.zn) || `Zone ${i + 1}`,
-    use: (z && z.su) || '',
+    use: spaceUse(z),
     area: (z && z.sf) || '',
     occupants: (z && z.oc) || '',
     observed: zoneObservations(z),

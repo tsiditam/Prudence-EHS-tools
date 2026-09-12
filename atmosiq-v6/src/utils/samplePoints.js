@@ -51,7 +51,31 @@ export const PARAM_SHORT = {
 export const INDOOR_FIELDS = SENSOR_FIELDS.filter((f) => !f.outdoor)
 export const OUTDOOR_FIELDS = SENSOR_FIELDS.filter((f) => f.outdoor)
 
+// The questionnaire keys its units in ASCII ('ug/m3') so they survive any
+// keyboard; a reader gets the symbol. Every other surface that prints a mass
+// concentration already writes it this way (sensorParser, sensorThresholds).
+const UNIT_LABEL = { 'ug/m3': 'µg/m³' }
+const unitLabel = (u) => UNIT_LABEL[u] || u || ''
+
 const filled = (v) => v !== undefined && v !== null && String(v).trim() !== ''
+
+/**
+ * A zone's space use, as the questionnaire records it (`su`), made readable.
+ * Option ids are lowercase and some carry underscores ('data_center'), so
+ * the value is spaced and sentence-cased; a free-text "Other" answer is
+ * stored in the same field and passes through unchanged.
+ *
+ * Until 2026-09 the Use column of the measurement-results table and of the
+ * pin table read `zt` / `zuse`, which nothing writes, and so printed an em
+ * dash on every row of every report. The observations builder read `su`
+ * correctly one function away — the field was never missing, only misnamed.
+ */
+export function spaceUse(z) {
+  const v = z && typeof z.su === 'string' ? z.su.trim() : ''
+  if (!v) return ''
+  const s = v.replace(/_/g, ' ')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
 
 /** `mapX` / `mapY` as a percentage pair, or null when not placed. */
 function coords(mx, my) {
@@ -72,7 +96,7 @@ function readingsOf(src, fields) {
     const short = PARAM_SHORT[f.id]
     if (!short) continue
     if (!names.includes(short)) names.push(short)
-    values.push({ label: short, value: String(src[f.id]).trim(), unit: f.u || '' })
+    values.push({ label: short, value: String(src[f.id]).trim(), unit: unitLabel(f.u) })
   }
   return { names, values }
 }
@@ -112,7 +136,7 @@ export function samplePoints(zones = [], opts = {}) {
     const { names, values } = readingsOf(z, INDOOR_FIELDS)
     push({
       kind: 'zone', zoneIndex: i,
-      label: nameOf(i), use: (z.zt || z.zuse || ''),
+      label: nameOf(i), use: spaceUse(z),
       x: xy.x, y: xy.y,
       readings: names, values,
       time: z.meas_time || '', duration: z.meas_duration || '',
