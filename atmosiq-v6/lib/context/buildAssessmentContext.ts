@@ -240,7 +240,9 @@ function buildZoneSummaries(
     index: i,
     id: firstStr(z?.zid),
     label: zoneLabel(z, i),
-    use: firstStr(z?.use, z?.zoneType, z?.zt),
+    // `su` is the space-use answer the questionnaire writes (Q_ZONE). The
+    // other three are legacy / external shapes; none is written by the app.
+    use: firstStr(z?.su, z?.use, z?.zoneType, z?.zt),
     is_current: i === curZone,
     notes: clamp(z?.znt, MAX_NARRATIVE_FIELD_CHARS).text || null,
   }))
