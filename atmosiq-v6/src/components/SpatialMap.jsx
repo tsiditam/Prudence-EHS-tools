@@ -15,6 +15,11 @@
  * already a census. Retired 2026-09; the reasoning and the shared derivation
  * live in utils/samplePoints.js.
  *
+ * Rendered as the "Site plan" tab of the results screen (`embedded`), which
+ * is where the rest of the assessment record lives. It used to be a
+ * standalone route behind the header overflow menu, where a floor plan an
+ * assessor had uploaded was two taps and a guess away from being found.
+ *
  * 100% optional — the assessment is valid without mapping.
  */
 
@@ -34,7 +39,7 @@ const PIN_INK = 'var(--on-accent-fill)'
 
 const zoneLabel = (z, i) => (z && z.zn) || `Zone ${i + 1}`
 
-export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpdateZone, onUpdateBuilding, onUploadFloorPlan, onClose }) {
+export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpdateZone, onUpdateBuilding, onUploadFloorPlan, onClose, embedded = false }) {
   const [selected, setSelected] = useState(null) // pin number
   const [placing, setPlacing] = useState(null)   // {kind:'zone',index} | {kind:'outdoor'}
   const [lastTouch, setLastTouch] = useState(null)
@@ -117,12 +122,18 @@ export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpd
   })
 
   return (
-    <div style={{ paddingTop: 20, paddingBottom: 100 }}>
-      <div style={{ marginBottom: 16 }}>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Back to Results</button>
-        <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginTop: 4 }}>Sampling locations</div>
-        <div style={{ fontSize: 11, color: SUB }}>Optional: mark where each set of readings was taken</div>
-      </div>
+    // Embedded in the results tab strip the tab itself names the screen, so
+    // the heading and the way back would both be said twice.
+    <div style={{ paddingTop: embedded ? 0 : 20, paddingBottom: embedded ? 16 : 100 }}>
+      {embedded ? (
+        <div style={{ fontSize: 11, color: SUB, marginBottom: 14 }}>Optional: mark where each set of readings was taken</div>
+      ) : (
+        <div style={{ marginBottom: 16 }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Back to Results</button>
+          <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginTop: 4 }}>Sampling locations</div>
+          <div style={{ fontSize: 11, color: SUB }}>Optional: mark where each set of readings was taken</div>
+        </div>
+      )}
 
       {/* Floor plan upload */}
       {!floorPlan && (

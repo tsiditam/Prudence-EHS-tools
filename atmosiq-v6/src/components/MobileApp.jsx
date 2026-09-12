@@ -242,6 +242,8 @@ const RESULT_TAB_ALIASES = {
   findings: 'overview', pathways: 'rootcause',
   sampling: 'plan', actions: 'plan',
   narrative: 'report', readiness: 'report', review: 'report',
+  // 'spatial' was the standalone route this screen used to be.
+  spatial: 'locations', floorplan: 'locations', map: 'locations',
 }
 // Results screen (restraint pass, 2026-09): a section is a micro heading
 // over content that parts from the previous section with a hairline — no
@@ -1774,10 +1776,11 @@ export default function MobileApp() {
     // and handleExport builds its DOCX from component state — so the exported
     // document would differ from the one that was issued, silently.
     //
-    // This is reachable: the actions menu renders on view==='report', offers
-    // "Mark sampling locations", and SpatialMap's onClose calls runScoring.
-    // Guarding here rather than at that one call site, so any future entry
-    // point is covered too.
+    // The one call site this was written for is gone — the floor-plan screen
+    // used to re-score on its way back to Results, and is now a tab that
+    // never leaves the screen. The guard stays because it is about the whole
+    // class, not that caller: any future entry point that re-scores while a
+    // finalized report is open is covered here rather than at each site.
     if (viewRpt) {
       return {
         zScores: zoneScores, composite: comp, osha: oshaResult, recommendations: recs,
@@ -3232,7 +3235,14 @@ export default function MobileApp() {
             four; Sampling and Actions merged into Plan, Narrative and
             Review into Report. The old keys (sampling / actions / narrative
             / readiness) still arrive from Jasper's tab_target and are
-            mapped in RESULT_TAB_ALIASES at the propose_action site. ── */}
+            mapped in RESULT_TAB_ALIASES at the propose_action site.
+
+            Site plan and Logger close the strip as the two RECORD tabs —
+            where the readings were taken and what the loggers saw — after
+            the four that reason about them. Site plan was a header
+            overflow-menu item until 2026-09, which put the floor plan
+            somewhere no one looks; Logger stays last because it is the only
+            conditional one, so its arrival never shifts another tab. ── */}
         <AssessmentSegmentedPillNav
           id="result-tabs-anchor"
           style={{marginBottom:16}}
@@ -3241,6 +3251,7 @@ export default function MobileApp() {
           tabs={[...(userMode === 'fm'
             ? [['overview','findings','Findings'],['plan','check','Plan'],['report','notes','Report']]
             : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Plan'],['report','notes','Report']]),
+            ['locations','bldg','Site plan'],
             ...(hasLoggerData ? [['logger','chart','Logger']] : [])
           ].map(([tid,icon,label])=>({ id:tid, icon, label, badge: tid === 'report' && readiness.finalization_blockers.length > 0 ? readiness.finalization_blockers.length : undefined }))}
         />
@@ -3290,6 +3301,23 @@ export default function MobileApp() {
         )}
 
         {rTab==='logger' && <Suspense fallback={LAZY_FALLBACK}><LoggerGraphsTab sensorData={loggerSd} editable onToggleInclude={archived ? toggleArchivedLoggerInclude : toggleLoggerInclude} /></Suspense>}
+
+        {/* Where each set of readings was taken. Editable on a saved report
+            too, which is the behaviour the overflow-menu entry had: the
+            marks drive what a re-export embeds, never the findings. */}
+        {rTab==='locations' && (
+          <Suspense fallback={LAZY_FALLBACK}>
+            <SpatialMap
+              embedded
+              zones={zones}
+              floorPlan={floorPlan}
+              building={bldg}
+              onUploadFloorPlan={setFloorPlan}
+              onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}}
+              onUpdateBuilding={(update)=>setBldg(prev=>({...prev,...update}))}
+            />
+          </Suspense>
+        )}
 
         {rTab==='overview' && zs && (() => {
           // ── v3 Findings tab — derive panels from existing engine state ──
@@ -3993,7 +4021,6 @@ export default function MobileApp() {
           { label:'Generate reports',         icon:'notes',    onClick:()=>handleExport('docx','atmosflow') },
           { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
           { label:'Send for peer review',     icon:'check',    onClick:()=>{ setActionsOpen(false); setPeerReviewOpen(true) } },
-          { label:'Mark sampling locations',  icon:'bldg',     onClick:()=>setView('spatial') },
           { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
           { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
         ] : [
@@ -5098,7 +5125,6 @@ export default function MobileApp() {
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={goHome} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(target,arg)=>{if(target==='building'){openBuildingProject(arg)}else{setView(target)}}} assessmentIndex={index} />}
-        {view==='spatial'&&<Suspense fallback={LAZY_FALLBACK}><SpatialMap zones={zones} floorPlan={floorPlan} building={bldg} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onUpdateBuilding={(update)=>setBldg(prev=>({...prev,...update}))} onClose={()=>{runScoring();setView('results')}} /></Suspense>}
 
        </AnimatedPageTransition>
       </div>

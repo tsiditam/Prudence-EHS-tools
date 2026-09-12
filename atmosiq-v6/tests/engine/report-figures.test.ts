@@ -380,6 +380,25 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     expect(code).toContain('Sampling locations')
   })
 
+  it('the site plan is a results tab, not an overflow-menu route', () => {
+    // It was a standalone `view==='spatial'` screen reached from the header
+    // kebab, which is where an uploaded floor plan went to be forgotten. As a
+    // tab it sits beside the rest of the record. Removing the route means the
+    // registry entry has to go too, or routes-registry.test fails on a stale
+    // entry — so both halves are asserted together.
+    const app = read('src/components/MobileApp.jsx')
+    expect(app).toContain("['locations','bldg','Site plan']")
+    expect(app).toMatch(/rTab==='locations'[\s\S]{0,400}<SpatialMap\s+embedded/)
+    expect(app, 'the standalone route still renders').not.toContain("view==='spatial'")
+    expect(app, 'the overflow-menu entry is still there').not.toContain('Mark sampling locations')
+    expect(read('src/constants/routes.js'), 'stale route registry entry').not.toMatch(/^\s*spatial:/m)
+    // Jasper can still be told to open it by the old name.
+    expect(app).toContain("spatial: 'locations'")
+    // Embedded suppresses the screen's own title and back link, which the
+    // tab strip already provides.
+    expect(read('src/components/SpatialMap.jsx')).toContain('embedded = false')
+  })
+
   it('the HTML print path pins carry a sequence number, not a finding count', () => {
     const code = read('src/components/PrintReport.jsx')
     expect(code).toContain('Sampling Locations')
