@@ -153,10 +153,96 @@ export function lockAiSections(aiSections) {
   return { ...aiSections, locked: true }
 }
 
-/** Whether one section's stored text may be used: present, and not blocked by its own audit. */
+/** The shortest justification an override is allowed to carry. */
+export const MIN_OVERRIDE_JUSTIFICATION = 20
+
+/** Whether a section carries a valid assessor override. */
+export function isOverridden(aiSections, key) {
+  const o = aiSections && aiSections.overrides && aiSections.overrides[key]
+  return !!(o && typeof o.justification === 'string' && o.justification.trim().length >= MIN_OVERRIDE_JUSTIFICATION)
+}
+
+/**
+ * Record an assessor's decision to use a section its own audit could not
+ * support.
+ *
+ * Modeled on the calibration acknowledgement
+ * (src/utils/calibrationAcknowledgement.js): proceeding is allowed, because a
+ * credentialed assessor owns defensibility, but it COSTS a written reason and
+ * it ADDS an audit artifact rather than removing one. The audit findings are
+ * frozen onto the override at the moment it is made, so the report prints
+ * what was actually overridden rather than whatever a later pass happens to
+ * say.
+ *
+ * A section the server's banned-language gate rejected can never reach this:
+ * `generateReportSections` drops those before `buildAiSectionsRecord` runs, so
+ * they are absent from `sections` and an override has nothing to apply to.
+ * That is the liability floor (api/_banned-language.js) and it is not
+ * assessor-waivable. Pinned by tests/engine/ai-sections-override.test.ts.
+ *
+ * @returns {object} a new record; the input is never mutated
+ */
+export function applyOverride(aiSections, key, { justification, by, at } = {}) {
+  const text = typeof justification === 'string' ? justification.trim() : ''
+  if (!aiSections || !key) return aiSections
+  if (text.length < MIN_OVERRIDE_JUSTIFICATION) return aiSections
+  // Only a section that EXISTS and is actually blocked can be overridden.
+  // Overriding a passing section would record a decision that was never made.
+  const present = !!(aiSections.sections && readSection(aiSections.sections, key))
+  const summary = aiSections.auditSummary && aiSections.auditSummary[key]
+  if (!present || !summary || summary.supported !== false) return aiSections
+  return {
+    ...aiSections,
+    overrides: {
+      ...(aiSections.overrides || {}),
+      [key]: {
+        justification: text,
+        by: by || null,
+        at: (at || new Date()).toISOString ? (at || new Date()).toISOString() : String(at),
+        issues: (aiSections.audit && aiSections.audit[key]) || [],
+      },
+    },
+  }
+}
+
+/** Withdraw an override. The section falls back to deterministic prose again. */
+export function removeOverride(aiSections, key) {
+  if (!aiSections || !aiSections.overrides || !(key in aiSections.overrides)) return aiSections
+  const { [key]: _dropped, ...rest } = aiSections.overrides
+  return { ...aiSections, overrides: rest }
+}
+
+/** Read a section's text by audit key, including the dotted parameter-background form. */
+function readSection(sections, key) {
+  if (!sections) return null
+  const dot = key.indexOf('.')
+  if (dot === -1) return sections[key] || null
+  const [group, sub] = [key.slice(0, dot), key.slice(dot + 1)]
+  return (sections[group] && sections[group][sub]) || null
+}
+
+/**
+ * Every override on a record, as rows ready to print.
+ * `label` is left to the caller — the reader-facing names live in the UI and
+ * the DOCX builder, not here.
+ */
+export function overriddenSections(aiSections) {
+  const overrides = (aiSections && aiSections.overrides) || {}
+  return Object.keys(overrides)
+    .filter(key => isOverridden(aiSections, key))
+    .sort()
+    .map(key => ({ key, ...overrides[key] }))
+}
+
+/**
+ * Whether one section's stored text may be used: present, and either
+ * supported by its own audit or carrying a recorded assessor override.
+ */
 function sectionUsable(aiSections, key) {
   const summary = aiSections.auditSummary && aiSections.auditSummary[key]
-  return summary ? summary.supported !== false : false
+  if (!summary) return false
+  if (summary.supported !== false) return true
+  return isOverridden(aiSections, key)
 }
 
 /**
@@ -179,10 +265,14 @@ function sectionUsable(aiSections, key) {
  */
 export function applyAiSections(model, aiSections, pkg) {
   const evidenceFingerprint = fingerprintPackage(pkg)
-  if (!aiSections) return { ...model, aiSectionsStatus: 'none', aiAuthoredSections: [], evidenceFingerprint }
-  if (!isAiSectionsFresh(aiSections, pkg)) return { ...model, aiSectionsStatus: 'stale', aiAuthoredSections: [], evidenceFingerprint }
+  if (!aiSections) return { ...model, aiSectionsStatus: 'none', aiAuthoredSections: [], aiOverrides: [], evidenceFingerprint }
+  if (!isAiSectionsFresh(aiSections, pkg)) return { ...model, aiSectionsStatus: 'stale', aiAuthoredSections: [], aiOverrides: [], evidenceFingerprint }
 
   const out = { ...model, aiSectionsStatus: 'active', evidenceFingerprint }
+  // Assessor overrides, for the QA/QC disclosure the report prints. Only the
+  // ones that actually took effect below are kept — see the filter after the
+  // section folding, which drops any override whose section is absent.
+  const overrides = overriddenSections(aiSections)
   const sections = aiSections.sections || {}
   // Every section key this render actually overrode with AI text — the ONLY
   // thing that tells `sections-atmosflow.js` which paragraphs need the
@@ -232,6 +322,10 @@ export function applyAiSections(model, aiSections, pkg) {
   }
 
   out.aiAuthoredSections = authored
+  // An override only counts once its section actually rendered. One recorded
+  // against a section that has since been dropped would disclose a decision
+  // the document does not contain.
+  out.aiOverrides = overrides.filter(o => authored.includes(o.key))
   return out
 }
 

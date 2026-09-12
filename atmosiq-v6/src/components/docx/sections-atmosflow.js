@@ -181,6 +181,43 @@ const aiNote = () =>
     children: [new TextRun({ text: 'AI-assisted — verify before issue.', font: F, size: 16, bold: true, color: PILL.amb })],
   })
 
+// Reader-facing names for the AI-authored sections, for the override
+// disclosure below. Keyed like `aiAuthoredSections` (src/report/aiSections.js).
+const AI_SECTION_NAMES = {
+  executive_summary: 'Executive Summary',
+  discussion: 'Discussion & Conclusions',
+  conceptual_site_model: 'Conceptual Site Model',
+  recommendations_prose: 'Recommended Actions (framing)',
+  'parameter_background.co2': 'Appendix A — Carbon dioxide',
+  'parameter_background.co': 'Appendix A — Carbon monoxide',
+  'parameter_background.thermal': 'Appendix A — Thermal comfort',
+  'parameter_background.pm25': 'Appendix A — Fine particulate',
+  'parameter_background.tvoc': 'Appendix A — Total VOCs',
+}
+
+/**
+ * QA/QC rows disclosing every AI-authored section the assessor kept over its
+ * own evidence check (src/report/aiSections.js `applyOverride`).
+ *
+ * Same discipline as the calibration acknowledgement: proceeding is the
+ * assessor's to choose, and choosing it ADDS a disclosure rather than
+ * removing one. What the check objected to is printed beside the reason
+ * given, so a reviewer reads the disagreement rather than discovering it.
+ */
+const overrideRows = (M) => {
+  const list = Array.isArray(M.aiOverrides) ? M.aiOverrides : []
+  return list.map((o) => {
+    const name = AI_SECTION_NAMES[o.key] || o.key
+    const reasons = (o.issues || []).map(i => i && i.message).filter(Boolean).join(' ')
+    const who = o.by ? ` by ${o.by}` : ''
+    const when = o.at ? ` on ${String(o.at).slice(0, 10)}` : ''
+    // `M.qaQc` rows are "label: value" strings (reportModel.js), and
+    // splitLabelValue splits on the FIRST ": " — so the section name must not
+    // contain one, and everything after the first colon becomes the record.
+    return `Evidence-check override — ${name}: Retained${who}${when} over this assessment's own evidence check. Assessor's reason: "${o.justification}"${reasons ? ` The check reported: ${reasons}` : ''}`
+  })
+}
+
 // Justified body paragraph.
 const body = (t, o = {}) =>
   new Paragraph({
@@ -603,7 +640,8 @@ export function atmosFlowReportChildren(model) {
   // QA/QC lives HERE, not in its own section after the recommendations. A
   // reader needs to know what measured what, and whether it was calibrated,
   // before reading a single number.
-  if (M.methodology || (M.qaQc && M.qaQc.length)) {
+  const qaOverrides = overrideRows(M)
+  if (M.methodology || (M.qaQc && M.qaQc.length) || qaOverrides.length) {
     c.push(h1('2. Investigation Methods & QA/QC', { before: 330 }))
     if (M.methodology && M.methodology.bullets && M.methodology.bullets.length) {
       c.push(h2('Direct-reading instrumentation'))
@@ -613,10 +651,11 @@ export function atmosFlowReportChildren(model) {
       c.push(h2('Reference framework'))
       c.push(body(M.methodology.referenceFramework))
     }
-    if (M.qaQc && M.qaQc.length) {
+    const qaRows = [...(M.qaQc || []), ...qaOverrides]
+    if (qaRows.length) {
       c.push(...label('Quality assurance / quality control'))
       c.push(
-        table(['Item', 'Record'], M.qaQc.map((q) => splitLabelValue(q)), [2721, 6639], { cellSpec: (r, ci) => ({ bold: ci === 0 }) }),
+        table(['Item', 'Record'], qaRows.map((q) => splitLabelValue(q)), [2721, 6639], { cellSpec: (r, ci) => ({ bold: ci === 0 }) }),
       )
     }
   }

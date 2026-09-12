@@ -490,6 +490,29 @@ When working on report generation:
     advisory and never suppresses: these five sections go straight into the
     signed client deliverable, several to a report, and "advisory" should not
     risk a wrong number in one on the other four's behalf.
+  - **The assessor may override a blocked section, and it costs a disclosure.**
+    `applyOverride` / `removeOverride` (`aiSections.js`). Per-section fallback
+    is the right default, but a deterministic proxy sometimes blocks prose a
+    credentialed assessor knows is sound — the `lim-ventilation-inferred`
+    trigger fires on any mention of "ventilation" / "outdoor air", including a
+    particulate paragraph describing a pathway and claiming nothing about
+    adequacy. So the bargain is the calibration acknowledgement's, deliberately:
+    proceeding is allowed because a credentialed assessor owns defensibility,
+    but it COSTS a written justification (20 chars minimum), it is emitted
+    append-only to `audit_log` as `ai_section_override_recorded`, and it is
+    PRINTED in the report's QA/QC notes beside what the check objected to — the
+    findings are frozen onto the override at the moment it is made, so a later
+    pass cannot rewrite what was disclosed. It adds an artifact and removes
+    nothing.
+    Three limits are load-bearing: a section the **banned-language gate**
+    rejected can never be overridden (those are dropped client-side before the
+    record exists, so an override has nothing to apply to — the liability floor
+    is not assessor-waivable); an override cannot be recorded against a section
+    that PASSED, or one that is absent, since that would record a decision
+    nobody made; and an override never survives regeneration or a fingerprint
+    change, because a justification written about one draft must not silently
+    carry onto prose nobody approved. Tests:
+    `tests/engine/ai-sections-override.test.ts`.
   - **Lock at finalize.** `lockAiSections`, mirroring `runScoring`'s existing
     early-return for a finalized report: an issued report's sections do not
     change on a later export because someone regenerated them. Freshness
