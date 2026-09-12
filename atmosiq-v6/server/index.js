@@ -64,7 +64,7 @@ async function initSentry() {
   try {
     const mod = await importFile(sentryFile)
     if (typeof mod.initSentryServer === 'function') mod.initSentryServer()
-    console.log(process.env.SENTRY_DSN ? '[sentry] initialised' : '[sentry] SENTRY_DSN unset — no-op')
+    console.log(process.env.SENTRY_DSN ? '[sentry] initialized' : '[sentry] SENTRY_DSN unset — no-op')
   } catch (err) {
     console.warn('[sentry] init failed:', err && err.message)
   }

@@ -271,7 +271,7 @@ describe('samplePoints is the one source the three floor-plan surfaces read', ()
 
   it('carries no severity, count, or finding of any kind', () => {
     const keys = new Set(samplePoints(ZONES).flatMap((p: any) => Object.keys(p)))
-    for (const banned of ['sev', 'severity', 'worst', 'findings', 'count', 'color', 'colour']) {
+    for (const banned of ['sev', 'severity', 'worst', 'findings', 'count', 'color', 'colour']) { // spelling-ok: the guard bans both spellings
       expect([...keys], banned).not.toContain(banned)
     }
   })

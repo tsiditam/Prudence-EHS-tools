@@ -1128,6 +1128,31 @@
       ]
     },
     {
+      "id": "AMERICAN-SPELLING",
+      "label": "Lint-time guardrail keeps source, tests, docs and CLAUDE.md in American English",
+      "checks": [
+        {
+          "type": "file_exists",
+          "path": "scripts/check-spelling.mjs"
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "findBritishSpellings",
+          "paths": [
+            "scripts/check-spelling.mjs"
+          ]
+        },
+        {
+          "type": "file_exists",
+          "path": "tests/scripts/check-spelling.test.ts"
+        },
+        {
+          "type": "npm_script_passes",
+          "script": "lint:spelling"
+        }
+      ]
+    },
+    {
       "id": "JASPER-HOT-PATH-LEAN",
       "label": "Jasper handler does not bundle docxtemplater (architectural test)",
       "checks": [

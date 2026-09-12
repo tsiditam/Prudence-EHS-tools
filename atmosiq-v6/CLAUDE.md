@@ -126,7 +126,7 @@ Read these directories first when investigating any task:
   readiness diagnostic, smoke test, password-reset verification, Stripe
   setup, cron implementations, sample-report PDF generator.
 - `scripts/acceptance/` — JSON acceptance configs:
-  `prod-ready.json` (76 criteria), `pricing-rollout.json` (19),
+  `prod-ready.json` (77 criteria), `pricing-rollout.json` (19),
   `go-live.json` (22), `api-boot.json` (the `API-BOOT` criterion alone,
   for CI), plus `kg.json` and `mold.json`. The legacy v2.X engine
   configs no longer exist.
@@ -602,7 +602,7 @@ Three feature-level acceptance configs gate completion claims:
 
 | Gate | Script | Criteria |
 |---|---|---|
-| Production readiness (Group A) | `npm run accept:prod-ready` | 76 |
+| Production readiness (Group A) | `npm run accept:prod-ready` | 77 |
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
 | Go-live experience (Group C) | `npm run accept:go-live` | 22 |
 | API boot (CI job, also inside A and C) | `npm run accept:api-boot` | 1 |
@@ -946,6 +946,9 @@ report's record is the only evidence of what it said.
     `no-dupe-keys`, `no-unreachable`, `no-debugger`, `rules-of-hooks`)
     fail regardless of N.
   - `lint:imports` — `scripts/check-api-js-imports.mjs` (pitfall #4)
+  - `lint:spelling` — `scripts/check-spelling.mjs`: American English in
+    every source file, test, acceptance config, doc and this file (see
+    "Anti-patterns")
 - `npm run build` — Vite SPA production build (vendor chunks split by
   `build.rollupOptions.output.manualChunks` in `vite.config.js`)
 - `npm run accept:api-boot` — bundle + import every `api/**` entry under
@@ -996,6 +999,19 @@ Run tests after any change to `src/engine/`, `src/engines/`, `src/components/doc
 - Spore counts framed as health proof (they aren't — IOM 2004,
   ACMT 2025)
 - Report generation without calibration verification
+- **British spelling, anywhere.** The product is American: *color, odor,
+  labeled, recognized, center, catalog, gray, license, mold*. A client
+  report once carried both spellings of "odor" three lines apart because
+  the spelling had drifted file by file, so it is now a lint gate — `npm run
+  lint:spelling` (`scripts/check-spelling.mjs`, criterion
+  `AMERICAN-SPELLING`, and `tests/scripts/check-spelling.test.ts` runs the
+  same check under `npm test`). Exact whole-word forms only, so
+  `characteristic` and `synthesis` are safe. A line that must carry the
+  variant — a term list matching both spellings of user input, an alias
+  quoted from a source, a negative test case — takes a `spelling-ok`
+  comment. Accepted American variants (`cancelled`, `judgement`,
+  `acknowledgement`) are not on the list; stored field names and contract
+  values keep their spelling.
 
 ## When in doubt
 

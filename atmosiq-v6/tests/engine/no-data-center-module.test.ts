@@ -43,7 +43,7 @@ describe('the data-center profile is gone', () => {
   })
 
   it('getBuildingProfile no longer resolves one for a data-center building', () => {
-    for (const name of ['Data Center', 'data center', 'Data Centre', 'datacenter']) {
+    for (const name of ['Data Center', 'data center', 'Data Centre', 'datacenter']) { // spelling-ok: the negative case names the variant
       expect(getBuildingProfile(name), `"${name}" still resolves a profile`).toBeNull()
     }
   })

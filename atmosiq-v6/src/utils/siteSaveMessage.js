@@ -55,7 +55,7 @@ const FALLBACK =
  */
 export function siteSaveMessage(code, status) {
   if (typeof code === 'string' && MESSAGES[code]) return MESSAGES[code]
-  // An unrecognised 5xx is still worth distinguishing from a 4xx: one is
+  // An unrecognized 5xx is still worth distinguishing from a 4xx: one is
   // worth retrying and the other probably is not.
   if (typeof status === 'number' && status >= 500) {
     return 'The server could not save the site right now. Your assessment is saved — retry from Settings → Sites.'
