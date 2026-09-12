@@ -2182,7 +2182,6 @@ export default function MobileApp() {
 
   const requestReportSections = async () => {
     if (!PAYWALL_DISABLED && credits < 5) { setShowPricing(true); return }
-    consumeCredit(5, 'report_sections')
     trackEvent('report_sections_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setReportSectionsLoading(true)
     // Same report data narrative already threads through, so the evidence
@@ -2198,16 +2197,23 @@ export default function MobileApp() {
     // finalize): the document a client was sent must not read differently
     // on a later export because the model was asked again.
     const record = rec && viewingIssuedReport() ? lockAiSections(rec) : rec
-    setAiSections(record)
     setReportSectionsLoading(false)
-    if (record) {
-      await persistAiOutput({ aiSections: record })
-      const summaries = Object.values(rec.auditSummary || {})
-      trackEvent('report_sections_generated', {
-        section_count: Object.keys(rec.sections || {}).length,
-        audit_blocked: summaries.filter(s => s && s.supported === false).length,
-      })
+    if (!record) {
+      // A failed call is not a generation: nothing is charged, and the
+      // assessor is told rather than left looking at an unchanged screen.
+      toast.error('Report sections could not be generated. No credits were charged — try again in a moment.')
+      return
     }
+    // Charged on success only. The server-side ledger and rate limit
+    // already count the call; the credit is for the text the assessor got.
+    consumeCredit(5, 'report_sections')
+    setAiSections(record)
+    await persistAiOutput({ aiSections: record })
+    const summaries = Object.values(rec.auditSummary || {})
+    trackEvent('report_sections_generated', {
+      section_count: Object.keys(rec.sections || {}).length,
+      audit_blocked: summaries.filter(s => s && s.supported === false).length,
+    })
   }
 
   // Equipment-capture working state (the equipment array itself

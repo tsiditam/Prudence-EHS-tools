@@ -114,7 +114,7 @@ Read these directories first when investigating any task:
   TSX; not yet wired into the SPA's actual route shell (the live root
   redirects desktop first visits to `public/atmosflow-landing.html`; the
   old `src/components/LandingPage.jsx` was dead and is deleted).
-- `supabase/migrations/` — 35 numbered migrations (`000`–`034`; count
+- `supabase/migrations/` — 38 numbered migrations (`000`–`037`; count
   with `ls supabase/migrations/[0-9]*.sql | wc -l`) covering the base
   schema, analytics, billing, teams/orgs, enterprise phase 1,
   early-access, webhook-idempotency, deletion-audit,
