@@ -3002,7 +3002,14 @@
         },
         {
           "type": "grep_matches",
-          "pattern": "setNarrativeAudit",
+          "pattern": "auditFromMeta",
+          "paths": [
+            "src/components/MobileApp.jsx"
+          ]
+        },
+        {
+          "type": "grep_matches",
+          "pattern": "auditSummary: result.auditSummary",
           "paths": [
             "src/components/MobileApp.jsx"
           ]
