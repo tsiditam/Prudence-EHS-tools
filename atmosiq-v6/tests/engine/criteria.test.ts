@@ -47,9 +47,14 @@ describe('averaging period decides what a grab reading can settle', () => {
   it('an 8-hour TWA is not, and the statement says so', () => {
     const r = evaluateCriteria('co', 60)
     expect(r.criterion.id).toBe('co_osha_pel')
+    // `determinative` is the load-bearing half and is unchanged — it is what
+    // evidencePackage.js derives allowed_interpretations / prohibited_claims
+    // from, and what the `interpretation-exceeded` audit rule enforces. The
+    // statement names the averaging period; it no longer also narrates what a
+    // grab reading cannot settle, which the Limitations section already says.
     expect(r.determinative).toBe(false)
     expect(r.statement).toMatch(/8-hour time-weighted average/)
-    expect(r.statement).toMatch(/cannot establish compliance/)
+    expect(r.statement).not.toMatch(/cannot establish compliance/)
   })
 
   it('does not move severity with the averaging period', () => {
@@ -78,7 +83,9 @@ describe('averaging period decides what a grab reading can settle', () => {
     const r = evaluateCriteria('hcho', 3)
     expect(r.criterion.id).toBe('hcho_osha_stel')
     expect(r.indicative).toBe(true)
-    expect(r.statement).toMatch(/indicative but not determinative/)
+    // Carried on the object, not narrated in the sentence.
+    expect(r.statement).toMatch(/15-minute short-term exposure limit/)
+    expect(r.statement).not.toMatch(/indicative but not determinative/)
   })
 })
 

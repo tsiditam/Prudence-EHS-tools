@@ -100,11 +100,18 @@ describe('H4 — CO₂ is evaluated whether or not airflow was measured', () => 
   it('3,000 ppm beside ACH is likewise high', () => {
     expect(findings({ co2: '3000', ach: '6' }, 'Ventilation').find((f) => f.p === 'co2').sev).toBe('high')
   })
-  it('a within-range CO₂ beside airflow is a pass, and the CO₂-only confidence note is not added', () => {
+  it('a within-range CO₂ beside airflow is a pass, and no CO₂-only note is added either way', () => {
     const r = findings({ co2: '600', cfm_person: '20' }, 'Ventilation')
     expect(r.find((f) => f.p === 'co2').sev).toBe('pass')
+    // The 'info' row "Ventilation assessed from CO₂ only — Limited
+    // Confidence" was removed in 2026-09. It graded the assessment inside the
+    // findings list, restated the CO₂ caveat, and proposed nothing. The
+    // disclosure survives where it belongs: the report's scope limitation
+    // ("No quantified ventilation-rate measurement was made..."), which
+    // evidencePackage.js derives from `model.limitations` and NOT from this
+    // row — so `lim-ventilation-inferred` is unaffected.
     expect(r.some((f) => /assessed from CO₂ only/.test(f.t))).toBe(false)
-    expect(findings({ co2: '600' }, 'Ventilation').some((f) => /assessed from CO₂ only/.test(f.t))).toBe(true)
+    expect(findings({ co2: '600' }, 'Ventilation').some((f) => /assessed from CO₂ only/.test(f.t))).toBe(false)
   })
   it('the no-outdoor-baseline tier fires: 900 ppm with no outdoor reading is low, with a measured Δ>500 it is medium', () => {
     const noOutdoor = findings({ co2: '900' }, 'Ventilation').find((f) => f.p === 'co2')

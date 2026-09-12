@@ -229,7 +229,7 @@ describe('the survey date is reachable from the mobile walkthrough', () => {
     const z = zone({ tf: '76.8' })
     const withDate = scoreZone(z, { ...BLDG, assessmentDate: '2026-07-15' })
     const noDate = scoreZone(z, BLDG)
-    const gap = (s: any) => s.cats.flatMap((c: any) => c.r).some((r: any) => r.dataGap && /assessment date not recorded/.test(r.t))
+    const gap = (s: any) => s.cats.flatMap((c: any) => c.r).some((r: any) => r.dataGap && /no survey date on record/.test(r.t))
     expect(gap(withDate)).toBe(false)
     expect(gap(noDate)).toBe(true)
   })

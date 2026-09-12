@@ -57,7 +57,10 @@ describe('a zone with no survey date states the gap instead of guessing a band',
     expect(temp).toHaveLength(1)
     expect(temp[0].dataGap).toBe(true)
     expect(temp[0].sev).toBe('info')
-    expect(temp[0].t).toMatch(/assessment date not recorded/i)
+    // The gap is real and still stated; it stopped explaining itself at
+    // length. Was: "assessment date not recorded, so the ASHRAE 55 seasonal
+    // comfort band cannot be selected (Data Gap; not evaluated)".
+    expect(temp[0].t).toMatch(/not evaluated — no survey date on record/i)
     expect(temp[0].t).not.toMatch(/outside the/)
     expect(r.some((f: any) => f.sev === 'pass')).toBe(false)
   })

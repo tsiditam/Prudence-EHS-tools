@@ -70,9 +70,19 @@ describe('criterion statements', () => {
     expect(hit.statement).toMatch(/8-hour time-weighted average/)
   })
 
-  it('keep the evidentiary caveat, which is not advice', () => {
+  it('carry nothing beyond the finding — not the action, and no longer the caveat', () => {
     const hit: any = evaluateCriteria('co', 60, 'screening_grab')
-    expect(hit.statement).toMatch(/cannot establish compliance with this averaging period/)
+    // The evidentiary caveat was kept here when the criterion's `action` was
+    // removed, on the reasoning that it is a property of the measurement
+    // rather than advice. That is still true, and it was still the third
+    // statement of it: the sentence names the averaging period, and the
+    // report's Limitations section says direct-reading values do not
+    // represent time-weighted exposures. It went in 2026-09.
+    expect(hit.statement).not.toMatch(/cannot establish compliance/)
+    expect(hit.statement).not.toMatch(/indicative but not determinative/)
+    // What replaced it: nothing. The constraint lives on the object.
+    expect(hit.determinative).toBe(false)
+    expect(hit.statement.trim()).toMatch(/\.$/)
   })
 
   it('every criterion still carries its action for the recommendations layer', () => {

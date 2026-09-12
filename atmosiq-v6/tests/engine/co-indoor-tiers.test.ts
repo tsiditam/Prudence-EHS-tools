@@ -7,7 +7,7 @@
  * thresholds were roughly four times too high to see it.
  */
 import { describe, it, expect } from 'vitest'
-import { allCriteria } from '../../src/constants/criteria.js'
+import { allCriteria, evaluateCriteria } from '../../src/constants/criteria.js'
 // @ts-expect-error — JS module without TS types
 import { scoreZone } from '../../src/engines/scoring'
 // @ts-expect-error — JS module without TS types
@@ -64,8 +64,16 @@ describe('averaging time is stated honestly', () => {
     // The old text was "CO 60 ppm — EXCEEDS OSHA PEL", which the phrase
     // library itself lists as a banned alternative for co_screening_elevated.
     expect(t).not.toMatch(/EXCEEDS OSHA PEL/)
+    // The averaging period IN the sentence is what keeps it from being a bare
+    // exceedance. A trailing "A short-duration reading cannot establish
+    // compliance with this averaging period" followed it until 2026-09; it
+    // said a third time what this clause says and what the Limitations section
+    // states plainly, and on every such row it read as the assessor hedging.
     expect(t).toMatch(/8-hour time-weighted average/)
-    expect(t).toMatch(/cannot establish compliance with this averaging period/i)
+    expect(t).not.toMatch(/cannot establish compliance/i)
+    // The constraint itself did not move: it rides on the evaluation object,
+    // where evidencePackage.js reads it.
+    expect(evaluateCriteria('co', 60, 'screening_grab').determinative).toBe(false)
   })
 
   it('says the same for formaldehyde', () => {

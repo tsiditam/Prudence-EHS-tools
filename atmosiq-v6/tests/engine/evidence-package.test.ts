@@ -213,11 +213,25 @@ describe('buildEvidencePackage — a projection of the report, not a second opin
     expect(wire.prohibited_claims.every((p: any) => p.subject_kind === 'parameter')).toBe(true)
   })
 
-  it('the wire form drops the evidentiary caveat the token now encodes, and the audit copy keeps it', () => {
+  it('the wire form still strips the evidentiary caveat, for records scored before it was dropped', () => {
+    // `buildStatement` stopped appending the caveat in 2026-09, so a freshly
+    // scored assessment has none to strip. The stripper is NOT dead: an issued
+    // report keeps the `zoneScores` it was finalized with (runScoring
+    // early-returns for a finalized report), so findings carrying the old
+    // sentence will reach this function for as long as those reports are
+    // re-exported. Asserted over a synthetic legacy finding rather than a
+    // fresh one, because a fresh one can no longer produce the input.
     const { pkg } = build()
-    const wire = packageForWriter(pkg)
     const caveat = /A short-duration reading (is indicative but not determinative|cannot establish compliance)/
-    expect(pkg.findings.some((f: any) => caveat.test(f.text))).toBe(true)
+    expect(pkg.findings.some((f: any) => caveat.test(f.text))).toBe(false)
+
+    const legacy = {
+      ...pkg,
+      findings: pkg.findings.map((f: any, i: number) => (i === 0
+        ? { ...f, text: `${f.text} A short-duration reading cannot establish compliance with this averaging period.` }
+        : f)),
+    }
+    const wire = packageForWriter(legacy)
     expect(wire.findings.some((f: any) => caveat.test(f.text))).toBe(false)
     expect(wire.findings.length).toBe(pkg.findings.length)
   })

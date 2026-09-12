@@ -806,6 +806,50 @@ When working on report generation:
   note was not updated when the AtmosFlow version was written. The
   model-vs-itself half was added 2026-09 after a walkthrough audit found
   every defect it surfaced was one section disagreeing with another.*
+- **Say it once, in the place a reader looks it up.** Four caveats were cut in
+  2026-09 — not because any was wrong, but because each was the second or third
+  statement of something the report already said, and a finding list where
+  every row apologizes for itself reads as an assessor who is unsure.
+
+  1. **The three-sentence Persily block** ("CO₂ is a ventilation effectiveness
+     indicator, not an air quality contaminant… a since-removed informative
+     appendix") was appended to ALL FIVE CO₂ finding tiers, so a two-zone
+     report restated one methodology paragraph four times. `headline()` in
+     `reportModel.js` exists only to cut it back off for the summary. It stays
+     stated once, in Appendix A's carbon dioxide background
+     (`narrativeLibrary.js`), and every finding still cites `co2Ref` — the
+     ASHRAE position document, not a standard that sets no limit. **The
+     anti-pattern above is unchanged**: never cite ASHRAE 62.1 as a CO₂
+     contaminant limit. Not citing it at all is how you comply, not by
+     explaining on every row why you didn't.
+  2. **The `info` row** "Ventilation assessed from CO₂ only — Limited
+     Confidence" graded the assessment inside the findings list and proposed
+     nothing. The disclosure it gestured at is made properly by the report's
+     scope limitation, which `evidencePackage.js` derives from
+     `model.limitations` and NOT from this row — `lim-ventilation-inferred` is
+     unaffected.
+  3. **The trailing evidentiary sentence** on a non-determinative finding ("A
+     short-duration reading cannot establish compliance with this averaging
+     period"). The statement already names the period *in* the sentence
+     ("above the OSHA PEL of 50 ppm, which is an 8-hour time-weighted
+     average"), and the Limitations section states the principle plainly. Three
+     statements of one point. **`determinative` and `indicative` are unchanged
+     and still do the load-bearing work** — they ride on the evaluation object,
+     `allowed_interpretations` / `prohibited_claims` derive from them, and
+     `interpretation-exceeded` enforces them against the narrative. Only the
+     third echo in the prose is gone. `stripEvidentiaryCaveat`
+     (`evidencePackage.js`) is therefore NOT dead code: an issued report keeps
+     the `zoneScores` it was finalized with, so legacy findings carrying the
+     sentence keep arriving for as long as those reports are re-exported.
+  4. **The temperature data gap** kept its finding and lost its apology:
+     "Temperature 70°F recorded; not evaluated — no survey date on record to
+     select the seasonal comfort band". The gap is real and must still be
+     stated; it does not need to explain the engine's band-selection logic.
+
+  The rule this leaves: **a caveat earns its place by being the only statement
+  of its point.** Before adding one, find where the report already says it. If
+  it does, that is the place — a criterion citation, the parameter background,
+  or the Limitations section — and the finding row is not.
 - **A causal pathway is never given a published confidence rating.** The
   report used to print the chain's weight — Possible / Moderate / Strong — in
   three places: the opening summary sentence ("— moderate confidence on the

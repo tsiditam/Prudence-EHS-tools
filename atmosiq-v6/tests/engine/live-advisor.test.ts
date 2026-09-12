@@ -91,7 +91,9 @@ describe('CO checks — through the criterion registry (audit H2 / M7)', () => {
     expect(a!.determinative).toBe(false)
     expect(a!.observation).not.toMatch(/at or above OSHA PEL/)
     expect(a!.observation).toMatch(/8-hour time-weighted average/)
-    expect(a!.observation).toMatch(/cannot establish compliance/)
+    // `determinative: false` above is the constraint; the sentence names the
+    // averaging period and no longer also narrates it (2026-09).
+    expect(a!.observation).not.toMatch(/cannot establish compliance/)
   })
 
   it('flags warn above the NIOSH REL (35 ppm)', () => {
