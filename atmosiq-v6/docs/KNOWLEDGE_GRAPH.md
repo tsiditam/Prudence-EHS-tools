@@ -246,7 +246,7 @@ Evidence Traceability Matrix) can be regenerated with `npm run render:kg-sample`
 request. That call was never gated, while the KG *surface* is
 (`isKnowledgeGraphEnabled` is off on the production host), so the projection
 shipped inside the uncached context block, in production, for a feature no
-user could open. Measured on a real context, as actually serialised
+user could open. Measured on a real context, as actually serialized
 (`JSON.stringify(ctx, null, 2)`):
 
 | Zones | With projection | Without | Saved |
@@ -268,7 +268,7 @@ only thing that has ever populated it is a hand-written `KGModel` in that
 test. In every projection built from a real assessment the array is empty.
 
 `supported_by` is `findingsInCat` — every finding in the same category, a
-join the context already carries. The rest was a third serialisation of the
+join the context already carries. The rest was a third serialization of the
 findings (already under `engine_outputs` and `walkthrough_findings`).
 
 **The grounding rules did not go with it.** The projection carried five

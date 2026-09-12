@@ -15,7 +15,7 @@ system makes "done" a binary signal: the runner exits 0 or it doesn't.
 The September 2026 audit added a second lesson: 75 grep-and-file-exists
 criteria were green while every API route reached through an
 extension-less import returned 500 in production. Criteria that only
-assert that expected strings exist measure intent, not behaviour; the
+assert that expected strings exist measure intent, not behavior; the
 `api_boot` check type was added so at least one criterion executes the
 runtime shape that failed.
 

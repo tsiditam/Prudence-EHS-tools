@@ -33,7 +33,7 @@ All three were the same omission, and all three shipped:
 2. **Short-duration criteria a walkthrough CAN evaluate were missing.** The
    NIOSH CO ceiling (200 ppm) and the OSHA formaldehyde STEL (2 ppm/15-min)
    were absent, because nothing recorded that a *ceiling is instantaneous by
-   definition*. The criteria the survey was least able to judge were modelled;
+   definition*. The criteria the survey was least able to judge were modeled;
    the ones it was best able to judge were not.
 
 3. **CO₂ at 1,500 ppm rated `critical`** — the same severity as a hydrogen
@@ -111,7 +111,7 @@ questionnaire cannot silently fall through to the unrecorded default.
 
 *Every instrument-read condition was hardcoded to `screening_continuous` until
 2026-08, with the rationale "Direct-reading measurement collected during
-walkthrough" — a sentence describing a grab reading while labelling it
+walkthrough" — a sentence describing a grab reading while labeling it
 continuous. `pm_above_naaqs_documented` carried it into client-facing prose
 ("supported by continuous monitoring"). The zone parameter was already being
 passed to `inferEvidenceBasis` and never read. The permission gate was never
@@ -220,12 +220,12 @@ description of how symptom likelihood varied across a defined 22-compound
 mixture, not a limit anybody promulgated — and applying them produced a
 severity, a citation, a client-facing finding and a sampling recommendation as
 though they were one. Captioning them "advisory" did not help: a tier printed
-beside a measured value reads as a limit however it is labelled, which is
+beside a measured value reads as a limit however it is labeled, which is
 precisely how they spread.
 
 **What that means in code.** `evaluateCriteria` returns null for a parameter
 with no registry entry and `scoring.js` guards `if (hit)`, so the ABSENCE of
-the key is the behaviour — no branch anywhere tests for it. Removed in the
+the key is the behavior — no branch anywhere tests for it. Removed in the
 same change: the reference profiles (including the WELL target, so the chart
 draws the series and no line), the `checkTVOC` live-advisor rule, the
 concentration-triggered VOC-speciation sampling entry, and the TVOC term in
@@ -345,7 +345,7 @@ Two things to know when touching this:
    unit it is given, so omitting `ctx.unit` is not "no unit" — it is whatever
    the profile's own default happens to be. TVOC's 500 µg/m³ came back as
    `218` (ppb, via isobutylene molecular weight) before `REPORT_UNIT` was
-   supplied. TVOC no longer defaults that way — an absent or unrecognised unit
+   supplied. TVOC no longer defaults that way — an absent or unrecognized unit
    now resolves to no reference at all — but HCHO still falls back to ppm, so
    the rule stands.
 2. **Benchmark type comes from the criterion CLASS**, shared with the full
@@ -519,7 +519,7 @@ actually applies is the one the meter was spanned to, and the app records it:
 `pid_cal_gas` per zone on an assessment, `calibration.gas` on a monitoring
 session. `parseCalibrationGas` reads it (whole-word matching — "isobutane" is
 not "isobutylene") and returns three states, each licensing a different
-sentence: recognised (a fact about this survey), recorded-but-unweighable
+sentence: recognized (a fact about this survey), recorded-but-unweighable
 (isobutylene is used and the note names the mismatch), and not recorded (a
 stated convention). Pass it as `ctx.calibrationGas` / `opts.calibrationGas`;
 a meter spanned to toluene resolves a 500 µg/m³ mass threshold at 133 ppb,
@@ -555,13 +555,13 @@ give both halves the same comparison.
 
 ### No standards register
 
-Appendix D used to close with a bibliographic catalogue of every standard
+Appendix D used to close with a bibliographic catalog of every standard
 invoked. It is gone (product decision, 2026-08) and the appendix is now
 **Criteria Background** — background prose and interpretation notes only.
 
 Each criterion is already named three places a reader will look: beside its
 result in Criteria Applied, in the finding it produced, and in that
-background prose. The catalogue was a fourth statement of the same thing.
+background prose. The catalog was a fourth statement of the same thing.
 
 The citation walker still runs and still populates `appendixD.citations`, so
 the audit record of what a report cited is intact — only the printing
@@ -656,7 +656,7 @@ Three consequences worth knowing, because none is obvious from the diff:
    which is gone. The list is down from five entries to three.
 
 Deliberately kept: `SITE_TYPES` in `projectStore.js` still offers "Data Center"
-as a project label. That is filing metadata for organising work, not the engine
+as a project label. That is filing metadata for organizing work, not the engine
 facility type — a consultant can still have a data-center client; they just get
 standard IAQ treatment rather than a specialty module.
 
@@ -694,7 +694,7 @@ one call each.
 2. **The editorial-review feature is gone end to end** — the panel, the
    `api/report-editorial-review` endpoint, `editorialSuppressions.js`,
    `editorialReviewDigest.js`, and the read/write mapping in
-   `supabaseStorage.js`. Only the consultant renderer honoured a suppression;
+   `supabaseStorage.js`. Only the consultant renderer honored a suppression;
    `sections-atmosflow.js` reads none, because its render model carries no
    engine `findingId` to suppress against. Keeping the panel would have
    shipped an AI proposal + human approval flow that changed no output.
