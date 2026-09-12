@@ -923,7 +923,7 @@ export function generateLegacyPrintHTML(data) {
     const PIN = '#2E7B9B'
     return `
     <h2 class="pg-break">Sampling Locations</h2>
-    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The floor plan below records where each set of readings was taken. Pin numbers key to the table beneath; marker colour carries no meaning. Positions were marked by the assessor and are approximate.</p>
+    <p style="font-size:11px;color:#475569;margin-bottom:12px;">The floor plan below records where each set of readings was taken. Pin numbers key to the table beneath; marker color carries no meaning. Positions were marked by the assessor and are approximate.</p>
     <div style="position:relative;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">
       <img src="${data.floorPlan}" alt="Floor plan showing sampling locations" style="width:100%;display:block;" />
       ${points.map(p => `<div style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-100%);">

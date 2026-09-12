@@ -219,7 +219,7 @@ function floorPlanPinsResolve(M) {
   )
   return fp.pins
     .filter(p => !named.has(String(p.zone)))
-    .map(p => issue('floorplan-pin', 'Site plan', `Pin ${p.n} on the floor plan is labelled "${p.zone}", which is not a zone in the measurement results.`))
+    .map(p => issue('floorplan-pin', 'Site plan', `Pin ${p.n} on the floor plan is labeled "${p.zone}", which is not a zone in the measurement results.`))
 }
 
 /** The conclusion the summary states is the one the site model tables. */

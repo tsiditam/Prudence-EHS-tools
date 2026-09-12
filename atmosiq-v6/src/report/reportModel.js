@@ -674,7 +674,7 @@ export function buildFloorPlan(data = {}) {
   const caption = !n
     ? 'Figure 1. Floor plan as provided. Sampling locations were not marked on the plan.'
     : pinsDrawn
-      ? `Figure 1. Floor plan as provided, with the ${n} sampling location${n === 1 ? '' : 's'} marked. Pin numbers key to the table below; marker colour carries no meaning.`
+      ? `Figure 1. Floor plan as provided, with the ${n} sampling location${n === 1 ? '' : 's'} marked. Pin numbers key to the table below; marker color carries no meaning.`
       : `Figure 1. Floor plan as provided. The ${n} sampling location${n === 1 ? '' : 's'} placed on the plan ${n === 1 ? 'is' : 'are'} listed below with the recorded position.`
   return {
     heading: 'Site plan and sampling locations',

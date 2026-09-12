@@ -158,7 +158,7 @@ describe('the uploaded floor plan is a report figure', () => {
     const fp = buildFloorPlan(fixture({ floorPlan: composed }))
     expect(fp.figure).toEqual({ width: FLOOR_PLAN_MAX.width, height: 310 })
     expect(fp.pinsDrawn).toBe(true)
-    expect(fp.caption).toMatch(/with the 2 sampling locations marked\. Pin numbers key to the table below; marker colour carries no meaning/)
+    expect(fp.caption).toMatch(/with the 2 sampling locations marked\. Pin numbers key to the table below; marker color carries no meaning/)
   })
 
   it('a plan with no locations placed still renders, and says so', () => {

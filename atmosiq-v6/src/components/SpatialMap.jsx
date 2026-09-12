@@ -279,7 +279,7 @@ export default function SpatialMap({ zones = [], floorPlan, building = {}, onUpd
             </button>
           ))}
           <div style={{ fontSize: 10, color: DIM, marginTop: 8, lineHeight: 1.5 }}>
-            The number on a pin identifies the location in this list. Marker colour carries no meaning; pins record where readings were taken, not what was found.
+            The number on a pin identifies the location in this list. Marker color carries no meaning; pins record where readings were taken, not what was found.
           </div>
         </div>
       )}
