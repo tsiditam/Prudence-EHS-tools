@@ -195,7 +195,7 @@ describe('field-assistant role prompt — report drafting', () => {
 
   it('does not put a "Screening" mode label in the report header', () => {
     // The uploaded draft carried "Assessment Mode: Screening". That
-    // labelling was stripped platform-wide in 2026-08 and must not come
+    // labeling was stripped platform-wide in 2026-08 and must not come
     // back through a report template.
     const block = P.slice(P.indexOf('# Drafting a report'), P.indexOf('## 1. SCOPE AND PURPOSE'))
     expect(block).not.toMatch(/Assessment Mode/)
@@ -207,7 +207,7 @@ describe('field-assistant role prompt — report drafting', () => {
   // times. Dropping the "Assessment Mode: Screening" metadata line did
   // not stop that — the label has to be barred, not just left out of the
   // field list. "Screening" was stripped platform-wide in 2026-08.
-  it('bars the report from labelling itself "screening"', () => {
+  it('bars the report from labeling itself "screening"', () => {
     expect(P).toMatch(/Do not label the report or the assessment "screening"/)
     expect(P).toMatch(/not in the title, not in the metadata block, not in the scope paragraph/)
     // …and says what to do instead, so the boundary is not simply lost.

@@ -17,7 +17,7 @@
  *     over the text it was meant to clear. Calms under reduced-motion.
  *   • Breathing two-tone (cyan ↔ purple) aura so the assistant reads as
  *     "alive". The launcher is the identity mark, so this glow is
- *     deliberately outside the flat token pass that neutralised the chrome
+ *     deliberately outside the flat token pass that neutralized the chrome
  *     (product decision, reaffirmed 2026-09 after a restraint pass removed
  *     it: it stays).
  *   • Draggable anywhere in the viewport. It rests at the bottom-right
@@ -138,7 +138,7 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
   // The aura keeps one extent whatever the disc is doing. It used to track
   // `size`, which resized the masked span in a single step while the disc
   // eased over 280ms — Safari drew the mask against the old bounds for
-  // those frames and the glow sat off-centre and clipped. The disc is
+  // those frames and the glow sat off-center and clipped. The disc is
   // what gets out of the way while reading; the glow is the identity and
   // stays the same.
   const glowSize = 60

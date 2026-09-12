@@ -41,7 +41,7 @@ below it.
 - Account deletion nulls PII in `audit_log`, purges marketing leads,
   analytics events and both storage prefixes.
 - Internal error text no longer reaches clients; every handler is wrapped
-  by `withSentry`, so server-side Sentry initialises on Vercel.
+  by `withSentry`, so server-side Sentry initializes on Vercel.
 
 **Database and sync (audit §4)**
 
@@ -110,7 +110,7 @@ below it.
   toast replaces running old code against a new cache.
 - Accessibility: pinch-zoom re-enabled, the two documented contrast
   failures fixed (9.26:1 and 5.78:1), theme-aware secondary text, visible
-  focus rings, clickable divs converted to buttons, labelled inputs, focus
+  focus rings, clickable divs converted to buttons, labeled inputs, focus
   traps in the bottom sheet and dialogs; `alert`/`confirm` replaced by
   toasts and an accessible confirm dialog.
 - `ErrorBoundary` reports to Sentry; credit analytics use the live
@@ -158,7 +158,7 @@ below it.
   `api/**` entry and `lib/sentry.ts` to `server/handlers/**/*.mjs`;
   `server/index.js` mounts every handler by walking that tree (nested
   routes included), forwards all methods, sets `trust proxy`, serves
-  `GET /healthz` `{ ok, sha }`, initialises Sentry and logs missing env;
+  `GET /healthz` `{ ok, sha }`, initializes Sentry and logs missing env;
   the Dockerfile runs the bundling step and carries a `HEALTHCHECK`.
   `docs/CONTAINER.md` now describes what exists.
 - **Environment.** `.env.example` lists every variable read by `api/`,
@@ -188,7 +188,7 @@ below it.
   and 2.1 MB GIF removed from `public/` (host them on Supabase Storage or
   a CDN — the landing page carries the note); the stale root-level
   `atmosflow-landing.html` (still showed the removed 100-point score) and
-  its `test_landing.py` deleted in favour of `public/atmosflow-landing.html`.
+  its `test_landing.py` deleted in favor of `public/atmosflow-landing.html`.
 
 ## Fix: mold mode could not be exited on a notched iPhone
 
@@ -327,7 +327,7 @@ under `engine_outputs`, and the render path inherited the new shape with the
 resolvers unrepointed. **Thirteen of twenty-seven tokens went dead**, including
 every finding, recommendation, sampling and report-identity token.
 
-A missing token renders blank *by design* — that is the right behaviour for a
+A missing token renders blank *by design* — that is the right behavior for a
 field the assessor left empty, and it is why this had no symptom. A rendered
 report came out as letterhead with a client name and a zone list, and nothing
 anywhere went red.
@@ -464,7 +464,7 @@ the semantic pre-review prompt and to the CLAUDE.md anti-pattern.
 **Guard**
 
 `tests/engine/no-molhave.test.ts`, acceptance criterion `NO-TVOC-THRESHOLD`.
-It pins the class rather than the instances: behavioural assertions through
+It pins the class rather than the instances: behavioral assertions through
 the real entry points at every tier boundary the removed criteria used, plus a
 sweep of `src/`, `api/` and `lib/` for a TVOC threshold in a rendered position.
 The sweep strips comments first — twenty-odd files now carry removal records
@@ -512,14 +512,14 @@ captured, and a severity cap. Downstream of that:
 |---|---|
 | `src/engines/scoring.js` | `scoreZone` keeps its name and its findings; the points, weights, normalization and caps are gone. `compositeScore` is replaced by `summarizeAssessment`, returning `{ count, findings, confidence, partialData }`. |
 | `src/engines/riskBands.js` | `RISK_BANDS`, `getRiskBand`, `SEVERITY_TO_BAND`, `findingsToBand` and `deriveFMSummary` deleted. Confidence survives — it was never a band over a score. |
-| `src/engines/sufficiency.js` | Point caps deleted; `_overall` is now an unweighted mean (see Behaviour changes). |
+| `src/engines/sufficiency.js` | Point caps deleted; `_overall` is now an unweighted mean (see Behavior changes). |
 | `src/utils/assessmentVerdict.js` | The composite floor is gone; a verdict now rests on the worst finding and the escalation triggers. |
 | `src/engine/bridge/legacy.ts`, `report/internal.ts` | `siteScore`, `siteTier`, `composite`, `tier`, `rawScore` / `cappedScore` / `maxScore` removed from the contract; prioritization ranks by severity. |
 | `PrintReport.jsx`, `SpatialMap.jsx`, `docx/sections-*`, `report/portfolioModel.js` | Score badges, the score numeral, the composite-score explanation, band tints and the band histogram replaced by the census. |
 | `featureFlags.js` | `isIaqScoreVisible` / `IAQ_SCORE_VISIBLE_DEFAULT` deleted along with the `?score=1` escape hatch. |
 | Copy and docs | FAQ, terminology, feature tour, landing page, white paper, `ARCHITECTURE.md`, `REPORT_ARCHITECTURE.md`, `CLAUDE.md`. Two scoring-methodology documents deleted. |
 
-**Behaviour changes worth reviewing**
+**Behavior changes worth reviewing**
 
 1. **A verdict can move down.** With the composite floor gone, an
    assessment with only `low`-severity findings and no escalation
@@ -566,7 +566,7 @@ risk per ASHRAE Standard 188 if building lacks a Water Management
 Program"*, cited to `ASHRAE 188`. That intake field was the entire
 trigger — no water system, no aerosol-generating equipment, no water
 temperature, no occupant symptom, no building type. ASHRAE 188 scopes
-itself to building water systems with a recognised aerosol transmission
+itself to building water systems with a recognized aerosol transmission
 risk (cooling towers, evaporative condensers, domestic hot water,
 fountains, misters); a low-temperature condensate pan is not one, and a
 visual observation of one does not establish an exposure pathway.
@@ -577,7 +577,7 @@ reservoir in the condensate pan."* It keeps its `critical` severity and
 its `gate5` structural flag; only the escalation went. It cites nothing,
 because the standards corpus documents no drain-pan threshold — and 43 of
 the 57 findings this engine emits already carry no citation, including
-both of this one's neighbours.
+both of this one's neighbors.
 
 ASHRAE 188 appeared in no ledger — absent from `STANDARDS_MANIFEST`,
 `criteria.js` and `standards-corpus.js` alike — so the double-entry
@@ -718,7 +718,7 @@ envelope field fails 1. Gate: `IEMR-JASPER-READABLE` (prod-ready now 74).
 
 **A report keeps one identity across every export**
 
-Both renderers have always honoured `data.id` for the Report ID — and no
+Both renderers have always honored `data.id` for the Report ID — and no
 caller ever passed one. So both fell through to
 `AIQ-${Date.now().toString(36)…}` on every export, and the **same report
 regenerated after a typo fix came out bearing a different identity from the
@@ -770,7 +770,7 @@ so the client round-trip works on a project that has not migrated yet — and
 the upsert retry now drops `assessment_uid` alongside `payload` so an
 unapplied migration cannot break all syncing.
 
-Guards: `assessmentUid` (17) pins purity, RFC-4122 shape, collision behaviour
+Guards: `assessmentUid` (17) pins purity, RFC-4122 shape, collision behavior
 across consecutive `Date.now()` ids, and the crypto-less PWA fallback;
 `assessmentUid-wiring` (11) pins that finalize carries rather than re-derives,
 that both re-open paths backfill, and that a cloud row without a uid cannot

@@ -192,7 +192,7 @@ describe('a recommendation whose precondition does not hold is not issued', () =
     }
   })
 
-  it('treats an unrecognised rating as unrecorded rather than guessing', () => {
+  it('treats an unrecognized rating as unrecorded rather than guessing', () => {
     const r = buildRecommendationRegister(upgrade, { building: { fm: 'Unknown' } })
     expect(r.entries[0].action).toMatch(/^Establish the installed filter rating/)
   })
@@ -280,14 +280,14 @@ describe('confirmatory sampling belongs to the sampling plan', () => {
     expect(r.entries.some((e) => e.action.startsWith('Collect'))).toBe(true)
   })
 
-  it('recognises every sampling action the engine ships', () => {
+  it('recognizes every sampling action the engine ships', () => {
     // The fold keys on the verb the phrase modules use. A new sampling
     // action phrased differently would land back in the register.
     const samplingish = PHRASES.flatMap((p) => p.actions)
       .filter((a) => /\b(sorbent tube|tape-lift|DNPH|reactivity coupon|particle counter|data logger|integrated .* sample)\b/i.test(a.action))
     expect(samplingish.length).toBeGreaterThan(3)
     for (const a of samplingish) {
-      expect(SAMPLING_VERB.test(a.action.trim()), `not recognised as sampling: "${a.action.slice(0, 70)}…"`).toBe(true)
+      expect(SAMPLING_VERB.test(a.action.trim()), `not recognized as sampling: "${a.action.slice(0, 70)}…"`).toBe(true)
     }
   })
 })

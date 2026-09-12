@@ -146,7 +146,7 @@ describe('confidence is monotonic in evidence', () => {
   })
 })
 
-describe('every chain declares a confidence the system recognises', () => {
+describe('every chain declares a confidence the system recognizes', () => {
   it('emits only Possible, Moderate or Strong', () => {
     const zones = [
       { path_crosstalk: 'Odor migration', path_crosstalk_source: 'x' },

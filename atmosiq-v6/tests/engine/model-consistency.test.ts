@@ -108,12 +108,13 @@ describe('every rule bites on a deliberately broken model', () => {
   it('observation-verdict', () => expectRule('observation-verdict', m => { m.observations.zones[0].observed.push('CO₂ inadequate per ASHRAE 62.1.') }))
   it('limitation-photos', () => expectRule('limitation-photos', m => { m.photos = { items: [{ imageDataUrl: 'data:image/png;base64,AAAA' }] } }))
   it('limitation-logger', () => expectRule('limitation-logger', m => { m.loggerImages = { images: [{ imageDataUrl: 'data:image/png;base64,AAAA' }] } }))
+  const planFigure = (pins: any[]) => ({ heading: 'Site plan and sampling locations', figures: [{ id: 'p1', label: 'Floor plan', imageDataUrl: 'data:image/png;base64,AAAA', figure: { width: 10, height: 10 }, pins }], note: null })
   it('floorplan-pin', () => expectRule('floorplan-pin', m => {
-    m.floorPlan = { imageDataUrl: 'data:image/png;base64,AAAA', figure: { width: 10, height: 10 }, pins: [{ n: 1, zone: 'Mezzanine (not assessed)', use: '' }] }
+    m.floorPlans = planFigure([{ n: 1, zone: 'Mezzanine (not assessed)', use: '' }])
   }))
   it('floorplan-pin passes when every pin names a results row', () => {
     const m = clone(base())
-    m.floorPlan = { imageDataUrl: 'data:image/png;base64,AAAA', figure: { width: 10, height: 10 }, pins: [{ n: 1, zone: 'Conf 4C', use: '' }] }
+    m.floorPlans = planFigure([{ n: 1, zone: 'Conf 4C', use: '' }])
     expect(ids(m)).not.toContain('floorplan-pin')
   })
   it('gap-undisclosed', () => expectRule('gap-undisclosed', m => {

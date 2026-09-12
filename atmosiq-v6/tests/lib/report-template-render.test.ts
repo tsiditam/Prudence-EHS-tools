@@ -198,7 +198,7 @@ describe('renderTemplate', () => {
  * under `engine_outputs`. The render path inherited the new shape and nobody
  * repointed the resolvers, so every finding, recommendation, sampling and
  * report-identity token resolved to '' or '0'. `firstString` returns '' when no
- * path hits and a blank token is the DESIGNED behaviour for missing data, so
+ * path hits and a blank token is the DESIGNED behavior for missing data, so
  * the failure had no symptom short of opening the rendered file.
  *
  * These tests take the other path: build real app state, run the real engine,

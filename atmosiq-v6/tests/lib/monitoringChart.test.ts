@@ -25,11 +25,11 @@ function stubCtx() {
   const ctx: Record<string, unknown> = {
     calls,
     text: () => calls.filter((c) => c.fn === 'fillText').map((c) => String(c.args[0])),
-    // The colour of each stroke, in draw order — for asserting conditional
-    // trace colouring against the reference.
+    // The color of each stroke, in draw order — for asserting conditional
+    // trace coloring against the reference.
     strokeColors: () => calls.filter((c) => c.fn === 'stroke').map((c: any) => c.color),
-    // The stop colours of every gradient built — the area fills use one per
-    // trace colour, so this asserts the fill follows the line.
+    // The stop colors of every gradient built — the area fills use one per
+    // trace color, so this asserts the fill follows the line.
     gradientColors: () => gradients.map((s) => s.join(' ')),
     createLinearGradient: () => {
       const stops: string[] = []
@@ -41,7 +41,7 @@ function stubCtx() {
     'clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'closePath', 'fill',
     'arc', 'setLineDash', 'fillText', 'scale',
   ]) ctx[fn] = rec(fn)
-  // stroke/fill record the active style so trace colours can be asserted.
+  // stroke/fill record the active style so trace colors can be asserted.
   ctx.stroke = (...args: unknown[]) => calls.push({ fn: 'stroke', args, color: ctx.strokeStyle })
   ctx.fill = (...args: unknown[]) => calls.push({ fn: 'fill', args, color: ctx.fillStyle })
   return ctx as any
@@ -172,7 +172,7 @@ describe('drawMonitoringChart', () => {
     expect(ctx.text()).not.toContain('Before')
   })
 
-  it('colours only the above-reference span amber, not the whole trace', () => {
+  it('colors only the above-reference span amber, not the whole trace', () => {
     const ctx = stubCtx()
     // A flat 450 series with one spike to 1789 over a 1000 limit.
     drawMonitoringChart(ctx, { points: series(40, (i) => (i === 20 ? 1789 : 450)), limit: 1000 })
@@ -244,7 +244,7 @@ describe('drawMonitoringChart', () => {
     expect(ctx.strokeColors()).not.toContain('#DC2626')
   })
 
-  it('colours out-of-band readings amber but leaves in-band teal', () => {
+  it('colors out-of-band readings amber but leaves in-band teal', () => {
     const ctx = stubCtx()
     // Oscillates in and out of a 68–76 comfort band.
     drawMonitoringChart(ctx, { points: series(40, (i) => (i % 2 === 0 ? 72 : 82)), band: [68, 76] })

@@ -9,7 +9,7 @@
  * Filters applied by default (defense-in-depth):
  *   1. Only users with profiles.ai_training_consent = true.
  *      Migration 015 defaults this to TRUE, but the column is
- *      honoured here so flipped users drop out immediately.
+ *      honored here so flipped users drop out immediately.
  *   2. Only conversations that still exist (cascade-deleted rows
  *      are excluded by the inner-join shape).
  *   3. Conversations containing a 'down'-rated turn are EXCLUDED
@@ -51,7 +51,7 @@
  * Requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in env. The
  * service-role key reads past RLS — that's the only sane way to do
  * a cross-user batch — so do NOT run this from a user's terminal
- * without admin authorisation.
+ * without admin authorization.
  *
  * Exit codes:
  *   0  success

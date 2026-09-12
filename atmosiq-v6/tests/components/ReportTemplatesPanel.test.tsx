@@ -12,7 +12,7 @@
  * place that did not exist.
  *
  * Acceptance criterion REPORT-TEMPLATES passed throughout, because every one
- * of its checks asks whether a FILE exists. These tests pin behaviour and the
+ * of its checks asks whether a FILE exists. These tests pin behavior and the
  * mount, in that order.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'

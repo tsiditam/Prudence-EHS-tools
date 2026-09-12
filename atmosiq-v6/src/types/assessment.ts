@@ -64,9 +64,15 @@ export interface ZoneData {
   meas_duration?: string
   meas_conditions?: string
   // Spatial
-  /** Position on the uploaded floor plan, as a percentage of its width/height. */
+  /** Position on a floor plan, as a percentage of its width/height. */
   mapX?: number
   mapY?: number
+  /**
+   * Which of the assessment's `floorPlans` the position is on. Absent on a
+   * record from before plans were a list, which means the first plan — the
+   * only one such a record had. See utils/floorPlans.js.
+   */
+  mapPlan?: string | null
   // Notes
   znt?: string
   [key: string]: unknown
@@ -84,6 +90,8 @@ export interface BuildingData {
    */
   outdoorMapX?: number
   outdoorMapY?: number
+  /** The plan the outdoor reference is placed on; absent means the first. */
+  outdoorMapPlan?: string | null
   ba?: string
   rn?: string
   ht?: string
@@ -327,6 +335,13 @@ export interface Report {
   // renderers must handle the empty case (legacy reports).
   equipment?: HvacEquipment[]
   photos: Record<string, PhotoEntry[]>
+  /**
+   * The floor plans, in the order they are shown and figured. A record
+   * saved before 2026-09 carries the single legacy `floorPlan` data URL
+   * instead; `normalizeFloorPlans` reads either.
+   */
+  floorPlans?: FloorPlanEntry[]
+  /** @deprecated legacy single plan — read through normalizeFloorPlans */
   floorPlan?: string | null
   zoneScores: ZoneScore[]
   comp: AssessmentSummary
@@ -342,6 +357,16 @@ export interface PhotoEntry {
   src: string
   ts?: string
   label?: string
+}
+
+export interface FloorPlanEntry {
+  id: string
+  /** The assessor's name for the plan ("Level 2", "East wing"); may be empty. */
+  label: string
+  /** The image, inline. Null on disk when `idbId` carries it. */
+  image?: string | null
+  /** IndexedDB ref under the assessment's photo namespace. */
+  idbId?: string | null
 }
 
 // ── Profile Types ──

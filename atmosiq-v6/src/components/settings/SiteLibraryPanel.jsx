@@ -20,7 +20,7 @@
  *
  * Not exposed here: the per-site reassessment cadence. The column exists
  * (migration 017, `reassessment_interval_months`, default 12) and the API
- * clamps and honours it, so a picker is additive when the need appears —
+ * clamps and honors it, so a picker is additive when the need appears —
  * every site currently runs on the 12-month default.
  */
 
@@ -30,7 +30,7 @@ import { useStorage } from '../../contexts/StorageContext'
 
 // The panel mounts INSIDE a Settings <Group>, whose container is already
 // painted --card. Per-site cards use --surface so they read as rows nested
-// in that group rather than as a second card of the same colour.
+// in that group rather than as a second card of the same color.
 const CARD = 'var(--surface)'
 const BORDER = 'var(--border)'
 const TEXT = 'var(--text)'

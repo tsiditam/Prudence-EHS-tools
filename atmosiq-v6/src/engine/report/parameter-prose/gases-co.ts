@@ -55,10 +55,10 @@ export const CO_PROSE: ParameterProse = {
       // combustion source." Two problems. The threshold was restated here
       // even though the criterion registry owns it (and its lowest indoor
       // tier is 6 ppm, not 9, so the sentence could contradict the finding
-      // it summarised). And absence of a source is not what a spot reading
+      // it summarized). And absence of a source is not what a spot reading
       // shows — a combustion source that was not firing, or not venting
       // toward the sampled location, produces exactly this result.
-      return `${head} No elevated carbon monoxide was identified in any zone measured. These are single time-point readings that characterise the locations and times sampled; they do not establish that no combustion source is present.`
+      return `${head} No elevated carbon monoxide was identified in any zone measured. These are single time-point readings that characterize the locations and times sampled; they do not establish that no combustion source is present.`
     }
     const zones = range.elevatedInZones && range.elevatedInZones.length > 0
       ? ` Elevated in ${range.elevatedInZones.join(', ')}; per-zone values are in Appendix A.`

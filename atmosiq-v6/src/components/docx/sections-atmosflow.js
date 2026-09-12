@@ -67,19 +67,19 @@ const SPECTRUM = ['06B6D4', '3B82F6', 'F97316', '8B5CF6', 'F59E0B', '10B981', '2
 
 const CW = 9360 // content width in DXA (8.5in − 2in margins)
 
-// Screening severity token → { label, colour } for outcome text and pills.
+// Screening severity token → { label, color } for outcome text and pills.
 const SEV = {
   ok: { label: 'Acceptable', color: '2E7D32' },
   advisory: { label: 'Advisory', color: PILL.amb },
   elevated: { label: 'Elevated', color: PILL.org },
   priority: { label: 'Priority', color: PILL.red },
   // A parameter that was MEASURED but is not compared to anything — TVOC
-  // since 2026-08, when the Mølhave tiers were removed. Neutral grey, and
+  // since 2026-08, when the Mølhave tiers were removed. Neutral gray, and
   // deliberately not green: falling through to "Acceptable" would state a
   // verdict the platform has no basis for, which is the more dangerous of the
   // two ways to get an unjudgeable reading wrong.
   not_evaluated: { label: 'Not evaluated', color: '6B7380' },
-  // The outdoor baseline row. A reference, not a judged location: grey, and
+  // The outdoor baseline row. A reference, not a judged location: gray, and
   // deliberately not 'Acceptable' — the outdoors is not being evaluated.
   reference: { label: 'Reference', color: '6B7380' },
 }
@@ -239,7 +239,7 @@ const table = (headers, rows, widths, o = {}) =>
     ],
   })
 
-// Full-width teal status banner — white centred bold caps.
+// Full-width teal status banner — white centered bold caps.
 function statusBanner(text) {
   const t = String(text || '').toUpperCase()
   if (!t) return null
@@ -272,7 +272,7 @@ function statusBanner(text) {
   })
 }
 
-// Full-width single-cell soft card holding one centred italic line.
+// Full-width single-cell soft card holding one centered italic line.
 function placeholderCard(text) {
   return new Table({
     columnWidths: [CW],
@@ -525,18 +525,21 @@ export function atmosFlowReportChildren(model) {
     ;(M.scope.paras || [M.scope.text]).filter(Boolean).forEach((para) => c.push(body(para)))
   }
 
-  // The client's floor plan, with the sampling locations marked, as site
-  // background. The figure is fitted by the model from the image's own
-  // pixel size (a plan is whatever shape the client uploaded); the table
-  // beneath resolves the pin numbers and names the parameters recorded at
-  // each location, and carries the recorded position when the pins could
-  // not be drawn onto the image. The markers carry no severity — see
-  // utils/samplePoints.js.
-  if (M.floorPlan && isImageDataUrl(M.floorPlan.imageDataUrl)) {
-    const fp = M.floorPlan
-    const img = imageParagraph(fp.imageDataUrl, fp.figure.width, fp.figure.height)
-    if (img) {
-      c.push(h2(fp.heading || 'Site plan and sampling locations'))
+  // The client's floor plans, with the sampling locations marked, as site
+  // background — one figure per plan, in the assessor's order. Each figure
+  // is fitted by the model from the image's own pixel size (a plan is
+  // whatever shape the client uploaded); the table beneath resolves that
+  // plan's pin numbers and names the parameters recorded at each location,
+  // and carries the recorded position when the pins could not be drawn
+  // onto the image. Numbers run across the site, so a table may start at
+  // pin 3. The markers carry no severity — see utils/samplePoints.js.
+  if (M.floorPlans && Array.isArray(M.floorPlans.figures)) {
+    const figs = M.floorPlans.figures.filter((f) => f && isImageDataUrl(f.imageDataUrl))
+    let headed = false
+    for (const fp of figs) {
+      const img = imageParagraph(fp.imageDataUrl, fp.figure.width, fp.figure.height)
+      if (!img) continue
+      if (!headed) { c.push(h2(M.floorPlans.heading || 'Site plan and sampling locations')); headed = true }
       c.push(img)
       if (fp.caption) c.push(caption(fp.caption))
       const pins = Array.isArray(fp.pins) ? fp.pins : []
@@ -555,9 +558,9 @@ export function atmosFlowReportChildren(model) {
             { align: [CEN, null, null, null, null] },
           ),
         )
-        if (fp.note) c.push(caption(fp.note))
       }
     }
+    if (headed && M.floorPlans.note) c.push(caption(M.floorPlans.note))
   }
 
   // ═══ 2. Investigation Methods & QA/QC ═══

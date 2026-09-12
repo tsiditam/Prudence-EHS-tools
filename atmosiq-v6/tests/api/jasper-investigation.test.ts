@@ -2,7 +2,7 @@
  * Jasper's investigation mode — the tool, the prompt contract, and the
  * seam between them.
  *
- * The engine's own behaviour is covered in
+ * The engine's own behavior is covered in
  * tests/engine/investigation.test.ts. What matters here is that the agent
  * cannot get a DIFFERENT answer than the engine gave: the dispatcher must
  * pass the state through untouched, the prompt must forbid inventing

@@ -704,7 +704,7 @@ function btnSecondary() {
 
 function friendlyBleError(code) {
   switch (code) {
-    case 'cancelled':           return 'Pairing cancelled.'
+    case 'cancelled':           return 'Pairing canceled.'
     case 'unsupported':         return 'Bluetooth not supported in this browser.'
     case 'NotFoundError':       return 'Device not found. Make sure it\'s on and nearby.'
     case 'SecurityError':       return 'Bluetooth blocked. Check site permissions.'

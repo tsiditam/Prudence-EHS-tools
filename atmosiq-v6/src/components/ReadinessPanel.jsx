@@ -8,7 +8,7 @@
  * tab strip as "Review".
  *
  * Sections, top to bottom:
- *   1. Status — the verdict as a word in its colour, then the summary
+ *   1. Status — the verdict as a word in its color, then the summary
  *   2. Sign-off blockers — the hard items; advisory, not an export gate
  *   3. Recommended before sign-off — dismissible
  *   4. Defensibility gaps — resolve or disclose
@@ -20,7 +20,7 @@
  * Restraint pass (2026-09): the tinted status box with its icon circle,
  * the stripe-edged item cards, the mono count pills and the boxed
  * warnings are gone. Each section is a heading with its count, and each
- * item is a row parting from the next with a hairline; the colour lives
+ * item is a row parting from the next with a hairline; the color lives
  * in the words (the status, a section heading, a severity, a "Fix" link),
  * not in boxes.
  *
@@ -73,7 +73,7 @@ function Section({ title, count, color, children }) {
 }
 
 // A structured finalization item ({ id, field, label, message, location })
-// as a row. `tone` colours the Fix link; `text` is a back-compat fallback
+// as a row. `tone` colors the Fix link; `text` is a back-compat fallback
 // when only a plain string is available. With `onFix` and a location the
 // row is a button that jumps to the field that fixes it.
 function FinalizationRow({ item, text, tone, onFix, first }) {

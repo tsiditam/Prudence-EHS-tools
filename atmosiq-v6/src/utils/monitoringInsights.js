@@ -506,7 +506,7 @@ export function datasetHighlights(blocks, opts = {}) {
         //
         // `parameterStatement` in this same file already forbids exactly
         // this and says why: framing an exceedance as "remained below …
-        // during X%" reads as minimisation and contradicts the section's
+        // during X%" reads as minimization and contradicts the section's
         // own status chip. The rule was right and this list did not follow
         // it.
         out.push({ id: `above-${b.param}`, text: `${name} exceeded the selected reference during ${pct(b.stats.pctAbove)} of monitoring.` })

@@ -3,12 +3,12 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * SensorCharts — report-ready IAQ timelines (Recharts). Colours are
+ * SensorCharts — report-ready IAQ timelines (Recharts). Colors are
  * passed as RESOLVED hex (not CSS vars): Recharts emits SVG presentation
  * attributes where var() does not resolve, and a resolved palette also
  * lets us render a light "report" palette off-screen and serialize it to
  * a clean PNG for DOCX embedding. Screening / documentation only — the
- * togglable reference lines are labelled advisories / context values
+ * togglable reference lines are labeled advisories / context values
  * sourced from STD (standards.js), never an automated compliance verdict.
  */
 
@@ -21,7 +21,7 @@ import { normalizeForCompare, SENSOR_PARAMS } from '../../utils/sensorParser'
 import { STD } from '../../constants/standards'
 import { paramLabel } from './sensorHelpers'
 
-// Series hues — one fixed hue per parameter (colour follows the entity, never
+// Series hues — one fixed hue per parameter (color follows the entity, never
 // its position in a chart), stepped separately for the white report surface
 // and the dark app surface. Both sets were run through the data-viz palette
 // validator (OKLab CVD separation, normal-vision floor, lightness band,
@@ -29,10 +29,10 @@ import { paramLabel } from './sensorHelpers'
 // gate; the dark set passes with CO↔formaldehyde in the CVD warn band, which
 // is legal because every multi-series chart carries a legend and a tooltip.
 // The previous set failed outright — RH blue and PM2.5 violet measured
-// ΔE 0.4 under deuteranopia, i.e. the same colour to a colour-blind reader.
+// ΔE 0.4 under deuteranopia, i.e. the same color to a color-blind reader.
 export const LIGHT_SERIES = { co2: '#2a78d6', temp: '#eb6834', rh: '#1baf7a', pm25: '#4a3aa7', pm10: '#e87ba4', tvoc: '#008300', co: '#eda100', hcho: '#e34948' }
 export const DARK_SERIES  = { co2: '#3987e5', temp: '#d95926', rh: '#199e70', pm25: '#9085e9', pm10: '#d55181', tvoc: '#008300', co: '#c98500', hcho: '#e34948' }
-// Distinct per-zone line colours for the multi-zone overlay — the first six
+// Distinct per-zone line colors for the multi-zone overlay — the first six
 // series slots in validated adjacent order.
 const LIGHT_ZONES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300']
 const DARK_ZONES  = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300']
@@ -49,16 +49,16 @@ export const LIGHT_PALETTE = { axis: '#475569', grid: '#E6EAEE', text: '#0F172A'
 // Shared by LoggerGraphsTab + SensorDataPage.
 export const currentPalette = () => (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light' ? LIGHT_PALETTE : DARK_PALETTE)
 
-// The white-paper hues, for callers that colour something destined for a
+// The white-paper hues, for callers that color something destined for a
 // report image. On-screen surfaces read `currentPalette().series` so the
-// dot beside a stat and the trace in the chart are the same colour.
+// dot beside a stat and the trace in the chart are the same color.
 export const SERIES = LIGHT_SERIES
 
 const fmtTime = (hasTs) => (v) => (hasTs ? dayjs(v).format('MMM D HH:mm') : `#${v}`)
 
 // Tooltip chrome shared by every chart: a flat card, a hairline, the time as
 // a quiet header, then one row per series keyed by a short stroke of its
-// colour. The VALUE is the strong element and the series name secondary —
+// color. The VALUE is the strong element and the series name secondary —
 // the reader already knows which line they are on and wants the number.
 const tipBox = (pal) => ({ background: pal.card, border: `1px solid ${pal.grid}`, borderRadius: 10, padding: '8px 11px', fontSize: 12, color: pal.text, boxShadow: '0 6px 20px rgba(0,0,0,0.28)', fontFamily: 'var(--font-sans)' })
 const tipHead = (pal) => ({ color: pal.axis, marginBottom: 5, fontSize: 11, fontVariantNumeric: 'tabular-nums' })
@@ -101,7 +101,7 @@ const axis = (pal) => ({ stroke: pal.axis, tick: { fill: pal.axis, fontSize: 10.
 const trace = (pal) => ({ type: 'monotone', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', dot: false, connectNulls: true, activeDot: { r: 4, strokeWidth: 2, stroke: pal.card } })
 
 // Legend keyed by short strokes (mirrors the line marks). The label text
-// wears the axis tone, not the series colour — identity comes from the
+// wears the axis tone, not the series color — identity comes from the
 // stroke beside it, and a light series hue is illegible as text.
 const legendProps = (pal) => ({
   iconType: 'plainline', iconSize: 14,
@@ -109,7 +109,7 @@ const legendProps = (pal) => ({
   wrapperStyle: { fontSize: 11, color: pal.axis, fontFamily: 'var(--font-sans)', paddingTop: 4 },
 })
 
-// Shared config for the time X-axis of every timeline. Centralised so all nine
+// Shared config for the time X-axis of every timeline. Centralized so all nine
 // charts stay identical AND so the overlap guard below can't be forgotten on a
 // new chart.
 //
@@ -135,7 +135,7 @@ export const timeAxis = (pal, hasTs) => ({
 // rotated title and the tick numbers don't collide.
 const yLabel = (pal, value, opts = {}) => ({ value, angle: opts.right ? 90 : -90, position: opts.right ? 'insideRight' : 'insideLeft', fill: pal.axis, fontSize: 11, fontFamily: 'var(--font-sans)' })
 
-// A labelled, dashed advisory/context reference line. Values come from STD
+// A labeled, dashed advisory/context reference line. Values come from STD
 // (standards.js) — never hardcoded — and the label always names its source
 // standard so the line never reads as an automated compliance verdict.
 // Drawn in the neutral axis tone (not the series hue) so the threshold never
@@ -157,7 +157,7 @@ const refLine = (pal, { key, y, label, dash = '4 4', opacity = 0.75, yAxisId }) 
 )
 
 // Occupancy shading: a vertical band per tagged window on the time axis.
-// Occupied vs unoccupied read by fill colour; the editor list carries the
+// Occupied vs unoccupied read by fill color; the editor list carries the
 // labels. `ifOverflow="hidden"` clips bands to each chart's own domain so a
 // window clamped to the indoor range still renders on overlay charts.
 const OCC_TONE = { occupied: '#0ca30c', unoccupied: '#8A8A8A' }
@@ -342,7 +342,7 @@ export function TVOCTimelineChart({ data, hasTs = true, units = {}, palette = DA
 // Multi-parameter comparison: each selected parameter scaled to 0–100% of
 // its own range so trends of different magnitudes read together. The
 // tooltip shows ACTUAL values + units (de-normalized), and the axis is
-// clearly labelled "normalized" so magnitude is never implied.
+// clearly labeled "normalized" so magnitude is never implied.
 function MultiTooltip({ active, payload, label, hasTs, units, pal }) {
   if (!active || !payload || !payload.length) return null
   const row = payload[0]?.payload || {}
@@ -445,13 +445,13 @@ export const GRAPH_DEFS = [
   { id: 'pm', title: 'Particulate Matter (PM2.5 / PM10)', needs: (p) => p.includes('pm25') || p.includes('pm10'), series: ['PM2.5', 'PM10'], refKey: 'pm', Chart: PMTimelineChart },
   { id: 'co', title: 'Carbon Monoxide (CO)', needs: (p) => p.includes('co'), series: ['CO'], refKey: 'co', Chart: COTimelineChart },
   // No refKey — same as hcho below. The TVOC entry left REF_LINE_DEFS in
-  // 2026-08, so a refKey here would name a catalogue entry that no longer
+  // 2026-08, so a refKey here would name a catalog entry that no longer
   // exists and offer the reader a toggle with nothing behind it.
   { id: 'tvoc', title: 'Total VOCs (TVOC)', needs: (p) => p.includes('tvoc'), series: ['TVOC'], Chart: TVOCTimelineChart },
   { id: 'hcho', title: 'Formaldehyde Over Time', needs: (p) => p.includes('hcho'), series: ['Formaldehyde'], Chart: HCHOTimelineChart },
 ]
 
-// Reference-line catalogue for the toggle UI: which thresholds key applies
+// Reference-line catalog for the toggle UI: which thresholds key applies
 // to a parameter set, its label, and whether it applies given the units.
 //
 // TVOC has no entry, deliberately (2026-08). It offered `TVOC Mølhave`,

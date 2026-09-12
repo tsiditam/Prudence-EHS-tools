@@ -330,7 +330,7 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
             </div>
             {hasTvoc && (
               <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>
-                {calGasParse.recognised
+                {calGasParse.recognized
                   ? `TVOC references will be stated as ${calGasParse.reference.label.toLowerCase()}-equivalent (MW ${calGasParse.reference.mw}).`
                   : calGasParse.recorded
                     ? `"${calGasParse.stated}" is not a compound this conversion carries a molecular weight for — TVOC references will fall back to isobutylene and the report will say so.`

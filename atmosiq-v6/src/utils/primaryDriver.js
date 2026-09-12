@@ -11,7 +11,7 @@
  *
  * The bug this exists to prevent: the driver category is the RELATIVELY
  * lowest-scoring one, and one always exists — even when every category
- * passes. Mapping it straight to a deficiency phrase labelled a passing
+ * passes. Mapping it straight to a deficiency phrase labeled a passing
  * Ventilation category "Ventilation inadequacy" on a card whose own body
  * read "Conditions within acceptable range".
  *

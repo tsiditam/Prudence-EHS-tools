@@ -91,7 +91,7 @@ function fmt(value, paramId) {
 /**
  * @param {string} [calibrationGas] the zone's recorded PID span gas
  *   (`pid_cal_gas`). Decides the molecular weight a ppb TVOC log is converted
- *   through; absent or unrecognised, the converter falls back to isobutylene.
+ *   through; absent or unrecognized, the converter falls back to isobutylene.
  */
 export default function InstrumentLogImport({ onApply, isCompact, calibrationGas }) {
   const fileRef = useRef(null)
@@ -118,7 +118,7 @@ export default function InstrumentLogImport({ onApply, isCompact, calibrationGas
         ? parseSensorRows(await xlsxToRows(file), { fileName: file.name })
         : parseSensorCsv(await file.text(), { fileName: file.name })
       if (!parsedDataset) {
-        setError('Could not parse the file. It needs at least a timestamp/row column + one recognised parameter column.')
+        setError('Could not parse the file. It needs at least a timestamp/row column + one recognized parameter column.')
         return
       }
       // Wrap as a single-dataset envelope so sensorAveragesToFields can
@@ -157,7 +157,7 @@ export default function InstrumentLogImport({ onApply, isCompact, calibrationGas
       }
       setParsed(result)
       if (Object.keys(parameters).length === 0) {
-        setError('No recognised IAQ parameter columns were found (CO₂ / Temp / RH / PM2.5 / TVOC / CO / HCHO).')
+        setError('No recognized IAQ parameter columns were found (CO₂ / Temp / RH / PM2.5 / TVOC / CO / HCHO).')
       } else if (result.sampleCount === 0) {
         setError('No sample rows were parsed from the file.')
       }

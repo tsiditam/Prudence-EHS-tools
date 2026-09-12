@@ -54,7 +54,7 @@ export const SEV_COLORS = {
 
 // `scoreColor` and `riskLabel` lived here — two more band ladders (70/50
 // and 80/60/40) that agreed with neither each other nor riskBands.js.
-// They went with the score. Severity colours live in SEV_COLORS above,
+// They went with the score. Severity colors live in SEV_COLORS above,
 // which has one definition.
 
 

@@ -64,7 +64,7 @@ draft → in_review → reviewed → final
 |---|---|---|
 | **screening** (default) | `DRAFT` watermark, header "Draft" | no watermark, no pending language; carries the limitation statement |
 | **professional** | `DRAFT`, "Draft — Pending Professional Review" | signed by the REVIEWER (name, credentials, organization, approval id, review date) |
-| **compliance** | as professional | as professional; cannot be labelled Final without a recorded approval |
+| **compliance** | as professional | as professional; cannot be labeled Final without a recorded approval |
 
 A **screening report reaches Final without a reviewer** — that is the point.
 It is a record of measurements, not a professional opinion, so its closing
@@ -75,7 +75,7 @@ statement is the scope limitation rather than an accountability claim.
 - **`mode: 'sample'`** — a marketing artifact illustrating report
   structure. No profile, no status, no reviewer. Handled first and
   unchanged.
-- **Legacy `mode: 'draft' | 'final'`** — still honoured. A caller passing
+- **Legacy `mode: 'draft' | 'final'`** — still honored. A caller passing
   it (`api/report-pdf.js`, `src/utils/downloadReportPdf.js`) is the
   consultant path, which has always carried the professional
   accountability statement, so those callers resolve to the

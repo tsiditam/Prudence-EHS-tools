@@ -8,7 +8,7 @@
  * aerosol-generating equipment, no water temperature, no occupant symptom, no
  * building type. Answering a dropdown produced a Legionella escalation.
  *
- * ASHRAE 188 scopes itself to building water systems with a recognised aerosol
+ * ASHRAE 188 scopes itself to building water systems with a recognized aerosol
  * transmission risk — cooling towers, evaporative condensers, domestic hot
  * water, decorative fountains, misters. A low-temperature condensate pan is
  * not one of those, and a visual observation of one does not establish an
@@ -88,7 +88,7 @@ describe('the drain-pan finding states a condition, not an escalation', () => {
     // Not a placeholder for a citation yet to be found. The corpus documents
     // no drain-pan threshold, so there is nothing to cite, and 43 of the 57
     // findings this engine emits already carry no `std` — including both of
-    // this one's neighbours (no filtration, no supply airflow). A finding
+    // this one's neighbors (no filtration, no supply airflow). A finding
     // with no citation is honest; an invented one is not.
     expect(drainPanFinding(dp).std ?? null).toBeNull()
   })

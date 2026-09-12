@@ -696,7 +696,7 @@ function renderAppendices(ap) {
     }
     // The STANDARDS REGISTER is deliberately not rendered — see the same
     // note in sections-v21client.js. Each criterion is already named where
-    // it is used; the catalogue restated them a third time. The citation
+    // it is used; the catalog restated them a third time. The citation
     // walker still populates appendixD.citations as the audit record.
     if (ap.appendixD.engineVersionLine) {
       out.push(`<p class="engine-version">${esc(ap.appendixD.engineVersionLine)}</p>`)

@@ -149,7 +149,7 @@ describe('JasperFloatingButton', () => {
 
   // The aura keeps one extent while the disc shrinks. It used to resize in
   // a single step while the disc eased, and Safari drew the mask against
-  // the old bounds for those frames — the glow sat off-centre and clipped.
+  // the old bounds for those frames — the glow sat off-center and clipped.
   it('keeps the aura at full extent while the disc is shrunk', () => {
     const { container } = render(<JasperFloatingButton onClick={() => {}} />)
     const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })

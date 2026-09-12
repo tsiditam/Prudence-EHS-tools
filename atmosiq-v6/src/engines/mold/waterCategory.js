@@ -20,7 +20,7 @@ import { WATER_CATEGORIES } from '../../constants/moldStandards.js'
 // example sources; matching is substring, case-insensitive, word-ish.
 const CATEGORY_KEYWORDS = [
   { id: 3, terms: ['sewage', 'sewer', 'feces', 'fecal', 'black water', 'blackwater', 'toilet overflow', 'ground water', 'groundwater', 'rising water', 'flood', 'river', 'stream', 'seawater', 'sea water', 'storm surge', 'standing water'] },
-  { id: 2, terms: ['grey water', 'gray water', 'greywater', 'graywater', 'dishwasher', 'washing machine', 'washer', 'sump', 'urine', 'aquarium', 'discharge', 'condensate overflow', 'hydrostatic'] },
+  { id: 2, terms: ['grey water', 'gray water', 'greywater', 'graywater', 'dishwasher', 'washing machine', 'washer', 'sump', 'urine', 'aquarium', 'discharge', 'condensate overflow', 'hydrostatic'] }, // spelling-ok: matches both spellings of user input
   { id: 1, terms: ['supply line', 'supply-line', 'clean water', 'potable', 'rain', 'roof leak', 'window leak', 'condensate', 'tub overflow', 'sink overflow', 'ice maker', 'water heater', 'pipe burst', 'burst pipe', 'plumbing leak'] },
 ]
 

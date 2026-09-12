@@ -488,7 +488,7 @@ function parseVisionResponse(data) {
  * one failure that would make this feature worse than useless, because it
  * is exactly the thing a reviewer would rely on without re-reading.
  *
- * Matching is whitespace-normalised. PDF extraction inserts line breaks
+ * Matching is whitespace-normalized. PDF extraction inserts line breaks
  * mid-sentence, so a model quoting accurately from what it was given can
  * still differ from the raw text by whitespace alone; requiring an exact
  * match would drop true quotes and teach nothing.
@@ -906,7 +906,7 @@ export async function dispatchTool(name, input, ctx = {}) {
           ? `Only pages 1-${row.pages_read} of ${row.pages} were extracted from this document; the rest was never read.`
           : 'Review covers the excerpt named in reviewed_chars only.',
         instruction: moreRemains
-          ? 'Report these issues, state which part of the report was reviewed, and offer to continue with the rest. Do not characterise the report as a whole from one window.'
+          ? 'Report these issues, state which part of the report was reviewed, and offer to continue with the rest. Do not characterize the report as a whole from one window.'
           : 'Report these issues and state that the review covered the extracted text. An empty list means nothing in this text raised a question — say that plainly rather than implying the report is endorsed.',
       }
     }

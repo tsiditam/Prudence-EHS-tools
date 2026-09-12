@@ -29,7 +29,7 @@
  *
  *   2. **Design intent is the building's, not a standard's.** Where an
  *      O&M document states a design differential, it is captured as a
- *      USER-ENTERED target and labelled as such everywhere it renders
+ *      USER-ENTERED target and labeled as such everywhere it renders
  *      (`DESIGN_TARGET_FRAMING`). It never acquires the authority of a
  *      published criterion, and the engine never scores against it.
  *
@@ -105,7 +105,7 @@ export const DESIGN_TARGET_FRAMING =
  * Review label carried on every narrative this module emits.
  *
  * ── Conflict flagged, resolved to one constant ────────────────────────
- * The pressurization spec requires narrative output to stay labelled
+ * The pressurization spec requires narrative output to stay labeled
  * "IH Review Required". CLAUDE.md records that this exact phrase was
  * deliberately reworded off every report and chat answer in 2026-08 —
  * it stamped everything as pending review, which is the problem the
@@ -345,7 +345,7 @@ export const NEGATIVE_PRESSURE_SHORT =
 //
 // Pressurization remedies are ENGINEERING controls without exception:
 // every one of them changes how the building moves air. None of them is
-// source management (the source is outdoors, or is the neighbouring
+// source management (the source is outdoors, or is the neighboring
 // tenant) and none is administrative (no procedure re-balances a fan).
 
 export const CONTROL_TIER = Object.freeze({

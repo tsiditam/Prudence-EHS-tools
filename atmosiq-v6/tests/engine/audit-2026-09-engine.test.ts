@@ -72,7 +72,7 @@ describe('H1 — one numeric parser, and a garbage reading is a data gap, never 
     expect(co2.t).toContain('CO₂ 1180 ppm')
   })
 
-  it('an empty field keeps the "not captured" behaviour (no data-gap finding)', () => {
+  it('an empty field keeps the "not captured" behavior (no data-gap finding)', () => {
     expect(findings({ co2: '', tf: '', rh: '' }, 'Ventilation').some((f) => f.dataGap)).toBe(false)
     expect(findings({ co2: '', tf: '', rh: '' }, 'Environment').some((f) => f.dataGap)).toBe(false)
   })

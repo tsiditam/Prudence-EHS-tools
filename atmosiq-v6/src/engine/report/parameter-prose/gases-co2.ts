@@ -43,7 +43,7 @@ export const CO2_PROSE: ParameterProse = {
       // of occupant-related accumulation." That framed a removed informative
       // appendix as a criterion to pass, which is the exact error Persily
       // 2021 addresses — no current ASHRAE standard sets an indoor CO2
-      // limit. The differential is reported and characterised; it is not
+      // limit. The differential is reported and characterized; it is not
       // scored against a quasi-compliance line.
       const reading = range.outdoorReference !== undefined
         ? ' The indoor-to-outdoor differential is consistent with outdoor-air delivery keeping pace with occupancy at the time of measurement.'

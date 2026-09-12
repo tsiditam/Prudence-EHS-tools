@@ -152,7 +152,7 @@ describe('legacy status compatibility', () => {
     expect(fromLegacyStatus('complete')).not.toBe(REVIEWED)
   })
 
-  it('treats anything unrecognised as a draft', () => {
+  it('treats anything unrecognized as a draft', () => {
     expect(fromLegacyStatus(undefined)).toBe(DRAFT)
     expect(fromLegacyStatus('')).toBe(DRAFT)
     expect(fromLegacyStatus('weird')).toBe(DRAFT)

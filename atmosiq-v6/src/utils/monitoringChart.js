@@ -8,7 +8,7 @@
  *
  * This is the chart from the reviewed design, not the app's on-screen
  * Recharts timeline: a print figure with the reference line, the marked
- * occupancy columns, the annotated event markers, and the labelled peak. It
+ * occupancy columns, the annotated event markers, and the labeled peak. It
  * is drawn with the 2D canvas API rather than SVG/DOM because the output is a
  * PNG for a Word document, and because a canvas render is identical in the
  * browser and in a headless build — no font-loading or layout race to lose.
@@ -22,10 +22,10 @@ import { trailingMeans } from './monitoringStats'
 const isNum = (v) => v != null && Number.isFinite(v)
 
 /**
- * The figure's palette — the report's five colours and nothing else.
+ * The figure's palette — the report's five colors and nothing else.
  *
  * Cyan carries the data, amber the reference, green the comfort range, and
- * everything structural is a neutral grey. Restraint is the point: a figure
+ * everything structural is a neutral gray. Restraint is the point: a figure
  * whose gridlines compete with its trend line is harder to read, not richer.
  */
 export const CHART_COLORS = {
@@ -33,9 +33,9 @@ export const CHART_COLORS = {
   muted: '#6B7480', // axis labels — darker than the old #8A929E, so they read
   hair: '#EEF1F4', // gridlines — softer, so they recede behind the data
   line: '#0891B2',
-  // Conditional trace colours. The line stays teal in range; the span above the
+  // Conditional trace colors. The line stays teal in range; the span above the
   // selected reference (or outside the comfort band) turns amber; a span above a
-  // defined higher action tier turns red. The colour encodes each READING
+  // defined higher action tier turns red. The color encodes each READING
   // against the reference — the status chip carries the parameter-level verdict.
   excursion: '#D97706', // above the selected reference / outside the band
   action: '#DC2626', //    above a defined higher action/review tier
@@ -58,7 +58,7 @@ export const CHART_COLORS = {
 const STROKE = { trend: 1.35, reference: 1.8, grid: 1, event: 1 }
 
 /**
- * The area-fill gradient for each trace colour, keyed by that colour so the
+ * The area-fill gradient for each trace color, keyed by that color so the
  * fill under a span always matches the line above it — teal, amber and red
  * regions read as one object, not a line floating over a mismatched wash. Same
  * top→bottom fade as the original single fill; excursion fills sit a hair
@@ -168,7 +168,7 @@ function dayTicks(t0, t1, utcOffsetMin) {
 }
 
 /**
- * The colour of a reading: teal in range, amber for a screening excursion
+ * The color of a reading: teal in range, amber for a screening excursion
  * (raw value above the upper reference, or outside the comfort band), red for
  * the acute action tier — the ROLLING mean `r` over the criterion's window at
  * or above `actionLimit`. Red is drawn only where the action tier genuinely
@@ -188,7 +188,7 @@ function traceColor(v, r, spec, C) {
   return C.line
 }
 
-/** The values the RAW trace and the ROLLING mean are each split at, so a colour
+/** The values the RAW trace and the ROLLING mean are each split at, so a color
  * change lands exactly on a crossing. `onV` are crossed by the reading itself
  * (band edges / screening limit); `onR` by the windowed mean (action tier). */
 function thresholdSets(spec) {
@@ -211,15 +211,15 @@ function crossFraction(a, b, t) {
 }
 
 /**
- * Split the trace into contiguous single-colour RUNS. Each point carries its
+ * Split the trace into contiguous single-color RUNS. Each point carries its
  * raw value `v` and (optionally) its rolling mean `r`; a run boundary is
  * inserted wherever the reading crosses the reference OR the rolling mean
- * crosses the action tier, so line and fill change colour exactly on the
- * crossing. Grouping consecutive same-colour edges lets each run draw as one
+ * crosses the action tier, so line and fill change color exactly on the
+ * crossing. Grouping consecutive same-color edges lets each run draw as one
  * continuous region — clean boundaries, no antialias seams inside a run.
  *
  * Returns `[{ color, verts: [{t, v}, …] }]` in draw order; verts carry the raw
- * value (the line's y-position), while colour reflects both v and r.
+ * value (the line's y-position), while color reflects both v and r.
  */
 function coloredRuns(pts, spec, C) {
   const { onV, onR } = thresholdSets(spec)
@@ -392,14 +392,14 @@ export function drawMonitoringChart(ctx, spec = {}) {
     }
   }
 
-  // Trace and its area fill, coloured together per reading against the selected
+  // Trace and its area fill, colored together per reading against the selected
   // reference: teal in range, amber across a screening excursion, red where the
   // acute action tier is reached. Each run is split exactly where it crosses a
-  // threshold, so only the out-of-range span changes colour — a lone spike
-  // colours only its own span (never the whole trace), and a mostly-out-of-
+  // threshold, so only the out-of-range span changes color — a lone spike
+  // colors only its own span (never the whole trace), and a mostly-out-of-
   // range series (HCHO at ~99% above) reads as mostly amber. The fill under a
-  // span matches its line, so an excursion reads as a coloured region, not a
-  // colour floating over a mismatched teal wash.
+  // span matches its line, so an excursion reads as a colored region, not a
+  // color floating over a mismatched teal wash.
   //
   // The red action tier is evaluated on a ROLLING MEAN over the criterion's
   // window (`actionWindowMs`), not the raw reading, so a single short-interval
@@ -426,7 +426,7 @@ export function drawMonitoringChart(ctx, spec = {}) {
     ctx.moveTo(X(run.verts[0].t), Y(run.verts[0].v))
     for (let i = 1; i < run.verts.length; i++) ctx.lineTo(X(run.verts[i].t), Y(run.verts[i].v))
   }
-  // Fills first, so the coloured lines sit crisply on top.
+  // Fills first, so the colored lines sit crisply on top.
   runs.forEach((run) => {
     ctx.beginPath()
     tracePath(run)
@@ -446,7 +446,7 @@ export function drawMonitoringChart(ctx, spec = {}) {
     ctx.stroke()
   })
 
-  // Annotated events — a dashed rule and a caret, labelled above the plot.
+  // Annotated events — a dashed rule and a caret, labeled above the plot.
   ;(spec.events || []).forEach((e) => {
     if (!isNum(e.t) || e.t < t0 || e.t > t1) return
     const x = X(e.t)
@@ -476,13 +476,13 @@ export function drawMonitoringChart(ctx, spec = {}) {
     }
   })
 
-  // The maximum, labelled — the single most-cited point on the figure.
+  // The maximum, labeled — the single most-cited point on the figure.
   let peakIdx = 0
   for (let i = 1; i < pts.length; i++) if (pts[i].v > pts[peakIdx].v) peakIdx = i
   const peak = pts[peakIdx]
   const px = X(peak.t)
   const py = Y(peak.v)
-  // The peak dot takes the colour of its own span — amber, or red when the
+  // The peak dot takes the color of its own span — amber, or red when the
   // rolling mean at the maximum is itself in the action tier — so the
   // most-cited point reads true.
   ctx.fillStyle = traceColor(peak.v, rolling ? rolling[peakIdx] : null, spec, C)

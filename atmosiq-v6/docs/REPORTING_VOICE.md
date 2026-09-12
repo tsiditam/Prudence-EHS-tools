@@ -63,7 +63,7 @@ every zone.
 ## What this policy does NOT change
 
 This is a change to **verbosity and placement**, not to defensibility. Nothing
-here authorises claiming more than the evidence supports. Specifically, all of
+here authorizes claiming more than the evidence supports. Specifically, all of
 the following stay exactly as they are:
 
 - **Permission flags** — `definitiveConclusionAllowed`, `causationSupported`,
@@ -72,7 +72,7 @@ the following stay exactly as they are:
   CommonJS mirror `api/_banned-language.js`. "Confirmed", "caused by",
   "noncompliant", "unsafe" remain blocked without the earned flag. No rule in
   this document requires any of them.
-- **AI provenance labelling** and the Jasper disclaimer line.
+- **AI provenance labeling** and the Jasper disclaimer line.
 - **Qualitative-only propagation** from uncalibrated instruments.
 
 Rule 12 ("match the strength of the language to the strength of the evidence")
@@ -200,7 +200,7 @@ for short sentences (15–20 words), plain words where the plain word is just
 as true, a term explained the first time it is used, and every number given
 something to measure against ("45 µg/m³ indoors against 2 outdoors — roughly
 twenty times higher"). It names the consultant tics to cut: "it should be
-noted", "in order to", "prior to", "with respect to", "utilise".
+noted", "in order to", "prior to", "with respect to", "utilize".
 
 Two things plain language explicitly does NOT license, both pinned by
 `tests/engine/narrative-prompt.test.ts`:

@@ -6,7 +6,7 @@
  * LoggerGraphsTab — results-screen view of the assessment's logger timelines.
  * Viewing is decoupled from report inclusion: every detected per-parameter
  * timeline (plus the multi-parameter comparison) is re-rendered live from the
- * primary dataset, honouring the same occupancy shading and advisory
+ * primary dataset, honoring the same occupancy shading and advisory
  * reference-line toggles as Logger Studio. Charts the assessor flagged
  * "Include in report" carry an "In report" badge; the flag itself governs only
  * DOCX embedding. The cross-dataset overlays (indoor/outdoor differential,

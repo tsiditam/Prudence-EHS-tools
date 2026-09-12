@@ -77,7 +77,7 @@ export const DEFAULT_STATUS = REPORT_STATUS.DRAFT
  * Legal moves.
  *
  * Reverting to Draft from review states is deliberate: a reviewer asking
- * for changes has to be able to send the report back, and modelling that
+ * for changes has to be able to send the report back, and modeling that
  * as a new report would orphan the review history.
  */
 export const TRANSITIONS = Object.freeze({

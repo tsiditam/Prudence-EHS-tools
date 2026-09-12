@@ -525,7 +525,7 @@ describe('figure captions', () => {
   })
 
   it('explains the amber trace only when a reading actually crossed the reference', () => {
-    // No excursion → no amber legend (it would describe a colour never drawn).
+    // No excursion → no amber legend (it would describe a color never drawn).
     expect(
       figureCaption({ ...base, reference: { limit: 1000, unit: 'ppm' }, stats: { pctAbove: 0 } }, {}),
     ).not.toContain('Amber')
@@ -828,7 +828,7 @@ describe('the PID calibration gas has no TVOC reference left to weigh', () => {
   })
 
   it('still reports the TVOC series it measured', () => {
-    // Removal is not suppression. The parameter is monitored, summarised and
+    // Removal is not suppression. The parameter is monitored, summarized and
     // charted; it is only never scored.
     const m = built({ calibration: { date: '2026-03-12', gas: 'Toluene 100 ppm' } })
     const tvoc = m.parameters.find((x: any) => x.param === 'tvoc')

@@ -61,7 +61,7 @@ export function isHeic(file) {
  * which is the iPhone default) and an otherwise-valid photo that is
  * merely too big. Every other unsupported format keeps the explicit
  * rejection it has always had — quietly re-encoding whatever a user
- * drops would be a wider behaviour change than the problem justifies,
+ * drops would be a wider behavior change than the problem justifies,
  * and a format we cannot decode would fail later and less clearly.
  */
 export function needsProcessing(file, maxBytes) {

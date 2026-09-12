@@ -23,7 +23,7 @@ export default class ErrorBoundary extends Component {
 
   static getDerivedStateFromError(error) {
     // A failed React.lazy chunk lands HERE (React routes it to the nearest
-    // boundary, not to `unhandledrejection`). Recognise it so the copy says
+    // boundary, not to `unhandledrejection`). Recognize it so the copy says
     // "update available", not "something went wrong".
     return { hasError: true, error, stale: isStaleChunkError(error) }
   }

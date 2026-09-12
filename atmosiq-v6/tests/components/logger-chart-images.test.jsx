@@ -105,7 +105,7 @@ describe('ensureLoggerChartImages', () => {
  * composeChartFigure — the SVG the raster is made from. Recharts renders a
  * chart's legend BEFORE its plot in DOM order, each legend item carrying a
  * 14×14 icon <svg>; `querySelector('svg')` therefore returned a legend icon
- * for every chart with a legend, and the report printed a single coloured
+ * for every chart with a legend, and the report printed a single colored
  * stroke stretched to figure size — a solid bar — for PM2.5/PM10,
  * temperature & RH and the multi-parameter comparison, while the
  * legend-less single-series charts rendered correctly. These pin that the
@@ -149,7 +149,7 @@ describe('composeChartFigure', () => {
     const labels = Array.from(root.querySelectorAll('text')).map((t) => t.textContent)
     expect(labels).toContain('PM2.5')
     expect(labels).toContain('PM10')
-    // Legend strokes carry the series colours, so the labels resolve the lines.
+    // Legend strokes carry the series colors, so the labels resolve the lines.
     const strokes = Array.from(root.querySelectorAll(':scope > line')).map((l) => l.getAttribute('stroke')).sort()
     expect(strokes).toEqual([LIGHT_PALETTE.series.pm25, LIGHT_PALETTE.series.pm10].sort())
   })

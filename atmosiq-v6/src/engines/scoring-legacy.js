@@ -129,7 +129,7 @@ const EQ_RULES = {
   // 188. If building lacks a Water Management Program, consider Legionella
   // sampling given active occupant respiratory symptoms." — and fired on any
   // finding whose text contained "Drain pan", nothing more. Two problems, both
-  // fatal: ASHRAE 188 governs building water systems with a recognised aerosol
+  // fatal: ASHRAE 188 governs building water systems with a recognized aerosol
   // transmission pathway (cooling towers, evaporative condensers, domestic hot
   // water, fountains, misters), which a low-temperature condensate pan is not;
   // and the closing clause ASSERTED active respiratory symptoms with nothing
@@ -300,7 +300,7 @@ export function genRecs(zoneScores, bldg, opts = {}) {
     // assessment had not observed (audit M5).
     const hasParticulate = zs.cats.some(c => c.r.some(r => r.p === 'pm25' && (r.sev === 'critical' || r.sev === 'high' || r.sev === 'medium')))
     // Pressurization keys on the STRUCTURED observation — the zone's
-    // `path_pressure` intake answer, canonicalised through the same option
+    // `path_pressure` intake answer, canonicalized through the same option
     // map the pressurization module uses, or that module's own zonesNegative
     // list — never on the word "negative" appearing in any finding text,
     // which fired the remedy off a pharmacy profile's context sentence.

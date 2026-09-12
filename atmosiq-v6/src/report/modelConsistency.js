@@ -210,16 +210,22 @@ function limitationsAgreeWithSections(M) {
  * outdoor pin resolves to it.
  */
 function floorPlanPinsResolve(M) {
-  const fp = M.floorPlan
-  if (!fp || !Array.isArray(fp.pins) || !fp.pins.length) return []
+  const figures = M.floorPlans && Array.isArray(M.floorPlans.figures) ? M.floorPlans.figures : []
+  if (!figures.length) return []
   const named = new Set(
     ((M.results && M.results.rows) || [])
       .filter(r => r && r.id !== 'Site mean')
       .map(r => String(r.id)),
   )
-  return fp.pins
-    .filter(p => !named.has(String(p.zone)))
-    .map(p => issue('floorplan-pin', 'Site plan', `Pin ${p.n} on the floor plan is labeled "${p.zone}", which is not a zone in the measurement results.`))
+  const out = []
+  for (const fig of figures) {
+    for (const p of (Array.isArray(fig.pins) ? fig.pins : [])) {
+      if (named.has(String(p.zone))) continue
+      const where = figures.length > 1 ? ` (${fig.label})` : ''
+      out.push(issue('floorplan-pin', 'Site plan', `Pin ${p.n} on the floor plan${where} is labeled "${p.zone}", which is not a zone in the measurement results.`))
+    }
+  }
+  return out
 }
 
 /** The conclusion the summary states is the one the site model tables. */

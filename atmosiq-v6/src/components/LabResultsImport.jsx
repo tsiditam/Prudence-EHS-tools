@@ -411,7 +411,7 @@ export default function LabResultsImport({ onBack, onSaved }) {
       <div style={{ fontSize: 12, color: SUB, marginTop: 4, marginBottom: 20, lineHeight: 1.55 }}>
         Upload a CSV from your analytical lab (EMSL, EMLab P&amp;K, Eurofins, Aerotech, Pace, or any
         generic format). Auto-detected columns get mapped to the canonical fields the consultant
-        DOCX renders as Appendix G. Unrecognised columns are preserved verbatim.
+        DOCX renders as Appendix G. Unrecognized columns are preserved verbatim.
       </div>
 
       <input ref={fileRef} type="file" accept=".csv,text/csv,application/vnd.ms-excel" onChange={handleFile} style={{ display: 'none' }} />
@@ -618,7 +618,7 @@ export default function LabResultsImport({ onBack, onSaved }) {
 
       {!parsed && !error && (
         <div style={{ marginTop: 20, fontSize: 11, color: DIM, lineHeight: 1.6 }}>
-          The parser recognises common column names (Sample ID, Location, Date Collected, Analyte,
+          The parser recognizes common column names (Sample ID, Location, Date Collected, Analyte,
           Result, Units, Detection Limit, Notes). If your CSV uses different headers and rows
           come back blank, contact support — we can add a profile for your lab.
         </div>

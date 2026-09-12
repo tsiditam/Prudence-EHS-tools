@@ -266,7 +266,7 @@ export const BUILDING_SCOPED_IDS = Object.freeze(
  *
  * Every entry is a read that cannot return a value: the engine asks for a
  * key nothing ever writes, so the branch behind it is unreachable. They
- * are enumerated rather than fixed here because each fix is a behaviour
+ * are enumerated rather than fixed here because each fix is a behavior
  * change — restoring a dormant critical trigger, or deleting a branch —
  * and those belong in their own change with their own review, not
  * smuggled into the registry that found them.

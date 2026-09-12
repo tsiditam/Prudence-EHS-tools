@@ -18,7 +18,7 @@
  * Or render <ConfirmDialog open … onConfirm onCancel /> directly.
  *
  * Accessibility contract (pinned by tests/components/ConfirmDialog.test.tsx):
- *   • role="alertdialog", aria-modal, labelled by the title and described
+ *   • role="alertdialog", aria-modal, labeled by the title and described
  *     by the message;
  *   • focus moves into the dialog on open, Tab cycles inside it, and focus
  *     returns to the opener on close (useFocusTrap);

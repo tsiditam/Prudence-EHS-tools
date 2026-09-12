@@ -46,7 +46,7 @@ const LUCIDE = {
 
 // Domain-specific glyphs with no clean Lucide match — kept as custom
 // strokes on the same 24-grid with round joins so they read correctly:
-// a spore cluster for mould / microbial, and a radial burst for building
+// a spore cluster for mold / microbial, and a radial burst for building
 // pressure.
 const CUSTOM = {
   mold: (p) => <svg {...p}><circle cx="12" cy="12" r="3"/><circle cx="6" cy="8" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>,

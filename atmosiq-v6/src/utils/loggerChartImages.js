@@ -73,21 +73,21 @@ function defaultMeasure(el, host) {
  * order, each legend item carrying its own 14×14 icon `<svg>`. So
  * `host.querySelector('svg')` on any chart with a legend (PM2.5/PM10,
  * temperature & RH, the multi-parameter comparison) returns a legend icon —
- * a single coloured stroke — and a raster of that, stretched to figure size,
- * is the solid coloured bar that shipped in reports until 2026-09. The
+ * a single colored stroke — and a raster of that, stretched to figure size,
+ * is the solid colored bar that shipped in reports until 2026-09. The
  * single-series charts have no legend and were never affected.
  *
  * This picks the plot surface(s) explicitly, places each at its laid-out
  * position (the small-multiple charts stack two panels), and redraws the
  * legend into the same SVG as text so a two-series figure names its lines —
  * the DOCX prints no series list beneath the image, so without this the
- * reader had colour alone.
+ * reader had color alone.
  *
  * @param host       element the chart is mounted in
  * @param width      figure width (CSS px)
  * @param height     figure height (CSS px)
  * @param opts.measure   (el, host) → {x, y, width, height}; testing seam
- * @param opts.textColor legend label colour
+ * @param opts.textColor legend label color
  * @returns {string|null} serialized SVG, or null when no plot surface is drawn
  */
 export function composeChartFigure(host, width, height, opts = {}) {
@@ -165,7 +165,7 @@ function chartSurfaces(host) {
  * SVG → base64 data URL → <img> → canvas → toDataURL is the reliable
  * cross-browser raster path (notably on iOS Safari, where html2canvas over
  * Recharts' SVG+HTML legend frequently fails). The figure carries its own
- * geometry, colours and legend, so nothing external is referenced.
+ * geometry, colors and legend, so nothing external is referenced.
  */
 function defaultRasterizeSvg(xml, width, height) {
   return new Promise((resolve) => {

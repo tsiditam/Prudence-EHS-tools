@@ -43,7 +43,7 @@ export const MAX_DOCX_CHARS = 60_000
  *   w:br   explicit break → newline
  *
  * Runs (`w:t`) are concatenated inside their paragraph. `xml:space` is
- * irrelevant here because we normalise whitespace at the end anyway.
+ * irrelevant here because we normalize whitespace at the end anyway.
  *
  * @param {string} xml contents of word/document.xml
  * @returns {string}
@@ -117,7 +117,7 @@ export async function readDocxText(file, opts = {}) {
   // they are where the identifying facts live: the running header
   // carries the project and dates, the footer carries "Prepared for
   // <client>". Reading only document.xml yields a report that never
-  // says who it is for — so they are pulled in once each and labelled,
+  // says who it is for — so they are pulled in once each and labeled,
   // rather than repeated per page as Word would render them.
   const chrome = []
   for (const [label, re] of [

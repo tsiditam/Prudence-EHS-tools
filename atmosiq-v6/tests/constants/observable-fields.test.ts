@@ -125,14 +125,14 @@ describe('the vocabulary comes from the schema', () => {
 })
 
 describe('validation', () => {
-  it('normalises a loose value to the schema\'s exact string', () => {
+  it('normalizes a loose value to the schema\'s exact string', () => {
     const r: any = validateObservation('mi', 'extensive (> 100 SQ FT)')
     expect(r.ok).toBe(true)
     expect(r.value).toBe('Extensive (> 100 sq ft)')
   })
 
   it('rejects a paraphrase rather than guessing', () => {
-    const r: any = validateObservation('mi', 'quite a lot of mould')
+    const r: any = validateObservation('mi', 'quite a lot of mould') // spelling-ok: free text a user might type
     expect(r.ok).toBe(false)
     expect(r.error).toBe('invalid_option')
     expect(r.allowed).toContain('Extensive (> 100 sq ft)')
@@ -315,7 +315,7 @@ describe('an accepted write moves the investigation', () => {
     const zones: Zone[] = [{ zn: 'Suite 200', co2: '1450' }]
     const before = investigate(zones, {})
     const proposal: any = await dispatchTool('propose_action', {
-      action_type: 'record_zone_observation', field: 'mi', value: 'a fair bit of mould',
+      action_type: 'record_zone_observation', field: 'mi', value: 'a fair bit of mould', // spelling-ok: free text a user might type
     }, {})
     expect(proposal.status).toBe('rejected')
     expect(proposal.action).toBeUndefined()

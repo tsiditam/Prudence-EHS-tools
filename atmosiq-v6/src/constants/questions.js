@@ -159,7 +159,7 @@ export const Q_DETAILS = [
   { id:'bld_press_dp_units',    sec:'Pressurization', q:'Reading units?',                                t:'ch', sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
   { id:'bld_press_dp_location', sec:'Pressurization', q:'Reference location for the reading?',           t:'text', sk:1, ic:'📍', ph:'e.g. Main lobby vestibule, north stairwell', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
   // Design intent, when the O&M documents state one. USER-ENTERED — it
-  // describes what this building was designed to do, and it is labelled
+  // describes what this building was designed to do, and it is labeled
   // that way wherever it renders. It is never treated as a standard and
   // the engine never evaluates the reading against it.
   { id:'bld_press_design',      sec:'Pressurization', q:'Design pressurization target from O&M documents?', t:'num', sk:1, ic:'📄', ph:'Leave blank if not documented', ref:'User-entered design intent for THIS building — not a standard, and not a criterion this assessment evaluates against.' },
@@ -251,7 +251,7 @@ export const Q_BUILDING = [
   { id:'bld_press_dp_units',    sec:'Pressurization', q:'Reading units?',                                t:'ch', sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
   { id:'bld_press_dp_location', sec:'Pressurization', q:'Reference location for the reading?',           t:'text', sk:1, ic:'📍', ph:'e.g. Main lobby vestibule, north stairwell', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
   // Design intent, when the O&M documents state one. USER-ENTERED — it
-  // describes what this building was designed to do, and it is labelled
+  // describes what this building was designed to do, and it is labeled
   // that way wherever it renders. It is never treated as a standard and
   // the engine never evaluates the reading against it.
   { id:'bld_press_design',      sec:'Pressurization', q:'Design pressurization target from O&M documents?', t:'num', sk:1, ic:'📄', ph:'Leave blank if not documented', ref:'User-entered design intent for THIS building — not a standard, and not a criterion this assessment evaluates against.' },

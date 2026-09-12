@@ -629,7 +629,7 @@ export const CRITERIA = {
   // already stated: there is nothing to compare a TVOC reading against.
   //
   // `evaluateCriteria` returns null for a parameter with no entry, so the
-  // absence of this key IS the behaviour — no branch anywhere needs to test
+  // absence of this key IS the behavior — no branch anywhere needs to test
   // for it. The reference profiles, the chart lines, the sampling trigger and
   // the causal-chain gate were removed in the same change; TVOC drives
   // nothing. Do not reintroduce a tier here without a source that is a limit.

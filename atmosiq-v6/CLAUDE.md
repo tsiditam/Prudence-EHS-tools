@@ -17,7 +17,7 @@ single reworded limitation statement ("not a regulatory / compliance /
 medical determination") plus the over-claim guardrail in
 `api/_banned-language.js` — not in repeated "screening" labeling.
 
-**What it optimises for.** Helping a qualified professional run an
+**What it optimizes for.** Helping a qualified professional run an
 investigation and communicate what they found, clearly enough that a client
 or facility stakeholder can act on it. Defensibility is a property the
 platform maintains, not the thing it is for. It was the defining trait
@@ -126,7 +126,7 @@ Read these directories first when investigating any task:
   readiness diagnostic, smoke test, password-reset verification, Stripe
   setup, cron implementations, sample-report PDF generator.
 - `scripts/acceptance/` — JSON acceptance configs:
-  `prod-ready.json` (76 criteria), `pricing-rollout.json` (19),
+  `prod-ready.json` (77 criteria), `pricing-rollout.json` (19),
   `go-live.json` (22), `api-boot.json` (the `API-BOOT` criterion alone,
   for CI), plus `kg.json` and `mold.json`. The legacy v2.X engine
   configs no longer exist.
@@ -253,7 +253,7 @@ Read these directories first when investigating any task:
   caution for its own sake: the **banned-term list** with its permission
   flags (`cih-validation.ts` + the `api/_banned-language.js` mirror, kept in
   sync by `banned-language-parity.test.ts`), and **AI provenance
-  labelling**. Nothing in the editorial layer requires "confirmed", "caused
+  labeling**. Nothing in the editorial layer requires "confirmed", "caused
   by", or "noncompliant", so clarity work never needs to weaken them.
 
   *History: this replaced an absolute "the engine is sacred" prohibition in
@@ -318,11 +318,11 @@ When working on report generation:
   of what a report cited.
 
   **The register is no longer RENDERED** (product decision, 2026-08). Appendix
-  D used to close with a ~22-line bibliographic catalogue; it is now
+  D used to close with a ~22-line bibliographic catalog; it is now
   "Appendix D — Criteria Background" and carries the per-parameter background
   prose and interpretation notes only. Each criterion is already named where
   it is used — beside its result in **Criteria Applied**, in the finding it
-  produced, and in that background prose — so the catalogue stated it a third
+  produced, and in that background prose — so the catalog stated it a third
   time. A reviewer reads the standards off the report, which is how
   consultant reports in this field are normally written. Do not reintroduce a
   standards list; `tests/engine/no-standards-register.test.ts` fails if one
@@ -356,7 +356,7 @@ When working on report generation:
 - **Report lifecycle: labeling ≠ issuance.** A report carries a profile
   (screening | professional | compliance) and a status (draft →
   in_review → reviewed → final); see `src/constants/reportLifecycle.js`.
-  A **compliance** report cannot be *labelled* Final without a recorded
+  A **compliance** report cannot be *labeled* Final without a recorded
   reviewer approval (`canTransition`). That is NOT a re-introduction of
   the issuance block removed above, and should not be read as one:
   nothing gates report GENERATION on status — `downloadReportPdf.js`,
@@ -442,7 +442,7 @@ When working on report generation:
      typing anything at all into the free-text `path_crosstalk_source` — even
      "unknown" — pushed a second string and raised the tier from Possible to
      Moderate; the field elaborates the observation the chain already rests on
-     and is not independent support. A complaint-only chain labelled
+     and is not independent support. A complaint-only chain labeled
      "(Hypothesis)" in its own type string could reach **Strong** by having
      four complaint fields filled in. Both are fixed by `weighChain`, which
      separates `measured` from `corroborating` and makes Strong unreachable for
@@ -453,7 +453,7 @@ When working on report generation:
   4. **A retirement in the editorial layer does not reach the deliverable.**
      `phrases/hvac.ts` removed the automatic Legionella / ASHRAE 188
      escalation from the drain-pan condition, with its reasoning written into
-     the file — a soiled condensate pan does not establish a recognised
+     the file — a soiled condensate pan does not establish a recognized
      Legionella exposure pathway. That entry governs `renderClientReport` and
      PrintReport. It does NOT govern the AtmosFlow DOCX, which is the only
      client deliverable and which takes `text: r.t` verbatim off the engine
@@ -462,7 +462,7 @@ When working on report generation:
      four months, and the layer that fixed it had no way to know.
 
      **It happened three times, not once.** `phrases/` carried three written
-     retirements and the engine honoured none of them: the Legionella /
+     retirements and the engine honored none of them: the Legionella /
      ASHRAE 188 escalation and the automatic EPA-registered-biocide
      instruction (`hvac.ts`), and the ATSDR occupant-risk-communication action
      (`complaints.ts`). Each surfaced only because somebody happened to read a
@@ -602,7 +602,7 @@ Three feature-level acceptance configs gate completion claims:
 
 | Gate | Script | Criteria |
 |---|---|---|
-| Production readiness (Group A) | `npm run accept:prod-ready` | 76 |
+| Production readiness (Group A) | `npm run accept:prod-ready` | 77 |
 | Pricing rollout (Group B) | `npm run accept:pricing-rollout` | 19 |
 | Go-live experience (Group C) | `npm run accept:go-live` | 22 |
 | API boot (CI job, also inside A and C) | `npm run accept:api-boot` | 1 |
@@ -946,6 +946,9 @@ report's record is the only evidence of what it said.
     `no-dupe-keys`, `no-unreachable`, `no-debugger`, `rules-of-hooks`)
     fail regardless of N.
   - `lint:imports` — `scripts/check-api-js-imports.mjs` (pitfall #4)
+  - `lint:spelling` — `scripts/check-spelling.mjs`: American English in
+    every source file, test, acceptance config, doc and this file (see
+    "Anti-patterns")
 - `npm run build` — Vite SPA production build (vendor chunks split by
   `build.rollupOptions.output.manualChunks` in `vite.config.js`)
 - `npm run accept:api-boot` — bundle + import every `api/**` entry under
@@ -996,6 +999,19 @@ Run tests after any change to `src/engine/`, `src/engines/`, `src/components/doc
 - Spore counts framed as health proof (they aren't — IOM 2004,
   ACMT 2025)
 - Report generation without calibration verification
+- **British spelling, anywhere.** The product is American: *color, odor,
+  labeled, recognized, center, catalog, gray, license, mold*. A client
+  report once carried both spellings of "odor" three lines apart because
+  the spelling had drifted file by file, so it is now a lint gate — `npm run
+  lint:spelling` (`scripts/check-spelling.mjs`, criterion
+  `AMERICAN-SPELLING`, and `tests/scripts/check-spelling.test.ts` runs the
+  same check under `npm test`). Exact whole-word forms only, so
+  `characteristic` and `synthesis` are safe. A line that must carry the
+  variant — a term list matching both spellings of user input, an alias
+  quoted from a source, a negative test case — takes a `spelling-ok`
+  comment. Accepted American variants (`cancelled`, `judgement`,
+  `acknowledgement`) are not on the list; stored field names and contract
+  values keep their spelling.
 
 ## When in doubt
 

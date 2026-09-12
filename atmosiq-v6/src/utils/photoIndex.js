@@ -78,7 +78,7 @@ export function zoneHasPhotos(photos, zoneIndex) {
  * The label is resolved from `FIELD_REGISTRY`, which derives it from
  * `questions.js` — so the caption is the question the assessor answered,
  * not a re-typed guess at it. Before this existed the report ran the raw key
- * through a title-caser and captioned a zone-3 mould photo **"Mi"**.
+ * through a title-caser and captioned a zone-3 mold photo **"Mi"**.
  */
 export function photoCaption(key, zones) {
   const parsed = parsePhotoKey(key)

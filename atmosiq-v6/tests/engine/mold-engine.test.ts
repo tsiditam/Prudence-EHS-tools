@@ -22,7 +22,7 @@ import { MOLD_SCREENING_DISCLAIMER, MOLD_SOURCES } from '../../src/constants/mol
 const BANNED = /\b(safe|unsafe|toxic|hazardous|dangerous|compliant|non-compliant|health limit|acceptable level)\b/i
 
 describe('classifyWaterCategory — S520 water Category from a described source', () => {
-  it('maps sanitary / grey / black sources to 1 / 2 / 3', () => {
+  it('maps sanitary / gray / black sources to 1 / 2 / 3', () => {
     expect(classifyWaterCategory('Supply-line leak under sink')?.categoryId).toBe(1)
     expect(classifyWaterCategory('dishwasher discharge')?.categoryId).toBe(2)
     expect(classifyWaterCategory('Sewage backup from floor drain')?.categoryId).toBe(3)

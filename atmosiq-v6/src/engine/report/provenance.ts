@@ -413,7 +413,7 @@ export function groundingSet(claim: ClaimProvenance): Set<number> {
   // invented to the check that hunts for invented figures.
   // `|| []` is load-bearing: `criterionValues` arrived with band criteria in
   // 2026-08, and this function is also handed claims built by hand and claims
-  // deserialised from records written before the field existed.
+  // deserialized from records written before the field existed.
   for (const v of claim.criterionValues || []) out.add(v)
   if (claim.criterionValue !== null) out.add(claim.criterionValue)
 

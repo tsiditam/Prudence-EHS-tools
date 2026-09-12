@@ -44,7 +44,7 @@ const payloadFor = async (presurvey: any, zones: any = ZONES) => {
 }
 
 describe('the prose reaches the request', () => {
-  it('carries zone notes, labelled with the zone the assessor was standing in', async () => {
+  it('carries zone notes, labeled with the zone the assessor was standing in', async () => {
     const p = await payloadFor({})
     expect(p.assessorNotes.zone_notes).toEqual([
       { zone_index: 0, zone_label: 'Front Office', text: 'Musty smell strongest near the window wall, worse after rain.' },

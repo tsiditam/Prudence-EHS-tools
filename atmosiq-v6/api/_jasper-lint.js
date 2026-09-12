@@ -309,7 +309,7 @@ const SAFE_FALLBACK = [
 // ── Final assembly: truncation + provenance ────────────────────────────
 // Two things every answer needs that nothing guaranteed before.
 //
-// 1. TRUNCATION. `max_tokens` is a hard stop, not a summariser: the model
+// 1. TRUNCATION. `max_tokens` is a hard stop, not a summarizer: the model
 //    is cut off mid-word and the transport reports success. A long answer
 //    — a drafted report especially — arrives looking finished, ending on
 //    a half sentence the reader has to notice for themselves. The API
@@ -330,7 +330,7 @@ const TRUNCATION_NOTICE =
  *
  * Both notices sit ABOVE the disclaimer, because the SPA styles the
  * trailing line and the disclaimer has to stay trailing. Idempotent —
- * SAFE_FALLBACK already ends with the line, and re-finalising must not
+ * SAFE_FALLBACK already ends with the line, and re-finalizing must not
  * stack a second copy.
  *
  * @param {string} text

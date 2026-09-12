@@ -51,7 +51,7 @@ describe('assessor, firm, recipient, instruments', () => {
     expect(deriveAssessmentMeta({ presurvey: { ps_recipient_name: 'Jane', ps_recipient_organization: 'Org' } }).transmittalRecipient).toMatchObject({ fullName: 'Jane', organization: 'Org' })
     expect(deriveAssessmentMeta({ building: { fn: 'Site' } }).transmittalRecipient).toMatchObject({ fullName: '', organization: 'Site' })
   })
-  it('instruments from presurvey; reviewing professional credentials are normalised', () => {
+  it('instruments from presurvey; reviewing professional credentials are normalized', () => {
     const m = deriveAssessmentMeta({ presurvey: { ps_inst_iaq: 'TSI 7575', ps_inst_iaq_serial: 'S1', ps_inst_pid: 'ppbRAE', ps_reviewing_professional: 'R', ps_reviewing_professional_certs: ['cih', 'ABC'] } })
     expect(m.instrumentsUsed).toHaveLength(2)
     expect(m.reviewingProfessional?.credentials).toEqual(['CIH', 'Other'])

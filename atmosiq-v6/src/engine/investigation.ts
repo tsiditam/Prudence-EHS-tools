@@ -408,7 +408,7 @@ function rangePhrase(range: ParameterRange): string {
  * 400–1450 ppm" when two zones were measured and only one was flagged.
  * Both halves were true and the sentence was not: the 400 belonged to the
  * zone the engine had cleared. Where the flag covers a subset, the range
- * is labelled as the site's rather than the finding's.
+ * is labeled as the site's rather than the finding's.
  */
 function flaggedStatement(label: string, range: ParameterRange): string {
   const zones = range.elevatedInZones ?? []
@@ -603,7 +603,7 @@ function buildOpenQuestions(
     // Name the zones. "Has relative humidity been measured anywhere on
     // site?" is the wrong question — the answer can be yes while the
     // zone that raised the explanation still has no reading, which is
-    // exactly how a clean floor used to clear a mouldy basement.
+    // exactly how a clean floor used to clear a moldy basement.
     const named = entry.zones.size
     const where = named === 0
       ? ''

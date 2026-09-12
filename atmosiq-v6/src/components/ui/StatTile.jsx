@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * StatTile — a labelled numeric readout tile (big tabular value over a dim
+ * StatTile — a labeled numeric readout tile (big tabular value over a dim
  * caption) used in the Logger Studio file-summary stat grid. Plain V3 token
  * surface, not soft-glass.
  */

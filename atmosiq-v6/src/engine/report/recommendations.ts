@@ -152,7 +152,7 @@ const PRIORITY_RANK: Record<string, number> = {
  * Confirmatory work — collecting a sample or deploying an instrument to
  * settle a question the walkthrough could only raise.
  *
- * Recognised by the verb the engine's own action texts use. This is not a
+ * Recognized by the verb the engine's own action texts use. This is not a
  * guess about wording: every action in `phrases/` that prescribes lab or
  * logged measurement begins `Collect` or `Deploy`, and
  * `tests/engine/recommendations.test.ts` asserts that stays true, so a
@@ -168,7 +168,7 @@ const SAMPLING_VERB = /^(Collect|Deploy)\b/
  * paying for a professional opinion should not be handed the decision.
  *
  * Deliberately narrow: soft VERBS are fine — "Verify the damper
- * position" and "Investigate the odour source" are things a person does
+ * position" and "Investigate the odor source" are things a person does
  * on Monday. What is not fine is a conditional or a deferral, where the
  * action only applies if the reader concludes something first.
  */

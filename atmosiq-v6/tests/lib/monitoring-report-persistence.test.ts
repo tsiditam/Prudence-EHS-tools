@@ -67,7 +67,7 @@ describe('the issued report round-trips through storage', () => {
   })
 
   it('a v1 envelope never folds the field into the dataset', () => {
-    // The v1 branch spreads unrecognised keys into the primary dataset. A
+    // The v1 branch spreads unrecognized keys into the primary dataset. A
     // monitoringReport landing inside `datasets[0]` would be invisible to the
     // projection and would corrupt the dataset shape at the same time.
     const out: any = normalizeSensorData({ params: ['co2'], points: [], monitoringReport: REPORT })

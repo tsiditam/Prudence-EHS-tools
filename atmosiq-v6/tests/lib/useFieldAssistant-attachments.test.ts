@@ -22,8 +22,8 @@ import { useFieldAssistant } from '../../src/hooks/useFieldAssistant'
 import { MAX_ATTACHMENTS_PER_REQUEST } from '../../src/utils/chatAttachments'
 
 const T0 = Date.UTC(2026, 6, 13, 12, 0)
-// A per-row value in a column the parser does not recognise. Nothing in a
-// digest summarises an unrecognised column's CONTENTS — only its name — so
+// A per-row value in a column the parser does not recognize. Nothing in a
+// digest summarizes an unrecognized column's CONTENTS — only its name — so
 // this string appearing on the wire could only mean raw rows were sent.
 // (A sentinel in a measured column would be a poor probe: the max of a
 // series is a statistic a digest is supposed to report.)
@@ -96,7 +96,7 @@ describe('useFieldAssistant — attaching a data file', () => {
       await result.current.attachFile(csvFile('junk.csv', 'a,b\n1,2'))
     })
     expect(result.current.attachments).toHaveLength(0)
-    expect(result.current.error).toMatch(/could not recognise/i)
+    expect(result.current.error).toMatch(/could not recognize/i)
   })
 
   it('caps the number of files per message', async () => {
@@ -162,7 +162,7 @@ describe('useFieldAssistant — what the attachment sends', () => {
     const wire = JSON.stringify(body)
     expect(wire).not.toContain(ROW_SENTINEL)
     expect(wire).not.toContain('Timestamp,CO2')
-    // The unrecognised column is named — that is worth knowing — but its
+    // The unrecognized column is named — that is worth knowing — but its
     // values are not carried.
     expect(body.attachments[0].text).toContain('Operator Remark')
 

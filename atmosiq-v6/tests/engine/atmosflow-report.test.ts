@@ -58,7 +58,7 @@ describe('buildAtmosFlowDocument — the AtmosFlow PDF design, as editable DOCX'
     // Cover: teal ATMOSFLOW eyebrow + the big title.
     expect(xml).toContain('ATMOSFLOW')
     expect(xml).toContain('Indoor Air Quality Assessment')
-    // The teal accent colour (Figma brand token) is used on the cover eyebrow,
+    // The teal accent color (Figma brand token) is used on the cover eyebrow,
     // section labels, and table headers.
     expect(xml).toContain('2E7B9B')
     // A numbered section heading.

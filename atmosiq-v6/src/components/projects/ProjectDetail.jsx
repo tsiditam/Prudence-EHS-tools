@@ -12,12 +12,12 @@
  * to the Activity timeline.
  *
  * Restraint pass (2026-09). The workspace used to open on an identity
- * card with a status-coloured rail, an in-body "← Projects" under the
+ * card with a status-colored rail, an in-body "← Projects" under the
  * header's own back control, three stacked buttons with icons, a Status
  * card of tinted pill chips, a Contents card of four icon tiles, and a
  * "Danger zone" card. Every list beneath was a card per row with an
  * accent icon in a tinted square. All of it is gone: the identity is
- * type on the page; the status is a word in its colour with the text-tab
+ * type on the page; the status is a word in its color with the text-tab
  * row to change it; sections are micro headings over hairlines; rows part
  * with hairlines; actions are text in the primary ink; the one accent on
  * the screen is "New assessment". Upload lives on the Documents tab, and
@@ -230,7 +230,7 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
   return (
     <div style={{ paddingTop: 16, paddingBottom: 120, maxWidth: 760, margin: '0 auto' }}>
       {/* Identity on the page: the name, the client, the address, and the
-          status as a word in its colour. The header's back control is the
+          status as a word in its color. The header's back control is the
           one way back. */}
       <div style={{ marginBottom: 16 }}>
         <div style={V3.T.h1}>{project.name}</div>
@@ -273,7 +273,7 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
           <Section title="Status" first>
             {/* The status is chosen the way every other choice in the app
                 is made: a text-tab row. The current status is also the
-                coloured word under the name above. */}
+                colored word under the name above. */}
             <AssessmentSegmentedPillNav
               tabs={PROJECT_STATUSES.map(s => ({ id: s, label: STATUS_LABEL[s] }))}
               active={project.status}
@@ -299,7 +299,7 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
             ))}
           </Section>
 
-          {/* Deleting the workspace is a text action in the danger colour at
+          {/* Deleting the workspace is a text action in the danger color at
               the end of the page — not a card with a warning heading. The
               confirmation sheet explains that linked assessments survive. */}
           <div style={{ paddingTop: 18, borderTop: HAIRLINE, marginTop: 18 }}>

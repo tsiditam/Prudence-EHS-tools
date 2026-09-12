@@ -29,7 +29,7 @@
  *     rather than five loose blocks.
  *   • The SUMMARY STRIP renders as large figures under small uppercase
  *     labels, with the unit set smaller and quieter than the number.
- *   • A STATUS CHIP: tinted fill, coloured label, following the severity of
+ *   • A STATUS CHIP: tinted fill, colored label, following the severity of
  *     the status itself.
  *   • A MONITORING INSIGHTS panel: tinted block with an accent left rule, so
  *     the deterministic observations read as a distinct element.
@@ -70,7 +70,7 @@ import { CHART_SIZE } from '../../utils/monitoringChart'
  */
 // A handful of these are `export`ed (additive, safe) so a sibling report that
 // reuses this design system — e.g. the AtmosFlow assessment report in
-// sections-atmosflow.js — can build bespoke bits (a body meta grid, a labelled
+// sections-atmosflow.js — can build bespoke bits (a body meta grid, a labeled
 // run) in the same visual language rather than re-deriving the tokens.
 export const ACCENT = '0E7490'
 const ACCENT_2 = '0891B2'
@@ -81,7 +81,7 @@ export const MUTED = '6B7480'
 const FAINT = '9AA3AE'
 const HAIR = 'EEF1F4' // softer rules — fewer borders competing for attention
 const HAIR_2 = 'E2E6EB'
-const WASH = 'F7F9FA' // the subtle grey a card sits on
+const WASH = 'F7F9FA' // the subtle gray a card sits on
 
 /**
  * Type system — Logger Report v1.1 (spec Part 3b). ONE primary family,
@@ -106,7 +106,7 @@ const FONT_MONO = 'JetBrains Mono'
  * in points; ×20 → twips. (Figma is the real source for the unit; absent it,
  * points is the defensible reading of values like +1.2 / −0.5.)
  */
-// Tracking on the small uppercase labels was dialled back (was +1.3 pt): with
+// Tracking on the small uppercase labels was dialed back (was +1.3 pt): with
 // so many of them — PREPARED BY, MEAN, LOGGING INTERVAL — the wide spacing had
 // become a motif rather than hierarchy. `labelLong` takes a longer label (e.g.
 // LOGGING INTERVAL) tighter still, since tracking accumulates with length.
@@ -155,25 +155,25 @@ export const MONITORING_DOCX_STYLES = {
 const GAP = { tight: 50, base: 100, loose: 150, section: 280 }
 
 /**
- * Status tones — a four-step visual scale in FIVE colours.
+ * Status tones — a four-step visual scale in FIVE colors.
  *
  * The design brief asked for green / yellow / orange / red. Amber at two
  * intensities does the work of yellow and orange, which keeps the whole
- * document inside one restrained palette: cyan, grey, green, amber, red. A
+ * document inside one restrained palette: cyan, gray, green, amber, red. A
  * sixth hue would be the first step back toward a chart that looks busy.
  *
  * The LABEL a tone carries is decided in the model, not here — these are only
- * the colours the reader takes in before reading the word.
+ * the colors the reader takes in before reading the word.
  */
 const TONES = {
   ok: { text: '0E7A55', fill: 'EDFAF3', dot: '0E9F6E' },
   notice: { text: '8A6206', fill: 'FEF9EC', dot: 'D9A21B' },
   warn: { text: '8A5106', fill: 'FDF3E8', dot: 'C2740B' },
   review: { text: 'A62121', fill: 'FDEFEF', dot: 'DC2626' },
-  // Deliberately grey, and deliberately NOT on the ok→review scale. When the
+  // Deliberately gray, and deliberately NOT on the ok→review scale. When the
   // calibration record cannot vouch for the data there is no position on that
   // scale to occupy: the readings are neither within a reference nor above
-  // one, because no comparison they support has been established. Colouring
+  // one, because no comparison they support has been established. Coloring
   // it green would read as a pass and red as a failure; both are claims the
   // data cannot carry.
   indeterminate: { text: '52606D', fill: 'F1F4F6', dot: '8A98A5' },
@@ -328,7 +328,7 @@ export function metaGrid(pairs, cols = 3) {
  * `inset` pulls the panel in from both edges, which is how the insights block
  * sits INSIDE the parameter card rather than straddling its border. The left
  * inset is an empty spacer COLUMN rather than a table indent: `w:tblInd` is
- * honoured by Word but silently dropped by several other readers, and a
+ * honored by Word but silently dropped by several other readers, and a
  * panel whose accent rule lands on top of the card's border reads as a
  * rendering fault. A spacer column measures the same everywhere.
  */
@@ -401,7 +401,7 @@ export function insightsPanel(items, inset = 0) {
       ],
       spacing: { after: 170 },
     }),
-    // Each observation is a labelled fact rather than a bullet of prose: the
+    // Each observation is a labeled fact rather than a bullet of prose: the
     // lead phrase is what a reader scans for, and setting it apart lets them
     // find "how long above the reference" without reading the sentence first.
     ...items.flatMap((i, idx) => {
@@ -425,7 +425,7 @@ export function insightsPanel(items, inset = 0) {
 }
 
 /**
- * The status chip — a shaded run whose colour follows the status tone.
+ * The status chip — a shaded run whose color follows the status tone.
  *
  * A run rather than a shaded single-cell table: the tint then hugs the label
  * the way a pill does, and the header row stops carrying the empty paragraph
@@ -451,11 +451,11 @@ export function statusChip(status, align = AlignmentType.RIGHT) {
 
 /**
  * The cover's at-a-glance panel: every parameter and where it sat, one line
- * each, colour first.
+ * each, color first.
  *
  * This is the single highest-value element on the page. A client who reads
  * nothing else should still close the document knowing what it found, and a
- * column of coloured dots delivers that in about a second — which is roughly
+ * column of colored dots delivers that in about a second — which is roughly
  * how long a busy reader gives a cover page.
  */
 export function overviewCard(items) {
@@ -577,7 +577,7 @@ function parameterHead(entry) {
  * The summary strip: large figures under small uppercase labels, the unit set
  * smaller and quieter than the number it belongs to.
  *
- * `emphasis` tiles (time above / % above a reference) take the warn colour so
+ * `emphasis` tiles (time above / % above a reference) take the warn color so
  * the exposure figures carry from across the page.
  */
 export function summaryStripTable(tiles, opts = {}) {
@@ -603,7 +603,7 @@ export function summaryStripTable(tiles, opts = {}) {
                 new Paragraph({
                   children: [
                     // Editorial hero number: big and LIGHT (Open Sans Light).
-                    // Emphasis (a reading over reference) is carried by colour,
+                    // Emphasis (a reading over reference) is carried by color,
                     // not weight, so the strip stays calm and modern. Compact
                     // tiles keep the regular face at the smaller size.
                     new TextRun({
@@ -689,9 +689,9 @@ export function dataTable(headers, rows, widths, opts = {}) {
       : Array.from({ length: cols }, () => Math.floor(CONTENT_WIDTH_DXA / cols))
 
   // Two treatments from one builder:
-  //  • card (default) — the report's KPI-card language: a subtle grey header
+  //  • card (default) — the report's KPI-card language: a subtle gray header
   //    band, hairline row separators, generous padding, a hairline frame, cells
-  //    vertically centred. This is what a client-facing table (Screening
+  //    vertically centered. This is what a client-facing table (Screening
   //    reference values) uses so it reads as a designed element, not a Word
   //    table.
   //  • zebra — alternating wash, no separators or frame, for a wide technical
@@ -699,7 +699,7 @@ export function dataTable(headers, rows, widths, opts = {}) {
   //    better than a hairline does.
   const zebra = opts.zebra === true
 
-  // A grey header band rather than the accent tint: quieter, and it reads as
+  // A gray header band rather than the accent tint: quieter, and it reads as
   // structure rather than decoration. The label takes the same tracked
   // uppercase treatment as the KPI-card keys.
   const headerRow = new TableRow({
@@ -946,7 +946,7 @@ export function buildCoverSection(model) {
       spacing: { before: 90, after: 90 },
     }),
     // Built from explicit runs rather than HeadingLevel.TITLE: Word's built-in
-    // Title style overrides the document theme with its own face and colour
+    // Title style overrides the document theme with its own face and color
     // (Calibri Light, blue), which is why the title did not match the rest of
     // the report.
     new Paragraph({
@@ -1133,7 +1133,7 @@ export function buildParameterSection(entry, num) {
   const title = entry.titleLabel || entry.label
   // The section heading carries the STATUS dot rather than a decorative
   // glyph. An abstract lozenge is the same shape whatever it sits beside, so
-  // it aids scanning only in the sense that it is visible; a coloured dot
+  // it aids scanning only in the sense that it is visible; a colored dot
   // lets a reader flip through the report and see which parameters need a
   // second look without reading a word. The card header below carries no dot,
   // because its status chip is already on that line.

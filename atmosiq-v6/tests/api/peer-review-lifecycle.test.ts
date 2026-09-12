@@ -10,7 +10,7 @@
  *     are feedback, not sign-off.
  *   • It will not drag a Final report backwards, and it will not advance
  *     a report from a state the lifecycle forbids.
- *   • Failing to update the denormalised assessment row does NOT fail
+ *   • Failing to update the denormalized assessment row does NOT fail
  *     the reviewer's request — their response is already recorded, and
  *     losing it because a secondary write failed would be worse than a
  *     stale column.
@@ -183,7 +183,7 @@ describe('what does NOT advance a report', () => {
   }
 
   it('will not drag a Final report backwards to Reviewed', async () => {
-    // A late approval arriving after the report was finalised must not
+    // A late approval arriving after the report was finalized must not
     // rewrite its state.
     const sb = makeMockSupabase({
       review: review(),
@@ -227,7 +227,7 @@ describe('the secondary write is non-fatal', () => {
   it('still accepts the reviewer’s response when the assessment update fails', async () => {
     // The response is already persisted on peer_reviews. Rejecting the
     // request here would lose the reviewer's decision to protect a
-    // denormalised column — the wrong trade.
+    // denormalized column — the wrong trade.
     const sb = makeMockSupabase({
       review: review(),
       assessment: { report_profile: 'professional', report_status: 'in_review' },

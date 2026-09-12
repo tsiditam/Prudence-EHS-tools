@@ -10,7 +10,7 @@
  *
  * The resize prompt is pinned as a PROMPT, not a silent transform: an
  * oversized photo is evidence, and altering it without asking is the
- * behaviour this product cannot have.
+ * behavior this product cannot have.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'

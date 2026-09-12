@@ -211,7 +211,7 @@ export interface RenderedFinding {
 
 /**
  * v2.3 §5 — ZoneSection rework. observedConditions: string[] is
- * removed in favour of findings: RenderedFinding[]. dataLimitations
+ * removed in favor of findings: RenderedFinding[]. dataLimitations
  * is removed entirely; limitations attach to each finding.
  */
 export interface ZoneSection {

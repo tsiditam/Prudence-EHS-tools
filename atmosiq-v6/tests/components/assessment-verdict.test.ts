@@ -22,7 +22,7 @@ const zone = (...sev: string[]) => ({ cats: [{ l: 'X', r: sev.map(s => ({ t: 't'
 // One case DID change, and it is kept below as its own test rather than
 // quietly dropped: `tot: 12` with no findings used to be Critical on the
 // strength of the number alone. It is now `pass`. That is the whole of the
-// behaviour change, and it only ever fires for an assessment with nothing to
+// behavior change, and it only ever fires for an assessment with nothing to
 // point at.
 describe('the verdict rests on what was found', () => {
   it('a critical finding decides the verdict', () => {

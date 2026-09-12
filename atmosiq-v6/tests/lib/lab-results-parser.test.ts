@@ -2,7 +2,7 @@
  * Lab Results CSV Parser — header auto-detection + row extraction.
  *
  * Pins the contract:
- *   • mapHeader recognises common synonyms across EMSL / EMLab /
+ *   • mapHeader recognizes common synonyms across EMSL / EMLab /
  *     Aerotech / generic layouts.
  *   • splitCsvLine handles quoted commas, treats trailing whitespace
  *     gracefully, returns trimmed fields.
@@ -51,7 +51,7 @@ describe('mapHeader — canonical field detection', () => {
     expect(mapHeader('result')).toBe('result')
   })
 
-  it('returns null for unrecognised + invalid input', () => {
+  it('returns null for unrecognized + invalid input', () => {
     expect(mapHeader('Random Header')).toBeNull()
     expect(mapHeader('')).toBeNull()
     expect(mapHeader('   ')).toBeNull()
@@ -126,7 +126,7 @@ describe('parseLabResultsCsv — happy paths', () => {
     expect(result.rows[0].detectionLimit).toBe('13')
   })
 
-  it('parses generic CSV without a recognisable lab signature', () => {
+  it('parses generic CSV without a recognizable lab signature', () => {
     const csv = [
       'Sample Number,Room,Collection Date,Compound,Value,Reporting Units',
       'X-1,Lobby,2026-03-10,TVOC,250,µg/m³',
@@ -202,8 +202,8 @@ describe('parseLabResultsCsv — preamble + edge cases', () => {
     expect(result.warnings.length).toBeGreaterThan(0)
   })
 
-  it('returns a warning when no header row is recognisable', () => {
-    const csv = 'just a single,line,of,unrecognised,columns\nfoo,bar,baz,qux,quux'
+  it('returns a warning when no header row is recognizable', () => {
+    const csv = 'just a single,line,of,unrecognized,columns\nfoo,bar,baz,qux,quux'
     const result = parseLabResultsCsv(csv)
     expect(result.rows).toEqual([])
     expect(result.warnings[0]).toMatch(/header/)

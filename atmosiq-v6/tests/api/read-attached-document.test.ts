@@ -97,7 +97,7 @@ describe('reading a stored document', () => {
 describe('a document belongs to its conversation', () => {
   it('scopes every read to this thread and this user', async () => {
     // Two open threads must not be able to read each other's documents by
-    // guessing an id — the id alone is never the authorisation.
+    // guessing an id — the id alone is never the authorization.
     const s = store()
     await dispatchTool('read_attached_document', { document_id: 'doc-1' }, ctx(s))
     expect(s.filters.conversation_id).toBe('conv-1')

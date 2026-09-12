@@ -270,7 +270,7 @@ in this directory; reach for them on V3-surface screens.
 | `<CollapsibleCard>` | `CollapsibleCard.jsx` | GlassCard with a micro-label header that toggles its body; optional dim `summary` while collapsed. |
 | `<GhostButton>` | `GhostButton.jsx` | Low-emphasis bordered button. `style` overrides spacing / danger color. Exports `ghostButtonStyle`. |
 | `<Select>` | `Select.jsx` | Compact themed native `<select>`. Exports `selectStyle`. |
-| `<StatTile>` | `StatTile.jsx` | Labelled numeric readout tile (`label` / `value`). |
+| `<StatTile>` | `StatTile.jsx` | Labeled numeric readout tile (`label` / `value`). |
 | `<RoleBadge>` | `RoleBadge.jsx` | Tiny uppercase outlined dataset-role tag (indoor / outdoor / zone). Exports `ROLE_TONE`. |
 | `<InlineError>` | `InlineError.jsx` | Danger-tinted inline message box. Exports `inlineErrorStyle`. |
 

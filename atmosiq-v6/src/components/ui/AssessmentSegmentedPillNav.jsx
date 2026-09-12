@@ -5,7 +5,7 @@
  *
  * AssessmentSegmentedPillNav — the section tabs for the assessment result
  * screen (and the project workspace / mold screening, which pass the same
- * shape). Restraint pass (2026-09): text tabs, every one labelled, the
+ * shape). Restraint pass (2026-09): text tabs, every one labeled, the
  * active one in the primary ink with a rule beneath it — the same row the
  * Projects screen uses for its status filters. The icon-only capsules it
  * replaced left five of six destinations unnamed on a phone.
@@ -41,7 +41,7 @@ export default function AssessmentSegmentedPillNav({
   id,
   style,
   ariaLabel = 'Assessment sections',
-  // Kept for callers; every tab is labelled now.
+  // Kept for callers; every tab is labeled now.
   showLabels = true, // eslint-disable-line no-unused-vars
 }) {
   // The strip scrolls past a phone frame and the scrollbar is hidden, so

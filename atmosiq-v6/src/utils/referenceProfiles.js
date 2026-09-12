@@ -118,7 +118,7 @@ const PM25_ACTION = {
 }
 
 /**
- * The catalogue. Each profile declares how to resolve its value in the logged
+ * The catalog. Each profile declares how to resolve its value in the logged
  * unit; the resolver returns `{ limit }` or `{ band }` (never both).
  *
  * `requires: 'outdoorBaseline'` marks a profile the report can only compute
@@ -212,7 +212,7 @@ const PROFILES = {
   // returns `Object.keys(PROFILES)`, so an empty array would still advertise
   // TVOC as offering a choice of yardstick. `resolveReference` and
   // `defaultProfileId` both return null for an absent key, which is exactly
-  // the behaviour wanted: the chart draws the series and no line.
+  // the behavior wanted: the chart draws the series and no line.
   //
   // Guarded by tests/engine/no-molhave.test.ts.
 
@@ -280,7 +280,7 @@ export function defaultProfileId(param) {
 }
 
 /**
- * The raw catalogue, for tests that verify the criterion links resolve.
+ * The raw catalog, for tests that verify the criterion links resolve.
  * Not part of the public surface — consumers use profilesFor/resolveReference.
  */
 export const __PROFILES_FOR_TEST = PROFILES
@@ -312,7 +312,7 @@ export function parametersWithProfiles() {
  *   `action` is the higher acute tier when the profile carries one AND it sits
  *   above the selected reference; null otherwise. It was added after this
  *   annotation was first written and omitted here, and because TypeScript
- *   honours JSDoc over the inferred literal, every `.action` read in
+ *   honors JSDoc over the inferred literal, every `.action` read in
  *   tests/lib/referenceProfiles.test.ts was a type error — the whole of the
  *   BUILD-01 typecheck failure. Keep this list in step with the return.
  */
@@ -374,7 +374,7 @@ export function resolveReference(param, profileId, ctx = {}) {
   // machinery is kept rather than deleted because the criterion FIELD is kept
   // — `criteria.js` documents `equivalenceBasis` and
   // `tests/lib/vocConversion.test.ts` validates any value set on it — and a
-  // field whose behaviour had been deleted would silently do nothing the next
+  // field whose behavior had been deleted would silently do nothing the next
   // time somebody set it. It stays reachable; nothing reaches it. Do not add
   // a TVOC profile here to give it a caller.
   //

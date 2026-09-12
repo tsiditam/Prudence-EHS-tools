@@ -5,7 +5,7 @@
  *
  * GaugeBar — a one-line range meter for a session average. The track spans
  * the observed range (widened to include the reference), an optional
- * comfort band is a wash of the series colour, the mean is a dot with a
+ * comfort band is a wash of the series color, the mean is a dot with a
  * surface ring, and the reference limit is a neutral tick. Reads as a
  * quiet meter, not a filled progress bar.
  */
@@ -33,7 +33,7 @@ export default function GaugeBar({ min, max, value, limit, band, color = 'var(--
       )}
       {/* observed min–max span, in the series hue */}
       <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${spanLo}%`, width: `${Math.max(0, spanHi - spanLo)}%`, background: color, opacity: 0.55, borderRadius: 2 }} />
-      {/* reference tick — neutral, never the series colour */}
+      {/* reference tick — neutral, never the series color */}
       {limit != null && (
         <div style={{ position: 'absolute', top: -4, bottom: -4, left: `${pct(limit)}%`, width: 2, marginLeft: -1, background: 'var(--sub)', borderRadius: 1 }} />
       )}

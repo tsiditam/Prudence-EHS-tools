@@ -28,7 +28,7 @@ const MIN = 60_000
 const pts = (values: number[], param = 'pm25') =>
   values.map((v, i) => ({ t: T0 + i * 10 * MIN, [param]: v }))
 
-describe('catalogue', () => {
+describe('catalog', () => {
   it('offers the alternatives an assessor actually chooses between', () => {
     expect(profilesFor('pm25').map((p) => p.id)).toEqual(['epa', 'who', 'epa-annual', 'who-annual', 'well'])
     expect(profilesFor('pm10').map((p) => p.id)).toEqual(['epa', 'who', 'who-annual', 'well'])
@@ -174,7 +174,7 @@ describe('profiles that need data the session may not have', () => {
   })
 
   it('no longer offers an explicit "no reference line" choice anywhere', () => {
-    // `tvoc/none` was the only opt-out profile in the catalogue, and it went
+    // `tvoc/none` was the only opt-out profile in the catalog, and it went
     // with the rest of TVOC's in 2026-08. It existed because TVOC was the one
     // parameter where an assessor might reasonably want the series drawn with
     // no line against it — which is now what TVOC does unconditionally, so

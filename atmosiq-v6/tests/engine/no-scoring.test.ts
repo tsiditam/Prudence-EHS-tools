@@ -1,7 +1,7 @@
 /**
  * The 100-point composite score is gone. It must stay gone.
  *
- * Modelled on `no-data-center-module.test.ts`, whose commit recorded the
+ * Modeled on `no-data-center-module.test.ts`, whose commit recorded the
  * lesson this file exists to act on: *"A removal this wide comes back one
  * helper at a time if nothing watches it."* The score reached further
  * than the data-center module did — the engine, the bridge, the report
@@ -170,7 +170,7 @@ describe('no band ladder has reappeared', () => {
     // A threshold comparison against a stored total or score.
     /\b(tot|score|composite)\s*[<>]=?\s*\d/,
     /\.tot\s*[<>]=?\s*\d/,
-    // A ternary chain that turns a number into a label or a colour.
+    // A ternary chain that turns a number into a label or a color.
     /\d{2}\s*\?\s*['"][^'"]+['"]\s*:\s*.*\d{2}\s*\?/,
     // The label set itself, in code rather than in a removal record.
     /['"](Low|High|Moderate|Critical) Risk['"]/,

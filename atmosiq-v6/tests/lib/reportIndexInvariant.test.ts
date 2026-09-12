@@ -47,8 +47,8 @@ describe('one id, one list', () => {
   it('the WRITER keeps the lists disjoint, not just the reader', async () => {
     // Without this, the suite passes with addDraftToIndex still broken:
     // getIndex()'s self-heal strips the duplicate before any assertion
-    // sees it. Defence in depth is right, but it must not be the only
-    // defence — read the stored index raw, with no heal in between.
+    // sees it. Defense in depth is right, but it must not be the only
+    // defense — read the stored index raw, with no heal in between.
     await STO.addReportToIndex({ id: 'rpt-1', ts: '2026-08-22', facility: 'Summani Plaza', findings: 1 })
     await STO.addDraftToIndex({ id: 'rpt-1', facility: 'Summani Plaza', ua: '2026-08-22' })
 

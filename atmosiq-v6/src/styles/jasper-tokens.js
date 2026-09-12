@@ -90,7 +90,7 @@ export const JASPER_CHIP_TONES = {
   },
   success: {
     // --success is the theme token; --ok was never declared, so this tone
-    // rendered with no colour at all.
+    // rendered with no color at all.
     fg: 'var(--success)',
     bg: 'color-mix(in srgb, var(--success) 12%, transparent)',
     bd: 'color-mix(in srgb, var(--success) 30%, transparent)',

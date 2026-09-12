@@ -35,6 +35,7 @@ import STO from './storage'
 import { KEYS } from './storageKeys'
 import * as Sentry from '@sentry/react'
 import { compactPhotos, expandPhotos, purgeAssessmentPhotos } from './photoCompaction'
+import { normalizeFloorPlans, offloadFloorPlans, expandFloorPlans } from './floorPlans'
 import { resolveLifecycle, toLegacyStatus, REPORT_STATUS } from '../constants/reportLifecycle'
 import { normalizeAcknowledgement } from './calibrationAcknowledgement'
 import { countFindings, worstFindingSeverity } from './assessmentVerdict'
@@ -802,6 +803,21 @@ const SupaStorage = {
 
   /** The `photos` column alone, for a local copy fullSync restored
    *  without them. Null when unavailable (offline, missing row, error). */
+  /**
+   * A record arriving from the cloud carries its floor-plan images inline
+   * (the wire form — see utils/floorPlans). Before it is written locally the
+   * images move to IndexedDB under the assessment's namespace, the way
+   * photos do, so several plans cannot exhaust localStorage. A legacy
+   * single `floorPlan` becomes the one-item list on the way; a record with
+   * no plans is returned untouched.
+   */
+  async _localizeFloorPlans(record, id) {
+    const plans = normalizeFloorPlans(record)
+    if (!plans.length) return record
+    const { floorPlan: _legacy, ...rest } = record
+    return { ...rest, floorPlans: await offloadFloorPlans(plans, id) }
+  },
+
   async _fetchCloudPhotos(id) {
     if (!isOnline()) return null
     try {
@@ -844,7 +860,7 @@ const SupaStorage = {
           // Normalize snake_case cloud columns → camelCase app shape, then
           // compact the inline cloud photos before the localStorage write to
           // escape the quota cap (cloud still holds the base64 wire format).
-          const norm = fromCloudRow(data)
+          const norm = await this._localizeFloorPlans(fromCloudRow(data), id)
           const compacted = await compactPhotos(norm.photos || {}, id)
           const ok = await STO.set(id, { ...norm, photos: compacted.photos })
           if (ok === false) await noteStorageQuota()
@@ -866,7 +882,7 @@ const SupaStorage = {
     try {
       const { data } = await supabase.from('assessments').select('*').eq('id', id).single()
       if (!data) return null
-      const norm = fromCloudRow(data)
+      const norm = await this._localizeFloorPlans(fromCloudRow(data), id)
       const compacted = await compactPhotos(norm.photos || {}, id)
       const ok = await STO.set(id, { ...norm, photos: compacted.photos })
       if (ok === false) await noteStorageQuota()
@@ -952,7 +968,12 @@ const SupaStorage = {
     if (!isOnline()) return { ok: false, error: { code: 'offline', message: 'offline' } }
     const { user, error: authError } = await this._cloudUser()
     if (!user) return { ok: false, error: authError }
-    const row = toAssessmentRow(assessment, user.id)
+    // Floor-plan images ride the wire inline: an IndexedDB ref means
+    // nothing to another device.
+    const wire = Array.isArray(assessment.floorPlans)
+      ? { ...assessment, floorPlans: await expandFloorPlans(assessment.floorPlans) }
+      : assessment
+    const row = toAssessmentRow(wire, user.id)
     const result = await this._upsertAssessmentRow(row)
     if (result.ok) await recordCloudUpdatedAt(assessment.id, result.updatedAt)
     return result
@@ -1328,7 +1349,7 @@ const SupaStorage = {
         // local-only fields (equipment, floorPlan, draft progress) survive
         // a re-sync.
         const existing = await STO.get(a.id)
-        const norm = fromCloudRow(a)
+        const norm = await this._localizeFloorPlans(fromCloudRow(a), a.id)
         delete norm.photos // not selected — keep whatever local holds
         const next = { ...(existing || {}), ...norm }
         // Photos are fetched lazily by getAssessment when there is no

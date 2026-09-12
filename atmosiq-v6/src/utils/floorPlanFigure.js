@@ -22,9 +22,14 @@
  * The markers are identical and neutral. They carry a sequence number that
  * resolves through the table beneath the figure, and no severity — see
  * utils/samplePoints.js for why that encoding was retired.
+ *
+ * One figure per plan. Pin numbers are the site-wide sequence from
+ * samplePoints, so a plan showing pins 1, 2 and 5 is correct: 3 and 4 are
+ * on another plan, and the tables beneath each figure say so.
  */
 
-import { samplePoints } from './samplePoints'
+import { samplePoints, pointsOnPlan } from './samplePoints'
+import { normalizeFloorPlans, planImage } from './floorPlans'
 
 const MAX_WIDTH = 1600 // px; larger plans are scaled down before pins are drawn
 const PIN_FILL = '#2E7B9B' // report teal (sections-atmosflow TEAL)
@@ -46,20 +51,46 @@ function loadImage(src) {
 }
 
 /**
- * @param {string|{imageDataUrl:string}} floorPlan  the uploaded plan (data URL)
- * @param {Array} zones  assessment zones; those with mapX/mapY (%) are drawn
- * @param {object} opts  passed to samplePoints — `building` carries the
- *                       outdoor reference's position
+ * Every plan of the assessment with its pins drawn on, ready for the report.
+ *
+ * @param {object} record  anything `normalizeFloorPlans` reads (`floorPlans`,
+ *                         or the legacy single `floorPlan`)
+ * @param {Array} zones    assessment zones; those with mapX/mapY (%) are drawn
+ * @param {object} opts    passed to samplePoints — `building` carries the
+ *                         outdoor reference's position and plan
+ * @returns {Promise<Array<{id, label, image, composed: object|null}>>}
+ *          the plans as given, each with `composed` set to
+ *          `{ imageDataUrl, width, height, pinsDrawn }` or null when the
+ *          figure could not be drawn (the raw image is still embedded)
+ */
+export async function composeFloorPlanFigures(record, zones = [], opts = {}) {
+  const plans = normalizeFloorPlans(record)
+  if (!plans.length) return []
+  const points = samplePoints(zones, { ...opts, plans })
+  const out = []
+  for (const plan of plans) {
+    let composed = null
+    try {
+      composed = await composeFloorPlanFigure(planImage(plan), pointsOnPlan(points, plan.id))
+    } catch { composed = null }
+    out.push({ ...plan, composed })
+  }
+  return out
+}
+
+/**
+ * One plan with the given pins drawn on it.
+ *
+ * @param {string} url   the plan (data URL)
+ * @param {Array} pins   the samplePoints on THIS plan, numbers intact
  * @returns {Promise<{imageDataUrl:string, width:number, height:number, pinsDrawn:boolean}|null>}
  */
-export async function composeFloorPlanFigure(floorPlan, zones = [], opts = {}) {
-  const url = typeof floorPlan === 'string' ? floorPlan : floorPlan && floorPlan.imageDataUrl
+export async function composeFloorPlanFigure(url, pins = []) {
   if (!isImageDataUrl(url)) return null
   if (typeof document === 'undefined' || typeof Image === 'undefined') return null
   const img = await loadImage(url)
   if (!img || !img.naturalWidth || !img.naturalHeight) return null
 
-  const pins = samplePoints(zones, opts)
   // No pins: the plan itself is the figure. Hand back its true size without
   // re-encoding — a JPEG plan re-saved as PNG can grow several-fold.
   if (!pins.length) return { imageDataUrl: url, width: img.naturalWidth, height: img.naturalHeight, pinsDrawn: false }

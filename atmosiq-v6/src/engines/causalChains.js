@@ -134,7 +134,7 @@ export function buildCausalChains(zones, bldg, zoneScores, opts = {}) {
       chains.push({ zone: zName, type: 'Ventilation Deficiency (Hypothesis)',
         rootCause: 'Occupant complaints were reported in this zone. Insufficient outdoor-air delivery is a common contributor to complaint patterns of this kind.',
         evidence: ev,
-        // It is labelled "(Hypothesis)" and its rootCause says "is a common
+        // It is labeled "(Hypothesis)" and its rootCause says "is a common
         // contributor". It reached 'Strong' when four complaint fields were
         // filled in, which is a count of how much the assessor typed. Nothing
         // here is measured, so Strong is off the table by construction.

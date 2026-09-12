@@ -6,7 +6,7 @@
  *   • 200 + base64 envelope on the default (JSON) response mode
  *   • 200 + bytes + correct Content-Disposition when client asks
  *     for response_mode='bytes'
- *   • filename sanitisation (path separators stripped, .docx appended)
+ *   • filename sanitization (path separators stripped, .docx appended)
  *   • 422 + typed error code when the rendered template is malformed
  */
 

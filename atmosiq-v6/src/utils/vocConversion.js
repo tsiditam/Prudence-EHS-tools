@@ -65,7 +65,7 @@ export const HCHO_MW = 30.03
  *
  * Isobutylene is the default because it is the near-universal PID span gas.
  * The rest are here because they are the ones actually seen in the field on
- * the `pid_cal_gas` intake, and a converter that recognised only two names
+ * the `pid_cal_gas` intake, and a converter that recognized only two names
  * would have made that captured field decorative. This is a list of
  * calibration gases, not of VOCs generally — do not add a compound because
  * it might be present in the air; add it because a meter is spanned to it.
@@ -90,16 +90,16 @@ export function tvocReference(key) {
  * (`pid_cal_gas`, "e.g. Isobutylene 100 ppm"; the monitoring session's
  * `calibration.gas`).
  *
- * Returns `{ key, reference, stated, recognised, recorded }`. Three states,
+ * Returns `{ key, reference, stated, recognized, recorded }`. Three states,
  * and every caller has to tell them apart because they license different
  * sentences:
  *
  *   recorded:false               nothing was captured. Isobutylene by
  *                                convention, and the note says it is a
  *                                convention rather than a record.
- *   recognised:true              the survey's own span gas. The conversion
+ *   recognized:true              the survey's own span gas. The conversion
  *                                is grounded in what the meter was set to.
- *   recorded:true/recognised:false
+ *   recorded:true/recognized:false
  *                                something was written that this module has
  *                                no molecular weight for. Isobutylene is
  *                                used so a reference still appears, and the
@@ -112,14 +112,14 @@ export function tvocReference(key) {
 export function parseCalibrationGas(text) {
   const stated = String(text == null ? '' : text).trim()
   if (!stated) {
-    return { key: null, reference: null, stated: '', recognised: false, recorded: false }
+    return { key: null, reference: null, stated: '', recognized: false, recorded: false }
   }
   const hay = stated.toLowerCase()
   for (const [key, ref] of Object.entries(TVOC_REFERENCES)) {
     const hit = ref.aliases.some((a) => new RegExp(`(^|[^a-z0-9-])${a}([^a-z0-9-]|$)`, 'i').test(hay))
-    if (hit) return { key, reference: ref, stated, recognised: true, recorded: true }
+    if (hit) return { key, reference: ref, stated, recognized: true, recorded: true }
   }
-  return { key: null, reference: null, stated, recognised: false, recorded: true }
+  return { key: null, reference: null, stated, recognized: false, recorded: true }
 }
 
 // Convert a volumetric mixing ratio (ppb) to mass concentration (µg/m³) for a
@@ -140,7 +140,7 @@ const norm = (u) => String(u || '').toLowerCase()
 /**
  * Which basis a unit belongs to: 'mass' (µg/m³, mg/m³), 'volume' (ppb, ppm),
  * or null for anything else — a bare air-quality index, a blank, a unit we
- * do not recognise. Null never converts; it passes through untouched rather
+ * do not recognize. Null never converts; it passes through untouched rather
  * than being reinterpreted into a plausible-looking wrong number.
  */
 export function tvocBasis(unit) {
@@ -161,7 +161,7 @@ function toCanonicalScale(unit) {
 /**
  * Convert a TVOC quantity between any two supported units.
  *
- * Returns `null` when either unit has no recognised basis — the caller must
+ * Returns `null` when either unit has no recognized basis — the caller must
  * handle that rather than receive a guess. Otherwise returns:
  *
  *   { value, crossedBasis, reference }
@@ -206,7 +206,7 @@ export function convertTvoc(value, fromUnit, toUnit, opts = {}) {
  * @param {object} [reference] the compound entry actually used
  * @param {object} [provenance] a `parseCalibrationGas` result, when the
  *   caller has one. Its three states change the middle clause: a recorded and
- *   recognised gas is a fact about this survey; a recorded but unrecognised
+ *   recognized gas is a fact about this survey; a recorded but unrecognized
  *   one is a mismatch the reader must see; nothing recorded is a convention.
  */
 export function tvocEquivalenceNote(reference = tvocReference(), provenance = null) {
@@ -215,7 +215,7 @@ export function tvocEquivalenceNote(reference = tvocReference(), provenance = nu
   const head = `Converted as ${name}-equivalent (MW ${r.mw}, 25 °C / 1 atm)`
 
   let ground
-  if (provenance && provenance.recognised) {
+  if (provenance && provenance.recognized) {
     ground = ` — the calibration gas recorded for this survey (${provenance.stated}).`
   } else if (provenance && provenance.recorded) {
     // The assessor DID record a span gas and it is not one this conversion

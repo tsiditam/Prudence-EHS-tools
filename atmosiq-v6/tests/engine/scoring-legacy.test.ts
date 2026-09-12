@@ -143,7 +143,7 @@ describe('genRecs — recommendations state only what was observed (audit M5)', 
     expect(texts(genRecs([zs], BLDG, { zones: [notNeg] })).some((t: string) => /Correct building pressurization/.test(t))).toBe(false)
   })
 
-  it('also honours the pressurization module\'s own zonesNegative list', () => {
+  it('also honors the pressurization module\'s own zonesNegative list', () => {
     const z = { zn: 'Lobby', su: 'office', pm: '5', co: '2' }
     const recs = genRecs([scoreZone(z, BLDG)], BLDG, { zones: [z], pressurization: { zonesNegative: ['Lobby'] } })
     expect(texts(recs, 'eng').some((t: string) => /Correct building pressurization/.test(t))).toBe(true)

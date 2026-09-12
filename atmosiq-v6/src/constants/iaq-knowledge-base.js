@@ -75,7 +75,7 @@ const ANALYTES = {
     canonical: 'Nitrogen Dioxide (NO₂)',
   },
   'sulfur dioxide': {
-    aliases: ['so2', 'so₂', 'sulfur dioxide', 'sulphur dioxide', '7446-09-5'],
+    aliases: ['so2', 'so₂', 'sulfur dioxide', 'sulphur dioxide', '7446-09-5'], // spelling-ok: alias list matches both spellings of the input
     cas: '7446-09-5',
     canonical: 'Sulfur Dioxide (SO₂)',
   },

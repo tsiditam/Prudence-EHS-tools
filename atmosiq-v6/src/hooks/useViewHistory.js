@@ -25,7 +25,7 @@
  *     needed: `history.state.view === view` is the test.
  *   • `readInitialNav(fallback)` decides the first view on load from
  *     `history.state` (survives reload) or the hash (deep link). Only
- *     routes flagged `restore` in src/constants/routes.js are honoured;
+ *     routes flagged `restore` in src/constants/routes.js are honored;
  *     assessment-flow screens depend on in-memory draft state and fall
  *     back to `fallback`. Routes whose `restore` names an id field are
  *     returned as `pending` for the caller to hydrate once storage is up.

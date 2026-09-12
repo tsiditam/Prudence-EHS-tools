@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
  * All rights reserved.
  *
- * Sparkline — a tiny inline trend. 1.6px line in the series colour, an
+ * Sparkline — a tiny inline trend. 1.6px line in the series color, an
  * optional ~10% wash beneath it (`area`), and an end-dot marking the latest
  * reading so the trace has a direction.
  */

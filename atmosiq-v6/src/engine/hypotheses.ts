@@ -139,7 +139,7 @@ const hasOdor = (ot: ReadonlyArray<string>): boolean =>
  * overpowering odor and a faint intermittent one produced the identical
  * basis line, "intensity not recorded".
  *
- * `oi` is still honoured when present so fixtures and any caller passing
+ * `oi` is still honored when present so fixtures and any caller passing
  * the merged numeric shape keep working; `op` is what the app supplies.
  * The mapping matches how `scoreEnv` grades the same field — moderate
  * persistent and above is what it treats as a finding worth reporting.

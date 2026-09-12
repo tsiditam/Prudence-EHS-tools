@@ -62,7 +62,7 @@ interface PostBody {
   reviewer_organization?: unknown
 }
 
-/** Trim, cap, and normalise an optional free-text reviewer field. */
+/** Trim, cap, and normalize an optional free-text reviewer field. */
 function trimField(v: unknown, max = 120): string | null {
   return typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null
 }
@@ -273,7 +273,7 @@ async function handlePost(req: Req, res: Res) {
 
   // Carry the approval onto the assessment itself. Best-effort and
   // deliberately non-fatal: the reviewer has already responded, and
-  // failing their request because a denormalised column did not update
+  // failing their request because a denormalized column did not update
   // would lose the response entirely. The peer_reviews row remains the
   // record of truth either way.
   if (status === 'approved' && row.report_id) {

@@ -135,7 +135,7 @@ export function classifyAttachment(file) {
   if (XLSX_EXT.test(name) || type.includes('spreadsheetml')) return 'sensor'
   // A CSV could be either a logger export or a lab report. Which one it is
   // cannot be known from the name, so both parsers are tried against the
-  // content and the one that recognises more wins (see `digestForFile`).
+  // content and the one that recognizes more wins (see `digestForFile`).
   if (CSV_EXT.test(name) || type === 'text/csv' || type === 'application/vnd.ms-excel') return 'sensor'
   if (TEXT_EXT.test(name) || type.startsWith('text/')) return 'text'
   return null
@@ -145,8 +145,8 @@ export function classifyAttachment(file) {
  * The accept attribute for the composer's file input.
  *
  * Carries BOTH the MIME type and the extension for every data format,
- * because the mobile pickers disagree about which one they honour: iOS
- * greys out anything it does not believe is accepted, and it matches on
+ * because the mobile pickers disagree about which one they honor: iOS
+ * grays out anything it does not believe is accepted, and it matches on
  * UTI (resolved from the MIME type) rather than on a bare extension —
  * so an extension-only list leaves a Word report untappable in the Files
  * app. Android's picker leans the other way and matches extensions more
@@ -253,7 +253,7 @@ export function buildSensorDigest(dataset, fileName) {
  * A lab results CSV reduced to its analytes and sample count.
  *
  * Individual results are NOT enumerated past a small sample: a 400-row
- * bulk mould report would consume the whole digest budget, and the
+ * bulk mold report would consume the whole digest budget, and the
  * question a user asks of an uploaded lab report ("what did this find?")
  * is answered by the analyte list and the sample inventory.
  */
@@ -326,7 +326,7 @@ export function buildTextDigest(text, fileName, opts = {}) {
  * Render a digest as the text block that rides with the user's message.
  *
  * Plain text rather than JSON because it is read by a language model, and
- * because a labelled block survives truncation legibly where a clipped
+ * because a labeled block survives truncation legibly where a clipped
  * JSON object does not.
  */
 export function digestToPrompt(digest) {
@@ -345,7 +345,7 @@ export function digestToPrompt(digest) {
       const range = p.mean == null ? 'no numeric values' : `mean ${p.mean}${u}, min ${p.min}${u}, max ${p.max}${u}, n=${p.n}`
       L.push(`  - ${p.param}: ${range}${p.missing ? `, ${p.missing} missing` : ''}`)
     }
-    if (digest.unmappedColumns.length) L.push(`Unrecognised columns: ${digest.unmappedColumns.join(', ')}`)
+    if (digest.unmappedColumns.length) L.push(`Unrecognized columns: ${digest.unmappedColumns.join(', ')}`)
     if (digest.qualityFlags.length) {
       L.push('Data integrity notes:')
       for (const f of digest.qualityFlags) L.push(`  - ${f}`)
@@ -425,7 +425,7 @@ export function digestSummaryLine(digest) {
  * Decide between the logger parser and the lab parser for a CSV.
  *
  * Both are run and the more confident result wins. A logger export has
- * recognised parameter columns; a lab report has analyte/result columns.
+ * recognized parameter columns; a lab report has analyte/result columns.
  * Guessing from the filename is unreliable — "results.csv" is written by
  * both — so the content decides.
  */
@@ -447,7 +447,7 @@ export function pickCsvDigest(csvText, fileName) {
   const labMapped = labRows > 0 && lab.rows.some((r) => r && r.analyte)
 
   // A lab report only wins when it actually mapped analytes; otherwise a
-  // logger CSV whose headers the lab parser half-recognised would be
+  // logger CSV whose headers the lab parser half-recognized would be
   // described as laboratory data, which is a worse error than the reverse.
   if (labMapped && (sensorParams === 0 || labRows > sensorParams * 2)) {
     return buildLabDigest(lab, fileName)
@@ -487,7 +487,7 @@ export async function digestForFile(file, deps = {}) {
       const ds = parseSensorRows(rows, { fileName: name })
       const digest = buildSensorDigest(ds, name)
       if (!digest || !digest.parameters.length) {
-        return { ok: false, error: `Could not find recognisable data columns in ${name || 'the spreadsheet'}.` }
+        return { ok: false, error: `Could not find recognizable data columns in ${name || 'the spreadsheet'}.` }
       }
       return { ok: true, digest }
     }
@@ -498,7 +498,7 @@ export async function digestForFile(file, deps = {}) {
       if (!digest) {
         return {
           ok: false,
-          error: `Could not recognise ${name || 'the file'} as logger data or lab results. It needs a header row with recognisable columns.`,
+          error: `Could not recognize ${name || 'the file'} as logger data or lab results. It needs a header row with recognizable columns.`,
         }
       }
       return { ok: true, digest }

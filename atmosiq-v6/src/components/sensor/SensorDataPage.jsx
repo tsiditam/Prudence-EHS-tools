@@ -119,7 +119,7 @@ const EXC_TONE = { danger: V3.DANGER, warn: '#FB923C' }
 const EXC_LABEL = { danger: 'Above reference', warn: 'Near reference' }
 
 // The series hue for the live theme — the dot beside a stat, its
-// sparkline and its trace in the chart are the same validated colour.
+// sparkline and its trace in the chart are the same validated color.
 const seriesColor = (param) => currentPalette().series[param] || 'var(--accent)'
 
 // One Overview parameter card: identity dot + sparkline, the mean in
@@ -139,11 +139,11 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
       || null
     : param === 'hcho' ? hchoSourceLabel(stats.mean, hchoSourceUnit) : null
   // Stat-tile contract: label → value → trend → meter → range. The flag,
-  // when there is one, is a status pill at the top-right — status colour
-  // with a label, never colour alone — and the sparkline is a real trend
+  // when there is one, is a status pill at the top-right — status color
+  // with a label, never color alone — and the sparkline is a real trend
   // (wash + end-dot) rather than a 76px squiggle beside the label.
   // A reading is a block on the page parting from the next with a
-  // hairline, not a card. The flag is a word in its status colour.
+  // hairline, not a card. The flag is a word in its status color.
   return (
     <div style={{ padding: '14px 0 16px', borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -189,7 +189,7 @@ function ParamCard({ param, stats, unit, points, ts, hchoSourceUnit, tvocSourceU
 // sentence, then the flagged parameters as series-keyed tags.
 function ThresholdBanner({ items }) {
   if (!items.length) return null
-  // One sentence under the heading. The count carries the colour; the
+  // One sentence under the heading. The count carries the color; the
   // parameters are named in plain ink — no tinted box, no tags.
   return (
     <div style={{ ...V3.T.body, marginTop: 4 }}>
@@ -728,7 +728,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
             )
           })()}
 
-          {/* Data quality — a heading, the verdict in its colour, the flags. */}
+          {/* Data quality — a heading, the verdict in its color, the flags. */}
           <div style={{ ...V3.T.micro, marginTop: 24, marginBottom: 8 }}>Data quality</div>
           <div style={{ paddingTop: 12, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }}>
             <div style={{ ...V3.T.bodyStrong, color: data.quality.level === 'ok' ? TEXT : QUALITY_TONE[data.quality.level] }}>{data.quality.status}</div>
@@ -760,7 +760,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
               <div style={{ marginTop: 6, borderBottom: `1px solid ${V3.BORDER_SUBTLE}` }}>
                 {availableRefs.length > 0 && (
                   <CollapsibleCard flat title="Reference lines" summary={`${availableRefs.filter((d) => refs[d.key]).length} of ${availableRefs.length} on`} defaultOpen={false}>
-                    <div style={{ ...V3.T.captionDim, marginBottom: 10 }}>Labelled advisory / context values, not compliance limits.</div>
+                    <div style={{ ...V3.T.captionDim, marginBottom: 10 }}>Labeled advisory / context values, not compliance limits.</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                       {availableRefs.map((d) => (
                         <Chip key={d.key} selected={!!refs[d.key]} onClick={() => toggleRef(d.key)} title={d.std} checkmark>
@@ -1123,7 +1123,7 @@ function OccupancyEditor({ windows, range, onChange }) {
         <TactileButton variant="secondary" size="sm" onClick={addManual}>Add period</TactileButton>
       </div>
       <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
-        Shading marks occupied (green) vs unoccupied (grey) periods on every timeline and the report image, context for interpretation, not a measurement.
+        Shading marks occupied (green) vs unoccupied (gray) periods on every timeline and the report image, context for interpretation, not a measurement.
       </div>
     </CollapsibleCard>
   )

@@ -24,7 +24,7 @@
  * consequences: the 700 ppm CO₂ differential was attributed to
  * "ASHRAE 62.1-2025" as though the standard sets an indoor CO₂ limit (it
  * does not — the figure comes from a since-removed informative appendix;
- * see Persily 2021), and the OSHA CO PEL, an 8-hour TWA, was labelled a
+ * see Persily 2021), and the OSHA CO PEL, an 8-hour TWA, was labeled a
  * "Regulatory ceiling for workplace". The table also omitted the indoor CO
  * criteria the engine actually applies, so a reader could not find the
  * basis of a CO finding in it.
@@ -126,7 +126,7 @@ export const BENCHMARK_INTRO =
 // indicators rather than criteria in their own right.
 //
 // Without this a row fell through to a bare "Indicator", so the same
-// parameter could be labelled "Ventilation benchmark" when a finding rested
+// parameter could be labeled "Ventilation benchmark" when a finding rested
 // on it and "Indicator" when it did not — the table disagreeing with itself
 // about what kind of thing CO2 is.
 export const BAND_PRESENTATION = {

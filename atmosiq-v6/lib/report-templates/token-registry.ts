@@ -485,7 +485,7 @@ export const TOKEN_REGISTRY: TokenEntry[] = [
   {
     token: 'sampling_plan.summary',
     description:
-      'Newline-separated bullets summarising the recommended sampling plan.',
+      'Newline-separated bullets summarizing the recommended sampling plan.',
     resolve: (ctx) =>
       bulletJoin(
         samplingEntries(ctx).map((p) => {

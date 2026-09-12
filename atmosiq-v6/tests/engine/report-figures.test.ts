@@ -24,13 +24,15 @@ import JSZip from 'jszip'
 // @ts-expect-error js
 import { scoreZone, summarizeAssessment } from '../../src/engines/scoring.js'
 // @ts-expect-error js
-import { assembleRenderModel, buildFloorPlan, FLOOR_PLAN_MAX } from '../../src/report/reportModel.js'
+import { assembleRenderModel, buildFloorPlans, FLOOR_PLAN_MAX } from '../../src/report/reportModel.js'
 // @ts-expect-error js
 import { checkRenderModel } from '../../src/report/modelConsistency.js'
 // @ts-expect-error js
 import { imageDimensions, fitWithin } from '../../src/utils/imageDimensions.js'
 // @ts-expect-error js
-import { samplePoints, hasOutdoorBaseline, spaceUse, PARAM_SHORT, INDOOR_FIELDS, OUTDOOR_FIELDS } from '../../src/utils/samplePoints.js'
+import { samplePoints, pointsOnPlan, hasOutdoorBaseline, spaceUse, PARAM_SHORT, INDOOR_FIELDS, OUTDOOR_FIELDS } from '../../src/utils/samplePoints.js'
+// @ts-expect-error js
+import { LEGACY_PLAN_ID } from '../../src/utils/floorPlans.js'
 // @ts-expect-error js
 import { buildAtmosFlowDocument } from '../../src/components/DocxReport'
 
@@ -134,16 +136,21 @@ describe('imageDimensions reads the pixel size off the file header', () => {
 
 // ── Floor plan in the model ───────────────────────────────────────────────
 
+// The single figure of a one-plan record (legacy `floorPlan`, or a one-item list).
+const onlyFigure = (data: any) => { const fp = buildFloorPlans(data); expect(fp.figures.length).toBe(1); return fp.figures[0] }
+
 describe('the uploaded floor plan is a report figure', () => {
   it('is absent when no plan was uploaded', () => {
-    expect(buildFloorPlan(fixture())).toBeNull()
-    expect(buildFloorPlan(fixture({ floorPlan: null }))).toBeNull()
-    expect(buildFloorPlan(fixture({ floorPlan: 'not-an-image' }))).toBeNull()
-    expect(assembleRenderModel(fixture()).floorPlan).toBeNull()
+    expect(buildFloorPlans(fixture())).toBeNull()
+    expect(buildFloorPlans(fixture({ floorPlan: null }))).toBeNull()
+    expect(buildFloorPlans(fixture({ floorPlan: 'not-an-image' }))).toBeNull()
+    expect(buildFloorPlans(fixture({ floorPlans: [] }))).toBeNull()
+    expect(buildFloorPlans(fixture({ floorPlans: [{ id: 'p1', label: 'L1', image: null }] }))).toBeNull()
+    expect(assembleRenderModel(fixture()).floorPlans).toBeNull()
   })
 
   it('renders the raw plan sized from its own header, with the sampled locations and their positions', () => {
-    const fp = buildFloorPlan(fixture({ floorPlan: PNG_400x300 }))
+    const fp = onlyFigure(fixture({ floorPlan: PNG_400x300 }))
     expect(fp.imageDataUrl).toBe(PNG_400x300)
     expect(fp.figure).toEqual({ width: 400, height: 300 })
     expect(fp.pinsDrawn).toBe(false)
@@ -152,35 +159,104 @@ describe('the uploaded floor plan is a report figure', () => {
     expect(fp.pins[0].position).toBe('41% across, 63% down')
     // The pin says what was measured there, and never how bad it was.
     expect(fp.pins[0].readings).toBe('CO₂, T, RH, PM2.5, CO')
-    expect(fp.caption).toMatch(/2 sampling locations placed on the plan are listed below/)
+    expect(fp.caption).toMatch(/^Figure 1\. Floor plan as provided\. The 2 sampling locations placed on this plan are listed below/)
   })
 
   it('takes the composed figure (pins drawn) and fits it to the page', () => {
     const composed = { imageDataUrl: PNG_400x300, width: 2000, height: 1000, pinsDrawn: true }
-    const fp = buildFloorPlan(fixture({ floorPlan: composed }))
-    expect(fp.figure).toEqual({ width: FLOOR_PLAN_MAX.width, height: 310 })
-    expect(fp.pinsDrawn).toBe(true)
-    expect(fp.caption).toMatch(/with the 2 sampling locations marked\. Pin numbers key to the table below; marker color carries no meaning/)
+    // Legacy export shape…
+    const legacy = onlyFigure(fixture({ floorPlan: composed }))
+    expect(legacy.figure).toEqual({ width: FLOOR_PLAN_MAX.width, height: 310 })
+    expect(legacy.pinsDrawn).toBe(true)
+    expect(legacy.caption).toMatch(/with the 2 sampling locations marked\. Pin numbers key to the table below; marker color carries no meaning/)
+    // …and the list shape the export path now produces.
+    const listed = onlyFigure(fixture({ floorPlans: [{ id: 'p1', label: '', image: PNG_400x300, composed }] }))
+    expect(listed.figure).toEqual({ width: FLOOR_PLAN_MAX.width, height: 310 })
+    expect(listed.pinsDrawn).toBe(true)
   })
 
   it('a plan with no locations placed still renders, and says so', () => {
     const zones = ZONES.map(({ mapX, mapY, ...z }) => z)
-    const fp = buildFloorPlan({ ...fixture({ floorPlan: PNG_400x300 }), zones })
-    expect(fp.pins).toEqual([])
-    expect(fp.caption).toMatch(/Sampling locations were not marked/)
+    const fp = buildFloorPlans({ ...fixture({ floorPlan: PNG_400x300 }), zones })
+    expect(fp.figures[0].pins).toEqual([])
+    expect(fp.figures[0].caption).toMatch(/Sampling locations were not marked/)
     expect(fp.note).toBeNull()
   })
 
   it('an unreadable header falls back to a page-width box rather than dropping the figure', () => {
-    const fp = buildFloorPlan(fixture({ floorPlan: 'data:image/png;base64,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' }))
+    const fp = onlyFigure(fixture({ floorPlan: 'data:image/png;base64,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' }))
     expect(fp).not.toBeNull()
     expect(fp.figure.width).toBe(620)
   })
 
   it('the assembled model with a plan agrees with itself', () => {
     const m = assembleRenderModel(fixture({ floorPlan: PNG_400x300 }))
-    expect(m.floorPlan.pins.length).toBe(2)
+    expect(m.floorPlans.figures[0].pins.length).toBe(2)
     expect(checkRenderModel(m)).toEqual([])
+  })
+})
+
+describe('a site with several plans gets one figure per plan', () => {
+  const PLANS = [
+    { id: 'lvl1', label: 'Level 1', image: PNG_400x300 },
+    { id: 'lvl2', label: 'Level 2', image: PNG_400x300 },
+  ]
+  // Open Office on Level 1 (explicit), Conference 2B on Level 2, Server Room
+  // placed but naming a plan that no longer exists.
+  const zonesOn = () => [
+    { ...ZONES[0], mapPlan: 'lvl1' },
+    { ...ZONES[1], mapPlan: 'lvl2' },
+    { ...ZONES[2], mapX: 50, mapY: 50, mapPlan: 'gone' },
+  ]
+
+  it('numbers pins across the site and lists each figure’s own beneath it', () => {
+    const fp = buildFloorPlans({ ...fixture({ floorPlans: PLANS }), zones: zonesOn() })
+    expect(fp.figures.map((f: any) => [f.id, f.label])).toEqual([['lvl1', 'Level 1'], ['lvl2', 'Level 2']])
+    expect(fp.figures[0].pins.map((p: any) => [p.n, p.zone])).toEqual([[1, 'Open Office']])
+    expect(fp.figures[1].pins.map((p: any) => [p.n, p.zone])).toEqual([[2, 'Conference 2B']])
+    expect(fp.figures[0].caption).toMatch(/^Figure 1\. Level 1 — floor plan as provided\. The 1 sampling location placed on this plan is listed below/)
+    expect(fp.figures[1].caption).toMatch(/^Figure 2\. Level 2 — floor plan/)
+    expect(fp.note).toMatch(/uploaded plans/)
+  })
+
+  it('a pin on a plan the record no longer has is not a pin', () => {
+    const pts = samplePoints(zonesOn(), { plans: PLANS })
+    expect(pts.map((p: any) => [p.n, p.label, p.plan])).toEqual([[1, 'Open Office', 'lvl1'], [2, 'Conference 2B', 'lvl2']])
+    // Without the plan list every placed pin counts, and `plan` is as recorded.
+    expect(samplePoints(zonesOn()).map((p: any) => p.plan)).toEqual(['lvl1', 'lvl2', 'gone'])
+    expect(pointsOnPlan(pts, 'lvl2').map((p: any) => p.n)).toEqual([2])
+  })
+
+  it('a legacy record’s pins are on its one plan, and the outdoor reference follows its own plan', () => {
+    // No mapPlan anywhere: the first (only) plan is the one they were placed on.
+    const legacy = samplePoints(ZONES, { plans: [{ id: LEGACY_PLAN_ID, label: '', image: PNG_400x300 }] })
+    expect(legacy.map((p: any) => p.plan)).toEqual([LEGACY_PLAN_ID, LEGACY_PLAN_ID])
+    // A record that is now a list still resolves an unassigned pin to the first plan.
+    const first = samplePoints(ZONES, { plans: PLANS })
+    expect(first.map((p: any) => p.plan)).toEqual(['lvl1', 'lvl1'])
+    const withOutdoor = ZONES.map(z => ({ ...z, co2o: '430' }))
+    const pts = samplePoints(withOutdoor, { plans: PLANS, building: { outdoorMapX: 5, outdoorMapY: 95, outdoorMapPlan: 'lvl2' } })
+    expect(pts.find((p: any) => p.kind === 'outdoor').plan).toBe('lvl2')
+  })
+
+  it('the model with two plans agrees with itself, and a pin off the results table is named with its plan', () => {
+    const m = assembleRenderModel({ ...fixture({ floorPlans: PLANS }), zones: zonesOn() })
+    expect(m.floorPlans.figures.length).toBe(2)
+    expect(checkRenderModel(m)).toEqual([])
+    m.floorPlans.figures[1].pins[0].zone = 'Mezzanine (not assessed)'
+    const issues = checkRenderModel(m).filter((i: any) => i.id === 'floorplan-pin')
+    expect(issues.length).toBe(1)
+    expect(issues[0].message).toContain('(Level 2)')
+  })
+
+  it('renders both figures and both tables in the DOCX', async () => {
+    const xml = await renderXml({ ...fixture({ floorPlans: PLANS }), zones: zonesOn() })
+    expect(xml).toContain('Figure 1. Level 1 — floor plan as provided')
+    expect(xml).toContain('Figure 2. Level 2 — floor plan as provided')
+    // One heading for the section, not one per plan.
+    expect((xml.match(/Site plan and sampling locations/g) || []).length).toBe(1)
+    const one = await renderXml(fixture({ floorPlans: [PLANS[0]] }))
+    expect((xml.match(/<w:drawing>/g) || []).length).toBe((one.match(/<w:drawing>/g) || []).length + 1)
   })
 })
 
@@ -195,7 +271,7 @@ describe('samplePoints is the one source the three floor-plan surfaces read', ()
 
   it('carries no severity, count, or finding of any kind', () => {
     const keys = new Set(samplePoints(ZONES).flatMap((p: any) => Object.keys(p)))
-    for (const banned of ['sev', 'severity', 'worst', 'findings', 'count', 'color', 'colour']) {
+    for (const banned of ['sev', 'severity', 'worst', 'findings', 'count', 'color', 'colour']) { // spelling-ok: the guard bans both spellings
       expect([...keys], banned).not.toContain(banned)
     }
   })
@@ -251,7 +327,7 @@ describe('samplePoints is the one source the three floor-plan surfaces read', ()
       zones,
       building: { ...fixture().building, outdoorMapX: 5, outdoorMapY: 95 },
     })
-    expect(m.floorPlan.pins.map((p: any) => p.zone)).toContain('Outdoor reference')
+    expect(m.floorPlans.figures[0].pins.map((p: any) => p.zone)).toContain('Outdoor reference')
     expect(checkRenderModel(m).map((i: any) => i.id)).not.toContain('floorplan-pin')
   })
 
@@ -282,7 +358,8 @@ describe('the DOCX embeds the attached figures', () => {
   })
 
   it('renders the composed plan without the position column', async () => {
-    const xml = await renderXml(fixture({ floorPlan: { imageDataUrl: PNG_400x300, width: 400, height: 300, pinsDrawn: true } }))
+    const composed = { imageDataUrl: PNG_400x300, width: 400, height: 300, pinsDrawn: true }
+    const xml = await renderXml(fixture({ floorPlans: [{ id: 'p1', label: '', image: PNG_400x300, composed }] }))
     expect(xml).toContain('Pin numbers key to the table below')
     expect(xml).not.toContain('Position on plan')
     expect(xml).toContain('Open Office')
@@ -333,15 +410,15 @@ describe('every export path reads the graphs of the report being exported', () =
     for (const fn of ['executeExport', 'handleShare', 'sendForPeerReview']) {
       const body = fnBody(fn)
       expect(body, fn).toContain('await prepareReportFigures()')
-      expect(body, fn).toContain('floorPlan: figures.floorPlan')
+      expect(body, fn).toContain('floorPlans: figures.floorPlans')
       expect(body, fn).toContain('sensorData: figures.sensorData')
       // The raw state variable must not reach the report data of any path.
-      expect(body, fn).not.toMatch(/userMode, floorPlan, sensorData,/)
+      expect(body, fn).not.toMatch(/userMode, floorPlans?, sensorData,/)
     }
   })
 
   it('the Report-tab consistency check reads the same dataset the export will', () => {
-    expect(src).toMatch(/checkRenderModel\(assembleRenderModel\(\{[\s\S]*?sensorData: loggerSd, floorPlan,/)
+    expect(src).toMatch(/checkRenderModel\(assembleRenderModel\(\{[\s\S]*?sensorData: loggerSd, floorPlans,/)
   })
 })
 
@@ -350,7 +427,7 @@ describe('every export path reads the graphs of the report being exported', () =
 describe('a floor plan marks where sampling happened, not what was found', () => {
   /**
    * Source-level, because the defect was which helper each surface reached
-   * for. All three coloured a pin by `worstFindingSeverity` and numbered it
+   * for. All three colored a pin by `worstFindingSeverity` and numbered it
    * by `countFindings`, so a site drawing restated the verdict a fourth time
    * and the pin number could not double as the key to the table.
    *
@@ -389,7 +466,7 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     // The retired helpers may still be used elsewhere in a file this size, so
     // the assertion is about the pin block, which every surface keys off the
     // shared derivation.
-    if (/samplePoints|floorPlan/.test(code)) expect(code).toMatch(/samplePoints|M\.floorPlan/)
+    if (/samplePoints|floorPlan/.test(code)) expect(code).toMatch(/samplePoints|M\.floorPlans/)
     expect(code, 'floorPlanPins was folded into samplePoints').not.toContain('floorPlanPins')
   })
 
@@ -410,7 +487,7 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     // entry — so both halves are asserted together.
     const app = read('src/components/MobileApp.jsx')
     expect(app).toContain("['locations','bldg','Site plan']")
-    expect(app).toMatch(/rTab==='locations'[\s\S]{0,400}<SpatialMap\s+embedded/)
+    expect(app).toMatch(/rTab==='locations'[\s\S]{0,1200}<SpatialMap\s+embedded/)
     expect(app, 'the standalone route still renders').not.toContain("view==='spatial'")
     expect(app, 'the overflow-menu entry is still there').not.toContain('Mark sampling locations')
     expect(read('src/constants/routes.js'), 'stale route registry entry').not.toMatch(/^\s*spatial:/m)
@@ -430,8 +507,10 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     expect(app).toContain('const persistArchivedSitePlan = async (patch)')
     // Same shape as toggleArchivedLoggerInclude: patch viewRpt, then the record.
     expect(app).toMatch(/persistArchivedSitePlan[\s\S]{0,400}await STO\.set\(viewRpt\.id, \{ \.\.\.base, \.\.\.patch/)
-    // Every edit the tab can make is persisted, not just the pin drop.
-    for (const patch of ['{ zones: z }', '{ building: b }', '{ floorPlan: url }']) {
+    // Every edit the tab can make is persisted, not just the pin drop. The
+    // plan list is written as refs (images are in IndexedDB), and the
+    // legacy single-plan field is retired on the same write.
+    for (const patch of ['{ zones: z }', '{ building: b }', '{ floorPlans: compactFloorPlans(p), floorPlan: null }']) {
       expect(app, `site-plan edit not persisted: ${patch}`).toContain(`persistArchivedSitePlan(${patch})`)
     }
     // And only on a saved report; a draft autosaves already.
@@ -459,25 +538,46 @@ describe('a floor plan marks where sampling happened, not what was found', () =>
     expect(screen).toContain('Remove pin')
     expect(screen, 'the three-tap label is back').not.toContain('Unpin')
     // The selected marker is distinguished by a halo, not by swapping its
-    // ring to the theme's text colour — which in the dark theme is near-white
+    // ring to the theme's text color — which in the dark theme is near-white
     // on a white ring, i.e. invisible.
     expect(screen).not.toMatch(/border: `2px solid \$\{selected === p\.n \? TEXT/)
     expect(screen).toMatch(/boxShadow: selected === p\.n \? `0 0 0 3px \$\{ACCENT\}, 0 0 0 5px #fff/)
   })
 
-  it('clearing the plan is one update, not a per-zone loop', () => {
+  it('removing a plan is one update per collection, not a per-zone loop', () => {
     // The loop built each new zones array from the same render's `zones`, so
     // every clear but the last was discarded and pins survived "Remove".
+    // With several plans, Remove lifts the pins of THAT plan only
+    // (clearPinsOnPlan) and drops the plan, in one update each.
     const screen = read('src/components/SpatialMap.jsx')
-    expect(screen).toContain('onClearPins')
+    expect(screen).toContain('onRemovePlan')
     expect(screen, 'the per-zone clear loop is back').not.toMatch(/zones\.forEach\([\s\S]{0,120}onUpdateZone/)
-    expect(read('src/components/MobileApp.jsx')).toMatch(/onClearPins=\{\(\)=>\{/)
+    const app = read('src/components/MobileApp.jsx')
+    expect(app).toMatch(/onRemovePlan=\{\(id\)=>\{[\s\S]{0,400}clearPinsOnPlan\(zones, bldg, id, floorPlans\)/)
+    expect(app).toMatch(/writePlans\(floorPlans\.filter\(p => p\.id !== id\)\)/)
   })
 
-  it('the Plan tab is labelled Actions and keeps its id', () => {
+  it('a pin is placed on the plan that is showing, and the images go to IndexedDB', () => {
+    const screen = read('src/components/SpatialMap.jsx')
+    expect(screen).toContain('mapPlan: active.id')
+    expect(screen).toContain('outdoorMapPlan: active.id')
+    expect(screen).toContain('+ Add plan')
+    const app = read('src/components/MobileApp.jsx')
+    expect(app).toMatch(/onAddPlan=\{async \(url\)=>\{[\s\S]{0,200}storeFloorPlanImage\(url, planOwner\(\)\)/)
+    // Finalize re-homes the blobs with the photos, and every loader expands refs.
+    expect(app).toContain('await rekeyFloorPlans(floorPlans, rid)')
+    expect((app.match(/expandFloorPlans\(normalizeFloorPlans\(/g) || []).length).toBeGreaterThanOrEqual(2)
+    expect(read('src/contexts/AssessmentContext.jsx')).toContain('expandFloorPlans(normalizeFloorPlans(')
+    // The cloud carries images inline: expanded on the way up, offloaded on the way down.
+    const store = read('src/utils/supabaseStorage.js')
+    expect(store).toMatch(/_pushAssessment\(assessment\) \{[\s\S]{0,600}expandFloorPlans\(assessment\.floorPlans\)/)
+    expect((store.match(/_localizeFloorPlans\(fromCloudRow\(/g) || []).length).toBe(3)
+  })
+
+  it('the Plan tab is labeled Actions and keeps its id', () => {
     const app = read('src/components/MobileApp.jsx')
     expect(app).toContain("['plan','check','Actions']")
-    expect(app, 'a tab is still labelled Plan').not.toContain("['plan','check','Plan']")
+    expect(app, 'a tab is still labeled Plan').not.toContain("['plan','check','Plan']")
     expect(app).toContain('See the actions')
     // The id is the stable key, as with overview/Findings and
     // rootcause/Pathways — renaming it would churn the alias map and the

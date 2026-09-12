@@ -137,7 +137,7 @@ export function measuredParameters(zones) {
  *
  * Scoping rule. "No context was supplied" and "context was supplied and
  * nothing matched" are DIFFERENT answers, and the distinction is the
- * whole behaviour of this function:
+ * whole behavior of this function:
  *
  *   • `ctx` absent, or carrying no `parameters` collection — the caller
  *     cannot say what was measured, so nothing can be ruled out and every

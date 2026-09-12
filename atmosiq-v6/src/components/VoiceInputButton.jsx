@@ -73,7 +73,7 @@ export default function VoiceInputButton({
   unsupportedColor = 'var(--dim)',
   // Pill variant: a text label beside the glyph ("Speak"). The button
   // becomes a full-radius capsule sized by its content instead of a
-  // square, and — since a labelled capsule is a primary control — fills
+  // square, and — since a labeled capsule is a primary control — fills
   // with the accent while idle and inverts while listening.
   label = null,
 } = {}) {

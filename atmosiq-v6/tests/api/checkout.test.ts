@@ -3,7 +3,7 @@
  *
  *   • requires a Bearer JWT; user id / email come from the token and a
  *     body userId is IGNORED
- *   • returnUrl is honoured only on https://atmosflow.net or the request's
+ *   • returnUrl is honored only on https://atmosflow.net or the request's
  *     own origin; anything else falls back to the default
  *   • Stripe errors come back as a stable code, never the Stripe message
  */
@@ -81,12 +81,12 @@ describe('/api/checkout — returnUrl allow-list', () => {
     expect(captured.cancel_url).toBe('https://atmosflow.net?checkout=cancelled')
   })
 
-  it('honours the production origin (path kept, query dropped)', async () => {
+  it('honors the production origin (path kept, query dropped)', async () => {
     await handler(post({ plan: 'pro', returnUrl: 'https://atmosflow.net/app?x=1#frag' }), makeRes())
     expect(captured.success_url).toBe('https://atmosflow.net/app?checkout=success')
   })
 
-  it("honours the request's own origin", async () => {
+  it("honors the request's own origin", async () => {
     await handler(post({ plan: 'pro', returnUrl: 'https://pr-42.vercel.app' }, { origin: 'https://pr-42.vercel.app' }), makeRes())
     expect(captured.success_url).toBe('https://pr-42.vercel.app?checkout=success')
   })

@@ -161,7 +161,7 @@ describe('monitoringInsights', () => {
     expect(ids).toContain('peak-timing')
   })
 
-  it('reports the measured overnight average rather than characterising it', () => {
+  it('reports the measured overnight average rather than characterizing it', () => {
     const overnight = insights.find((i) => i.id === 'overnight')!
     expect(overnight.text).toMatch(/Overnight readings \(22:00–05:00\) averaged [\d,]+ ppm\./)
   })
