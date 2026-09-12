@@ -201,19 +201,20 @@ function limitationsAgreeWithSections(M) {
 }
 
 /**
- * Every pin on the floor plan names a zone the results table carries.
+ * Every pin on the floor plan names a location the results table carries.
  *
- * The figure's numbers resolve through the table beneath it to a zone
+ * The figure's numbers resolve through the table beneath it to a location
  * name; a name that appears nowhere else in the report is a pin pointing at
- * nothing. Zone rows are `results.rows` minus the site mean and the outdoor
- * reference, which are not places on the plan.
+ * nothing. Every results row is a place except the site mean, which is an
+ * arithmetic summary. The outdoor reference IS a place and IS a row, so an
+ * outdoor pin resolves to it.
  */
 function floorPlanPinsResolve(M) {
   const fp = M.floorPlan
   if (!fp || !Array.isArray(fp.pins) || !fp.pins.length) return []
   const named = new Set(
     ((M.results && M.results.rows) || [])
-      .filter(r => r && r.id !== 'Site mean' && r.id !== 'Outdoor reference')
+      .filter(r => r && r.id !== 'Site mean')
       .map(r => String(r.id)),
   )
   return fp.pins

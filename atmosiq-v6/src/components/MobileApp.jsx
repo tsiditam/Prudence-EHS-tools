@@ -1775,7 +1775,7 @@ export default function MobileApp() {
     // document would differ from the one that was issued, silently.
     //
     // This is reachable: the actions menu renders on view==='report', offers
-    // "Map zones on floor plan", and SpatialMap's onClose calls runScoring.
+    // "Mark sampling locations", and SpatialMap's onClose calls runScoring.
     // Guarding here rather than at that one call site, so any future entry
     // point is covered too.
     if (viewRpt) {
@@ -2100,10 +2100,10 @@ export default function MobileApp() {
   //    toggle never captured at all), so the included charts are re-rendered
   //    from their data points — a self-contained-SVG raster every export
   //    (DOCX, AtmosFlow PDF, Web) then embeds.
-  //  - the floor plan with the assessed zones drawn on it as numbered pins.
-  //    A Word document cannot overlay the spatial map's HTML pins, so the
-  //    plan and pins are composed into one image here; if that fails the
-  //    raw plan still renders, sized from its own header, with the zone
+  //  - the floor plan with the sampling locations drawn on it as numbered
+  //    pins. A Word document cannot overlay the spatial map's HTML pins, so
+  //    the plan and pins are composed into one image here; if that fails the
+  //    raw plan still renders, sized from its own header, with the recorded
   //    positions listed beneath it.
   const prepareReportFigures = async () => {
     const { ensureLoggerChartImages } = await loadLoggerChartImages()
@@ -2112,7 +2112,7 @@ export default function MobileApp() {
     if (floorPlan) {
       try {
         const { composeFloorPlanFigure } = await loadFloorPlanFigure()
-        floorPlanForReport = (await composeFloorPlanFigure(floorPlan, zones)) || floorPlan
+        floorPlanForReport = (await composeFloorPlanFigure(floorPlan, zones, { building: bldg })) || floorPlan
       } catch { /* the raw plan is still embedded */ }
     }
     return { sensorData: sensorDataForReport, floorPlan: floorPlanForReport }
@@ -3993,7 +3993,7 @@ export default function MobileApp() {
           { label:'Generate reports',         icon:'notes',    onClick:()=>handleExport('docx','atmosflow') },
           { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
           { label:'Send for peer review',     icon:'check',    onClick:()=>{ setActionsOpen(false); setPeerReviewOpen(true) } },
-          { label:'Map zones on floor plan',  icon:'bldg',     onClick:()=>setView('spatial') },
+          { label:'Mark sampling locations',  icon:'bldg',     onClick:()=>setView('spatial') },
           { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
           { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
         ] : [
@@ -5098,7 +5098,7 @@ export default function MobileApp() {
         {view==='incident-log'&&<IncidentLog profile={profile} onBack={goHome} onNewIncident={()=>setView('incident-form')} onView={(inc)=>{setCurrentIncident(inc);setView('incident-detail')}} />}
         {view==='incident-detail'&&currentIncident&&<IncidentDetail incident={currentIncident} profile={profile} onBack={()=>setView('incident-log')} onChange={setCurrentIncident} onDeleted={()=>{setCurrentIncident(null);setView('incident-log')}} />}
         {view==='properties'&&<PropertyDashboard onBack={()=>setView('dash')} onNavigate={(target,arg)=>{if(target==='building'){openBuildingProject(arg)}else{setView(target)}}} assessmentIndex={index} />}
-        {view==='spatial'&&<Suspense fallback={LAZY_FALLBACK}><SpatialMap zones={zones} zoneScores={zoneScores} floorPlan={floorPlan} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onClose={()=>{runScoring();setView('results')}} /></Suspense>}
+        {view==='spatial'&&<Suspense fallback={LAZY_FALLBACK}><SpatialMap zones={zones} floorPlan={floorPlan} building={bldg} onUploadFloorPlan={setFloorPlan} onUpdateZone={(zi, update)=>{const z=[...zones];z[zi]={...z[zi],...update};setZones(z)}} onUpdateBuilding={(update)=>setBldg(prev=>({...prev,...update}))} onClose={()=>{runScoring();setView('results')}} /></Suspense>}
 
        </AnimatedPageTransition>
       </div>

@@ -16,27 +16,21 @@
  * Browser-only (Image + canvas), like loggerChartImages. Every failure path
  * returns null so the caller falls back to the raw plan — which the model
  * still sizes correctly from its header (utils/imageDimensions) and lists
- * the pinned zones beneath, with their positions, so nothing recorded is lost.
+ * the sampled locations beneath, with their positions, so nothing recorded
+ * is lost.
+ *
+ * The markers are identical and neutral. They carry a sequence number that
+ * resolves through the table beneath the figure, and no severity — see
+ * utils/samplePoints.js for why that encoding was retired.
  */
+
+import { samplePoints } from './samplePoints'
 
 const MAX_WIDTH = 1600 // px; larger plans are scaled down before pins are drawn
 const PIN_FILL = '#2E7B9B' // report teal (sections-atmosflow TEAL)
 const PIN_RING = '#FFFFFF'
 
 const isImageDataUrl = (s) => typeof s === 'string' && s.startsWith('data:image/') && s.includes(';base64,')
-
-/** The zones placed on the plan, numbered in zone order. */
-export function floorPlanPins(zones = []) {
-  const pins = []
-  zones.forEach((z, i) => {
-    if (!z || z.mapX == null || z.mapY == null) return
-    const x = Number(z.mapX)
-    const y = Number(z.mapY)
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return
-    pins.push({ n: pins.length + 1, zoneIndex: i, x, y })
-  })
-  return pins
-}
 
 function loadImage(src) {
   return new Promise((resolve) => {
@@ -54,16 +48,18 @@ function loadImage(src) {
 /**
  * @param {string|{imageDataUrl:string}} floorPlan  the uploaded plan (data URL)
  * @param {Array} zones  assessment zones; those with mapX/mapY (%) are drawn
+ * @param {object} opts  passed to samplePoints — `building` carries the
+ *                       outdoor reference's position
  * @returns {Promise<{imageDataUrl:string, width:number, height:number, pinsDrawn:boolean}|null>}
  */
-export async function composeFloorPlanFigure(floorPlan, zones = []) {
+export async function composeFloorPlanFigure(floorPlan, zones = [], opts = {}) {
   const url = typeof floorPlan === 'string' ? floorPlan : floorPlan && floorPlan.imageDataUrl
   if (!isImageDataUrl(url)) return null
   if (typeof document === 'undefined' || typeof Image === 'undefined') return null
   const img = await loadImage(url)
   if (!img || !img.naturalWidth || !img.naturalHeight) return null
 
-  const pins = floorPlanPins(zones)
+  const pins = samplePoints(zones, opts)
   // No pins: the plan itself is the figure. Hand back its true size without
   // re-encoding — a JPEG plan re-saved as PNG can grow several-fold.
   if (!pins.length) return { imageDataUrl: url, width: img.naturalWidth, height: img.naturalHeight, pinsDrawn: false }

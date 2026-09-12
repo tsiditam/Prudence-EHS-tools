@@ -30,7 +30,7 @@ import { checkRenderModel } from '../../src/report/modelConsistency.js'
 // @ts-expect-error js
 import { imageDimensions, fitWithin } from '../../src/utils/imageDimensions.js'
 // @ts-expect-error js
-import { floorPlanPins } from '../../src/utils/floorPlanFigure.js'
+import { samplePoints, hasOutdoorBaseline, PARAM_SHORT, INDOOR_FIELDS, OUTDOOR_FIELDS } from '../../src/utils/samplePoints.js'
 // @ts-expect-error js
 import { buildAtmosFlowDocument } from '../../src/components/DocxReport'
 
@@ -140,7 +140,7 @@ describe('the uploaded floor plan is a report figure', () => {
     expect(assembleRenderModel(fixture()).floorPlan).toBeNull()
   })
 
-  it('renders the raw plan sized from its own header, with the placed zones and their positions', () => {
+  it('renders the raw plan sized from its own header, with the sampled locations and their positions', () => {
     const fp = buildFloorPlan(fixture({ floorPlan: PNG_400x300 }))
     expect(fp.imageDataUrl).toBe(PNG_400x300)
     expect(fp.figure).toEqual({ width: 400, height: 300 })
@@ -148,7 +148,9 @@ describe('the uploaded floor plan is a report figure', () => {
     // Two of three zones were placed; numbered in zone order; the third is not a pin.
     expect(fp.pins.map((p: any) => [p.n, p.zone, p.use])).toEqual([[1, 'Open Office', 'Open office'], [2, 'Conference 2B', 'Conference room']])
     expect(fp.pins[0].position).toBe('41% across, 63% down')
-    expect(fp.caption).toMatch(/2 zones placed on the plan are listed below/)
+    // The pin says what was measured there, and never how bad it was.
+    expect(fp.pins[0].readings).toBe('CO₂, T, RH, PM2.5, CO')
+    expect(fp.caption).toMatch(/2 sampling locations placed on the plan are listed below/)
   })
 
   it('takes the composed figure (pins drawn) and fits it to the page', () => {
@@ -156,14 +158,14 @@ describe('the uploaded floor plan is a report figure', () => {
     const fp = buildFloorPlan(fixture({ floorPlan: composed }))
     expect(fp.figure).toEqual({ width: FLOOR_PLAN_MAX.width, height: 310 })
     expect(fp.pinsDrawn).toBe(true)
-    expect(fp.caption).toMatch(/with the 2 assessed zones marked\. Pin numbers key to the table below/)
+    expect(fp.caption).toMatch(/with the 2 sampling locations marked\. Pin numbers key to the table below; marker colour carries no meaning/)
   })
 
-  it('a plan with no zones placed still renders, and says so', () => {
+  it('a plan with no locations placed still renders, and says so', () => {
     const zones = ZONES.map(({ mapX, mapY, ...z }) => z)
     const fp = buildFloorPlan({ ...fixture({ floorPlan: PNG_400x300 }), zones })
     expect(fp.pins).toEqual([])
-    expect(fp.caption).toMatch(/Zone locations were not marked/)
+    expect(fp.caption).toMatch(/Sampling locations were not marked/)
     expect(fp.note).toBeNull()
   })
 
@@ -173,11 +175,6 @@ describe('the uploaded floor plan is a report figure', () => {
     expect(fp.figure.width).toBe(620)
   })
 
-  it('floorPlanPins skips zones without a position and numbers the rest in order', () => {
-    expect(floorPlanPins(ZONES).map((p: any) => [p.n, p.zoneIndex])).toEqual([[1, 0], [2, 1]])
-    expect(floorPlanPins([{ mapX: 'x', mapY: 1 }, {}, null])).toEqual([])
-  })
-
   it('the assembled model with a plan agrees with itself', () => {
     const m = assembleRenderModel(fixture({ floorPlan: PNG_400x300 }))
     expect(m.floorPlan.pins.length).toBe(2)
@@ -185,22 +182,81 @@ describe('the uploaded floor plan is a report figure', () => {
   })
 })
 
+// ── Sample points: the shared derivation ──────────────────────────────────
+
+describe('samplePoints is the one source the three floor-plan surfaces read', () => {
+  it('skips locations without a position and numbers the rest in order', () => {
+    expect(samplePoints(ZONES).map((p: any) => [p.n, p.kind, p.zoneIndex])).toEqual([[1, 'zone', 0], [2, 'zone', 1]])
+    expect(samplePoints([{ mapX: 'x', mapY: 1 }, {}, null])).toEqual([])
+    expect(samplePoints([])).toEqual([])
+  })
+
+  it('carries no severity, count, or finding of any kind', () => {
+    const keys = new Set(samplePoints(ZONES).flatMap((p: any) => Object.keys(p)))
+    for (const banned of ['sev', 'severity', 'worst', 'findings', 'count', 'color', 'colour']) {
+      expect([...keys], banned).not.toContain(banned)
+    }
+  })
+
+  it('names the parameters recorded, and says so when none were', () => {
+    const p = samplePoints(ZONES)[0]
+    expect(p.readings).toEqual(['CO₂', 'T', 'RH', 'PM2.5', 'CO'])
+    expect(p.values[0]).toEqual({ label: 'CO₂', value: '1300', unit: 'ppm' })
+    const bare = samplePoints([{ zn: 'Empty', mapX: 10, mapY: 10 }])[0]
+    expect(bare.readingText).toBe('None recorded')
+  })
+
+  it('places the outdoor reference last, and only when a baseline exists', () => {
+    const building = { outdoorMapX: 5, outdoorMapY: 95 }
+    // No outdoor readings anywhere: a pin would point at nothing.
+    expect(hasOutdoorBaseline(ZONES)).toBe(false)
+    expect(samplePoints(ZONES, { building }).length).toBe(2)
+    // runScoring propagates the site baseline onto every zone.
+    const withOutdoor = ZONES.map(z => ({ ...z, co2o: '430', tfo: '84' }))
+    expect(hasOutdoorBaseline(withOutdoor)).toBe(true)
+    const pts = samplePoints(withOutdoor, { building })
+    expect(pts.length).toBe(3)
+    expect([pts[2].n, pts[2].kind, pts[2].label]).toEqual([3, 'outdoor', 'Outdoor reference'])
+    expect(pts[2].readings).toEqual(['CO₂', 'T'])
+    // Without a recorded position there is no outdoor pin.
+    expect(samplePoints(withOutdoor).length).toBe(2)
+  })
+
+  it('an outdoor pin resolves to the outdoor results row, not to a missing zone', () => {
+    const zones = ZONES.map(z => ({ ...z, co2o: '430', tfo: '84' }))
+    const m = assembleRenderModel({
+      ...fixture({ floorPlan: PNG_400x300 }),
+      zones,
+      building: { ...fixture().building, outdoorMapX: 5, outdoorMapY: 95 },
+    })
+    expect(m.floorPlan.pins.map((p: any) => p.zone)).toContain('Outdoor reference')
+    expect(checkRenderModel(m).map((i: any) => i.id)).not.toContain('floorplan-pin')
+  })
+
+  it('every measured sensor field has a short name for the plan', () => {
+    for (const f of [...INDOOR_FIELDS, ...OUTDOOR_FIELDS]) {
+      expect(PARAM_SHORT[f.id], `SENSOR_FIELDS "${f.id}" has no PARAM_SHORT entry`).toBeTruthy()
+    }
+  })
+})
+
 // ── Floor plan and logger graphs in the DOCX ──────────────────────────────
 
 describe('the DOCX embeds the attached figures', () => {
-  it('renders the site plan under section 1 with its pin table', async () => {
+  it('renders the site plan under section 1 with its sampling-location table', async () => {
     const xml = await renderXml(fixture({ floorPlan: PNG_400x300 }))
-    expect(xml).toContain('Site plan and assessed zones')
+    expect(xml).toContain('Site plan and sampling locations')
     expect(xml).toContain('Figure 1. Floor plan as provided')
+    expect(xml).toContain('Parameters recorded')
     // The pins could not be drawn on the image here (no browser), so the
-    // table carries each zone's recorded position.
+    // table carries each location's recorded position.
     expect(xml).toContain('Position on plan')
     expect(xml).toContain('41% across, 63% down')
     expect(xml).toContain('Conference 2B')
     // An actual picture, not just a heading.
     const withoutPlan = await renderXml(fixture())
     expect((xml.match(/<w:drawing>/g) || []).length).toBeGreaterThan((withoutPlan.match(/<w:drawing>/g) || []).length)
-    expect(withoutPlan).not.toContain('Site plan and assessed zones')
+    expect(withoutPlan).not.toContain('Site plan and sampling locations')
   })
 
   it('renders the composed plan without the position column', async () => {
@@ -208,6 +264,15 @@ describe('the DOCX embeds the attached figures', () => {
     expect(xml).toContain('Pin numbers key to the table below')
     expect(xml).not.toContain('Position on plan')
     expect(xml).toContain('Open Office')
+  })
+
+  it('the plan states no verdict about the locations it marks', async () => {
+    const xml = await renderXml(fixture({ floorPlan: PNG_400x300 }))
+    const start = xml.indexOf('Site plan and sampling locations')
+    const block = xml.slice(start, xml.indexOf('2. Investigation Methods', start))
+    for (const word of ['Worst severity', 'Primary concern', 'Findings', 'CRITICAL', 'Elevated', 'Priority']) {
+      expect(block, `the site-plan block names "${word}"`).not.toContain(word)
+    }
   })
 
   it('renders an included logger graph and omits one that is not included', async () => {
@@ -255,5 +320,72 @@ describe('every export path reads the graphs of the report being exported', () =
 
   it('the Report-tab consistency check reads the same dataset the export will', () => {
     expect(src).toMatch(/checkRenderModel\(assembleRenderModel\(\{[\s\S]*?sensorData: loggerSd, floorPlan,/)
+  })
+})
+
+// ── The worst-zone encoding is gone from every floor-plan surface ──────────
+
+describe('a floor plan marks where sampling happened, not what was found', () => {
+  /**
+   * Source-level, because the defect was which helper each surface reached
+   * for. All three coloured a pin by `worstFindingSeverity` and numbered it
+   * by `countFindings`, so a site drawing restated the verdict a fourth time
+   * and the pin number could not double as the key to the table.
+   *
+   * COMMENTS ARE STRIPPED FIRST. Every file here carries a note naming what
+   * was retired, and that record is the point of the removal — it must not be
+   * what fails the test. `no-scoring.test.ts` learned this the same way and
+   * its stripper is mirrored here, including the control below that proves the
+   * stripper has not simply deleted the file it is meant to read.
+   */
+  const stripComments = (code: string) =>
+    code
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '')
+      .replace(/([^:])\/\/.*$/gm, '$1')
+  const read = (p: string) => stripComments(readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8'))
+
+  it('the stripper does not simply delete the files it is meant to read', () => {
+    const screen = read('src/components/SpatialMap.jsx')
+    expect(screen).toContain('export default function SpatialMap')
+    expect(screen.length).toBeGreaterThan(4000)
+    const html = read('src/components/PrintReport.jsx')
+    expect(html).toContain('export function generatePrintHTML')
+    expect(html.length).toBeGreaterThan(20000)
+  })
+  const SURFACES = [
+    'src/components/SpatialMap.jsx',
+    'src/components/PrintReport.jsx',
+    'src/utils/floorPlanFigure.js',
+    'src/report/reportModel.js',
+    'src/components/docx/sections-atmosflow.js',
+  ]
+
+  it.each(SURFACES)('%s derives its pins from samplePoints alone', (file) => {
+    const code = read(file)
+    // The retired helpers may still be used elsewhere in a file this size, so
+    // the assertion is about the pin block, which every surface keys off the
+    // shared derivation.
+    if (/samplePoints|floorPlan/.test(code)) expect(code).toMatch(/samplePoints|M\.floorPlan/)
+    expect(code, 'floorPlanPins was folded into samplePoints').not.toContain('floorPlanPins')
+  })
+
+  it('the mapping screen reads no severity helper at all', () => {
+    const code = read('src/components/SpatialMap.jsx')
+    for (const gone of ['worstFindingSeverity', 'countFindings', 'pinColor', 'PIN_COLORS', 'Top Risk Factors', 'Spatial Risk Map']) {
+      expect(code, `SpatialMap still carries "${gone}"`).not.toContain(gone)
+    }
+    // And it says what it is now.
+    expect(code).toContain('Sampling locations')
+  })
+
+  it('the HTML print path pins carry a sequence number, not a finding count', () => {
+    const code = read('src/components/PrintReport.jsx')
+    expect(code).toContain('Sampling Locations')
+    expect(code).not.toContain('Spatial Findings Summary')
+    const start = code.indexOf('Sampling Locations')
+    const block = code.slice(start, start + 2000)
+    expect(block).not.toMatch(/SEV_HEX|worstFindingSeverity|countFindings/)
   })
 })

@@ -31,7 +31,7 @@ import { readNumber, scoreZone } from '../engines/scoring'
 import { pickPrimaryChain } from '../engines/causalChains'
 import { resolveAssessmentDate } from '../utils/assessmentDate'
 import { imageDimensions, fitWithin } from '../utils/imageDimensions'
-import { floorPlanPins } from '../utils/floorPlanFigure'
+import { samplePoints } from '../utils/samplePoints'
 import * as NL from './narrativeLibrary'
 import {
   REPORT_PROFILES, REPORT_STATUS, DEFAULT_PROFILE, DEFAULT_STATUS,
@@ -636,10 +636,14 @@ const isImageDataUrl = (s) => typeof s === 'string' && /^data:image\//.test(s) &
  * composed figure `{ imageDataUrl, width, height, pinsDrawn }` the export
  * path builds with utils/floorPlanFigure — the plan with numbered pins drawn
  * on it. Either way the figure is fitted to the page from its true pixel
- * size, and the pinned zones are listed beneath it so the numbers resolve.
- * When the pins could not be drawn (no browser, or the image failed to
- * load), each zone's recorded position is listed instead, so the placement
- * the assessor made is still in the record.
+ * size, and the sampled locations are listed beneath it so the numbers
+ * resolve. When the pins could not be drawn (no browser, or the image failed
+ * to load), each location's recorded position is listed instead, so the
+ * placement the assessor made is still in the record.
+ *
+ * This is a SAMPLING-LOCATION plan: the pins say where readings were taken
+ * and which parameters were recorded there, and carry no severity. See
+ * utils/samplePoints.js for the encoding that was retired and why.
  */
 export function buildFloorPlan(data = {}) {
   const src = data.floorPlan
@@ -649,12 +653,18 @@ export function buildFloorPlan(data = {}) {
   const zoneScores = data.zoneScores || []
   const composed = src && typeof src === 'object' ? src : null
   const pinsDrawn = !!(composed && composed.pinsDrawn)
-  const pins = floorPlanPins(zones).map((p) => ({
+  // The label must be the one the measurement-results table uses, so a pin
+  // resolves to a row — which `modelConsistency`'s floorplan-pin rule checks.
+  const pins = samplePoints(zones, {
+    building: data.building || data.bldg || {},
+    zoneName: (i) => zoneName(zoneScores, zones, i),
+  }).map((p) => ({
     n: p.n,
-    zone: zoneName(zoneScores, zones, p.zoneIndex),
-    use: (zones[p.zoneIndex] && (zones[p.zoneIndex].zt || zones[p.zoneIndex].zuse)) || '',
-    // Percent of plan width / height from the top-left corner, as recorded.
-    position: `${Math.round(p.x)}% across, ${Math.round(p.y)}% down`,
+    kind: p.kind,
+    zone: p.label,
+    use: p.use,
+    position: p.position,
+    readings: p.readingText,
   }))
   const natural = (composed && composed.width > 0 && composed.height > 0)
     ? { width: composed.width, height: composed.height }
@@ -662,18 +672,18 @@ export function buildFloorPlan(data = {}) {
   const figure = fitWithin(natural, FLOOR_PLAN_MAX.width, FLOOR_PLAN_MAX.height) || { ...FLOOR_PLAN_FALLBACK }
   const n = pins.length
   const caption = !n
-    ? 'Figure 1. Floor plan as provided. Zone locations were not marked on the plan.'
+    ? 'Figure 1. Floor plan as provided. Sampling locations were not marked on the plan.'
     : pinsDrawn
-      ? `Figure 1. Floor plan as provided, with the ${n} assessed zone${n === 1 ? '' : 's'} marked. Pin numbers key to the table below.`
-      : `Figure 1. Floor plan as provided. The ${n} zone${n === 1 ? '' : 's'} placed on the plan ${n === 1 ? 'is' : 'are'} listed below with the recorded position.`
+      ? `Figure 1. Floor plan as provided, with the ${n} sampling location${n === 1 ? '' : 's'} marked. Pin numbers key to the table below; marker colour carries no meaning.`
+      : `Figure 1. Floor plan as provided. The ${n} sampling location${n === 1 ? '' : 's'} placed on the plan ${n === 1 ? 'is' : 'are'} listed below with the recorded position.`
   return {
-    heading: 'Site plan and assessed zones',
+    heading: 'Site plan and sampling locations',
     imageDataUrl: url,
     figure,
     pins,
     pinsDrawn,
     caption,
-    note: n ? 'Zone positions were marked by the assessor on the uploaded plan and are approximate.' : null,
+    note: n ? 'Locations were marked by the assessor on the uploaded plan and are approximate. Pins record where readings were taken, not what was found.' : null,
   }
 }
 
