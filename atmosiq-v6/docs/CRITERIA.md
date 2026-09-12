@@ -73,9 +73,10 @@ sits above the WHO annual guideline of 5, and the ladder — worst-first, first
 match wins — would have told that client it was above a WHO guideline on the
 strength of one walkthrough reading. A caveat sentence after the claim does not
 undo the claim. The registry declares those criteria because they exist and are
-worth naming; `contextualStandards.js` is where the reader is told why they
-were not applied, and that entry now describes what the code does rather than
-happening to agree with it.
+worth naming; the parameter background prose is where the reader is told why
+they were not applied — in line, beside the number, rather than in the
+back-of-report section that used to carry it (see "The complement, retired",
+below).
 
 ## Where the evidence basis comes from
 
@@ -568,37 +569,48 @@ the audit record of what a report cited is intact — only the printing
 stopped. `tests/engine/no-standards-register.test.ts` fails if a register
 reappears in the rendered DOCX.
 
-## The complement: criteria we chose NOT to apply
+## The complement, retired: criteria we chose NOT to apply
 
-`src/engines/contextualStandards.js` is the other half of the registry. The
-registry says which criteria produced findings; that file says which published
-criteria a reader might reasonably have expected, and why they were not used.
-It renders as the report's **Additional Criteria Considered** section
-(`src/components/docx/sections-methodology-currency.js`), after Limitations.
-
-Three entries today: ASHRAE 241-2023 (ECAi is a different target from 62.1
+`src/engines/contextualStandards.js` used to be the other half of the
+registry. The registry says which criteria produced findings; that file said
+which published criteria a reader might reasonably have expected, and why they
+were not used — ASHRAE 241-2023 (ECAi is a different target from 62.1
 outdoor-air rates), the 2024 annual PM2.5 NAAQS and the WHO annual guideline
 (annual means, which one visit cannot establish), and the ACGIH TLVs (a
 separate consensus series from the OSHA PELs and NIOSH RELs used here).
 
-Two rules keep it honest, both enforced by
-`tests/engine/contextual-standards.test.ts`:
+**It was retired in 2026-09, and the retirement is the lesson.** It rendered as
+the **Additional Criteria Considered** section, which a CIH review cut from the
+consultant report in 2026-08 as overbuilt — and the consultant report itself
+was removed weeks later. The module outlived both by a year, with its own
+suite of thirty-odd tests passing the whole time, because those tests were its
+only importer. Nothing was checking that it still reached a reader. A module
+whose tests are its only consumer is not covered; it is embalmed.
 
-1. **An entry may not claim a criterion is unapplied when the registry applies
-   it.** The test greps every registry `source` for the subjects claimed
-   absent. Add an ACGIH criterion to `criteria.js` and the test fails until
-   the corresponding entry is rewritten or removed. This guard exists because
-   the file told clients the annual PM2.5 NAAQS was "not currently integrated
-   into the deterministic scoring path" and went on saying it after
-   `pm25_epa_annual` was added — nothing compared the two lists.
-2. **It describes criteria, not AtmosFlow.** Vocabulary like "scoring engine"
-   or "standards manifest" is asserted against. Prose of that kind is why the
-   section was cut from the deliverable in `048f6d4`; it returned in 2026-08
-   rewritten as criteria-selection rationale addressed to the reader.
+`tests/engine/no-additional-criteria-section.test.ts` is the removal record.
+It guards both directions, because the entries are easy to get wrong either
+way. It fails if the module returns — the section was cut on a review finding,
+so reviving it is a product decision. And it fails if the three manifest
+entries go with it, which an inventory that looks only for named references
+would recommend: `ASHRAE 241` and `ACGIH TLVs and BEIs` version the corpus
+documents `ASHRAE-241` and `ACGIH-TLV` that Jasper's corpus search returns
+(`standards-reconciliation.test.ts` requires every mapped document code to
+resolve to a manifest key), and `EPA PM2.5 Annual NAAQS Revision` versions
+`pm25_epa_annual`, a live opt-in Logger Studio reference line. The two
+assertions the module made about the surviving registry — that no criterion is
+evaluated against ASHRAE 241 or an ACGIH TLV — moved into that file rather than
+going with it.
 
-Entries are scoped by `appliesWhen` to the parameters actually measured, so a
-comfort-only walkthrough renders no section at all rather than three
-irrelevant notes.
+**Where the question it answered is answered now.** "The report names the EPA
+NAAQS — why wasn't it applied?" is a reader's question, and a back-of-report
+section was always a poor place for it. The report's own deterministic prose
+now answers it in line, where the number is: the PM2.5 background states the
+35 µg/m³ figure "for scale only … cited here for context rather than as a
+pass/fail threshold". The evidence package carries those standards to the AI
+writer as `context_standards` for the same reason — so a writer may explain
+what a number means without presenting it as a threshold the assessment
+cleared. See "The AI narrative writes from a CLOSED evidence package" in
+CLAUDE.md.
 
 ## Known remaining work
 - **Thermal comparison is deliberately not a ladder.** Thermal is a band

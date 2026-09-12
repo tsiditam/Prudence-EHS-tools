@@ -48,13 +48,24 @@ export const STANDARDS_MANIFEST = {
   // 'Molhave TVOC tiers' was removed in 2026-08 along with every TVOC
   // threshold. The manifest lists what a report may CITE, and TVOC is no
   // longer compared to anything, so there is nothing left to cite.
-  // Move 5 — methodology currency layer. Bibliographic only — these
-  // standards are NOT integrated into STD scoring thresholds (engine
-  // is sacred); they appear in the report's Standards Currency
-  // section as references a qualified IH may consult during review.
-  // See src/engines/contextualStandards.js for the rationale text
-  // that accompanies each entry. Verify edition/year against the
-  // primary source before any future bump.
+  // Bibliographic only — no STD threshold and no engine finding rests on
+  // any of these. They stay because live surfaces need them VERSIONED, and
+  // that is the manifest's job:
+  //   - 'ASHRAE 241' and 'ACGIH TLVs and BEIs' version the corpus documents
+  //     'ASHRAE-241' and 'ACGIH-TLV', which Jasper's corpus search returns.
+  //     `standards-reconciliation.test.ts` requires every mapped document
+  //     code to resolve to a manifest key, so removing either breaks a guard.
+  //   - 'EPA PM2.5 Annual NAAQS Revision' versions `pm25_epa_annual`, a live
+  //     opt-in Logger Studio reference line (`referenceProfiles.js`). It is
+  //     never auto-applied — a single visit cannot establish an annual mean.
+  // An earlier comment here promised a "Standards Currency section" in the
+  // report and pointed at `src/engines/contextualStandards.js` for the
+  // rationale prose. Neither exists: the section was "Additional Criteria
+  // Considered", cut from the consultant report by CIH review in 2026-08 and
+  // deleted with that report; the module that fed it outlived its only
+  // renderer by a year and was retired in 2026-09. See
+  // `tests/engine/no-additional-criteria-section.test.ts`. Verify
+  // edition/year against the primary source before any future bump.
   'ASHRAE 241': '2023 (infectious aerosol control; bibliographic reference)',
   'EPA PM2.5 Annual NAAQS Revision': '2024 (89 FR 16202; primary annual lowered to 9 µg/m³)',
   'ACGIH TLVs and BEIs': '2025 edition (bibliographic reference)',

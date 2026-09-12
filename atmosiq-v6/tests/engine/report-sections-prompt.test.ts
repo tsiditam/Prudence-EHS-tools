@@ -67,6 +67,26 @@ describe('the report-sections prompt frames the evidence package as closed and r
     expect(bullet).toMatch(/not measured directly|indicator|inferred/)
   })
 
+  it('names context_standards, and boundary 1 admits them as a comparator source', () => {
+    // The report's own deterministic prose names ASHRAE 62.1, ASHRAE 55, the
+    // EPA NAAQS and the OSHA PELs for scale on EVERY report, while
+    // `references` carries only the criteria that fired. So the package now
+    // hands the writer that list — and boundary 1, which says every comparison
+    // value comes from the package, has to admit it, or the prompt forbids
+    // exactly what the bullet above permits. That contradiction is the same
+    // shape as the required_limitations one: the writer told one thing, the
+    // gate enforcing another.
+    const start = P.indexOf('`context_standards`')
+    expect(start).toBeGreaterThan(-1)
+    const bullet = P.slice(start, P.indexOf('`context_omitted`', start))
+    expect(bullet).toMatch(/for scale/)
+    expect(bullet).toMatch(/never present one as a threshold this assessment met, cleared or exceeded/)
+    // Boundary 1 must list it beside `criteria` and `references`.
+    const b1 = P.slice(P.indexOf('1. Never originate a numeric threshold'))
+    expect(b1.slice(0, 600)).toMatch(/`context_standards`/)
+    expect(b1.slice(0, 600)).toMatch(/may only ever give scale, never a verdict/)
+  })
+
   it('names context_omitted and forbids inventing what was left out', () => {
     expect(P).toMatch(/context_omitted/)
     expect(P).toMatch(/does not license inventing it/)

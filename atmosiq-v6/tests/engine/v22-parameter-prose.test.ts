@@ -76,9 +76,12 @@ describe('v2.2 §8 — standardsBackground prose quality', () => {
     // they are not intended for adoption as standards; reproducing values
     // in a commercial report should be a deliberate decision.
     //
-    // `contextualStandards.js` still explains that the TLVs are a separate
-    // consensus series this assessment did not apply. That is the honest
-    // place for it — naming a criterion you did NOT use, and why.
+    // An "Additional Criteria Considered" section used to explain that the
+    // TLVs are a separate consensus series this assessment did not apply.
+    // That section was retired in 2026-09 with the module behind it
+    // (`tests/engine/no-additional-criteria-section.test.ts`), which also
+    // holds the surviving half of this claim: no criterion in the registry
+    // is evaluated against an ACGIH TLV.
     const entry = PARAMETER_PROSE.co
     expect(entry.standardsBackground).not.toMatch(/ACGIH|Threshold Limit Value/i)
     expect(entry.applicableStandards.some((c) => /ACGIH/i.test(c.source))).toBe(false)

@@ -11,10 +11,14 @@
  *   • The ACGIH TLV (25 ppm) was a THIRD parallel occupational limit
  *     for one reading, alongside the REL and the PEL. It drove no
  *     finding — `criteria.js` has no ACGIH criterion — so it was a
- *     number the report named and never used. `contextualStandards.js`
- *     separately explains that the TLVs are a distinct consensus series
- *     which this assessment did not apply, and that is the honest place
- *     for it. (The TLVs are also ACGIH-copyrighted and licensed;
+ *     number the report named and never used. (An "Additional Criteria
+ *     Considered" section used to say separately that the TLVs are a
+ *     distinct consensus series this assessment did not apply; that
+ *     section and the module behind it were retired — see
+ *     `tests/engine/no-additional-criteria-section.test.ts`. Nothing
+ *     replaces it, because a limit the report never applied needs no
+ *     paragraph explaining its absence.) (The TLVs are also
+ *     ACGIH-copyrighted and licensed;
  *     reproducing values in a commercial deliverable should be a
  *     deliberate decision, not one inherited from a prose template.)
  *   • The OSHA 1989 air-contaminants rule and its vacatur is regulatory

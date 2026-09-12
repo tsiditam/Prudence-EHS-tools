@@ -327,6 +327,28 @@ When working on report generation:
   consultant reports in this field are normally written. Do not reintroduce a
   standards list; `tests/engine/no-standards-register.test.ts` fails if one
   reappears in the DOCX. Tracking is unchanged — only printing stopped.
+
+  **The companion module was retired in 2026-09, and how it survived is the
+  point.** `src/engines/contextualStandards.js` held the prose for
+  "Additional Criteria Considered" — published criteria a reader might expect
+  and why they were not applied (ASHRAE 241, the annual PM2.5 NAAQS, the ACGIH
+  TLVs). That section was cut by CIH review in 2026-08 and the report carrying
+  it was removed weeks later; the module outlived both by a year with a
+  thirty-assertion suite passing, because that suite was its only importer.
+  **A module whose tests are its only consumer is not covered, it is
+  embalmed** — the same shape as `aiProvenanceBanner` below, caught the same
+  way. `tests/engine/no-additional-criteria-section.test.ts` is the removal
+  record, and it guards BOTH directions: the module may not return, and its
+  three manifest entries may not go with it. Those entries look like residue
+  and are not — `ASHRAE 241` and `ACGIH TLVs and BEIs` version the corpus
+  documents Jasper's search returns (`standards-reconciliation.test.ts`
+  requires every mapped document code to resolve to a manifest key), and
+  `EPA PM2.5 Annual NAAQS Revision` versions a live opt-in Logger Studio
+  reference line. **Iterator reachability is why almost nothing in the three
+  standards stores is dead, and it is not evidence of purpose** — check for a
+  RENDERER, not for a reference. The reader's question the module answered
+  ("the report names the NAAQS — why wasn't it applied?") is now answered in
+  line by the background prose and by `context_standards`, below.
 - **The AI narrative writes from a CLOSED evidence package, and what it
   returns is audited against that package.** AtmosFlow is a deterministic IAQ
   assessment engine with AI-assisted reporting — not an AI that decides
@@ -385,6 +407,32 @@ When working on report generation:
      the Report tab, like the readiness blockers and the consistency panel.
      Suppression is what the old path did — `language_review === 'failed'`
      silently discarded three credits of work with no reason shown.
+  5. **The gate may not be stricter than the report it guards.** `references`
+     carries only the criteria that FIRED, so `criterion-unattested` read a
+     writer naming ASHRAE 62.1, ASHRAE 55, the OSHA PELs or the EPA NAAQS as
+     inventing a citation — while the deterministic prose beside it names all
+     four on every report (`REFERENCE_FRAMEWORK`, and a PM2.5 background that
+     quotes the 35 µg/m³ NAAQS figure "for scale only … cited here for context
+     rather than as a pass/fail threshold"). Sections were discarded for
+     saying what the paragraph above them says. `context_standards` closes it:
+     a second list, **derived by reading the model's own rendered text** and
+     never hand-authored, of standards the report states but applied to
+     nothing. Naming one is allowed; presenting one as a threshold the
+     assessment met, cleared or exceeded is still caught, by the determinative
+     rules whose job that is. `STANDARD_TOKENS` moved to `evidencePackage.js`
+     so the auditor and the derivation match on one list.
+
+     **This is the third instance of one defect class, so treat it as the
+     class.** The writer and the gate disagreeing has now shipped three times:
+     the prompt told the model it need not restate limitations while
+     `auditSection` discarded any section that raised one without its caveat;
+     boundary 1 forbade recalling a limit while the voice rule demanded a
+     comparator the package did not carry; and this. Every fix is the same
+     shape — the prompt and the auditor must be edited in the same commit, and
+     a structural test must pin the agreement
+     (`report-sections-prompt.test.ts`), because the failure is silent: good
+     prose is thrown away and the reader gets the deterministic text, which is
+     never worse and never announces that anything happened.
 
   `api/_banned-language.js` is **unchanged and still runs first.** It is a
   different question: fifteen phrases that are wrong in *any* report, scanned
