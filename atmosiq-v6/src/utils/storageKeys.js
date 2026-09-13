@@ -64,6 +64,8 @@ export const KEYS = {
   // synchronously by JasperFloatingButton (not through STO) so the button
   // paints in place instead of jumping after an async resolve.
   jasperButtonPos: 'atmosflow:jasperButtonPos',
+  // Desktop rail collapsed to its icon-only width (DesktopSidebar).
+  desktopRailCollapsed: 'atmosflow:desktop-rail-collapsed',
   labCsvTemplates: 'atmosflow:lab_csv_templates',
   // Saved mold screening assessments (mold userMode). A single local array,
   // stored + read via STO.get/saveMold/deleteMoldAssessment — deliberately its

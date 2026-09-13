@@ -61,6 +61,18 @@ const VARIANT = {
     border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
     boxShadow: 'none',
   },
+  // Neutral capsule — Grok's mobile pill: a charcoal fill one step above the
+  // page, a hairline edge, the label in the primary ink. For an action that
+  // should read as a control, not as THE call to action; the accent stays
+  // reserved for the one primary action on a screen. Mixed from --text over
+  // --bg so it is a neutral tint in both themes (--raised is cyan-tinted in
+  // light mode, which is not what this is).
+  neutral: {
+    background: 'color-mix(in srgb, var(--text) 9%, var(--bg))',
+    color: 'var(--text)',
+    border: '1px solid color-mix(in srgb, var(--text) 14%, var(--bg))',
+    boxShadow: 'none',
+  },
   ghost: {
     background: 'transparent',
     color: TEXT_SECONDARY,

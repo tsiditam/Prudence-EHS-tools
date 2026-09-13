@@ -173,23 +173,29 @@ export const STATUS = {
 // display tightens, micro opens up. v3.1 refinement: h1 bumped 24→28
 // so facility headers carry the same weight as the reference target;
 // hSub added for the address line that sits under h1.
+// Type scale (desktop pro pass, 2026-09). One weight step lighter at the
+// top — page titles at 600, not 700 — and the small tiers at regular
+// weight. Bold titles read as a marketing site; a professional instrument
+// carries its hierarchy in size and color, not in weight. Sizes:
+// display 32 / page title 26 / statement 22 / section 16 / body 14 /
+// caption 12 / eyebrow 11.
 export const T = {
-  display:    { fontSize: 32, lineHeight: '40px', fontWeight: 700, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
-  h1:         { fontSize: 28, lineHeight: '34px', fontWeight: 700, letterSpacing: '-0.6px', color: TEXT_PRIMARY },
+  display:    { fontSize: 32, lineHeight: '40px', fontWeight: 600, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
+  h1:         { fontSize: 26, lineHeight: '32px', fontWeight: 600, letterSpacing: '-0.5px', color: TEXT_PRIMARY },
   h1Sub:      { fontSize: 13, lineHeight: '18px', fontWeight: 400, color: TEXT_SECONDARY },
   // A statement inside a screen — the results headline, a walkthrough
   // question — between h1 and h2. Added (2026-09) so those call sites stop
   // carrying their own 22px and 24px; one scale, no off-scale sizes.
   title:      { fontSize: 22, lineHeight: '28px', fontWeight: 600, letterSpacing: '-0.3px', color: TEXT_PRIMARY, textWrap: 'pretty' },
-  h2:         { fontSize: 18, lineHeight: '26px', fontWeight: 600, letterSpacing: '-0.2px', color: TEXT_PRIMARY },
+  h2:         { fontSize: 16, lineHeight: '24px', fontWeight: 600, letterSpacing: '-0.15px', color: TEXT_PRIMARY },
   h3:         { fontSize: 15, lineHeight: '22px', fontWeight: 600, color: TEXT_PRIMARY },
   body:       { fontSize: 14, lineHeight: '20px', fontWeight: 400, color: TEXT_PRIMARY },
   bodyDim:    { fontSize: 14, lineHeight: '20px', fontWeight: 400, color: TEXT_SECONDARY },
   bodyStrong: { fontSize: 14, lineHeight: '20px', fontWeight: 600, color: TEXT_PRIMARY },
-  caption:    { fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_SECONDARY },
-  captionDim: { fontSize: 12, lineHeight: '16px', fontWeight: 500, color: TEXT_TERTIARY },
-  micro:      { fontSize: 11, lineHeight: '14px', fontWeight: 600, color: TEXT_TERTIARY, textTransform: 'uppercase', letterSpacing: '0.8px' },
-  microAccent:{ fontSize: 11, lineHeight: '14px', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.8px' },
+  caption:    { fontSize: 12, lineHeight: '16px', fontWeight: 400, color: TEXT_SECONDARY },
+  captionDim: { fontSize: 12, lineHeight: '16px', fontWeight: 400, color: TEXT_TERTIARY },
+  micro:      { fontSize: 11, lineHeight: '14px', fontWeight: 500, color: TEXT_TERTIARY, textTransform: 'uppercase', letterSpacing: '0.7px' },
+  microAccent:{ fontSize: 11, lineHeight: '14px', fontWeight: 500, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.7px' },
 }
 
 // Numeric scale. Stats / scores / measurement readouts use Inter with

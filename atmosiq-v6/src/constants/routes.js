@@ -25,6 +25,9 @@ export const ENTRY_POINTS = ['bottom-nav', 'hamburger', 'tools-hub', 'settings',
 
 export const ROUTES = {
   // ── Primary navigation ──
+  // Desktop landing (2026-09): the state of the work — counts, what needs
+  // attention, recent projects and activity. Phones land on Projects.
+  home: { label: 'Home / workspace', short: 'Home', reachedBy: ['hamburger'], parent: null, restore: true },
   dash: { label: 'Home / dashboard', short: 'Home', reachedBy: ['bottom-nav', 'hamburger'], parent: null, restore: true },
   projects: { label: 'Projects / site folders', short: 'Projects', reachedBy: ['bottom-nav', 'hamburger'], parent: null, restore: true },
   history: { label: 'Reports list', short: 'Reports', reachedBy: ['bottom-nav', 'hamburger'], parent: 'projects', restore: true },
