@@ -1319,6 +1319,30 @@ export default function MobileApp() {
       willChange: 'transform',
     }
   }
+  // Circular header control (hamburger, kebab) — Grok's mobile controls: a
+  // 44px charcoal disc one step above the page, no edge, the glyph in the
+  // primary ink. Pressing sinks it (scale down, a touch brighter) and it
+  // springs back on release; the cyan inset bloom of triggerFx stays with
+  // the back pill. Mixed from --text over --bg so the disc is a neutral
+  // tint in both themes.
+  const CIRCLE_BTN = {
+    width: 44, height: 44, borderRadius: 22, padding: 0, border: 'none',
+    background: 'color-mix(in srgb, var(--text) 9%, var(--bg))', color: V3.TEXT_PRIMARY,
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxSizing: 'border-box', WebkitTapHighlightColor: 'transparent', flexShrink: 0,
+  }
+  const circleFx = (key) => {
+    const on = pressedTrigger === key
+    if (reduceMotion) return { transform: on ? 'scale(0.96)' : 'scale(1)', transition: 'transform 90ms ease' }
+    return {
+      transform: on ? 'scale(0.92)' : 'scale(1)',
+      filter: on ? 'brightness(1.3)' : 'none',
+      transition: on
+        ? 'transform 120ms cubic-bezier(.2,.85,.3,1), filter 120ms ease'
+        : 'transform 360ms cubic-bezier(.34,1.56,.64,1), filter 260ms ease',
+      willChange: 'transform',
+    }
+  }
   // Opening a tool. A tool is pushed onto the stack, so back returns to
   // wherever it was opened from (a project workspace, the Tools hub, the
   // results screen). Logger Studio ingests a file INTO an assessment: when
@@ -4580,16 +4604,9 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                className="af-menu-trigger"
-                style={{
-                  // A bare glyph in the primary ink; no circle, no glass.
-                  width:40, height:40, marginLeft:-10,
-                  padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-                  background:'transparent', border:'none', color:V3.TEXT_PRIMARY,
-                  boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
-                  ...triggerFx('menu', 1.3),
-                }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                className="af-menu-trigger af-circle-btn"
+                style={{ ...CIRCLE_BTN, ...circleFx('menu') }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                   <line x1="4" y1="7"  x2="20" y2="7" />
                   <line x1="4" y1="12" x2="15" y2="12" />
                   <line x1="4" y1="17" x2="11" y2="17" />
@@ -4627,7 +4644,7 @@ export default function MobileApp() {
             {profile && view!=='dash' && (
               <button
                 type="button"
-                className="af-menu-trigger"
+                className="af-menu-trigger af-circle-btn"
                 onClick={(e) => {
                   const r = e.currentTarget.getBoundingClientRect()
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
@@ -4637,17 +4654,8 @@ export default function MobileApp() {
                 aria-label="More actions"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
-                style={{
-                  // A bare glyph in the primary ink; no circle, no glass.
-                  width:40, height:40, marginRight:-10,
-                  cursor:'pointer', display:'flex',
-                  alignItems:'center', justifyContent:'center',
-                  padding:0, boxSizing:'border-box',
-                  background:'transparent', border:'none', color:V3.TEXT_PRIMARY,
-                  WebkitTapHighlightColor:'transparent',
-                  ...triggerFx('kebab', 1.3),
-                }}>
-                <I n="dots" s={22} c="currentColor" w={2} />
+                style={{ ...CIRCLE_BTN, ...circleFx('kebab') }}>
+                <I n="dots" s={20} c="currentColor" w={2} />
               </button>
             )}
           </div>
@@ -6170,6 +6178,9 @@ export default function MobileApp() {
            menu opens. position:relative is kept for stacking; the transform /
            transition / filter all come from the inline style. */
         .af-menu-trigger{position:relative;}
+        @media (hover: hover) and (pointer: fine){
+          .af-circle-btn:hover{ background:color-mix(in srgb, var(--text) 14%, var(--bg)) !important; }
+        }
         /* ── Shared header control ──
            The same flat material as the bottom dock (AtmosFlowFloatingDock)
            and every card: solid card tone, hairline edge, one soft contact
