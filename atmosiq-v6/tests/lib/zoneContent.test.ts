@@ -3,7 +3,10 @@
  * See the source header for the finalize gap these close.
  */
 import { describe, it, expect } from 'vitest'
-import { isBlankZone, blankZoneIndices, zoneLabel, removeZoneAt, removeZonesAt } from '../../src/utils/zoneContent'
+import {
+  isBlankZone, blankZoneIndices, zoneLabel, removeZoneAt, removeZonesAt,
+  hasZoneId, newZoneId, ensureZoneIds, zoneIndexById, resolveProposalZone, appendZoneNote,
+} from '../../src/utils/zoneContent'
 
 const OUTDOOR = ['co2o', 'tfo', 'rho', 'pmo', 'tvo']
 
@@ -116,5 +119,95 @@ describe('removeZonesAt', () => {
   it('tolerates duplicates and unsorted input', () => {
     const s = { zones: [{ zn: 'A' }, {}, {}], photos: {}, photoOverrides: {}, equipment: [], curZone: 0 }
     expect(removeZonesAt(s, [2, 1, 2]).zones).toEqual([{ zn: 'A' }])
+  })
+})
+
+describe('zone identity — ensureZoneIds', () => {
+  it('stamps a zid on every zone that lacks one and leaves the rest untouched', () => {
+    const input = [{}, { zid: 'z-keep', zn: 'Lobby' }, { zn: 'Lab' }]
+    const out = ensureZoneIds(input)
+    expect(out).toHaveLength(3)
+    expect(out.every(hasZoneId)).toBe(true)
+    expect(out[1]).toBe(input[1]) // same reference: nothing to do
+    expect(out[2]).toMatchObject({ zn: 'Lab' })
+    expect(new Set(out.map((z) => z.zid)).size).toBe(3)
+  })
+  it('returns the same array when every zone already has an id, so a functional setZones is a no-op', () => {
+    const input = [{ zid: 'a' }, { zid: 'b' }]
+    expect(ensureZoneIds(input)).toBe(input)
+  })
+  it('does not mutate its input and tolerates holes and non-arrays', () => {
+    const input: Array<Record<string, unknown> | null> = [null, {}]
+    const out = ensureZoneIds(input)
+    expect(input[0]).toBeNull()
+    expect(input[1]).toEqual({})
+    expect(out.every(hasZoneId)).toBe(true)
+    expect(ensureZoneIds(undefined as never)).toEqual([])
+  })
+  it('treats a blank id as missing', () => {
+    expect(hasZoneId({ zid: '  ' })).toBe(false)
+    expect(hasZoneId({ zid: 'z-1' })).toBe(true)
+    expect(ensureZoneIds([{ zid: '' }])[0].zid).not.toBe('')
+  })
+  it('mints ids that differ across calls at the same position', () => {
+    const ids = new Set(Array.from({ length: 50 }, () => newZoneId(0)))
+    expect(ids.size).toBe(50)
+  })
+  it('ids survive removal of another zone', () => {
+    const zones = ensureZoneIds([{ zn: 'A' }, { zn: 'B' }, { zn: 'C' }])
+    const next = removeZoneAt({ zones, photos: {}, photoOverrides: {}, equipment: [], curZone: 0 }, 1)
+    expect(next.zones.map((z: { zid: string }) => z.zid)).toEqual([zones[0].zid, zones[2].zid])
+  })
+})
+
+describe('zone identity — resolveProposalZone', () => {
+  // The discriminating case. Jasper proposed while Zone A was open; the
+  // assessor moved on to Zone B before tapping Accept. The write must land
+  // on A, and if A is gone it must land nowhere — never on B because B is
+  // what happens to be open.
+  const A = { zid: 'z-a', zn: 'Zone A' }
+  const B = { zid: 'z-b', zn: 'Zone B' }
+
+  it('lands on the bound zone by id regardless of which zone is open', () => {
+    const zones = [A, B]
+    expect(resolveProposalZone(zones, { type: 'add_zone_note', zid: 'z-a' })).toBe(0)
+    // Position changed (A moved after B): still A.
+    expect(resolveProposalZone([B, A], { type: 'add_zone_note', zid: 'z-a' })).toBe(1)
+  })
+  it('fails closed with no binding — an unbound proposal never falls back to the open zone', () => {
+    const zones = [A, B]
+    expect(resolveProposalZone(zones, { type: 'add_zone_note' })).toBe(-1)
+    expect(resolveProposalZone(zones, { type: 'add_zone_note', zid: '' })).toBe(-1)
+    expect(resolveProposalZone(zones, { type: 'add_zone_note', zid: 0 })).toBe(-1)
+    expect(resolveProposalZone(zones, null)).toBe(-1)
+  })
+  it('fails closed when the bound zone has been removed since the proposal', () => {
+    const after = removeZoneAt({ zones: [A, B], photos: {}, photoOverrides: {}, equipment: [], curZone: 1 }, 0)
+    expect(after.zones).toEqual([B])
+    expect(resolveProposalZone(after.zones, { type: 'record_zone_observation', zid: 'z-a' })).toBe(-1)
+  })
+  it('never matches a zone by name or position', () => {
+    // Two zones with the same name: only the id tells them apart.
+    const twins = [{ zid: 'z-1', zn: 'Office' }, { zid: 'z-2', zn: 'Office' }]
+    expect(resolveProposalZone(twins, { zid: 'z-2' })).toBe(1)
+    expect(zoneIndexById(twins, 'Office')).toBe(-1)
+    expect(zoneIndexById(twins, '1' as never)).toBe(-1)
+  })
+})
+
+describe('zone identity — appendZoneNote', () => {
+  it('appends on a new line to the zone at idx and nothing else', () => {
+    const zones = [{ zid: 'z-a', znt: 'first' }, { zid: 'z-b' }]
+    const out = appendZoneNote(zones, 0, '  second  ')
+    expect(out[0].znt).toBe('first\nsecond')
+    expect(out[1]).toBe(zones[1])
+    expect(zones[0].znt).toBe('first') // pure
+  })
+  it('starts the field when empty and refuses blank text or a bad index', () => {
+    const zones = [{ zid: 'z-a' }]
+    expect(appendZoneNote(zones, 0, 'note')[0].znt).toBe('note')
+    expect(appendZoneNote(zones, 0, '   ')).toBe(zones)
+    expect(appendZoneNote(zones, -1, 'note')).toBe(zones)
+    expect(appendZoneNote(zones, 1, 'note')).toBe(zones)
   })
 })

@@ -40,8 +40,8 @@ const filled = (v) => {
 
 /**
  * Keys a zone can carry without the assessor having entered anything:
- * the stable id stamped on first equipment toggle, the (possibly empty)
- * equipment mapping, and the outdoor baseline readings, which setZF and
+ * the stable id every zone is stamped with on creation (`ensureZoneIds`),
+ * the (possibly empty) equipment mapping, and the outdoor baseline readings, which setZF and
  * runScoring both propagate into EVERY zone from wherever they were
  * captured. None of these mean the room was surveyed.
  */
@@ -76,6 +76,98 @@ export function zoneLabel(zones, idx) {
   const z = (zones || [])[idx]
   const name = z && typeof z.zn === 'string' ? z.zn.trim() : ''
   return name || `Zone ${idx + 1}`
+}
+
+/**
+ * Stable zone identity
+ * --------------------
+ * A zone's position in `zones` is not an identity: ‹ Prev / Next › moves the
+ * pointer, "Remove zone" shifts every later index down, and a draft is
+ * reopened wherever it was left. Anything that has to name a zone across
+ * time keys on `zid` instead — the equipment mapping (`servedZoneIds`), and
+ * a Jasper proposal, which is made while one zone is open and accepted
+ * after the assessor may have walked on to the next room.
+ *
+ * `ensureZoneIds` is the guarantee: every zone carries an id from the
+ * moment it exists. The client runs it on every seed, add and hydration,
+ * so a draft saved before ids existed gets them the first time it is
+ * opened, and a proposal never has to fall back to "whichever zone is open
+ * when they tap".
+ */
+
+/** True when the record carries a usable stable id. */
+export function hasZoneId(z) {
+  return !!(z && typeof z.zid === 'string' && z.zid.trim() !== '')
+}
+
+/**
+ * Mint a zone id. Time plus position keeps ids minted in one pass apart;
+ * the random tail keeps a zone added later from colliding with one removed
+ * earlier in the same millisecond bucket.
+ */
+export function newZoneId(idx = 0) {
+  return 'z-' + Date.now().toString(36) + '-' + idx + '-' + Math.random().toString(36).slice(2, 6)
+}
+
+/**
+ * Return `zones` with a `zid` on every entry. Entries that already have
+ * one are returned as-is, and when nothing is missing the SAME array comes
+ * back, so a functional `setZones(ensureZoneIds)` is a no-op render-wise
+ * once the guarantee holds. Never mutates its input.
+ */
+export function ensureZoneIds(zones) {
+  const list = Array.isArray(zones) ? zones : []
+  if (list.every(hasZoneId)) return list
+  const taken = new Set(list.filter(hasZoneId).map((z) => z.zid))
+  return list.map((z, i) => {
+    if (hasZoneId(z)) return z
+    let zid = newZoneId(i)
+    while (taken.has(zid)) zid = newZoneId(i)
+    taken.add(zid)
+    return { ...(z || {}), zid }
+  })
+}
+
+/** Position of the zone carrying `zid`, or -1. An empty id matches nothing. */
+export function zoneIndexById(zones, zid) {
+  if (typeof zid !== 'string' || zid.trim() === '') return -1
+  return (zones || []).findIndex((z) => !!z && z.zid === zid)
+}
+
+/**
+ * The zone a Jasper proposal is allowed to land on.
+ *
+ * A zone-scoped proposal (`record_zone_observation` in zone scope,
+ * `add_zone_note`) is bound by the dispatcher to the zone that was open
+ * when the model proposed it, as `action.zid`. This resolves that binding
+ * against the zones as they are NOW — after any navigation or removal in
+ * between — and fails closed: no binding, or a binding to a zone that no
+ * longer exists, is -1, never "the current zone". The current zone is
+ * deliberately not an input here; that is the fallback this exists to
+ * remove.
+ *
+ * @returns {number} index into `zones`, or -1 when the proposal must not
+ *   be applied
+ */
+export function resolveProposalZone(zones, action) {
+  if (!action || typeof action !== 'object') return -1
+  return zoneIndexById(zones, action.zid)
+}
+
+/**
+ * Append a note to the zone at `idx` (the `znt` field the walkthrough
+ * renders), on a new line when one is already there. Pure; returns the
+ * input unchanged when the index is out of range or the text is blank.
+ */
+export function appendZoneNote(zones, idx, text) {
+  const list = Array.isArray(zones) ? zones : []
+  const note = typeof text === 'string' ? text.trim() : ''
+  if (!note || !Number.isInteger(idx) || idx < 0 || idx >= list.length) return list
+  const zone = list[idx] || {}
+  const prev = typeof zone.znt === 'string' ? zone.znt : ''
+  const next = [...list]
+  next[idx] = { ...zone, znt: prev ? `${prev}\n${note}` : note }
+  return next
 }
 
 /**

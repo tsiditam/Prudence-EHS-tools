@@ -45,7 +45,7 @@ function isEmpty(value) {
 function zonesWith(zones, predicate) {
   const out = []
   for (const z of zones || []) {
-    if (predicate(z)) out.push(z.zn || z.zid || '(unnamed zone)')
+    if (predicate(z)) out.push(z.zn || '(unnamed zone)')
   }
   return out
 }
@@ -118,7 +118,7 @@ function ruleMissingHvacStatus(assessment) {
     const co2Zones = zones.filter((z) => !isEmpty(z.co2))
     const missingMeasConditions = co2Zones
       .filter((z) => isEmpty(z.meas_conditions))
-      .map((z) => z.zn || z.zid || '(unnamed zone)')
+      .map((z) => z.zn || '(unnamed zone)')
     if (missingMeasConditions.length === 0) return []
     return [
       {
@@ -138,7 +138,7 @@ function ruleMissingHvacStatus(assessment) {
     {
       kind: 'missing_hvac_status',
       severity: 'warn',
-      zones: zones.filter((z) => !isEmpty(z.co2)).map((z) => z.zn || z.zid || '(unnamed zone)'),
+      zones: zones.filter((z) => !isEmpty(z.co2)).map((z) => z.zn || '(unnamed zone)'),
       why:
         'Indoor CO₂ readings were taken without recording the building HVAC ' +
         'system type (presurvey.ht). Without operating-status context the ' +
@@ -159,7 +159,7 @@ function ruleMissingOccupancyDuration(assessment) {
     const missingDuration = isEmpty(z.meas_duration)
     const missingOcc = isEmpty(z.meas_occ)
     if (missingDuration || missingOcc) {
-      out.push(z.zn || z.zid || `zone ${i + 1}`)
+      out.push(z.zn || `zone ${i + 1}`)
     }
   }
   if (out.length === 0) return []
@@ -184,7 +184,7 @@ function ruleMoldConcernWithoutMoisture(assessment) {
   for (const z of zones) {
     if (!moldComplaintFlagged(z)) continue
     if (moistureEvidencePresent(z, presurvey)) continue
-    flagged.push(z.zn || z.zid || '(unnamed zone)')
+    flagged.push(z.zn || '(unnamed zone)')
   }
   if (flagged.length === 0) return []
   return [

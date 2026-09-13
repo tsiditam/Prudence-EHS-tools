@@ -16,7 +16,7 @@ import { resolveFinalizeTarget } from '../utils/finalizeTarget'
 import { ensureAssessmentUid } from '../billing/assessmentUid'
 import { hasDraftContent } from '../utils/draftContent'
 import { resolveDraftResumeView } from '../utils/resumePhase'
-import { blankZoneIndices, removeZoneAt, removeZonesAt, zoneLabel } from '../utils/zoneContent'
+import { appendZoneNote, blankZoneIndices, ensureZoneIds, hasZoneId, newZoneId, removeZoneAt, removeZonesAt, resolveProposalZone, zoneIndexById, zoneLabel } from '../utils/zoneContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -1288,7 +1288,7 @@ export default function MobileApp() {
         }
         setDraftId(draftIdNew)
         setCurrentSiteId(site.id)
-        setZones([{}]); setCurZone(0); setQsqi(0); setDqi(0); setZqi(0)
+        setZones(ensureZoneIds([{}])); setCurZone(0); setQsqi(0); setDqi(0); setZqi(0)
         setPhotos({}); setPhotoOverrides({}); setSensorData(null); setFloorPlans([])
         setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null)
         setNarrative(null); setSamplingPlan(null); setCausalChains([]); setAiSections(null)
@@ -1536,12 +1536,13 @@ export default function MobileApp() {
   // first zone shows them). Writing one applies it to EVERY zone so scoring and
   // the report see the outdoor value regardless of which zone is active.
   const OUTDOOR_SENSOR_IDS = useMemo(() => new Set(SENSOR_FIELDS.filter(f => f.outdoor).map(f => f.id)), [])
+  const writeZoneField = useCallback((prev, idx, id, v) => {
+    if (OUTDOOR_SENSOR_IDS.has(id)) return prev.map(z => ({ ...(z||{}), [id]:v }))
+    const next = [...prev]; next[idx] = {...(next[idx]||{}), [id]:v}; return next
+  }, [OUTDOOR_SENSOR_IDS])
   const setZF = useCallback((id,v) => {
-    setZones(prev => {
-      if (OUTDOOR_SENSOR_IDS.has(id)) return prev.map(z => ({ ...(z||{}), [id]:v }))
-      const next = [...prev]; next[curZone] = {...(next[curZone]||{}), [id]:v}; return next
-    })
-  }, [curZone, OUTDOOR_SENSOR_IDS, setZones])
+    setZones(prev => writeZoneField(prev, curZone, id, v))
+  }, [curZone, writeZoneField, setZones])
   // The investigation state behind the Readiness panel's gap list.
   // buildAssessmentContext derives its own from the same inputs; both
   // call one pure function, so they agree by construction and a test
@@ -1691,7 +1692,7 @@ export default function MobileApp() {
     // Pre-bind to the originating Project when launched from its workspace.
     setFinalizePending(false)
     setPresurvey(psFill); setBldg(assessmentSeed ? { name: assessmentSeed.name, address: assessmentSeed.address } : {}); setAssessmentSeed(null); setQsqi(0); setDqi(0); setSensorData(null)
-    setZones([{}]); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
+    setZones(ensureZoneIds([{}])); setCurZone(0); setZqi(0); setPhotos({}); setEquipment([])
     setZoneScores([]); setComp(null); setOshaResult(null); setRecs(null); setNarrative(null); setSamplingPlan(null); setCausalChains([]); setAiSections(null)
     setView('quickstart')
   }
@@ -1709,7 +1710,7 @@ export default function MobileApp() {
     const pick = type || (userMode === 'fm' ? 'fm' : 'clean')
     const { bldg: demoBldg, zones: demoZones, pre: demoPre, equipment: demoEq, sensorData: demoSd } = demos[pick]
     trackEvent('assessment_mode_selected', { mode: 'demo', demoType: pick, userMode })
-    setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({}); setEquipment(demoEq || [])
+    setBldg(demoBldg); setZones(ensureZoneIds(demoZones)); setPresurvey(demoPre); setPhotos({}); setEquipment(demoEq || [])
     setSensorData(typeof demoSd === 'function' ? demoSd() : null)
     // The survey date rides on the building for scoring, as finishAssessment
     // passes it: the demo's comfort band is the demo's own season, not the
@@ -1762,7 +1763,7 @@ export default function MobileApp() {
     trackEvent('draft_resumed', { draft_id: id, facility: d.bldg?.fn || d.building?.fn || '' })
     // A suspended finalize belongs to the assessment it was suspended on.
     setFinalizePending(false)
-    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(d.zones||[{}]); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlans(await expandFloorPlans(normalizeFloorPlans(d))); setSensorData(d.sensorData||null)
+    setDraftId(d.id); setPresurvey(d.presurvey||{}); setBldg(d.bldg||d.building||{}); setZones(ensureZoneIds(d.zones||[{}])); setEquipment(d.equipment||[]); setPhotos(d.photos||{}); setPhotoOverrides(d.photoOverrides||{}); setFloorPlans(await expandFloorPlans(normalizeFloorPlans(d))); setSensorData(d.sensorData||null)
     setCurrentSiteId(d.site_id || null)  // PR 1: inherit site binding if the draft carries one
     setQsqi(d.qsqi||0); setDqi(d.dqi||0); setCurZone(d.curZone||0); setZqi(d.zqi||0)
     // Resume at the right phase — see resolveDraftResumeView for why
@@ -1833,7 +1834,7 @@ export default function MobileApp() {
 
   const finishQuickStart = () => {
     trackEvent('quickstart_completed', { facility: bldg.fn || '', building_type: bldg.ft || '' })
-    if (zones.length === 0) setZones([{}])
+    if (zones.length === 0) setZones(ensureZoneIds([{}]))
     // v2.8.0 — capture HVAC equipment before zones so each zone can
     // be mapped to the units serving it. Equipment-scoped recs
     // (drain pan, filters, OA damper, comprehensive
@@ -1856,11 +1857,23 @@ export default function MobileApp() {
   // triggers the building-scoped fallback in genRecs.
   const ensureZoneId = (idx) => {
     const z = zones[idx]
-    if (z?.zid) return z.zid
-    const zid = 'z-' + Date.now().toString(36) + '-' + idx
+    if (hasZoneId(z)) return z.zid
+    const zid = newZoneId(idx)
     setZones(prev => { const next = [...prev]; next[idx] = { ...(next[idx] || {}), zid }; return next })
     return zid
   }
+  // The guarantee behind every `zid` lookup: a zone has an id from the
+  // moment it exists. The seed, add and hydration paths stamp one up
+  // front; this catches any other way a zone can arrive without one (a
+  // draft written by an older build, an averages write into an old
+  // record) on the first render that sees it. A finalized report is a
+  // record, not a draft — it is left exactly as issued, and a Jasper
+  // proposal against it finds nothing to bind to.
+  useEffect(() => {
+    if (viewRpt) return
+    if ((zones || []).every(hasZoneId)) return
+    setZones(prev => ensureZoneIds(prev))
+  }, [zones, viewRpt, setZones])
   const toggleZoneEquipment = (zoneIdx, eqId) => {
     const zid = ensureZoneId(zoneIdx)
     setZones(prev => {
@@ -5140,7 +5153,7 @@ export default function MobileApp() {
             <TactileButton
               variant="secondary"
               fullWidth
-              onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>[...p,{}]);setCurZone(zones.length);setZqi(0)}}
+              onClick={()=>{trackEvent('zone_added',{zone_index:zones.length});setZonePrompt(false);setZones(p=>ensureZoneIds([...p,{}]));setCurZone(zones.length);setZqi(0)}}
               icon={<I n="bldg" s={16} c="var(--accent)" w={1.8} />}
             >
               Add another zone
@@ -6348,14 +6361,26 @@ export default function MobileApp() {
               if (action.scope === 'building') {
                 setBldg((p) => ({ ...p, [fieldId]: action.value }))
               } else {
-                // Zone scope goes through setZF, the same writer the
-                // walkthrough uses — which is what propagates an outdoor
-                // baseline (co2o / pmo / tvo / tfo / rho) to every zone
-                // instead of stranding it on the one that happened to be
-                // open. A direct setZones here would have written it to
-                // one zone and left the rest scoring against nothing.
-                if (!zones[curZone]) return false
-                setZF(fieldId, action.value)
+                // Zone scope writes to the zone the proposal is BOUND to
+                // (`action.zid`, stamped by the dispatcher from the zone
+                // that was open when Jasper proposed), never to `curZone`.
+                // The card can sit while the assessor walks on to the
+                // next room; the reading still belongs to the room it
+                // was taken in. No binding, or a bound zone since removed,
+                // is a refusal — the card shows Rejected rather than the
+                // value landing on whichever zone is open now.
+                //
+                // Resolved once here so the veto is visible, and again
+                // inside the updater against the state the write actually
+                // applies to. The write goes through writeZoneField, the
+                // same writer the walkthrough uses — which is what
+                // propagates an outdoor baseline (co2o / pmo / tvo / tfo /
+                // rho) to every zone instead of stranding it on one.
+                if (resolveProposalZone(zones, action) < 0) return false
+                setZones((prev) => {
+                  const zi = zoneIndexById(prev, action.zid)
+                  return zi < 0 ? prev : writeZoneField(prev, zi, fieldId, action.value)
+                })
               }
               // Rescore, or the write is only half of the loop: the raw
               // value would update while zoneScores — which is what
@@ -6371,12 +6396,52 @@ export default function MobileApp() {
               setPendingRescore((n) => n + 1)
               return true
             }
+            if (action.type === 'ask_zone_question') {
+              // Phase 2's other half. The dispatcher has already checked that
+              // this question is one the walkthrough would ask in this zone
+              // right now — in the catalog, condition satisfied, unanswered —
+              // so accepting only has to GO there. It writes nothing, which is
+              // the point: the assessor answers it themselves, in the field
+              // the engine reads, and the model never held the value.
+              //
+              // A finalized report is a record, not a live assessment; there
+              // is no walkthrough to send them back into.
+              if (viewRpt) return false
+              const qid = action.question_id
+              if (!qid) return false
+              // The question was screened for eligibility in ONE zone — its
+              // display condition and its unanswered-ness were read off that
+              // zone's record. So it opens in the zone the proposal is BOUND
+              // to (`action.zid`), not in whichever zone is open now: the
+              // same condition may be unsatisfied next door, or already
+              // answered there, and either way it is not the question the
+              // assessor was asked about. A bound zone since removed is a
+              // refusal, not a fallback.
+              const qzi = resolveProposalZone(zones, action)
+              if (qzi < 0) return false
+              // pendingZoneFix is the existing mechanism the Readiness panel's
+              // tap-to-fix cards use: it survives the navigation and lands zqi
+              // on the question once zVis has rebuilt for that zone. Reusing it
+              // means the two surfaces cannot drift apart. Its effect only
+              // fires once curZone matches, so walking the pointer to the
+              // bound zone is part of opening the question, not a nicety.
+              setPendingZoneFix({ zoneIndex: qzi, field: qid })
+              if (qzi !== curZone) { setCurZone(qzi); setZqi(0) }
+              setView('zone')
+              setFaOpen(false)
+              setVoicePrefill(null)
+              return true
+            }
             if (action.type === 'add_zone_note') {
+              // Same posture as record_zone_observation: an issued report
+              // is not edited from a chat card.
+              if (viewRpt) return false
               const noteText = (action.note_text || '').trim()
               if (!noteText) return false
-              // Append to the current zone's notes field. If there's no
-              // current zone (e.g. the user is on the dashboard), reject —
-              // the model shouldn't have proposed this.
+              // Append to the notes field of the zone the proposal is
+              // bound to (`action.zid`), not the current zone — see the
+              // record_zone_observation branch above. No binding, or a
+              // zone since removed, is a refusal.
               //
               // The field is `znt` (Q_ZONE, "Zone observations / notes").
               // This wrote `nt` for its whole life, which is not in the
@@ -6389,16 +6454,8 @@ export default function MobileApp() {
               // free text. A note records an observation for a human; it
               // does not move a score, a finding, or a differential. That
               // is what record_zone_observation is for.
-              const zoneIdx = curZone
-              const zone = zones[zoneIdx]
-              if (!zone) return false
-              const prevNotes = zone.znt || ''
-              const nextNotes = prevNotes
-                ? `${prevNotes}\n${noteText}`
-                : noteText
-              const nextZones = zones.slice()
-              nextZones[zoneIdx] = { ...zone, znt: nextNotes }
-              setZones(nextZones)
+              if (resolveProposalZone(zones, action) < 0) return false
+              setZones((prev) => appendZoneNote(prev, zoneIndexById(prev, action.zid), noteText))
               return true
             }
             return false

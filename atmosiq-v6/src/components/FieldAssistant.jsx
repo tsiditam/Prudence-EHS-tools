@@ -190,7 +190,10 @@ function buildContextChips(context) {
   // dashboard or report, the assessor isn't looking AT a zone.
   const inWalk = context.view === 'wizard'
   if (inWalk && zone && typeof zone === 'object') {
-    const zoneLabel = zone.n || zone.zid || (typeof context.zones_count === 'number' ? `Zone ${(context.current_zone_idx ?? 0) + 1}` : null)
+    // The raw zone record names itself in `zn`; an unnamed zone is its
+    // position, never its `zid` (an opaque handle every zone carries).
+    const zoneName = typeof zone.zn === 'string' ? zone.zn.trim() : ''
+    const zoneLabel = zoneName || (typeof context.current_zone_idx === 'number' ? `Zone ${context.current_zone_idx + 1}` : null)
     if (zoneLabel) out.push({ id: 'zone', label: zoneLabel, tone: 'accent', icon: 'location' })
 
     // Measurement signals — only added when a numeric reading is
@@ -725,12 +728,18 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
   const isPending = status === 'pending'
   const isAccepted = status === 'accepted'
   const isRecord = action?.type === 'record_zone_observation'
+  // A proposed walkthrough question. It writes nothing — accepting opens the
+  // question for the assessor to answer — so it is deliberately not dressed
+  // like the record card, which commits a value to the evidence record.
+  const isAsk = action?.type === 'ask_zone_question'
   const glyph =
     action?.type === 'navigate'
       ? 'M9 18l6-6-6-6' // chevron-right
       : isRecord
         ? 'M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' // clipboard-check
-        : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
+        : isAsk
+          ? 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01 M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20' // help-circle
+          : 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' // pencil-square
   return (
     <div className="jasper-msg-in" style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
@@ -765,12 +774,15 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
               letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 2,
             }}>
               {isAccepted
-                ? (isRecord ? 'Recorded' : 'Applied')
+                ? (isRecord ? 'Recorded' : isAsk ? 'Opened' : 'Applied')
                 : status === 'rejected' ? 'Rejected'
-                  : isRecord ? 'Record this observation' : 'Proposed action'}
+                  : isRecord ? 'Record this observation'
+                    : isAsk ? 'Worth asking here' : 'Proposed action'}
             </div>
             <div style={{ fontSize: 14, color: TEXT, lineHeight: 1.4, fontWeight: 600 }}>
-              {summary || (action?.type === 'navigate' ? 'Open a screen' : isRecord ? 'Record an observation' : 'Add a note')}
+              {summary || (action?.type === 'navigate' ? 'Open a screen'
+                : isRecord ? 'Record an observation'
+                  : isAsk ? (action.question || 'Open a walkthrough question') : 'Add a note')}
             </div>
             {/* The write is shown field-by-value rather than as prose. It
                 is going into the assessor's evidence record, and they are
@@ -786,11 +798,25 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
                   <span style={{ color: DIM }}>{action.field_label}</span>
                   <span style={{ color: TEXT, fontWeight: 600 }}>{action.display_value}</span>
                 </div>
+                {/* The words the write rests on. They were checked against
+                    what the assessor typed, and showing them is what makes
+                    that checkable by the person signing it rather than a
+                    promise made in a comment. */}
+                {action.quote && (
+                  <div style={{ color: SUB, marginTop: 6, fontSize: 11, lineHeight: 1.5, fontStyle: 'italic' }}>
+                    “{action.quote}”
+                  </div>
+                )}
                 <div style={{ color: DIM, marginTop: 4, fontSize: 11 }}>
                   {action.scope === 'building'
                     ? 'Applies to the whole building'
                     : `Applies to ${action.zone_label || 'the zone you have open'}`}
                 </div>
+              </div>
+            )}
+            {isAsk && (
+              <div style={{ fontSize: 11, color: DIM, lineHeight: 1.5, marginTop: 6 }}>
+                Opens this question in {action.zone_label || 'the zone you have open'}. Nothing is recorded until you answer it.
               </div>
             )}
             {action?.type === 'add_zone_note' && action.note_text && (
@@ -817,7 +843,7 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
                 fontFamily: 'inherit', minHeight: 36,
                 WebkitTapHighlightColor: 'transparent',
               }}>
-              {isRecord ? "Don't record" : 'Reject'}
+              {isRecord ? "Don't record" : isAsk ? 'Not now' : 'Reject'}
             </button>
             <button
               type="button"
@@ -830,7 +856,7 @@ function ActionCard({ action, summary, status, onAccept, onReject }) {
                 fontFamily: 'inherit', minHeight: 36, letterSpacing: '-0.1px',
                 WebkitTapHighlightColor: 'transparent',
               }}>
-              {isRecord ? 'Record' : 'Apply'}
+              {isRecord ? 'Record' : isAsk ? 'Open question' : 'Apply'}
             </button>
           </div>
         )}
