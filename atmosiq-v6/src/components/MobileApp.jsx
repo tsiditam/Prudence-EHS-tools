@@ -4354,26 +4354,48 @@ export default function MobileApp() {
     <>
     {profile && (
       <nav className="af-sidemenu" aria-label="Main menu" aria-hidden={!showHomeMenu}>
-        {/* Header — bold AtmosFlow wordmark left + a glass circular avatar
-            right (Claude mobile style); the avatar opens the Account page. */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 4px 16px',marginBottom:6,borderBottom:'1px solid var(--m-hair)'}}>
-          <span style={{fontSize:23,fontWeight:800,letterSpacing:'-0.03em',color:'var(--text)'}}>AtmosFlow</span>
+        {/* Header — Grok's mobile menu: the assessor's avatar and name on the
+            left (one tap target, opens the Account page), and a circular
+            "close" control on the right. The wordmark is gone — the person
+            using the tool is the identity of their workspace, and the brand
+            lives on the launch frame. The name drops any credential suffix
+            ("Tsidi Tamakloe, CIH" → "Tsidi Tamakloe"), as the initials do. */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 0 16px',marginBottom:6,borderBottom:'1px solid var(--m-hair)'}}>
           <button
             onClick={() => go(() => setView('account'))}
             aria-label="Account"
             style={{
-              width:40, height:40, borderRadius:'50%', flexShrink:0,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              background:'var(--m-ctl)',
-              backdropFilter:'blur(12px) saturate(160%)', WebkitBackdropFilter:'blur(12px) saturate(160%)',
-              border:'1px solid var(--m-border)',
-              boxShadow:'inset 0 1px 0 var(--m-inset)',
-              color:'var(--accent)', fontSize:14, fontWeight:700, letterSpacing:'0.02em',
-              cursor:'pointer', fontFamily:'inherit', overflow:'hidden', WebkitTapHighlightColor:'transparent',
+              display:'flex', alignItems:'center', gap:12, minWidth:0, flex:1,
+              padding:0, background:'transparent', border:'none', cursor:'pointer',
+              fontFamily:'inherit', textAlign:'left', WebkitTapHighlightColor:'transparent',
             }}>
-            {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt="" aria-hidden="true" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
-              : getInitials(profile)}
+            <span aria-hidden="true" style={{
+              width:40, height:40, borderRadius:'50%', flexShrink:0,
+              display:'inline-flex', alignItems:'center', justifyContent:'center',
+              background:'var(--m-ctl)', border:'1px solid var(--m-border)',
+              color:'var(--text)', fontSize:14, fontWeight:700, letterSpacing:'0.02em', overflow:'hidden',
+            }}>
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
+                : getInitials(profile)}
+            </span>
+            <span style={{fontSize:17,fontWeight:700,letterSpacing:'-0.01em',color:'var(--text)',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              {(profile?.name || '').split(',')[0].trim() || 'Account'}
+            </span>
+          </button>
+          <button
+            onClick={closeSideMenu}
+            aria-label="Close menu"
+            style={{
+              width:44, height:44, borderRadius:22, flexShrink:0, padding:0,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              background:'var(--m-ctl)', border:'none', color:'var(--text)',
+              cursor:'pointer', fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
+            }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 17 11 12 6 7" />
+              <polyline points="13 17 18 12 13 7" />
+            </svg>
           </button>
         </div>
         {/* ── Project switcher ── persistent context chip: shows the
