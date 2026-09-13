@@ -1326,8 +1326,11 @@ export default function MobileApp() {
   // the back pill. Mixed from --text over --bg so the disc is a neutral
   // tint in both themes.
   const CIRCLE_BTN = {
-    width: 44, height: 44, borderRadius: 22, padding: 0, border: 'none',
-    background: 'color-mix(in srgb, var(--text) 9%, var(--bg))', color: V3.TEXT_PRIMARY,
+    width: 44, height: 44, borderRadius: 22, padding: 0,
+    background: 'var(--glass-fill)', border: '1px solid var(--glass-edge)',
+    boxShadow: 'inset 0 1px 0 var(--glass-sheen), var(--glass-shadow)',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+    color: V3.TEXT_PRIMARY,
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     boxSizing: 'border-box', WebkitTapHighlightColor: 'transparent', flexShrink: 0,
   }
@@ -6202,7 +6205,7 @@ export default function MobileApp() {
            transition / filter all come from the inline style. */
         .af-menu-trigger{position:relative;}
         @media (hover: hover) and (pointer: fine){
-          .af-circle-btn:hover{ background:color-mix(in srgb, var(--text) 14%, var(--bg)) !important; }
+          .af-circle-btn:hover{ background:var(--glass-fill-hover) !important; }
         }
         /* ── Shared header control ──
            The same flat material as the bottom dock (AtmosFlowFloatingDock)

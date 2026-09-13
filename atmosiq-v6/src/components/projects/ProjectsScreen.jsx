@@ -112,11 +112,12 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
   const newProjectButton = (
     <TactileButton
       variant="neutral"
-      size={list.length === 0 ? 'md' : 'sm'}
       pill
       haptic="success"
       onClick={() => setShowCreate(true)}
-      style={list.length === 0 ? { padding: '14px 30px', fontSize: 15 } : undefined}
+      // 44px, the height of the circular header controls, in both
+      // placements — one glass material at one size across the screen.
+      style={{ height: 44, minHeight: 44, padding: list.length === 0 ? '0 28px' : '0 18px', fontSize: 15 }}
     >
       New project
     </TactileButton>
