@@ -9,9 +9,15 @@
  *   • Empty note_text → status='rejected'
  *   • Inner tab_target preserved when present + valid
  *   • Untrusted long fields are truncated
+ *   • Zone-scoped proposals are bound to the open zone's stable id (zid)
+ *     and refused when there is no zone to bind to
  */
 import { describe, it, expect } from 'vitest'
 import { dispatchTool } from '../../src/constants/field-assistant-tools.js'
+
+/** Request context as the client builds it: the open zone rides along raw. */
+const inZone = (zone: Record<string, unknown>) => ({ assessmentContext: { current_zone: zone } })
+const ZONE_A = { zid: 'z-a', zn: 'Conference Room B' }
 
 describe('propose_action dispatcher', () => {
   it('accepts a valid navigate proposal', async () => {
@@ -47,18 +53,19 @@ describe('propose_action dispatcher', () => {
     expect(r.action).toEqual({ type: 'navigate', target: 'results' })
   })
 
-  it('accepts a valid add_zone_note proposal', async () => {
+  it('accepts a valid add_zone_note proposal, bound to the open zone', async () => {
     const r = await dispatchTool('propose_action', {
       action_type: 'add_zone_note',
       note_text: 'HVAC was running loud during the walkthrough.',
       zone_label: 'Zone A1',
       summary: 'Add note to Zone A1',
-    }) as Record<string, unknown>
+    }, inZone({ zid: 'z-a' })) as Record<string, unknown>
     expect(r.status).toBe('proposed')
     expect((r.action as Record<string, unknown>)).toEqual({
       type: 'add_zone_note',
       note_text: 'HVAC was running loud during the walkthrough.',
       zone_label: 'Zone A1',
+      zid: 'z-a',
     })
   })
 
@@ -86,7 +93,7 @@ describe('propose_action dispatcher', () => {
       action_type: 'add_zone_note',
       note_text: '   ',
       summary: 'X',
-    }) as Record<string, unknown>
+    }, inZone(ZONE_A)) as Record<string, unknown>
     expect(r.status).toBe('rejected')
     expect(r.reason).toBe('empty_note')
   })
@@ -97,7 +104,7 @@ describe('propose_action dispatcher', () => {
       action_type: 'add_zone_note',
       note_text: huge,
       summary: 'X',
-    }) as Record<string, unknown>
+    }, inZone(ZONE_A)) as Record<string, unknown>
     expect(r.status).toBe('proposed')
     expect(((r.action as Record<string, string>).note_text || '').length).toBe(1000)
   })
@@ -110,5 +117,90 @@ describe('propose_action dispatcher', () => {
     expect(r.status).toBe('proposed')
     expect(typeof r.summary).toBe('string')
     expect((r.summary as string).length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * The binding that closes the check-then-use gap. Jasper proposes while one
+ * zone is open; the assessor may have walked on before tapping Accept. The
+ * proposal has to say which zone it was made for, by an identity that
+ * survives navigation and removal, or it must not be proposed at all.
+ */
+describe('propose_action zone binding', () => {
+  it('binds record_zone_observation in zone scope to the open zone by zid', async () => {
+    const r = await dispatchTool('propose_action', {
+      action_type: 'record_zone_observation',
+      field: 'co2',
+      value: 1450,
+      summary: 'Record CO2',
+    }, inZone(ZONE_A)) as Record<string, unknown>
+    expect(r.status).toBe('proposed')
+    const action = r.action as Record<string, unknown>
+    expect(action.scope).toBe('zone')
+    expect(action.zid).toBe('z-a')
+  })
+
+  it('names the bound zone on the card, over the label the model believed', async () => {
+    const r = await dispatchTool('propose_action', {
+      action_type: 'record_zone_observation',
+      field: 'co2',
+      value: 1450,
+      zone_label: 'Room 204',
+      summary: 'Record CO2',
+    }, inZone(ZONE_A)) as Record<string, unknown>
+    expect(r.status).toBe('proposed')
+    // The card says where the write lands; that is the bound zone's name.
+    expect((r.action as Record<string, unknown>).zone_label).toBe('Conference Room B')
+  })
+
+  it('keeps the model label only when the bound zone has no name', async () => {
+    const r = await dispatchTool('propose_action', {
+      action_type: 'add_zone_note',
+      note_text: 'Loud return grille.',
+      zone_label: 'Zone A1',
+      summary: 'X',
+    }, inZone({ zid: 'z-a', zn: '   ' })) as Record<string, unknown>
+    expect((r.action as Record<string, unknown>).zone_label).toBe('Zone A1')
+    expect((r.action as Record<string, unknown>).zid).toBe('z-a')
+  })
+
+  it('refuses a zone-scoped write with no zone open — never "whichever zone is open at tap time"', async () => {
+    for (const ctx of [undefined, {}, { assessmentContext: {} }, inZone({ zn: 'Named but id-less' }), inZone({ zid: '  ' })]) {
+      const note = await dispatchTool('propose_action', {
+        action_type: 'add_zone_note',
+        note_text: 'Loud return grille.',
+        summary: 'X',
+      }, ctx as never) as Record<string, unknown>
+      expect(note.status).toBe('rejected')
+      expect(note.reason).toBe('no_zone_binding')
+      const record = await dispatchTool('propose_action', {
+        action_type: 'record_zone_observation',
+        field: 'co2',
+        value: 1450,
+        summary: 'X',
+      }, ctx as never) as Record<string, unknown>
+      expect(record.status).toBe('rejected')
+      expect(record.reason).toBe('no_zone_binding')
+    }
+  })
+
+  it('does not bind a building-scoped observation or a navigation, and needs no zone for them', async () => {
+    const building = await dispatchTool('propose_action', {
+      action_type: 'record_zone_observation',
+      field: 'od',
+      value: 'Stuck / inoperable',
+      summary: 'X',
+    }) as Record<string, unknown>
+    if (building.status !== 'proposed') throw new Error(`expected a building-scoped field to propose: ${JSON.stringify(building)}`)
+    expect((building.action as Record<string, unknown>).scope).toBe('building')
+    expect((building.action as Record<string, unknown>).zid).toBeUndefined()
+
+    const nav = await dispatchTool('propose_action', {
+      action_type: 'navigate',
+      target: 'results',
+      summary: 'X',
+    }, inZone(ZONE_A)) as Record<string, unknown>
+    expect(nav.status).toBe('proposed')
+    expect(nav.action).toEqual({ type: 'navigate', target: 'results' })
   })
 })

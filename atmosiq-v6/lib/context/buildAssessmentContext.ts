@@ -68,7 +68,9 @@ function firstStr(...vals: unknown[]): string | null {
 
 function zoneLabel(zone: Record<string, unknown> | undefined, index: number): string | null {
   if (!zone) return null
-  return firstStr(zone.zn, zone.zid) || `Zone ${index + 1}`
+  // By name or position, never by `zid`: every zone carries an id, and it
+  // is an opaque handle, not something to print.
+  return firstStr(zone.zn) || `Zone ${index + 1}`
 }
 
 /** Roll up the zone-score result tree into a flat finding list. */

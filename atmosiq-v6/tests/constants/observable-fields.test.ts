@@ -25,6 +25,7 @@ import {
 } from '../../src/constants/observable-fields.js'
 import { Q_ZONE, Q_BUILDING, Q_DETAILS, SENSOR_FIELDS } from '../../src/constants/questions.js'
 import { dispatchTool } from '../../src/constants/field-assistant-tools.js'
+import { resolveProposalZone } from '../../src/utils/zoneContent'
 import { deriveInvestigation } from '../../src/engine/investigation'
 import { scoreZone } from '../../src/engines/scoring'
 import { buildCausalChains } from '../../src/engines/causalChains'
@@ -205,7 +206,7 @@ describe('propose_action carries the write', () => {
   it('tells the model the state has NOT moved yet', async () => {
     const r: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'co2', value: 1450,
-    }, {})
+    }, { assessmentContext: { current_zone: { zid: 'z-open' } } })
     expect(r.message).toMatch(/has NOT moved/)
   })
 })
@@ -224,21 +225,30 @@ describe('an accepted write moves the investigation', () => {
     })
   }
 
-  /** Apply a proposed action exactly as MobileApp's executor does. */
-  function apply(action: any, zones: Zone[], bldg: Zone, curZone = 0) {
+  /** The request context as the client builds it: the open zone rides along raw. */
+  const inZone = (zone: Zone) => ({ assessmentContext: { current_zone: zone } })
+
+  /**
+   * Apply a proposed action exactly as MobileApp's executor does. A zone
+   * write lands on the zone the proposal is BOUND to (`action.zid`), never
+   * on whichever zone is open when it is accepted.
+   */
+  function apply(action: any, zones: Zone[], bldg: Zone) {
     const OUTDOOR = new Set(['co2o', 'tfo', 'rho', 'pmo', 'tvo'])
     if (action.scope === 'building') return { zones, bldg: { ...bldg, [action.field]: action.value } }
+    const zi = resolveProposalZone(zones, action)
+    if (zi < 0) throw new Error('proposal is not bound to a zone that exists')
     if (OUTDOOR.has(action.field)) {
       return { zones: zones.map((z) => ({ ...z, [action.field]: action.value })), bldg }
     }
     const next = zones.slice()
-    next[curZone] = { ...next[curZone], [action.field]: action.value }
+    next[zi] = { ...next[zi], [action.field]: action.value }
     return { zones: next, bldg }
   }
 
   it('a recorded humidity reading resolves an untested differential', async () => {
     const zones: Zone[] = [{
-      zn: 'Suite 200', co2: '1450', ot: ['Musty / Earthy'], op: 'Moderate persistent', sy: ['Cough'],
+      zid: 'z-200', zn: 'Suite 200', co2: '1450', ot: ['Musty / Earthy'], op: 'Moderate persistent', sy: ['Cough'],
     }]
     const bldg: Zone = { sa: 'Weak / reduced' }
 
@@ -249,7 +259,7 @@ describe('an accepted write moves the investigation', () => {
 
     const proposal: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'rh', value: 68,
-    }, {})
+    }, inZone(zones[0]))
     expect(proposal.status).toBe('proposed')
 
     const applied = apply(proposal.action, zones, bldg)
@@ -264,14 +274,14 @@ describe('an accepted write moves the investigation', () => {
   })
 
   it('a clean reading weakens a differential instead of leaving it open', async () => {
-    const zones: Zone[] = [{ zn: 'Suite 200', sy: ['Headache'] }]
+    const zones: Zone[] = [{ zid: 'z-200', zn: 'Suite 200', sy: ['Headache'] }]
     const bldg: Zone = {}
     const before = investigate(zones, bldg)
     expect(before.hypotheses.find((h) => h.ruleKey === 'hyp_combustion')!.status).toBe('untested')
 
     const proposal: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'co', value: 0.4,
-    }, {})
+    }, inZone(zones[0]))
     const applied = apply(proposal.action, zones, bldg)
     const after = investigate(applied.zones, applied.bldg)
 
@@ -301,14 +311,41 @@ describe('an accepted write moves the investigation', () => {
 
   it('an outdoor baseline reaches every zone, not just the open one', async () => {
     const zones: Zone[] = [
-      { zn: 'A', pm: '38', vd: 'Heavy accumulation' },
-      { zn: 'B', pm: '31' },
+      { zid: 'z-a', zn: 'A', pm: '38', vd: 'Heavy accumulation' },
+      { zid: 'z-b', zn: 'B', pm: '31' },
     ]
     const proposal: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'pmo', value: 9,
-    }, {})
+    }, inZone(zones[0]))
     const applied = apply(proposal.action, zones, {})
     expect(applied.zones.every((z) => z.pmo === '9'), 'outdoor baseline must propagate').toBe(true)
+  })
+
+  it('a write proposed in one zone lands there even when another zone is open at accept time', async () => {
+    const zones: Zone[] = [
+      { zid: 'z-a', zn: 'Zone A', sy: ['Headache'] },
+      { zid: 'z-b', zn: 'Zone B' },
+    ]
+    // Jasper reads the sentence while Zone A is open ...
+    const proposal: any = await dispatchTool('propose_action', {
+      action_type: 'record_zone_observation', field: 'co', value: 0.4,
+    }, inZone(zones[0]))
+    expect(proposal.status).toBe('proposed')
+    expect(proposal.action.zid).toBe('z-a')
+    expect(proposal.action.zone_label).toBe('Zone A')
+    // ... the assessor taps Next and is in Zone B by the time they accept.
+    // The current zone is not an input to where the write goes.
+    const applied = apply(proposal.action, zones, {})
+    expect(applied.zones[0].co).toBe('0.4')
+    expect(applied.zones[1].co).toBeUndefined()
+    // And if Zone A was removed in between, the write lands nowhere.
+    expect(() => apply(proposal.action, [zones[1]], {})).toThrow(/not bound/)
+    // Without a zone open there is no proposal to accept at all.
+    const unbound: any = await dispatchTool('propose_action', {
+      action_type: 'record_zone_observation', field: 'co', value: 0.4,
+    }, {})
+    expect(unbound.status).toBe('rejected')
+    expect(unbound.reason).toBe('no_zone_binding')
   })
 
   it('a rejected value changes nothing', async () => {

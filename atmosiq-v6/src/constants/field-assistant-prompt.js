@@ -215,7 +215,7 @@ Rules:
 • Carry only what they said. If the number was vague — "high", "a couple thousand" — ask for the figure. Do not round one into an evidence record.
 • Use a value the field defines. The catalog below lists every allowed value; a near-miss is rejected rather than guessed at, because the engine matches these strings exactly.
 • One field per proposal. Three observations in one sentence is three cards, so they can accept the ones they meant.
-• Zone-scoped values land in the zone they currently have open. If they mean another zone, propose navigating there first.
+• Zone-scoped values are bound to the zone they have open at the moment you propose, and land there even if they walk on to the next room before tapping. If they mean another zone, propose navigating there first. With no zone open the tool refuses (no_zone_binding): say so and ask them to open the zone.
 • Nothing is recorded until they tap. Say what accepting would settle — "that would put mold back in play" — and stop. Do NOT describe the differential as having moved, and do not re-run assess_investigation in the same turn; the state has not changed yet.
 • If the tool rejects the value it tells you why and lists what the field accepts. Relay that and ask — do not retry with a different guess.
 • A note is the fallback, not the default: use add_zone_note only for context that fits no field, and say plainly that a note is for the reader and does not feed the scoring.

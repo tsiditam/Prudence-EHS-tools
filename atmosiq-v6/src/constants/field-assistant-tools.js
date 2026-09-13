@@ -245,7 +245,7 @@ export const FIELD_ASSISTANT_TOOLS = [
         zone_label: {
           type: 'string',
           description:
-            'Optional human-readable zone label for the action card. If not supplied, the client uses the current zone from context. Zone-scoped values are always written to the zone the assessor currently has open — this label is for display, so if they mean a different zone, navigate there first.',
+            'Optional human-readable zone label for the action card. Zone-scoped proposals are bound to the zone the assessor has open at the moment you propose — they land there even if the assessor moves on before tapping Accept — and the card shows that zone\'s own name when it has one, so this label is display-only and never redirects the write. If they mean a different zone, propose navigating there first. With no zone open the proposal is rejected (no_zone_binding).',
         },
         summary: {
           type: 'string',
@@ -674,6 +674,26 @@ Return the JSON object specified in your system prompt.`
 }
 
 /**
+ * The zone a propose_action call binds to: the one the assessor has open
+ * in the request context, identified by its stable `zid`. The client
+ * builds the context (buildJasperContext) with the raw zone record under
+ * `current_zone`, and stamps every zone with an id on creation and
+ * hydration (`ensureZoneIds`), so an open zone without one is a record the
+ * client refuses to edit — a finalized report — and binds to nothing.
+ *
+ * @returns {{ zid: string, label: string|null } | null}
+ */
+function boundZone(ctx) {
+  const context = ctx && ctx.assessmentContext
+  const zone = context && typeof context === 'object' ? context.current_zone : null
+  if (!zone || typeof zone !== 'object') return null
+  const zid = typeof zone.zid === 'string' ? zone.zid.trim() : ''
+  if (!zid) return null
+  const name = typeof zone.zn === 'string' ? zone.zn.trim() : ''
+  return { zid, label: name ? name.slice(0, 200) : null }
+}
+
+/**
  * Dispatch a tool call. Returns a JSON-serializable object the Anthropic
  * tool-result block can consume. Never throws — failure modes are
  * encoded as { error, ... } so the agent can recover gracefully.
@@ -953,6 +973,14 @@ export async function dispatchTool(name, input, ctx = {}) {
       // the same payload to the client via a `proposed_action`
       // SSE event (see api/field-assistant.ts) so the chat UI
       // can render the card while the agent finishes its turn.
+      //
+      // A zone-scoped proposal is BOUND here to the zone the assessor had
+      // open when the model made it, by that zone's stable id (`zid`).
+      // The card can sit unanswered while they walk on to the next room;
+      // the client resolves the id at tap time and writes there, or
+      // refuses if the zone is gone. It never falls back to "the zone
+      // that happens to be open now" — that is the check-then-use gap
+      // this binding closes.
       const allowed = new Set(['navigate', 'add_zone_note', 'record_zone_observation'])
       const actionType = input && typeof input.action_type === 'string' ? input.action_type : ''
       if (!allowed.has(actionType)) {
@@ -1022,6 +1050,26 @@ export async function dispatchTool(name, input, ctx = {}) {
         if (typeof input.zone_label === 'string' && input.zone_label.trim()) {
           action.zone_label = input.zone_label.slice(0, 200)
         }
+      }
+      const zoneScoped = actionType === 'add_zone_note'
+        || (actionType === 'record_zone_observation' && action.scope !== 'building')
+      if (zoneScoped) {
+        const bound = boundZone(ctx)
+        if (!bound) {
+          // Nothing to bind to: no zone is open (dashboard, results, a
+          // finalized report) or the open one carries no id. Refusing here
+          // is what keeps the client from ever having to guess.
+          return {
+            status: 'rejected',
+            reason: 'no_zone_binding',
+            message: 'No zone is open for editing, so a zone-scoped write has nothing to bind to and cannot be proposed. Ask the assessor to open the zone this belongs to and propose it again; for a building-wide condition use a building-scoped field.',
+          }
+        }
+        action.zid = bound.zid
+        // The card says where the write will land. The bound zone's own
+        // name is the truth about that; the model's `zone_label` is only
+        // its belief, kept when the zone has no name to show.
+        if (bound.label) action.zone_label = bound.label
       }
       const summary = input && typeof input.summary === 'string' && input.summary.trim()
         ? input.summary.slice(0, 200)

@@ -6,9 +6,17 @@
 // ── Zone & Measurement Data ──
 
 export interface ZoneData {
-  // Stable per-assessment identifier. Auto-assigned on first save when
-  // absent so HvacEquipment.servedZoneIds can reference zones across
-  // renames. Existing drafts are migrated lazily (see migrateZoneIds).
+  // Stable per-assessment identifier. Every zone carries one from the
+  // moment it exists: the client stamps ids on seed, add and draft
+  // hydration (`ensureZoneIds` in src/utils/zoneContent.js), so a draft
+  // saved before ids existed gets them the first time it is opened.
+  // Optional in the type only because stored records predate it.
+  //
+  // It is what HvacEquipment.servedZoneIds references across renames, and
+  // what a Jasper proposal is bound to (`action.zid`) so it lands on the
+  // zone it was made for rather than whichever zone is open when the
+  // assessor taps Accept. Never a display label — an unnamed zone is
+  // "Zone N" by position (see `zoneLabel`), not its id.
   zid?: string
   // IDs of HvacEquipment units serving this zone. Empty array (or
   // missing) means equipment is unmapped — the engine emits a
