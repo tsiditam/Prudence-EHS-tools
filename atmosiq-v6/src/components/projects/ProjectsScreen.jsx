@@ -111,7 +111,7 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
   // label (48px tall, the tap-target floor on a phone).
   const newProjectButton = (
     <TactileButton
-      variant="primary"
+      variant="neutral"
       size={list.length === 0 ? 'md' : 'sm'}
       pill
       haptic="success"
