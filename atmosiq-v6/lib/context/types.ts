@@ -371,6 +371,8 @@ export type JasperContext = AssessmentContext & {
   readonly bldg: Record<string, unknown> | null
   /** Raw zone object at the current zone index (with sensor readings). */
   readonly current_zone: Record<string, unknown> | null
+  /** Position of current_zone in `zones`, or null — how an unnamed zone is labeled. */
+  readonly current_zone_idx: number | null
   /** Number of zones in this assessment. */
   readonly zones_count: number
   /**

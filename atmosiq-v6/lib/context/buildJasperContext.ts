@@ -61,12 +61,14 @@ export function buildJasperContext(state: JasperContextInput): JasperContext {
     : null
 
   // current_zone: pass the raw zone object so FieldAssistant.jsx chip
-  // strip can read sensor readings (.co2, .rh, .pm, .tv) and zone
-  // identity (.zid, .n). Not the ZoneSummary from the base context.
-  const current_zone =
-    curZone >= 0 && curZone < zones.length
-      ? (zones[curZone] as Record<string, unknown>)
-      : null
+  // strip can read sensor readings (.co2, .rh, .pm, .tv) and the zone's
+  // name (.zn), and so the propose_action dispatcher can bind a
+  // zone-scoped proposal to its stable id (.zid). Not the ZoneSummary
+  // from the base context. current_zone_idx is its position, which is
+  // how an unnamed zone is labeled.
+  const hasCurrentZone = curZone >= 0 && curZone < zones.length
+  const current_zone = hasCurrentZone ? (zones[curZone] as Record<string, unknown>) : null
+  const current_zone_idx = hasCurrentZone ? curZone : null
 
   // profile_minimal: the three plan/cert/firm fields the AI uses to
   // gauge report-type eligibility without exposing the full profile.
@@ -90,6 +92,7 @@ export function buildJasperContext(state: JasperContextInput): JasperContext {
     presurvey: (state.presurvey as Record<string, unknown>) || null,
     bldg: (state.bldg as Record<string, unknown>) || null,
     current_zone,
+    current_zone_idx,
     zones_count: zones.length,
     active_assessment,
     profile_minimal,

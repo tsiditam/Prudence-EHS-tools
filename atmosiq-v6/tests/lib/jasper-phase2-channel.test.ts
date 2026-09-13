@@ -12,7 +12,11 @@ import { describe, it, expect } from 'vitest'
 import { dispatchTool } from '../../src/constants/field-assistant-tools.js'
 import { screenFact } from '../../src/engines/intake-interpreter.js'
 
-const turn = (assessorText: string, zone: Record<string, unknown> | null = { zn: 'Room 214' }) => ({
+// The open zone carries a stable `zid`, as every zone does in the app: the
+// client stamps one on creation and on draft hydration (`ensureZoneIds`).
+// It is what a zone-scoped proposal is bound to, so a fixture without one
+// is a pre-binding record — refused, and asserted as such below.
+const turn = (assessorText: string, zone: Record<string, unknown> | null = { zid: 'z-214', zn: 'Room 214' }) => ({
   assessorText,
   assessmentContext: { current_zone: zone },
 })
@@ -82,7 +86,7 @@ describe('record_zone_observation runs the attestation gates', () => {
       action_type: 'record_zone_observation',
       field: 'wd', value: 'Active leak', quote: 'active leak under the sill',
       summary: 'Record water damage',
-    }, turn(said, { zn: 'Room 214', wd: 'Old staining' }))
+    }, turn(said, { zid: 'z-214', zn: 'Room 214', wd: 'Old staining' }))
     expect(r.status).toBe('rejected')
     expect(r.reason).toBe('field_already_answered')
   })
@@ -143,17 +147,38 @@ describe('ask_zone_question is the other half, not a consolation prize', () => {
   })
 
   it('lets the same question through once its condition is satisfied', async () => {
-    const zone = { zn: 'Room 214', cx: 'Yes — complaints reported' }
+    const zone = { zid: 'z-214', zn: 'Room 214', cx: 'Yes — complaints reported' }
     const r: any = await dispatchTool('propose_action', {
       action_type: 'ask_zone_question', question_id: 'sy_time', summary: 'Ask when',
     }, turn('People seem worse in the afternoon.', zone))
     expect(r.status).toBe('proposed')
   })
 
+  it('refuses every zone-scoped proposal when the open zone carries no stable id', async () => {
+    // A record written before zones carried ids. The client stamps one on
+    // hydration, so this is the window before that lands — and in it a
+    // proposal has no identity to bind to. Refusing beats binding to a
+    // position that the next ‹ Prev / Next › invalidates.
+    const legacy = { zn: 'Room 214' }
+    const write: any = await dispatchTool('propose_action', {
+      action_type: 'record_zone_observation',
+      field: 'wd', value: 'Active leak', quote: 'active leak under the sill',
+      summary: 'Record water damage',
+    }, turn('There is an active leak under the sill.', legacy))
+    expect(write.status).toBe('rejected')
+    expect(write.reason).toBe('no_zone_binding')
+
+    const ask: any = await dispatchTool('propose_action', {
+      action_type: 'ask_zone_question', question_id: 'cx', summary: 'Ask about complaints',
+    }, turn('People seem worse in the afternoon.', legacy))
+    expect(ask.status).toBe('rejected')
+    expect(ask.reason).toBe('no_zone_binding')
+  })
+
   it('refuses a question that is already answered', async () => {
     const r: any = await dispatchTool('propose_action', {
       action_type: 'ask_zone_question', question_id: 'wd', summary: 'Ask about water',
-    }, turn('anything', { zn: 'Room 214', wd: 'Active leak' }))
+    }, turn('anything', { zid: 'z-214', zn: 'Room 214', wd: 'Active leak' }))
     expect(r.status).toBe('rejected')
     expect(r.reason).toBe('not_eligible')
   })

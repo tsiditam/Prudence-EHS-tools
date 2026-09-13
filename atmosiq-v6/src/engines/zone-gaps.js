@@ -51,7 +51,9 @@ const CATEGORIES = ['Ventilation', 'Contaminants', 'HVAC', 'Complaints', 'Enviro
  */
 const RANK = { required: 0, warn: 1, info: 2, optional: 3 }
 
-const zoneName = (z, i) => (z && (z.zn || z.zid)) || `Zone ${i + 1}`
+// By name or position, never by `zid`: the id is an opaque handle every
+// zone carries, not a label.
+const zoneName = (z, i) => (z && z.zn) || `Zone ${i + 1}`
 
 /**
  * Gaps for one zone.

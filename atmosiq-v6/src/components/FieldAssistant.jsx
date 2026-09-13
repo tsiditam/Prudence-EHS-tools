@@ -190,7 +190,10 @@ function buildContextChips(context) {
   // dashboard or report, the assessor isn't looking AT a zone.
   const inWalk = context.view === 'wizard'
   if (inWalk && zone && typeof zone === 'object') {
-    const zoneLabel = zone.n || zone.zid || (typeof context.zones_count === 'number' ? `Zone ${(context.current_zone_idx ?? 0) + 1}` : null)
+    // The raw zone record names itself in `zn`; an unnamed zone is its
+    // position, never its `zid` (an opaque handle every zone carries).
+    const zoneName = typeof zone.zn === 'string' ? zone.zn.trim() : ''
+    const zoneLabel = zoneName || (typeof context.current_zone_idx === 'number' ? `Zone ${context.current_zone_idx + 1}` : null)
     if (zoneLabel) out.push({ id: 'zone', label: zoneLabel, tone: 'accent', icon: 'location' })
 
     // Measurement signals — only added when a numeric reading is
