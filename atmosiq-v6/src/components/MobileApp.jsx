@@ -6396,6 +6396,42 @@ export default function MobileApp() {
               setPendingRescore((n) => n + 1)
               return true
             }
+            if (action.type === 'ask_zone_question') {
+              // Phase 2's other half. The dispatcher has already checked that
+              // this question is one the walkthrough would ask in this zone
+              // right now — in the catalog, condition satisfied, unanswered —
+              // so accepting only has to GO there. It writes nothing, which is
+              // the point: the assessor answers it themselves, in the field
+              // the engine reads, and the model never held the value.
+              //
+              // A finalized report is a record, not a live assessment; there
+              // is no walkthrough to send them back into.
+              if (viewRpt) return false
+              const qid = action.question_id
+              if (!qid) return false
+              // The question was screened for eligibility in ONE zone — its
+              // display condition and its unanswered-ness were read off that
+              // zone's record. So it opens in the zone the proposal is BOUND
+              // to (`action.zid`), not in whichever zone is open now: the
+              // same condition may be unsatisfied next door, or already
+              // answered there, and either way it is not the question the
+              // assessor was asked about. A bound zone since removed is a
+              // refusal, not a fallback.
+              const qzi = resolveProposalZone(zones, action)
+              if (qzi < 0) return false
+              // pendingZoneFix is the existing mechanism the Readiness panel's
+              // tap-to-fix cards use: it survives the navigation and lands zqi
+              // on the question once zVis has rebuilt for that zone. Reusing it
+              // means the two surfaces cannot drift apart. Its effect only
+              // fires once curZone matches, so walking the pointer to the
+              // bound zone is part of opening the question, not a nicety.
+              setPendingZoneFix({ zoneIndex: qzi, field: qid })
+              if (qzi !== curZone) { setCurZone(qzi); setZqi(0) }
+              setView('zone')
+              setFaOpen(false)
+              setVoicePrefill(null)
+              return true
+            }
             if (action.type === 'add_zone_note') {
               // Same posture as record_zone_observation: an issued report
               // is not edited from a chat card.

@@ -33,7 +33,8 @@ import {
   lookupHealthEffects,
   listAnalytes,
 } from './iaq-knowledge-base.js'
-import { validateObservation, formatObservation, describeObservableFields } from './observable-fields.js'
+import { formatObservation, describeObservableFields } from './observable-fields.js'
+import { screenFact, screenQuestion, eligibleInZone } from '../engines/intake-interpreter.js'
 import { searchCorpus } from '../utils/corpus-search.js'
 import { summarizeCorpus } from './standards-corpus.js'
 // NOTE: the docxtemplater-backed renderer (lib/report-templates/render.ts)
@@ -213,14 +214,24 @@ export const FIELD_ASSISTANT_TOOLS = [
       properties: {
         action_type: {
           type: 'string',
-          enum: ['navigate', 'add_zone_note', 'record_zone_observation'],
+          enum: ['navigate', 'add_zone_note', 'record_zone_observation', 'ask_zone_question'],
           description:
-            'Which action to propose. "record_zone_observation" writes a validated reading or condition into the assessment record, which is what the engine reads. "navigate" routes to a screen. "add_zone_note" appends free text to the current zone\'s notes — visible to the assessor, but read by no engine.',
+            'Which action to propose. "record_zone_observation" writes a validated reading or condition into the assessment record, which is what the engine reads. "ask_zone_question" opens a walkthrough question the assessor has not answered yet — use it when what they said POINTS AT something without stating it, which is the case whenever a record proposal comes back rejected for not being stated. "navigate" routes to a screen. "add_zone_note" appends free text to the current zone\'s notes — visible to the assessor, but read by no engine.',
         },
         field: {
           type: 'string',
           description:
             'For action_type=record_zone_observation: the field id to write. Must be one of the ids in the recordable-fields catalog in your system prompt. An id outside that catalog is rejected.',
+        },
+        quote: {
+          type: 'string',
+          description:
+            'For action_type=record_zone_observation: REQUIRED. The assessor\'s own words, verbatim, that state this value. It is checked against what they actually typed in this conversation, and it must state the VALUE and not merely the topic — "there is a musty odor" does not state an odor STRENGTH, and a proposal quoting it to record one is rejected. Copy their words; do not summarize them. If their words do not state a value the field defines, propose ask_zone_question instead.',
+        },
+        question_id: {
+          type: 'string',
+          description:
+            'For action_type=ask_zone_question: the id of the walkthrough question to open. It must be a zone question that is currently unanswered and whose display condition is satisfied — the app decides that, not you, and an id outside that set is rejected with the reason.',
         },
         value: {
           description:
@@ -674,26 +685,6 @@ Return the JSON object specified in your system prompt.`
 }
 
 /**
- * The zone a propose_action call binds to: the one the assessor has open
- * in the request context, identified by its stable `zid`. The client
- * builds the context (buildJasperContext) with the raw zone record under
- * `current_zone`, and stamps every zone with an id on creation and
- * hydration (`ensureZoneIds`), so an open zone without one is a record the
- * client refuses to edit — a finalized report — and binds to nothing.
- *
- * @returns {{ zid: string, label: string|null } | null}
- */
-function boundZone(ctx) {
-  const context = ctx && ctx.assessmentContext
-  const zone = context && typeof context === 'object' ? context.current_zone : null
-  if (!zone || typeof zone !== 'object') return null
-  const zid = typeof zone.zid === 'string' ? zone.zid.trim() : ''
-  if (!zid) return null
-  const name = typeof zone.zn === 'string' ? zone.zn.trim() : ''
-  return { zid, label: name ? name.slice(0, 200) : null }
-}
-
-/**
  * Dispatch a tool call. Returns a JSON-serializable object the Anthropic
  * tool-result block can consume. Never throws — failure modes are
  * encoded as { error, ... } so the agent can recover gracefully.
@@ -718,6 +709,42 @@ function boundZone(ctx) {
  * way an inline digest is, so this is paid on the turn it is used.
  */
 export const DOCUMENT_WINDOW_CHARS = 12_000
+
+/**
+ * The zone the assessor currently has open, off the per-turn context.
+ *
+ * `buildJasperContext` passes the RAW zone record as `current_zone`, which is
+ * what the walkthrough's own display conditions and answered-checks read — so
+ * the gate here is the gate the app runs, not an approximation of it built
+ * from a summary.
+ */
+function currentZone(ctx) {
+  const a = ctx && ctx.assessmentContext
+  const z = a && typeof a === 'object' ? a.current_zone : null
+  return z && typeof z === 'object' ? z : null
+}
+
+/**
+ * The identity a zone-scoped proposal is bound to: the open zone's stable
+ * `zid`, plus its own name for the card. Reads the SAME `current_zone` the
+ * screening gates read, so a proposal can never be screened against one zone
+ * and bound to another.
+ *
+ * The client stamps every zone with an id on creation and hydration
+ * (`ensureZoneIds` in utils/zoneContent.js), so an open zone carrying no id
+ * is a record the client refuses to edit — a finalized report — and binds to
+ * nothing.
+ *
+ * @returns {{ zid: string, label: string|null } | null}
+ */
+function boundZone(ctx) {
+  const zone = currentZone(ctx)
+  if (!zone) return null
+  const zid = typeof zone.zid === 'string' ? zone.zid.trim() : ''
+  if (!zid) return null
+  const name = typeof zone.zn === 'string' ? zone.zn.trim() : ''
+  return { zid, label: name ? name.slice(0, 200) : null }
+}
 
 export async function dispatchTool(name, input, ctx = {}) {
   try {
@@ -977,11 +1004,13 @@ export async function dispatchTool(name, input, ctx = {}) {
       // A zone-scoped proposal is BOUND here to the zone the assessor had
       // open when the model made it, by that zone's stable id (`zid`).
       // The card can sit unanswered while they walk on to the next room;
-      // the client resolves the id at tap time and writes there, or
-      // refuses if the zone is gone. It never falls back to "the zone
-      // that happens to be open now" — that is the check-then-use gap
-      // this binding closes.
-      const allowed = new Set(['navigate', 'add_zone_note', 'record_zone_observation'])
+      // the client resolves the id at tap time and acts there, or refuses
+      // if the zone is gone. It never falls back to "the zone that happens
+      // to be open now" — that is the check-then-use gap this binding
+      // closes, and it applies to the question as much as to the write:
+      // opening the walkthrough on a question the assessor was asked about
+      // Zone A is wrong in Zone B for the same reason.
+      const allowed = new Set(['navigate', 'add_zone_note', 'record_zone_observation', 'ask_zone_question'])
       const actionType = input && typeof input.action_type === 'string' ? input.action_type : ''
       if (!allowed.has(actionType)) {
         return {
@@ -1010,30 +1039,70 @@ export async function dispatchTool(name, input, ctx = {}) {
           action.tab_target = input.tab_target
         }
       } else if (actionType === 'record_zone_observation') {
-        // The one action that moves the engine. Validation happens HERE,
-        // before the proposal is ever shown, so the assessor is never
-        // offered an Accept button for a value the engine would not act
-        // on — `mi: 'lots of mold'` would sit in the record looking
-        // recorded while `scoreZone`'s `.includes('Extensive')` matched
-        // nothing. A rejection goes back to the model as a correctable
-        // message naming the allowed values.
-        const check = validateObservation(
-          input && input.field,
-          input ? input.value : undefined,
+        // The one action that moves the engine, so it is screened HERE,
+        // before the proposal is ever shown. The assessor is never offered
+        // an Accept button for a value the engine would not act on —
+        // `mi: 'lots of mold'` would sit in the record looking recorded
+        // while `scoreZone`'s `.includes('Extensive')` matched nothing —
+        // and never for a value they did not actually state.
+        //
+        // `screenFact` is the SAME gate the Phase 2 batch envelope runs, not
+        // a server-side paraphrase of it: writability, quote attestation
+        // against the assessor's own turns, value attestation, and
+        // non-overwrite. A rejection goes back to the model as a correctable
+        // message, which is what makes it ask the question instead of
+        // retrying a guess.
+        const screened = screenFact(
+          { field: input && input.field, value: input ? input.value : undefined, quote: input && input.quote },
+          { zone: currentZone(ctx), text: ctx && ctx.assessorText },
         )
-        if (!check.ok) {
+        if (!screened.ok) {
           return {
             status: 'rejected',
-            reason: check.error,
-            message: check.message,
-            ...(check.allowed ? { allowed_values: check.allowed } : {}),
+            reason: screened.reason,
+            message: screened.message,
+            ...(screened.allowed ? { allowed_values: screened.allowed } : {}),
           }
         }
-        action.field = check.field.id
-        action.value = check.value
-        action.scope = check.field.scope
-        action.field_label = check.field.label
-        action.display_value = formatObservation(check.field, check.value)
+        const check = screened.contract
+        action.field = screened.fact.field
+        action.value = screened.fact.value
+        action.scope = check.scope
+        action.field_label = screened.fact.label
+        action.display_value = formatObservation(check, screened.fact.value)
+        // Shown on the card. The assessor is signing an evidence record, and
+        // the words it rests on are part of what they are signing.
+        action.quote = screened.fact.quote
+        if (typeof input.zone_label === 'string' && input.zone_label.trim()) {
+          action.zone_label = input.zone_label.slice(0, 200)
+        }
+      } else if (actionType === 'ask_zone_question') {
+        // The other half of Phase 2, and the reason a rejected fact is not a
+        // dead end. The model chooses among questions the WALKTHROUGH would
+        // ask right now — in the catalog, condition satisfied, unanswered —
+        // and cannot revive one the condition has ruled out or invent one the
+        // catalog does not contain. Accepting opens that question; it writes
+        // nothing, so there is no value to attest.
+        const zone = currentZone(ctx)
+        if (!zone) {
+          return {
+            status: 'rejected',
+            reason: 'no_active_zone',
+            message: 'No zone is open, so there is no walkthrough question to propose. Ask them to open a zone first.',
+          }
+        }
+        const eligible = eligibleInZone(zone)
+        const screened = screenQuestion(input && input.question_id, eligible)
+        if (!screened.ok) {
+          return {
+            status: 'rejected',
+            reason: screened.reason,
+            message: screened.message,
+            eligible_question_ids: eligible.map((q) => q.id),
+          }
+        }
+        action.question_id = screened.question.id
+        action.question = screened.question.question
         if (typeof input.zone_label === 'string' && input.zone_label.trim()) {
           action.zone_label = input.zone_label.slice(0, 200)
         }
@@ -1051,7 +1120,15 @@ export async function dispatchTool(name, input, ctx = {}) {
           action.zone_label = input.zone_label.slice(0, 200)
         }
       }
+      // Which proposals name a room. A building-scoped observation does not
+      // — `od` is one damper for the building, and requiring a zone for it
+      // would refuse a proposal that is correct anywhere. A navigation does
+      // not either. Everything else does, the question included: accepting
+      // `ask_zone_question` opens the walkthrough on a question that was
+      // asked about one room, and landing in another is the same bug as
+      // writing a reading into the wrong one.
       const zoneScoped = actionType === 'add_zone_note'
+        || actionType === 'ask_zone_question'
         || (actionType === 'record_zone_observation' && action.scope !== 'building')
       if (zoneScoped) {
         const bound = boundZone(ctx)
@@ -1062,20 +1139,22 @@ export async function dispatchTool(name, input, ctx = {}) {
           return {
             status: 'rejected',
             reason: 'no_zone_binding',
-            message: 'No zone is open for editing, so a zone-scoped write has nothing to bind to and cannot be proposed. Ask the assessor to open the zone this belongs to and propose it again; for a building-wide condition use a building-scoped field.',
+            message: 'No zone is open for editing, so a zone-scoped proposal has nothing to bind to and cannot be made. Ask the assessor to open the zone this belongs to and propose it again; for a building-wide condition use a building-scoped field.',
           }
         }
         action.zid = bound.zid
-        // The card says where the write will land. The bound zone's own
-        // name is the truth about that; the model's `zone_label` is only
-        // its belief, kept when the zone has no name to show.
+        // The card says where this will land. The bound zone's own name is
+        // the truth about that; the model's `zone_label` is only its belief,
+        // kept when the zone has no name to show.
         if (bound.label) action.zone_label = bound.label
       }
       const summary = input && typeof input.summary === 'string' && input.summary.trim()
         ? input.summary.slice(0, 200)
         : actionType === 'record_zone_observation'
           ? `Record ${action.field_label}: ${action.display_value}`
-          : `Proposed ${actionType}`
+          : actionType === 'ask_zone_question'
+            ? action.question
+            : `Proposed ${actionType}`
       return {
         status: 'proposed',
         action,
@@ -1086,7 +1165,9 @@ export async function dispatchTool(name, input, ctx = {}) {
         // user to tap Accept.
         message: actionType === 'record_zone_observation'
           ? 'Write proposed. The assessor will see an Accept / Reject card. Nothing has been recorded yet, and the investigation state has NOT moved — do not describe the differential as having changed. Tell them what accepting would settle, and stop there.'
-          : 'Action proposed. The user will see an Accept / Reject card and decide.',
+          : actionType === 'ask_zone_question'
+            ? 'Question proposed. Accepting opens it in the walkthrough for the assessor to answer; it records nothing on its own, so do not treat the answer as known. Say in one line why it is worth asking, and stop there.'
+            : 'Action proposed. The user will see an Accept / Reject card and decide.',
       }
     }
 
