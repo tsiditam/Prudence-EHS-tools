@@ -1,5 +1,23 @@
 # AtmosFlow Changelog
 
+## Results page rhythm (September 2026)
+
+- **Sections are spaced symmetrically.** A results section is now 18px
+  above its rule and 18px below it, so the hairline sits centered between
+  two blocks. It used to be 18px below and none above: every section's
+  last line hugged the next rule while its heading floated under it, and
+  the page read as unevenly spaced. Row lists (zones, actions) trim the
+  bottom by their own row padding so the gap stays 18. The first section
+  under the tab bar no longer draws a second rule beneath the bar's own.
+- **The census is a 2×2 on a phone, a row of four on desktop.** Four
+  counts in three columns left one orphaned on its own row with its label
+  clipped to "OCCUPANT REPOR…". Every label now prints in full.
+- **One head per zone on the Investigation tab.** "Readings · zone" with
+  the AI action beside it, and the grid beneath; the separate
+  "Environmental measurements" label that wrapped to two lines against
+  the action is gone. An AI action that does not fit beside its head
+  drops beneath it, right-aligned, rather than squeezing the head.
+
 ## Micro-interactions, contextual AI, first impressions (September 2026)
 
 - **Moments that matter.** `ui/DrawnCheck` — a ring and a tick that draw

@@ -266,7 +266,18 @@ const RESULT_TAB_ALIASES = {
 // over content that parts from the previous section with a hairline — no
 // card, no icon tile, no tinted pill. Every result tab uses the same two
 // styles, so the screen reads as one document rather than a dashboard.
-const RS_SECTION = { paddingTop: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
+//
+// The rhythm is symmetric: 18px above the hairline and 18px below it, so
+// the rule sits centered in the gap between two blocks. It used to be
+// 18px below and 0px above — every section's last line hugged the next
+// section's rule while its own heading floated 18px under it, and the
+// page read as unevenly spaced. A section whose last child is a padded
+// row (a zone list, an action list) takes RS_SECTION_ROWS, which trims
+// the bottom padding by the row's own so the gap stays 18.
+const RS_SECTION = { paddingTop: 18, paddingBottom: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
+const RS_SECTION_ROWS = { ...RS_SECTION, paddingBottom: 7 }
+// The first section under the tab bar: the bar already draws the rule.
+const RS_SECTION_FIRST = { ...RS_SECTION, borderTop: 'none', paddingTop: 4 }
 const RS_HEAD = { ...V3.T.micro, marginBottom: 10 }
 
 // The audit panel's shape, read off the stored `narrativeMeta` record
@@ -3504,7 +3515,7 @@ export default function MobileApp() {
               duplication this comment exists to prevent. ── */}
           {/* The verdict on the page, not in a bordered card: the severity
               is a word in its color above the serif headline. */}
-          <div style={{...RS_SECTION, paddingTop:18}}>
+          <div style={{...RS_SECTION, paddingBottom:0}}>
             <div>
               <div>
                 <div style={{minWidth:0,flex:1}}>
@@ -3529,7 +3540,7 @@ export default function MobileApp() {
                   that used to be one line of the At-a-glance list. A reader
                   sees the scale of the investigation before the verdict's
                   reasoning, which is how a consultant report opens. */}
-              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(118px, 1fr))', gap:12, marginTop:18, maxWidth:620}}>
+              <div style={{display:'grid', gridTemplateColumns:`repeat(${isDesktop ? 4 : 2}, minmax(0, 1fr))`, gap:16, marginTop:18, maxWidth:620}}>
                 {[
                   [comp.count, userMode === 'fm' ? (comp.count===1?'Area assessed':'Areas assessed') : (comp.count===1?'Zone assessed':'Zones assessed')],
                   [heroCensus.meas, heroCensus.meas===1?'Measurement':'Measurements'],
@@ -3969,7 +3980,7 @@ export default function MobileApp() {
           )
           return (
             <div>
-              <div style={RS_SECTION}>
+              <div style={{...RS_SECTION_FIRST, paddingBottom:RS_SECTION_ROWS.paddingBottom}}>
                 <div style={RS_HEAD}>{userMode === 'fm' ? 'Areas' : 'Zones'} · {zoneScores.length}</div>
                 {zoneScores.map((zsc, i) => {
                   const o = governing(i)
@@ -3988,12 +3999,17 @@ export default function MobileApp() {
                 })}
               </div>
 
-              <div style={{...RS_SECTION, marginTop:4}}>
-                <div style={{...RS_HEAD, marginBottom:14}}>{zs.zoneName}</div>
-                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:12}}>
-                  <div style={V3.T.micro}>Environmental measurements</div>
+              {/* The focused zone's readings. The head names the zone and
+                  carries the one AI action; the grid beneath it is
+                  self-evidently the measurements, so no second label sits
+                  between them (it used to, and wrapped to two lines beside
+                  the action on a phone). Same head row as the Findings
+                  tab's "Findings · zone". */}
+              <div style={RS_SECTION}>
+                <div style={{display:'flex', alignItems:'center', flexWrap:'wrap', gap:'6px 12px', marginBottom:12}}>
+                  <div style={{...RS_HEAD, marginBottom:0}}>Readings · {zs.zoneName}</div>
                   {readings.length > 0 && (
-                    <AiAction label="Explain these readings" style={{marginRight:-8}} onClick={()=>askAI(
+                    <AiAction label="Explain these readings" style={{marginLeft:'auto', marginRight:-8}} onClick={()=>askAI(
                       `Explain the readings in ${zs.zoneName}: ${readings.map(r => `${SHORT[r.key] || r.label} ${r.value} ${r.unit}`).join(', ')}${when ? ` (${when})` : ''}. What do they indicate together, what does each criterion state mean here, and what would settle it?`,
                       'investigation')} />
                   )}
@@ -4046,7 +4062,7 @@ export default function MobileApp() {
                 </div>
               )}
 
-              <div style={{...RS_SECTION, paddingBottom:4}}>
+              <div style={RS_SECTION}>
                 <button onClick={()=>{ haptic('light'); setRTab('overview') }} style={RS_LINK}>See the findings for {zs.zoneName} <span aria-hidden="true">›</span></button>
               </div>
             </div>
@@ -4091,7 +4107,7 @@ export default function MobileApp() {
                   scored how many parameters were captured, and beside a
                   verdict it read as confidence in the conclusion. The
                   evidence census moved into the hero's stat strip. */}
-              <div style={{...RS_SECTION, borderTop:'none', paddingTop:4}}>
+              <div style={RS_SECTION_FIRST}>
                 <div style={RS_HEAD}>At a glance</div>
                 {[
                   ['Basis', describeAssessmentBasis({ sensorData: loggerSd, labResults: viewRpt?.labResults })],
@@ -4109,7 +4125,7 @@ export default function MobileApp() {
 
               {/* Zones as rows: name, finding count, and the focused zone
                   named as such. Tap a row to focus it for the findings below. */}
-              <div id="result-zones-anchor" style={RS_SECTION}>
+              <div id="result-zones-anchor" style={RS_SECTION_ROWS}>
                 <div style={RS_HEAD}>Zones · {zoneScores.length}</div>
                 {zoneScores.map((z, i) => {
                   const isFocus = selZone === i
@@ -4132,11 +4148,11 @@ export default function MobileApp() {
                   drilldown for the currently focused zone. Kept as the
                   authoritative engine readout so the redesigned panels
                   above act as the executive summary, not a substitute. ── */}
-              <div style={{...RS_SECTION, marginTop:4}}>
-                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:10}}>
+              <div style={{...RS_SECTION, paddingBottom:6}}>
+                <div style={{display:'flex', alignItems:'center', flexWrap:'wrap', gap:'6px 12px', marginBottom:10}}>
                   <div style={{...RS_HEAD, marginBottom:0}}>Findings · {zs.zoneName}</div>
                   {countFindings([zs]).total > 1 && (
-                    <AiAction label="Summarize relationships" style={{marginRight:-8}} onClick={()=>askAI(
+                    <AiAction label="Summarize relationships" style={{marginLeft:'auto', marginRight:-8}} onClick={()=>askAI(
                       `Summarize how the ${countFindings([zs]).total} findings in ${zs.zoneName} relate to each other: shared causes, the ventilation picture, which single condition explains the most, and what would confirm it.`,
                       'findings')} />
                   )}
@@ -4312,7 +4328,7 @@ export default function MobileApp() {
                 // legacy "Zone: text" strings of pre-v2.8 reports.
                 const rows = groupActionsByText(recs[cat.k], knownZones)
                 return (
-                  <div key={cat.k} style={ci===0?undefined:RS_SECTION}>
+                  <div key={cat.k} style={{...(ci===0?{}:RS_SECTION), paddingBottom:8}}>
                     <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:4,alignItems:'baseline'}}>
                       <div style={{color:cat.c,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
                       <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{cat.s}</div>
@@ -4327,7 +4343,7 @@ export default function MobileApp() {
                 )
               })}
               {samples.length > 0 && (
-                <div style={tiers.length===0?undefined:RS_SECTION}>
+                <div style={{...(tiers.length===0?{}:RS_SECTION), paddingBottom:7}}>
                   <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:4,alignItems:'baseline'}}>
                     <div style={{color:TEXT,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>Measure</div>
                     <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{samples.length} {samples.length===1?'method':'methods'}</div>
@@ -4356,7 +4372,7 @@ export default function MobileApp() {
                       </div>
                     </details>
                   )})}
-                  {samplingPlan?.outdoorGaps?.length>0&&<div style={RS_SECTION}><div style={{...RS_HEAD, color:WARN}}>Outdoor control gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}
+                  {samplingPlan?.outdoorGaps?.length>0&&<div style={{...RS_SECTION, paddingBottom:11}}><div style={{...RS_HEAD, color:WARN}}>Outdoor control gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}
                 </div>
               )}
               {/* The result-screen action bar (Word · Share · Map Zones ·
