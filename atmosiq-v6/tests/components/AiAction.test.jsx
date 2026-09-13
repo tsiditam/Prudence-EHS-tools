@@ -3,7 +3,7 @@
  * AiAction — a contextual AtmosFlow AI action, in place.
  *
  * Pins: a button named for assistive tech as "<label> with AtmosFlow AI",
- * the plain verb as its visible text, the sparkle mark, and the click.
+ * the plain verb as its visible text, the brain mark, and the click.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
