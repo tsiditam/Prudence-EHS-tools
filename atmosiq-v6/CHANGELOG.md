@@ -1,5 +1,109 @@
 # AtmosFlow Changelog
 
+## The ⋯ menu is what you can do here (September 2026)
+
+The header overflow held the one action the app exists to produce, and
+nearly nothing else that belonged to it. `handleExport` had exactly one
+call site: a menu item labeled "Generate reports" (it made one Word file,
+immediately). "Ask AtmosFlow AI" opened the voice-capture modal while the
+same name everywhere else opened the assistant. Off the report screens the
+menu was Search and that mic, both reachable from the side menu, the rail
+and the palette. The PDF renderer was wired and had no way in.
+
+- **One rule.** The hamburger and the rail are where you go; the ⋯ is what
+  you can do to the thing on screen. It carries no destinations now, and a
+  screen with nothing of its own draws no ⋯ at all, the dashboard's own
+  precedent. Search stays in Tools; dictation is in the assistant's
+  composer.
+- **The deliverable is on the Report tab** (`MobileApp.jsx`), directly
+  under the sign-off verdict that says whether it should be issued, as the
+  tab's one accent primary: Export Word report, with PDF and Share beside
+  it. Generate report sections gives up the accent. The menu keeps a copy.
+- **On a report, four groups parted by a hairline**: what it becomes
+  (Export Word report, Export PDF in draft or final mode, Share); what
+  happens next (Send for peer review, Check for discrepancies, Reopen for
+  edits); what it is (Report details: id, finalized date, engine and
+  manifest versions, what the record carries); and, alone at the bottom in
+  the danger ink, Move to trash, through the same confirm sheet the list
+  uses. Trashing the open report leaves it.
+- **A menu widget for the keyboard and assistive tech.** It declared
+  `role="menu"` and handled clicks. Now the first item takes focus on
+  open, arrows move, Home/End jump, Escape and Tab close, and focus returns
+  to the ⋯. Pinned by `tests/components/screen-actions-menu.test.ts`.
+
+## Report tab and readiness panel finishing pass (September 2026)
+
+The Review and Report tabs were the last two surfaces still speaking the
+pre-modernization dialect: a bold red status banner, item cards with a
+colored edge, a green-to-orange confidence bar, tinted check-result boxes
+with typed ✓ / ⚠ glyphs, and two accent primaries competing on one screen.
+They now read like the rest of the results screen.
+
+- **The readiness status is the hero's pattern** (`ReadinessPanel.jsx`):
+  the verdict as a colored caption eyebrow over the summary in the primary
+  ink, not a banner. Section heads are the neutral micro labels with their
+  count, on the same 18px rhythm as every other results section.
+- **"Fix ›" is the app's text action**, in the primary ink, with the field's
+  location as a quiet caption beneath it; an item with no fix target says
+  "Fix in: …" in the caption alone.
+- **A gap carries its severity as a word** — `Warning` in the high tone,
+  `Note` in the tertiary ink — the way zone rows carry their outcome.
+- **The confidence bar is three counts.** A segmented green-to-orange bar
+  reads as a score of the assessment, which is the impression v3.0 removed;
+  "1 High · 3 Medium · 2 Low" says what the numbers are, which is findings
+  by the evidence behind them.
+- **Every color reads a severity token**; the panel's own hex values are
+  gone.
+- **Generating the findings narrative carries the AtmosFlow AI mark**
+  rather than a pill. The assistant writes it, and the brain is how every
+  other surface says so — the Refine action above it, "Explain these
+  readings" on Investigation. A pill said only that something would
+  happen. Regenerating carries the mark too; sharing the narrative as Word
+  keeps the neutral glass, because handing a document on is not the
+  assistant's work.
+- **The check results on the Report tab** are hairline rows with an 8px
+  status dot and the section name in the primary ink, replacing the tinted
+  `color-mix` boxes and the typed glyphs. Row remedies (edit, restore,
+  cancel, use anyway, withdraw), the narrative controls and the share
+  button are the neutral glass; Generate narrative no longer competes for
+  the accent (the export took it, in the entry above).
+
+## Capturing the walkthrough the way the report reads (September 2026)
+
+The report was already written; the walkthrough now asks for what it
+prints. `docs/WALKTHROUGH_CAPTURE.md` is the plan; this is tranches 1 and 2.
+
+- **Seven records the report reads** (`constants/questions.js`,
+  `components/walkthrough/CaptureRecords.jsx`, `report/captureRender.js`):
+  an **event timeline** on the pre-survey, printed as the dated sequence in
+  section 1; a **zone role** (affected / comparison / representative),
+  printed beside the zone in Observations, in the results table and as a
+  "Comparison area" row of the conceptual site model with that zone's
+  readings; **source detail cards** per ticked source (what, installed
+  when, extent); the **occupant interview's** onset, time-of-day and
+  day-of-week pattern, location and relief; **checks performed** (door
+  smoke test, diffuser airflow, damper, drain pan, grille flow), printed in
+  Observations and beside the site model's verification; a **measured
+  supply / outdoor-air flow** with its instrument; and the **logger
+  deployment** (instrument, position, height, period, interval) with an
+  **event log** during the logging period, printed as a "Continuous
+  monitoring" QA/QC row, in Observations, and as the derived caption on
+  any logger figure the assessor left uncaptioned.
+- **The trigger cards ask for what section 1 states**: the post-renovation
+  branch gains materials installed, re-occupancy date and flush-out; the
+  complaint branch gains the time of day complaints are worst.
+- **The mass-balance estimate is offered where its inputs exist**: once
+  indoor CO₂, the outdoor baseline and the occupant count are on the
+  readings screen and no outdoor-air rate is recorded, the ASHRAE 62.1
+  steady-state estimate is one tap to record.
+- **The DOCX prints the sampling plan** as 6.1 Confirmatory sampling, read
+  verbatim from what the Actions tab already showed.
+- **Two readiness gaps**: a complaint zone with no comparison area
+  recorded; logger data with no deployment record.
+- **Photo prompts** on the odor answer, the source cards and the logger
+  deployment.
+- The third demo carries every record, so its report exercises all of them.
+
 ## A third demo: post-renovation formaldehyde, with a week of logger data (September 2026)
 
 - **Demo · Post-Renovation Logger** (`constants/demoDataHcho.js`): a college

@@ -26,6 +26,8 @@ const {
   ruleMoldConcernWithoutMoisture,
   ruleRecommendationWithoutLocation,
   ruleQualitativeOnlyPropagated,
+  ruleComplaintZoneWithoutComparison,
+  ruleLoggerWithoutDeployment,
 } = __test
 
 describe('defensibility-gaps :: ruleMissingOutdoorCo2', () => {
@@ -293,5 +295,49 @@ describe('defensibility-gaps :: detectDefensibilityGaps (integration)', () => {
     // ruleMissingOutdoorCo2 still fires; ruleMissingOccupancyDuration fails
     // safely; recommendation rule sees the located rec and doesn't fire.
     expect(out.some((g: any) => g.kind === 'missing_outdoor_co2')).toBe(true)
+  })
+})
+
+describe('defensibility-gaps :: ruleComplaintZoneWithoutComparison', () => {
+  it('fires (info) when a zone reports complaints and no zone is recorded as a comparison area', () => {
+    const out = ruleComplaintZoneWithoutComparison({
+      zones: [{ zn: 'Room 214', cx: 'Yes — complaints reported' }, { zn: 'Room 108', cx: 'No complaints' }],
+    })
+    expect(out).toHaveLength(1)
+    expect(out[0].kind).toBe('complaint_zone_without_comparison')
+    expect(out[0].zones).toEqual(['Room 214'])
+    expect(out[0].why).toMatch(/comparison area/)
+  })
+
+  it('does not fire once a zone carries the comparison role', () => {
+    const out = ruleComplaintZoneWithoutComparison({
+      zones: [{ zn: 'Room 214', cx: 'Yes — complaints reported' }, { zn: 'Room 108', cx: 'No complaints', zone_role: 'Comparison area (no complaint)' }],
+    })
+    expect(out).toHaveLength(0)
+  })
+
+  it('does not fire when no zone reports complaints', () => {
+    expect(ruleComplaintZoneWithoutComparison({ zones: [{ zn: 'Room 1', cx: 'No complaints' }] })).toHaveLength(0)
+  })
+})
+
+describe('defensibility-gaps :: ruleLoggerWithoutDeployment', () => {
+  const sensorData = { version: 2, datasets: [{ id: 'primary', points: [{ t: 1, co2: 600 }] }] }
+
+  it('fires (warn) when logger data is attached and no zone records where the logger sat', () => {
+    const out = ruleLoggerWithoutDeployment({ sensorData, zones: [{ zn: 'Room 214' }] })
+    expect(out).toHaveLength(1)
+    expect(out[0].kind).toBe('logger_without_deployment')
+    expect(out[0].severity).toBe('warn')
+  })
+
+  it('does not fire when a zone carries the deployment record', () => {
+    const out = ruleLoggerWithoutDeployment({ sensorData, zones: [{ zn: 'Room 214', logger_deployment: { placed: true, height_m: '1.1' } }] })
+    expect(out).toHaveLength(0)
+  })
+
+  it('does not fire without logger data', () => {
+    expect(ruleLoggerWithoutDeployment({ zones: [{ zn: 'Room 214' }] })).toHaveLength(0)
+    expect(ruleLoggerWithoutDeployment({ sensorData: { version: 2, datasets: [] }, zones: [] })).toHaveLength(0)
   })
 })
