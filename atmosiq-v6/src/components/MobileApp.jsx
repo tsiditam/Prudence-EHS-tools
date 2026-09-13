@@ -39,7 +39,7 @@ import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
 import { deriveInvestigation } from '../engine/investigation'
-import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
+import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasurementConfidence, readNumber } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains, pickPrimaryChain } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
@@ -60,6 +60,15 @@ import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
 import EmptyState from './ui/EmptyState'
+import Reading from './ui/Reading'
+import Exhibit from './ui/Exhibit'
+// The Investigation tab reads a zone the way the report does — the same
+// parameter table, the same engine outcome per parameter, the same
+// observation and occupant-report sentences — so the screen and the DOCX
+// never describe one zone in two vocabularies.
+import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports } from '../report/reportModel'
+import { photosForZone, photoCaption } from '../utils/photoIndex'
+import { spaceUse } from '../utils/samplePoints'
 import Select from './ui/Select'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
@@ -906,7 +915,7 @@ export default function MobileApp() {
   const [exportFormat, setExportFormat] = useState(null)
   // Pen-writing overlay shown while a DOCX generates: { label, durationMs } | null
   const [genWriting, setGenWriting] = useState(null)
-  const [rTab, setRTab] = useState('overview')
+  const [rTab, setRTab] = useState('investigation')
   const [selZone, setSelZone] = useState(0)
 
   const [viewRpt, setViewRpt] = useState(null)
@@ -1681,7 +1690,7 @@ export default function MobileApp() {
     const mold = demoZones.map(z => evalMold(z)).filter(Boolean)
     const mc = evalMeasurementConfidence(demoZones)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('overview'); setNarrative(null); setAiSections(null); setView('results')
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('investigation'); setNarrative(null); setAiSections(null); setView('results')
   }
 
   /**
@@ -1971,7 +1980,7 @@ export default function MobileApp() {
     // refresh stay after the transition: they never touch `draftId`, and
     // an offline queue should not hold the screen.
     const minHold = new Promise((resolve) => setTimeout(resolve, 1600))
-    const showResults = () => { setMilestone(null); setRTab('overview'); setView('results') }
+    const showResults = () => { setMilestone(null); setRTab('investigation'); setView('results') }
     let report = null
     let rid = null
     try {
@@ -2804,7 +2813,7 @@ export default function MobileApp() {
     setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlans(await expandFloorPlans(normalizeFloorPlans(rpt))); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
-    setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setNarrativeMeta(rpt.narrativeMeta||null); setView('report')
+    setSelZone(0); setRTab('investigation'); setNarrative(rpt.narrative||null); setNarrativeMeta(rpt.narrativeMeta||null); setView('report')
   }
 
   const deleteItem = async (id, name, type) => {
@@ -3516,10 +3525,7 @@ export default function MobileApp() {
                   [heroCensus.obs, heroCensus.obs===1?'Observation':'Observations'],
                   [heroCensus.occ, heroCensus.occ===1?'Occupant report':'Occupant reports'],
                 ].map(([v, l]) => (
-                  <div key={l} style={{padding:'10px 0 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
-                    <div style={{...V3.N.lg}}>{v}</div>
-                    <div style={{...V3.T.captionDim, marginTop:2}}>{l}</div>
-                  </div>
+                  <Reading key={l} label={l} value={v} size="lg" style={{padding:'10px 0 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}} />
                 ))}
               </div>
               {/* Footer — the one link out of the hero, into Actions. The
@@ -3625,8 +3631,8 @@ export default function MobileApp() {
           active={rTab}
           onChange={(k)=>{ setRTab(k); haptic('light') }}
           tabs={[...(userMode === 'fm'
-            ? [['overview','findings','Findings'],['plan','check','Actions'],['report','notes','Report']]
-            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Actions'],['report','notes','Report']]),
+            ? [['investigation','eye','Investigation'],['overview','findings','Findings'],['plan','check','Actions'],['report','notes','Report']]
+            : [['investigation','eye','Investigation'],['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Actions'],['report','notes','Report']]),
             ['locations','bldg','Site plan'],
             ...(hasLoggerData ? [['logger','chart','Logger']] : [])
           ].map(([tid,icon,label])=>({ id:tid, icon, label, badge: tid === 'report' && readiness.finalization_blockers.length > 0 ? readiness.finalization_blockers.length : undefined }))}
@@ -3903,6 +3909,123 @@ export default function MobileApp() {
                 onUpdateBuilding={(update)=>writeBuilding({...bldg, ...update})}
               />
             </Suspense>
+          )
+        })()}
+
+        {/* ── Investigation — what was measured and observed, zone by zone,
+            BEFORE what the engine concluded. Zones as rows carrying their
+            governing outcome; the focused zone opens into its readings as
+            instrument tiles (value, unit, the engine's criterion state),
+            its observations and occupant input in the report's own
+            sentences, the assessor's notes and its exhibits. Nothing here
+            is judged on this screen: every outcome is zoneParamOutcome,
+            the same call the results table in the DOCX makes. ── */}
+        {rTab==='investigation' && zs && (() => {
+          const OUTCOME = {
+            not_evaluated: { label: 'Not evaluated',   tone: V3.TEXT_TERTIARY },
+            acceptable:    { label: 'Within criteria', tone: V3.SEVERITY.pass },
+            advisory:      { label: 'Advisory',        tone: V3.SEVERITY.medium },
+            elevated:      { label: 'Elevated',        tone: V3.SEVERITY.high },
+            priority:      { label: 'Priority',        tone: V3.SEVERITY.critical },
+          }
+          const RANK = ['not_evaluated', 'acceptable', 'advisory', 'elevated', 'priority']
+          const worse = (a, b) => (a === null ? b : RANK.indexOf(b) > RANK.indexOf(a) ? b : a)
+          const SHORT = { co2: 'CO₂', co: 'CO', temperature: 'Temperature', relativeHumidity: 'Relative humidity', pm25: 'PM₂.₅', tvoc: 'TVOC' }
+          const zoneOf = (i) => zones[i] || {}
+          const readingsOf = (i) => REPORT_PARAMETERS
+            .map(p => ({ ...p, value: readNumber(zoneOf(i)[p.zoneKey]) }))
+            .filter(r => r.value !== null)
+            .map(r => ({ ...r, outcome: r.key === 'tvoc' ? null : zoneParamOutcome(zoneScores[i], r.key) }))
+          const governing = (i) => readingsOf(i).filter(r => r.outcome).reduce((w, r) => worse(w, r.outcome), null) || 'not_evaluated'
+          const z = zoneOf(selZone)
+          const readings = readingsOf(selZone)
+          const observed = zoneObservations(z)
+          const occupant = zoneOccupantReports(z)
+          const exhibits = photosForZone(photos, selZone)
+          const when = [z.meas_duration, z.meas_time, z.meas_occ].filter(v => typeof v === 'string' && v.trim()).join(' · ')
+          const ROW = { display:'grid', gridTemplateColumns:'8px minmax(0,1fr) auto', columnGap:12, alignItems:'center', padding:'11px 0', textAlign:'left', background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit', width:'100%', WebkitTapHighlightColor:'transparent' }
+          const line = (text, i) => (
+            <div key={i} style={{display:'flex', alignItems:'flex-start', gap:10, padding:'5px 0'}}>
+              <span aria-hidden="true" style={{width:6, height:6, borderRadius:3, background:V3.TEXT_TERTIARY, marginTop:7, flexShrink:0}} />
+              <span style={{...V3.T.body, minWidth:0}}>{text}</span>
+            </div>
+          )
+          return (
+            <div>
+              <div style={RS_SECTION}>
+                <div style={RS_HEAD}>{userMode === 'fm' ? 'Areas' : 'Zones'} · {zoneScores.length}</div>
+                {zoneScores.map((zsc, i) => {
+                  const o = governing(i)
+                  const n = readingsOf(i).length
+                  const isFocus = selZone === i
+                  return (
+                    <button key={i} onClick={()=>setSelZone(i)} aria-pressed={isFocus} style={{...ROW, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                      <span aria-hidden="true" style={{width:8, height:8, borderRadius:4, background:OUTCOME[o].tone, justifySelf:'center'}} />
+                      <div style={{minWidth:0}}>
+                        <div style={{...V3.T.bodyStrong, color: isFocus ? V3.TEXT_PRIMARY : V3.TEXT_SECONDARY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{zsc.zoneName}</div>
+                        <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{[spaceUse(zoneOf(i)), n ? `${n} reading${n === 1 ? '' : 's'}` : 'No readings'].filter(Boolean).join(' · ')}</div>
+                      </div>
+                      <span style={{...V3.T.caption, color:OUTCOME[o].tone, whiteSpace:'nowrap'}}>{OUTCOME[o].label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div style={{...RS_SECTION, marginTop:4}}>
+                <div style={{...RS_HEAD, marginBottom:14}}>{zs.zoneName}</div>
+                <div style={{...V3.T.micro, marginBottom:12}}>Environmental measurements</div>
+                {readings.length === 0 ? (
+                  <div style={V3.T.bodyDim}>No instrument readings recorded for this {userMode === 'fm' ? 'area' : 'zone'}.</div>
+                ) : (
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(136px, 1fr))', gap:'18px 14px'}}>
+                    {readings.map(r => (
+                      <Reading key={r.key} label={SHORT[r.key] || r.label} value={r.value} unit={r.unit}
+                        state={r.key === 'tvoc' ? { label: 'Reported, not judged', tone: V3.TEXT_TERTIARY } : OUTCOME[r.outcome]} />
+                    ))}
+                  </div>
+                )}
+                {when && <div style={{...V3.T.captionDim, marginTop:12}}>{when}</div>}
+              </div>
+
+              <div style={RS_SECTION}>
+                <div style={{...V3.T.micro, marginBottom:8}}>Observations</div>
+                {observed.length === 0
+                  ? <div style={V3.T.bodyDim}>No conditions recorded beyond the readings.</div>
+                  : observed.map(line)}
+              </div>
+
+              <div style={RS_SECTION}>
+                <div style={{...V3.T.micro, marginBottom:8}}>Occupant input</div>
+                {z.cx === 'Yes — complaints reported' && occupant.length > 0
+                  ? occupant.map(line)
+                  : <div style={V3.T.bodyDim}>{z.cx === 'Yes — complaints reported' ? 'Complaints reported; no detail recorded.' : 'No complaints reported in this ' + (userMode === 'fm' ? 'area' : 'zone') + '.'}</div>}
+              </div>
+
+              {typeof z.znt === 'string' && z.znt.trim() && (
+                <div style={RS_SECTION}>
+                  <div style={{...V3.T.micro, marginBottom:8}}>Assessor notes</div>
+                  <div style={{...V3.T.body, whiteSpace:'pre-wrap'}}>{z.znt.trim()}</div>
+                </div>
+              )}
+
+              {exhibits.length > 0 && (
+                <div style={RS_SECTION}>
+                  <div style={{...V3.T.micro, marginBottom:12}}>Exhibits · {exhibits.length}</div>
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))', gap:14}}>
+                    {exhibits.map(({ key, fieldId, photo }, i) => (
+                      <Exhibit key={`${key}-${i}`} photo={photo}
+                        alt={photoCaption(key, zones) || fieldId}
+                        title={(photoCaption(key, zones) || fieldId).split(' — ')[0]}
+                        meta={photo.ts ? new Date(photo.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{...RS_SECTION, paddingBottom:4}}>
+                <button onClick={()=>{ haptic('light'); setRTab('overview') }} style={RS_LINK}>See the findings for {zs.zoneName} <span aria-hidden="true">›</span></button>
+              </div>
+            </div>
           )
         })()}
 

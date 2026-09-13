@@ -25,6 +25,7 @@ import GhostButton from '../ui/GhostButton'
 import Select from '../ui/Select'
 import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
+import Reading from '../ui/Reading'
 import EmptyState from '../ui/EmptyState'
 import { SkeletonChart } from '../ui/Skeleton'
 import { parseSensorRows, SENSOR_PARAMS, convertTvoc, tvocBasis, parseCalibrationGas, ppbToUgm3, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
@@ -222,18 +223,13 @@ function ChartStatRow({ stats, unit, reference }) {
   if (stats.deltaOccNoc != null) {
     cells.push({ label: 'Δ occ−noc', value: `${stats.deltaOccNoc >= 0 ? '+' : ''}${fmtAvg(stats.deltaOccNoc)}`, sub: unit })
   }
-  // A hairline-topped strip of stat cells: label above, value below, unit
-  // beside it — the same tile contract the Overview uses, at chart scale.
+  // A strip of instrument readings (ui/Reading): eyebrow label, the value
+  // in the numeric scale, the unit beside it. The one cell that carries a
+  // judgment (% over the reference) says so beneath its number.
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cells.length, 4)}, minmax(0, 1fr))`, gap: 12, padding: '12px 0 14px' }}>
       {cells.map((c, i) => (
-        <div key={i} style={{ minWidth: 0 }}>
-          <div style={{ ...V3.T.micro, fontSize: 10, letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 3 }}>
-            <span style={{ fontSize: 16, fontWeight: 600, color: c.tone || TEXT, letterSpacing: '-0.2px', fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
-            {c.sub && <span style={{ fontSize: 10.5, color: DIM, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.sub}</span>}
-          </div>
-        </div>
+        <Reading key={i} label={c.label} value={c.value} unit={c.sub} state={c.tone ? { label: 'Above reference', tone: c.tone } : undefined} />
       ))}
     </div>
   )

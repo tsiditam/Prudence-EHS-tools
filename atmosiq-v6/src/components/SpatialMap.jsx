@@ -30,6 +30,7 @@
  */
 
 import { useState, useRef } from 'react'
+import { ExhibitGlaze } from './ui/Exhibit'
 import { I } from './Icons'
 import { mix } from '../utils/theme'
 import { samplePoints, pointsOnPlan, hasOutdoorBaseline, OUTDOOR_LABEL } from '../utils/samplePoints'
@@ -266,9 +267,10 @@ export default function SpatialMap({
               tabIndex={placing ? 0 : undefined}
               aria-label={placing ? `Place ${placingLabel} on ${labelOf(active)}` : undefined}
               onKeyDown={(e) => { if (placing && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); commit(50, 50) } }}
-              style={{ position: 'relative', width: '100%', borderRadius: 10, overflow: 'hidden', border: `2px solid ${placing ? ACCENT : BORDER}`, cursor: placing ? 'crosshair' : 'default', WebkitUserSelect: 'none', userSelect: 'none' }}
+              style={{ position: 'relative', width: '100%', borderRadius: 12, overflow: 'hidden', border: `1px solid ${placing ? ACCENT : 'var(--border-strong)'}`, background: 'var(--surface)', cursor: placing ? 'crosshair' : 'default', WebkitUserSelect: 'none', userSelect: 'none' }}
             >
               <img src={image} alt={`Floor plan: ${labelOf(active)}`} style={{ width: '100%', display: 'block' }} />
+              <ExhibitGlaze radius={12} />
 
               {onThisPlan.map((p) => (
                 <button

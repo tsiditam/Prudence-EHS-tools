@@ -37,6 +37,7 @@ import { useRef, useState } from 'react'
 import { analyzePhoto } from '../utils/photoAnalysis'
 import { storePhoto } from '../utils/photoCompaction'
 import { usePhotoSrc } from '../hooks/usePhotoSrc'
+import { ExhibitGlaze } from './ui/Exhibit'
 
 /** A thumbnail for a photo record of either shape. */
 export function PhotoThumb({ photo, size = 48, alt = '', style }) {
@@ -57,7 +58,9 @@ function photoKey(p, i) {
 export default function PhotoCapture({ photos, onAdd, onAnalyze, onRemove, isDesktop, analysisContext, assessmentId }) {
   const fileRef = useRef(null)
   const [analyzingIdx, setAnalyzingIdx] = useState(null)
-  const thumbSize = isDesktop ? 80 : 64
+  // Exhibit-sized: large enough to read as a photograph, with its time
+  // beneath it, not a 64px chip with the time burned into the corner.
+  const thumbSize = isDesktop ? 112 : 96
 
   const handleFile = (e) => {
     const file = e.target.files?.[0]; if (!file) return
@@ -106,11 +109,10 @@ export default function PhotoCapture({ photos, onAdd, onAnalyze, onRemove, isDes
             // Keyed by the record (idbId / timestamp), not the index: with
             // index keys, removing a middle photo re-associated the
             // remaining thumbnails with the wrong records.
-            <div key={photoKey(p, i)} style={{ position: 'relative', width: thumbSize, height: thumbSize, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', transition: 'transform 0.2s ease' }}
-              onMouseEnter={e => { if (isDesktop) e.currentTarget.style.transform = 'scale(1.05)' }}
-              onMouseLeave={e => { if (isDesktop) e.currentTarget.style.transform = 'scale(1)' }}>
+            <div key={photoKey(p, i)} style={{ width: thumbSize }}>
+            <div style={{ position: 'relative', width: thumbSize, height: thumbSize, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
               <PhotoThumb photo={p} size={thumbSize} alt={`Photo ${i + 1}${ts ? ` taken ${new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}`} style={{ width: '100%', height: '100%', borderRadius: 0 }} />
-              {ts && <div aria-hidden="true" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#000A', padding: '1px 3px', fontSize: 7, color: '#C8D0DC', textAlign: 'center' }}>{new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
+              <ExhibitGlaze radius={12} />
               {ana && (
                 <div
                   title={`AI screening: ${ana.confidence} confidence · IH review required`}
@@ -127,14 +129,17 @@ export default function PhotoCapture({ photos, onAdd, onAnalyze, onRemove, isDes
                   …
                 </div>
               )}
-              <button type="button" onClick={() => onRemove(i)} aria-label={`Remove photo ${i + 1}`} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--danger)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer' }}>x</button>
+              <button type="button" onClick={() => onRemove(i)} aria-label={`Remove photo ${i + 1}`} style={{ position: 'absolute', top: 6, right: 6, zIndex: 2, width: 22, height: 22, borderRadius: 11, background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', fontSize: 11, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            </div>
+            {/* The caption row: when it was taken, in the tertiary ink. */}
+            <div style={{ fontSize: 11, lineHeight: '14px', color: 'var(--dim)', padding: '6px 2px 0', fontVariantNumeric: 'tabular-nums' }}>{ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '\u00a0'}</div>
             </div>
           )
         })}
-        <button type="button" onClick={() => fileRef.current?.click()} aria-label="Add photo" style={{ width: thumbSize, height: thumbSize, borderRadius: 8, border: '1.5px dashed #2A3040', background: 'transparent', color: 'var(--dim)', fontSize: 20, cursor: 'pointer', transition: 'all 0.2s' }}
-          onMouseEnter={e => { if (isDesktop) { e.target.style.borderColor = 'var(--accent)'; e.target.style.color = 'var(--accent)' } }}
-          onMouseLeave={e => { if (isDesktop) { e.target.style.borderColor = '#2A3040'; e.target.style.color = 'var(--dim)' } }}>
-          📷
+        <button type="button" onClick={() => fileRef.current?.click()} aria-label="Add photo" style={{ width: thumbSize, height: thumbSize, borderRadius: 12, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', transition: 'border-color var(--dur-fast) ease, color var(--dur-fast) ease', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}
+          onMouseEnter={e => { if (isDesktop) { e.currentTarget.style.borderColor = 'var(--text)'; e.currentTarget.style.color = 'var(--text)' } }}
+          onMouseLeave={e => { if (isDesktop) { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)' } }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
         </button>
       </div>
       <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} aria-label="Take or choose a photo" style={{ display: 'none' }} />

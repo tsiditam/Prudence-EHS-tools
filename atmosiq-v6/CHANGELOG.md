@@ -1,5 +1,28 @@
 # AtmosFlow Changelog
 
+## Results as an investigation, numbers as instruments, photos as exhibits (September 2026)
+
+- **Investigation tab, first and default.** The results screen opens on
+  what was measured and observed, zone by zone, before what the engine
+  concluded: zones as rows carrying their governing outcome; the focused
+  zone opens into its readings as instrument tiles, its observations and
+  occupant input, the assessor's notes and its exhibits. Nothing is judged
+  on the screen — every outcome is `zoneParamOutcome`, and the sentences
+  are `zoneObservations` / `zoneOccupantReports`, the same calls the DOCX
+  results table and Observations section make (both now exported from
+  `reportModel.js`). TVOC is shown as "Reported, not judged".
+- **Reading primitive** (`ui/Reading`): a number the way an instrument
+  shows it — eyebrow label, the value in the numeric scale with tabular
+  figures, the unit a step smaller beside it, the criterion state beneath
+  in its semantic color. Used by the Investigation grid, the results hero
+  counts and the Logger Studio chart stat row.
+- **Exhibit primitive** (`ui/Exhibit`): a photo or plan framed as evidence
+  — a strong hairline, an inner glaze along the top edge, a caption row
+  (what, where, when). Used for the zone's exhibits on the Investigation
+  tab, the walkthrough photo grid (now 96 / 112px with the time beneath,
+  not burned into the corner), the floor plan under its pins, and the
+  project's evidence grid.
+
 ## Chrome pass: one motion system, native controls, dock and launcher (September 2026)
 
 - **One motion system.** `--ease-out` / `--ease-in` / `--ease-spring` and
