@@ -25,7 +25,7 @@ import { primaryDataset } from '../utils/sensorParser'
 import { samplePoints, pointsOnPlan, spaceUse } from '../utils/samplePoints'
 import { normalizeFloorPlans, planLabel, planImage } from '../utils/floorPlans'
 import { actionLine } from '../utils/recFormatting'
-import { CRITERION_CLASS } from '../constants/criteria'
+import { CRITERION_CLASS, AVERAGING, criterionById, allCriteria } from '../constants/criteria'
 import { STD } from '../constants/standards'
 
 export function selectReportTemplate(data) {
@@ -41,6 +41,120 @@ export function selectReportTemplate(data) {
 function esc(str) {
   if (str === null || str === undefined) return ''
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+/**
+ * The Reference cell of the parameter results table, resolved from the
+ * criteria registry.
+ *
+ * Three of these cells were typed literals — `<35 µg/m³ (EPA 24-hr)`,
+ * `<35 ppm (NIOSH REL)`, `<0.016 ppm (NIOSH REL)` — sitting in the same table
+ * as rows that interpolate `STD`. They agreed with the registry, which is what
+ * made them dangerous: correct a value in `criteria.js` and the interpolated
+ * rows follow while the typed ones silently do not.
+ *
+ * The criterion id is named at the call site on purpose. This column orients
+ * the reader to the criterion the parameter is generally read against; it is
+ * NOT the result of evaluating this particular reading, which is what the
+ * finding rows carry.
+ *
+ * The averaging period is printed because omitting it was the substantive
+ * defect: a NIOSH REL is a 10-hour time-weighted average, and a cell that
+ * prints it beside a single grab reading with no period attached invites
+ * exactly the comparison `criteria.js` exists to prevent.
+ */
+function referenceCell(parameter, criterionId) {
+  const c = criterionById(parameter, criterionId)
+  if (!c) return '—'
+  const avg = AVERAGING[c.averaging]
+  const period = avg && avg.id !== 'instantaneous' ? ` (${avg.label})` : ''
+  return esc(`${c.valueLabel} ${c.unit} — ${c.label}${period}`)
+}
+
+/**
+ * The criteria this assessment actually applied, resolved from the criterion
+ * ids the engine stamps on its own findings (`cid`).
+ *
+ * This is the same question `reportModel.collectReferenceUsage` answers for
+ * the DOCX, asked of the registry instead of the citation string, so the
+ * figure and its classification come back with it.
+ */
+function appliedCriteria(zoneScores) {
+  const byId = new Map(allCriteria().map((c) => [c.id, c]))
+  const seen = new Map()
+  for (const zs of (zoneScores || [])) {
+    for (const cat of (zs.cats || [])) {
+      for (const r of (cat.r || [])) {
+        const c = r && r.cid ? byId.get(r.cid) : null
+        if (c && !seen.has(c.id)) seen.set(c.id, c)
+      }
+    }
+  }
+  return [...seen.values()]
+}
+
+/** Standards a finding cited that no registry criterion stands behind. */
+function citedWithoutCriterion(zoneScores) {
+  const out = new Set()
+  for (const zs of (zoneScores || [])) {
+    for (const cat of (zs.cats || [])) {
+      for (const r of (cat.r || [])) {
+        if (r && r.std && !r.cid) out.add(r.std)
+      }
+    }
+  }
+  return [...out]
+}
+
+// Worst-first, matching how the registry orders criteria within a parameter.
+const CRITERION_CLASS_ORDER = [
+  'physical_hazard', 'regulatory_oel', 'health_indoor', 'ambient_benchmark',
+  'ventilation_indicator', 'comfort_consensus', 'certification_target', 'advisory',
+]
+
+/**
+ * The "Standards and Guidance Manifest" table, built from what the assessment
+ * applied rather than typed.
+ *
+ * What stood here was a fixed nine-row register with every threshold written
+ * by hand — CO 50 ppm, formaldehyde 0.75 / 0.5 / 0.016, PM2.5 35 and 15, the
+ * CO2 differential, RH 30–60% — printed whether or not the assessment
+ * evaluated any of them. It was the same defect twice over: a second copy of
+ * the registry's numbers, and a list of documents the report had not used.
+ * `reportModel.collectReferenceUsage` had already fixed both for the DOCX
+ * ("Appendix A used to be an unguarded standards register"); this surface
+ * never got the change.
+ *
+ * Classification text is the registry's own `CRITERION_CLASS` framing, so the
+ * legal weight a row claims is the same one the engine capped its severity by.
+ */
+function standardsManifestRows(zoneScores) {
+  const applied = appliedCriteria(zoneScores)
+  const head = (label) => `<tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">${esc(label)}</td></tr>`
+  const cell = (t, color) => `<td style="font-size:10px;${color ? `color:${color};` : ''}">${esc(t)}</td>`
+  const rows = []
+  for (const cls of CRITERION_CLASS_ORDER) {
+    const group = applied.filter((c) => c.class === cls)
+    if (!group.length) continue
+    const meta = CRITERION_CLASS[cls]
+    rows.push(head(meta.label))
+    for (const c of group) {
+      const avg = AVERAGING[c.averaging]
+      const period = avg && avg.id !== 'instantaneous' ? `, ${avg.label}` : ''
+      rows.push(`<tr>${cell(c.source)}${cell(meta.framing, '#5C6F7E')}${cell(`${c.label} — ${c.valueLabel} ${c.unit}${period}`)}</tr>`)
+    }
+  }
+  const other = citedWithoutCriterion(zoneScores)
+  if (other.length) {
+    rows.push(head('Other references cited'))
+    for (const s of other) {
+      rows.push(`<tr>${cell(s)}${cell('Cited by a finding in this report', '#5C6F7E')}${cell('No registry threshold — cited for basis, not compared against')}</tr>`)
+    }
+  }
+  if (!rows.length) {
+    rows.push(`<tr><td colspan="3" style="font-size:10px;color:#5C6F7E;padding:8px 10px;">No published criterion was applied: this assessment recorded observations rather than measurements evaluated against a threshold.</td></tr>`)
+  }
+  return rows.join('\n  ')
 }
 
 /**
@@ -119,10 +233,14 @@ export function generateLegacyPrintHTML(data) {
   // Collect standards actually cited in findings for filtered manifest
   const citedStds = new Set()
   ;(zoneScores||[]).forEach(zs => zs.cats?.forEach(c => c.r?.forEach(r => { if (r.std) citedStds.add(r.std) })))
+  // A manifest entry appears when this assessment cited it, and not otherwise.
+  // Four keys — ASHRAE 62.1, ASHRAE 55, OSHA Z-1 PELs, NIOSH Pocket Guide RELs
+  // — used to be force-included here regardless of citation, which made the
+  // filter decorative: a report that measured nothing but temperature still
+  // listed the OSHA PELs among its referenced standards.
   const filteredManifest = standardsManifest ? Object.fromEntries(Object.entries(standardsManifest).filter(([k]) => {
     if (k === 'engineVersion' || k === 'manifestUpdated') return true
     return [...citedStds].some(s => s.toLowerCase().includes(k.toLowerCase().split(' ')[0]))
-      || k === 'ASHRAE 62.1' || k === 'ASHRAE 55' || k === 'OSHA Z-1 PELs' || k === 'NIOSH Pocket Guide RELs'
   })) : null
   const bldg = building || {}
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -478,29 +596,7 @@ export function generateLegacyPrintHTML(data) {
   <p style="font-size:10px;color:#5C6F7E;margin-bottom:10px;">The following standards, guidelines, and benchmarks are referenced in this assessment. Each is classified by its regulatory or advisory status. Advisory benchmarks should not be interpreted as regulatory limits.</p>
 
   <table style="margin-bottom:6px;"><thead><tr><th style="width:35%;">Standard / Guideline</th><th style="width:30%;">Classification</th><th style="width:35%;">Application in This Report</th></tr></thead><tbody>
-  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Regulatory Limits</td></tr>
-  <tr><td style="font-size:10px;">OSHA PELs (29 CFR 1910.1000)</td><td style="font-size:10px;color:#5C6F7E;">Enforceable occupational exposure limit</td><td style="font-size:10px;">CO (50 ppm TWA), Formaldehyde (0.75 ppm TWA)</td></tr>
-  <tr><td style="font-size:10px;">OSHA Action Levels (29 CFR 1910.1048)</td><td style="font-size:10px;color:#5C6F7E;">Enforceable trigger for medical surveillance</td><td style="font-size:10px;">Formaldehyde (0.5 ppm)</td></tr>
-
-  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Occupational Exposure Guidelines</td></tr>
-  <tr><td style="font-size:10px;">NIOSH RELs (Pocket Guide)</td><td style="font-size:10px;color:#5C6F7E;">Recommended exposure limit — advisory</td><td style="font-size:10px;">CO (35 ppm TWA), Formaldehyde (0.016 ppm)</td></tr>
-
-  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Consensus Standards</td></tr>
-  <tr><td style="font-size:10px;">ASHRAE 62.1-2025</td><td style="font-size:10px;color:#5C6F7E;">Ventilation consensus standard</td><td style="font-size:10px;">Outdoor air rates (Table 6.2.2.1), CO₂ as ventilation indicator</td></tr>
-  <tr><td style="font-size:10px;">ASHRAE 55-2023</td><td style="font-size:10px;color:#5C6F7E;">Thermal comfort consensus standard</td><td style="font-size:10px;">Seasonal operative-temperature comfort range</td></tr>
-  <tr><td style="font-size:10px;">US EPA — Mold, Moisture and Your Home</td><td style="font-size:10px;color:#5C6F7E;">Indoor moisture-control guidance</td><td style="font-size:10px;">Relative humidity practice range</td></tr>
-
-  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Public Health Guidelines</td></tr>
-  <tr><td style="font-size:10px;">EPA NAAQS (2024)</td><td style="font-size:10px;color:#5C6F7E;">Ambient air quality guideline — not an occupational limit</td><td style="font-size:10px;">PM2.5 (35 µg/m³, 24-hr)</td></tr>
-  <tr><td style="font-size:10px;">WHO Air Quality Guidelines (2021)</td><td style="font-size:10px;color:#5C6F7E;">Population health guideline — advisory</td><td style="font-size:10px;">PM2.5 (15 µg/m³)</td></tr>
-
-  <tr><td colspan="3" style="font-size:9px;font-weight:700;color:#1B2A41;background:#F3F4F6;padding:6px 10px;text-transform:uppercase;letter-spacing:0.5px;">Advisory Screening Benchmarks</td></tr>
-  <tr><td style="font-size:10px;">CO₂ differential (700 ppm)</td><td style="font-size:10px;color:#5C6F7E;">Ventilation benchmark — not a regulatory limit</td><td style="font-size:10px;">Sedentary-office bioeffluent perception threshold per ASHRAE Position Document on Indoor CO₂ (2022). CO₂ is a ventilation indicator, not an IAQ contaminant.</td></tr>
-  <!-- A "TVOC concern (500 µg/m³)" row sat here until 2026-08, sourced to
-       Mølhave (1991). It was removed with every other TVOC threshold: a
-       benchmark table is a list of what a reading was compared against, and
-       TVOC is compared against nothing. -->
-  <tr><td style="font-size:10px;">RH 30–60%</td><td style="font-size:10px;color:#5C6F7E;">Comfort and moisture-control benchmark</td><td style="font-size:10px;">Moisture control and comfort (US EPA); not an ASHRAE 55 figure</td></tr>
+  ${standardsManifestRows(zoneScores)}
   </tbody></table>
 
   <p style="font-size:9px;color:#7A8A97;margin-bottom:8px;">Classifications carry different legal and technical weight. Regulatory limits are enforceable workplace standards. Consensus standards represent professional best practice. Public health guidelines are population-level recommendations. Advisory benchmarks are investigative triggers used for prioritization, not compliance determination.</p>
@@ -608,10 +704,10 @@ export function generateLegacyPrintHTML(data) {
             ${z.co2 ? `<tr><td>CO₂</td><td style="text-align:center;font-family:Cambria,serif;">${z.co2} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.co2o || '—'} ppm</td><td style="font-size:10px;color:#64748B;">Δ${STD.v.co2.diff} ppm above outdoor (earlier ASHRAE 62.1 informative appendix, since removed; ventilation indicator)</td></tr>` : ''}
             ${z.tf ? `<tr><td>Temperature</td><td style="text-align:center;font-family:Cambria,serif;">${z.tf}°F</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.tfo || '—'}°F</td><td style="font-size:10px;color:#64748B;">${STD.t.temp.winter.min}–${STD.t.temp.winter.max}°F winter / ${STD.t.temp.summer.min}–${STD.t.temp.summer.max}°F summer (ASHRAE 55)</td></tr>` : ''}
             ${z.rh ? `<tr><td>Relative Humidity</td><td style="text-align:center;font-family:Cambria,serif;">${z.rh}%</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.rho || '—'}%</td><td style="font-size:10px;color:#64748B;">${STD.t.rh.min}–${STD.t.rh.max}% (US EPA moisture control)</td></tr>` : ''}
-            ${z.pm ? `<tr><td>PM2.5</td><td style="text-align:center;font-family:Cambria,serif;">${z.pm} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.pmo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;"><35 µg/m³ (EPA 24-hr)</td></tr>` : ''}
-            ${z.co ? `<tr><td>Carbon Monoxide</td><td style="text-align:center;font-family:Cambria,serif;">${z.co} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><35 ppm (NIOSH REL)</td></tr>` : ''}
+            ${z.pm ? `<tr><td>PM2.5</td><td style="text-align:center;font-family:Cambria,serif;">${z.pm} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.pmo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;">${referenceCell('pm25', 'pm25_epa_24h')}</td></tr>` : ''}
+            ${z.co ? `<tr><td>Carbon Monoxide</td><td style="text-align:center;font-family:Cambria,serif;">${z.co} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;">${referenceCell('co', 'co_niosh_rel')}</td></tr>` : ''}
             ${z.tv ? `<tr><td>Total VOCs</td><td style="text-align:center;font-family:Cambria,serif;">${z.tv} µg/m³</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">${z.tvo || '—'} µg/m³</td><td style="font-size:10px;color:#64748B;">No consensus limit; reported for trend and comparison</td></tr>` : ''}
-            ${z.hc ? `<tr><td>Formaldehyde</td><td style="text-align:center;font-family:Cambria,serif;">${z.hc} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;"><0.016 ppm (NIOSH REL)</td></tr>` : ''}
+            ${z.hc ? `<tr><td>Formaldehyde</td><td style="text-align:center;font-family:Cambria,serif;">${z.hc} ppm</td><td style="text-align:center;font-family:Cambria,serif;color:#64748B;">—</td><td style="font-size:10px;color:#64748B;">${referenceCell('hcho', 'hcho_niosh_rel')}</td></tr>` : ''}
           </tbody></table>` : ''
       })()}
 

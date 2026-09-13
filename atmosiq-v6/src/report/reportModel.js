@@ -51,7 +51,7 @@ const PARAMS = [
   { key: 'temperature', zoneKey: 'tf', label: 'Temperature', unit: '°F', basis: 'ASHRAE 55 comfort envelope' },
   // NOT ASHRAE 55: that standard sets only an upper humidity limit (a
   // humidity ratio) and no lower one. See STD.t.rh in constants/standards.js.
-  { key: 'relativeHumidity', zoneKey: 'rh', label: 'Relative humidity', unit: '%', basis: 'US EPA moisture control (30–60%)' },
+  { key: 'relativeHumidity', zoneKey: 'rh', label: 'Relative humidity', unit: '%', basis: `US EPA moisture control (${STD.t.rh.min}–${STD.t.rh.max}%)` },
   { key: 'pm25', zoneKey: 'pm', label: 'Fine particulate (PM2.5)', unit: 'µg/m³', basis: 'US EPA NAAQS (context)' },
   // No basis, and the column says so. This read 'Mølhave (1991) advisory'
   // until 2026-08; leaving a basis in place while the outcome column says
@@ -931,9 +931,23 @@ const ENGINE_SEV_TO_SEV = { critical: 'priority', high: 'elevated', medium: 'adv
 const REF_BASIS = {
   'ASHRAE 62.1-2025': 'Ventilation and Acceptable Indoor Air Quality. Ventilation-indicator basis for CO2 (prescribes airflow, not a CO2 limit).',
   'ASHRAE 55-2023': 'Thermal Environmental Conditions for Human Occupancy. Seasonal operative-temperature comfort range; it sets no lower humidity limit, so the relative-humidity band is cited separately.',
-  'US EPA — Mold, Moisture and Your Home': 'Indoor moisture-control guidance. Keep relative humidity below 60%, ideally 30–50%.',
-  'US EPA NAAQS': 'National Ambient Air Quality Standards. CO 9 ppm (8-hr); PM2.5 35 µg/m³ (24-hr). Outdoor/population standards, cited for context.',
-  'OSHA PELs (29 CFR 1910.1000)': 'Permissible Exposure Limits. CO PEL 50 ppm (8-hr TWA); CO2 PEL 5,000 ppm (industrial context).',
+  // Keyed off the constant so the basis line and the band cannot drift apart.
+  [STD.t.rh.ref]: `Indoor moisture-control guidance. Practice range ${STD.t.rh.min}–${STD.t.rh.max}% relative humidity.`,
+  // 'US EPA NAAQS' and 'OSHA PELs (29 CFR 1910.1000)' stood here, each with
+  // its thresholds typed into the prose: CO 9 ppm, PM2.5 35 µg/m³, CO PEL
+  // 50 ppm — and a CO2 PEL of 5,000 ppm that appears in no threshold ledger
+  // in this codebase at all.
+  //
+  // Neither key could ever match. A reference key IS the finding's own `std`,
+  // and for these parameters that is the criterion's source string
+  // ('40 CFR 50.8 — EPA National Ambient Air Quality Standard, 8-hour',
+  // 'OSHA 29 CFR 1910.1000 Table Z-1'), never the short name written here. So
+  // both entries were unreachable and the generic fallback printed instead.
+  //
+  // They are not re-keyed, because a basis line states what the DOCUMENT is;
+  // the figure belongs to the criterion that fired, and the report already
+  // prints that figure in the finding sentence with its averaging period.
+  // Restating it here is the second copy that drifts.
 }
 
 /**

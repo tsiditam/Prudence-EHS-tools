@@ -34,19 +34,15 @@ import { Q_MOLD_PRESURVEY, Q_MOLD_ZONE } from '../constants/moldQuestions'
 import { assessMold } from '../engines/mold/index.js'
 import { buildMoldInput } from '../engines/mold/buildInput.js'
 import { DEMO_MOLD } from '../constants/demoDataMold.js'
+import { evalCondition } from '../utils/conditions.js'
 
 const TEXT = 'var(--text)', SUB = 'var(--sub)', DIM = 'var(--dim)', BORDER = 'var(--border)', ACCENT = 'var(--accent)', WARN = 'var(--warn)', DANGER = 'var(--danger)'
 
 const inp = { width: '100%', padding: '9px 11px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }
 
-function condOk(cond, answers) {
-  if (!cond) return true
-  const v = answers[cond.f]
-  if ('eq' in cond) return v === cond.eq
-  if ('neq' in cond) return String(v ?? '') !== cond.neq
-  if ('in' in cond) return Array.isArray(cond.in) && cond.in.includes(v)
-  return true
-}
+// The mold dialect (`eq` / `neq` / `in`) and the IAQ dialect (`eq` / `ne`)
+// are now one evaluator — see src/utils/conditions.js for why they were two.
+const condOk = (cond, answers) => evalCondition(cond, answers)
 
 // Field label with the app's SVG line icon (resolved from the question's emoji
 // via iconForEmoji), matching how the IAQ intake renders — never a raw emoji.

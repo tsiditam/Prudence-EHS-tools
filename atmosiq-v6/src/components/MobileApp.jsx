@@ -71,7 +71,9 @@ import Exhibit from './ui/Exhibit'
 // parameter table, the same engine outcome per parameter, the same
 // observation and occupant-report sentences — so the screen and the DOCX
 // never describe one zone in two vocabularies.
-import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports } from '../report/reportModel'
+import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports, collectReferences, collectFindings } from '../report/reportModel'
+import { evalCondition, visibleQuestions } from '../utils/conditions.js'
+import { zoneGaps } from '../engines/zone-gaps.js'
 import { photosForZone, photoCaption } from '../utils/photoIndex'
 import { spaceUse } from '../utils/samplePoints'
 import Select from './ui/Select'
@@ -153,7 +155,6 @@ import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
 import SimilarAssessmentsPanel from './SimilarAssessmentsPanel'
-import VoiceCommandModal from './VoiceCommandModal'
 import JasperBrainIcon from './JasperBrainIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
@@ -1132,11 +1133,6 @@ export default function MobileApp() {
     }).catch(() => {})
     return () => { alive = false }
   }, [faOpen])
-  // Voice-command modal state. When the user submits a transcribed
-  // question, we drop the transcript into `voicePrefill` and open
-  // the Jasper sheet; FieldAssistant's initialMessage prop picks it
-  // up and auto-sends.
-  const [voiceCmdOpen, setVoiceCmdOpen] = useState(false)
   // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
   const [actionsAnchor, setActionsAnchor] = useState(null)
@@ -1173,8 +1169,8 @@ export default function MobileApp() {
   const [pendingZoneFix, setPendingZoneFix] = useState(null)
   const [voicePrefill, setVoicePrefill] = useState(null)
   // A contextual AI action: open the assistant with the question already
-  // asked, the current screen as its context. The same prefill path the
-  // voice command uses; the source names the surface for analytics.
+  // asked, the current screen as its context. The source names the
+  // surface for analytics.
   const askAI = (question, source) => {
     supabase && trackEvent('jasper_open', { source })
     setNewChatNonce(n => n + 1)
@@ -1489,8 +1485,8 @@ export default function MobileApp() {
     setQSField('ps_inst_iaq_cal_status', mapInstrumentCalStatus(inst))
   }, [setQSField])
 
-  const qsVis = useMemo(() => Q_QUICKSTART.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
-  const dtVis = useMemo(() => Q_DETAILS.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
+  const qsVis = useMemo(() => visibleQuestions(Q_QUICKSTART, mergedData), [mergedData])
+  const dtVis = useMemo(() => visibleQuestions(Q_DETAILS, mergedData), [mergedData])
 
   // Pick a saved instrument from either entry point (advisory modal or
   // the instrument step), then route to the instrument step so the
@@ -1519,10 +1515,7 @@ export default function MobileApp() {
     qs = qs.filter(q => {
       if (q.profileDynamic && (!buildingProfile || !buildingProfile.zoneSubtypes?.length)) return false
       if (suppressedIds.includes(q.id)) return false
-      if (!q.cond) return true
-      if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false
-      if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false
-      return true
+      return evalCondition(q.cond, zData)
     })
     // Inject additional fields from profile at end
     if (additionalQs.length > 0) qs = [...qs, ...additionalQs]
@@ -4312,20 +4305,28 @@ export default function MobileApp() {
               </div>
             )})}
           </div>}
-          {/* Standards Used — collapsible */}
+          {/* Standards applied — collapsible.
+              This listed the ENTIRE manifest, every entry, whatever the
+              assessment measured: an IAQ walkthrough showed the assessor the
+              five mold references, ASHRAE 241 and the ACGIH TLVs, none of
+              which it applied. It now lists what this assessment actually
+              cited, which is the same list `collectReferenceUsage` gives the
+              DOCX appendix — one answer to "which standards did this use",
+              not two. */}
           {(() => {
             const manifest = viewRpt?.standardsManifest || STANDARDS_MANIFEST
+            const cited = collectReferences(collectFindings(zoneScores), causalChains, zoneScores)
             return (
               <details style={{marginTop:10}}>
                 <summary style={{fontSize:11,fontWeight:600,color:DIM,cursor:'pointer',padding:'10px 0',listStyle:'none',display:'flex',alignItems:'center',gap:6}}>
-                  <span style={{fontSize:8,color:DIM}}>▶</span> Standards reference · Engine v{manifest.engineVersion || '1.x'}
+                  <span style={{fontSize:8,color:DIM}}>▶</span> Standards applied · {cited.length} · Engine v{manifest.engineVersion || '1.x'}
                 </summary>
                 <div style={{padding:'6px 0 0'}}>
-                  {Object.entries(manifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => (
-                    <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:SUB,marginBottom:4,gap:12}}>
-                      <span style={{color:DIM}}>{k}</span><span style={{color:SUB,fontWeight:500}}>{v}</span>
-                    </div>
-                  ))}
+                  {cited.length === 0
+                    ? <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>No published criterion was applied — this assessment recorded observations rather than measurements evaluated against a threshold.</div>
+                    : cited.map((ref) => (
+                      <div key={ref} style={{fontSize:11,color:SUB,marginBottom:4,lineHeight:1.5}}>{ref}</div>
+                    ))}
                   <div style={{fontSize:10,color:DIM,marginTop:6,borderTop:`1px solid ${BORDER}`,paddingTop:6}}>Manifest updated: {manifest.manifestUpdated || 'N/A'}</div>
                 </div>
               </details>
@@ -5088,6 +5089,52 @@ export default function MobileApp() {
           prompt state back to false without finishing. */}
       {zonePrompt && (
         <BottomSheet title="Zone complete" onClose={()=>setZonePrompt(false)} ariaLabel="Zone complete, add another or finish">
+          {/* What is still worth recording HERE, while the assessor is still
+              standing in the zone.
+
+              Every item comes from `zoneGaps`, which composes the sufficiency
+              engine and the defensibility rules — the same two streams the
+              Readiness panel renders at review. This surfaces them earlier,
+              it does not compute them again: the panel and this list cannot
+              disagree, because they read the same functions.
+
+              It never blocks. Both existing actions stay exactly where they
+              were, and a zone with nothing outstanding shows none of this —
+              a complete walkthrough should stay as fast as it is today. */}
+          {(() => {
+            const gaps = zoneGaps({ zones, presurvey, bldg }, curZone)
+            if (!gaps.length) return null
+            // Three on a phone. This is read standing up, one-handed, at the
+            // end of a zone — a longer list is skimmed rather than acted on.
+            const SHOWN = 3
+            const shown = gaps.slice(0, SHOWN)
+            const rest = gaps.length - shown.length
+            return (
+              <div style={{margin:'4px 0 18px',paddingBottom:16,borderBottom:`1px solid ${V3.BORDER_SUBTLE}`}}>
+                <div style={{...V3.T.micro, marginBottom:10}}>Before you leave {zData.zn || 'this zone'}</div>
+                <div style={{...V3.T.bodyDim, marginBottom:12, lineHeight:1.5}}>
+                  {gaps.length === 1 ? 'One item would strengthen the investigation:' : `${gaps.length} items would strengthen the investigation:`}
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:9}}>
+                  {shown.map(g => (
+                    <div key={g.id} style={{display:'flex',alignItems:'flex-start',gap:9}}>
+                      <span aria-hidden="true" style={{width:5,height:5,borderRadius:'50%',background:g.kind==='required'||g.kind==='warn'?WARN:DIM,flexShrink:0,marginTop:7}} />
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{...V3.T.body, lineHeight:'19px'}}>{g.label}</div>
+                        <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{g.why}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {rest > 0 && <div style={{...V3.T.captionDim}}>and {rest} more</div>}
+                </div>
+                <div style={{marginTop:14}}>
+                  <TactileButton variant="neutral" fullWidth onClick={()=>setZonePrompt(false)}>
+                    Keep recording in this zone
+                  </TactileButton>
+                </div>
+              </div>
+            )
+          })()}
           <div style={{...V3.T.bodyDim, margin:'4px 0 18px'}}>Add another zone to this assessment, or wrap up and review findings?</div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             <TactileButton
@@ -6255,25 +6302,6 @@ export default function MobileApp() {
           modal was redundant, and the FAB's bottom-right position
           visually overlapped the new Jasper tab. The Jasper tab in
           the nav is now the single launcher across the app. */}
-      {/* Voice command modal — speaks → routes the transcript to
-          Jasper via initialMessage. Lives at the app shell so it's
-          available from every screen via the header pill's mic.
-          TODO(claude): nothing opens this any more. Its last launcher was
-          the ⋯ menu's "Ask AtmosFlow AI" (a mic behind an assistant's
-          name), removed when the menu was cut to screen actions; the
-          assistant's own composer dictates. Remove with its component. */}
-      {profile && (
-        <VoiceCommandModal
-          open={voiceCmdOpen}
-          onCancel={() => setVoiceCmdOpen(false)}
-          onSubmit={(transcript) => {
-            setVoiceCmdOpen(false)
-            setVoicePrefill(transcript)
-            setFaOpen(true)
-          }}
-        />
-      )}
-
       {profile && faOpen && (
         <Suspense fallback={LAZY_FALLBACK}>
         <FieldAssistant
