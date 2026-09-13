@@ -301,6 +301,62 @@ function ruleQualitativeOnlyPropagated(assessment) {
   ]
 }
 
+// ── Walkthrough capture rules (docs/WALKTHROUGH_CAPTURE.md) ─────────
+
+/**
+ * A complaint zone with no comparison area. The complaint-versus-
+ * non-complaint comparison is the first discriminating observation an
+ * investigator takes; without a zone recorded as the comparison, the
+ * report can only describe the affected area on its own.
+ */
+function ruleComplaintZoneWithoutComparison(assessment) {
+  const zones = assessment.zones || []
+  const complaint = zonesWith(zones, (z) => z && z.cx === 'Yes — complaints reported')
+  if (complaint.length === 0) return []
+  const hasComparison = zones.some((z) => z && z.zone_role === 'Comparison area (no complaint)')
+  if (hasComparison) return []
+  return [
+    {
+      kind: 'complaint_zone_without_comparison',
+      severity: 'info',
+      zones: complaint,
+      why:
+        'Complaints were recorded with no zone marked as a comparison area. A ' +
+        'non-complaint area of the same use and ventilation is the first discriminating ' +
+        'observation in an IAQ investigation (AIHA IAQ Investigator\'s Guide, 2008; ' +
+        'ASTM D7297); without one, the report describes the affected area alone.',
+    },
+  ]
+}
+
+/**
+ * Logger data with no deployment record. The Logger Studio dataset says what
+ * was measured; only the zone's deployment record says where the instrument
+ * sat, at what height, for how long, and what happened while it ran.
+ */
+function ruleLoggerWithoutDeployment(assessment) {
+  const sd = assessment.sensorData
+  const hasPoints = !!(sd && (
+    (Array.isArray(sd.datasets) && sd.datasets.some((d) => Array.isArray(d && d.points) && d.points.length > 0)) ||
+    (Array.isArray(sd.points) && sd.points.length > 0)
+  ))
+  if (!hasPoints) return []
+  const zones = assessment.zones || []
+  const recorded = zones.some((z) => z && z.logger_deployment && z.logger_deployment.placed)
+  if (recorded) return []
+  return [
+    {
+      kind: 'logger_without_deployment',
+      severity: 'warn',
+      why:
+        'Continuous logger data is attached but no zone carries a deployment record ' +
+        '(instrument, position, height, period, interval, events during logging). The ' +
+        'record of where and how a sampler ran is part of the sampling strategy ' +
+        '(ISO 16000-1); without it the report cannot describe the monitoring it prints.',
+    },
+  ]
+}
+
 const GAP_RULES = [
   ruleMissingOutdoorCo2,
   ruleMissingHvacStatus,
@@ -308,6 +364,8 @@ const GAP_RULES = [
   ruleMoldConcernWithoutMoisture,
   ruleRecommendationWithoutLocation,
   ruleQualitativeOnlyPropagated,
+  ruleComplaintZoneWithoutComparison,
+  ruleLoggerWithoutDeployment,
 ]
 
 /**
@@ -344,4 +402,6 @@ export const __test = {
   ruleMoldConcernWithoutMoisture,
   ruleRecommendationWithoutLocation,
   ruleQualitativeOnlyPropagated,
+  ruleComplaintZoneWithoutComparison,
+  ruleLoggerWithoutDeployment,
 }

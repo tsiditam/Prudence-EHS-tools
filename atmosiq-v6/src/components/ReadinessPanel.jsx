@@ -169,6 +169,8 @@ function humanizeKind(kind) {
     qualitative_only_propagated:   'Qualitative-only findings',
     differential_unresolved:       'Competing explanations unresolved',
     untested_differential:         'Explanation never measured against',
+    complaint_zone_without_comparison: 'No comparison area recorded',
+    logger_without_deployment:     'Logger data without a deployment record',
   }[kind] || kind
 }
 

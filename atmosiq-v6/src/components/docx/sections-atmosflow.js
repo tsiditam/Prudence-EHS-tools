@@ -684,7 +684,7 @@ export function atmosFlowReportChildren(model) {
       )
     }
     for (const z of M.observations.zones || []) {
-      const meta = [z.use, z.area ? `${z.area} sq ft` : '', z.occupants ? `${z.occupants} occupants` : '']
+      const meta = [z.role, z.use, z.area ? `${z.area} sq ft` : '', z.occupants ? `${z.occupants} occupants` : '']
         .filter(Boolean).join(' · ')
       c.push(h2(z.zone))
       if (meta) c.push(caption(meta))
@@ -714,7 +714,7 @@ export function atmosFlowReportChildren(model) {
       c.push(
         table(
           ['Zone', 'Use', ['CO₂', 'ppm'], ['CO', 'ppm'], ['T', '°F'], ['RH', '%'], ['PM2.5', 'µg/m³'], ['TVOC', 'µg/m³'], 'Outcome'],
-          rows.map((z) => [fmt(z.id), fmt(z.use), fmt(z.co2), fmt(z.co), fmt(z.t), fmt(z.rh), fmt(z.pm), fmt(z.tvoc), sev(z.sev).label]),
+          rows.map((z) => [z.role ? `${fmt(z.id)} (${z.role.toLowerCase()})` : fmt(z.id), fmt(z.use), fmt(z.co2), fmt(z.co), fmt(z.t), fmt(z.rh), fmt(z.pm), fmt(z.tvoc), sev(z.sev).label]),
           [1333, 789, 871, 789, 735, 680, 1034, 1034, 2095],
           {
             align: [null, null, CEN, CEN, CEN, CEN, CEN, CEN, null],
@@ -841,6 +841,27 @@ export function atmosFlowReportChildren(model) {
       c.push(...label(rec.mediumTermLabel || 'Medium term (30–90 days)'))
       rec.mediumTerm.forEach((it, i, arr) => c.push(bullet(it, i === arr.length - 1 ? { after: 0 } : {})))
     }
+  }
+
+  // ═══ 6.1 Confirmatory sampling ═══
+  //
+  // The sampling plan the engine proposes (engines/sampling.js) and the app's
+  // Actions tab prints. Until 2026-09 the DOCX omitted it, so a report whose
+  // leading finding said "confirm with integrated sampling" never said which
+  // method, and the reader had to ask.
+  const smp = M.sampling
+  if (smp && smp.rows && smp.rows.length) {
+    c.push(h2('6.1 Confirmatory sampling'))
+    toParas(smp.intro).forEach((para) => c.push(body(para)))
+    c.push(
+      table(
+        ['Zone', 'Sample', 'Priority', 'Hypothesis tested', 'Method', 'Controls', 'Reference'],
+        smp.rows.map((r) => [fmt(r.zone), fmt(r.type), fmt(r.priority), fmt(r.hypothesis), fmt(r.method), fmt(r.controls), fmt(r.standard)]),
+        [1300, 1100, 900, 1900, 1700, 1400, 1060],
+        { cellSpec: (_r, ci) => ({ bold: ci === 1 }) },
+      ),
+    )
+    ;(smp.outdoorGaps || []).forEach((g) => c.push(caption(g)))
   }
 
   // ═══ 7. Limitations ═══

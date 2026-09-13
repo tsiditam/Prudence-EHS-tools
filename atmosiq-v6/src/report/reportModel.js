@@ -35,6 +35,11 @@ import { samplePoints, pointsOnPlan, spaceUse } from '../utils/samplePoints'
 import { normalizeFloorPlans, planLabel, planImage } from '../utils/floorPlans'
 import * as NL from './narrativeLibrary'
 import {
+  zoneRoleLabel, siteHistoryParagraphs, sourceDetailLines, checksPerformedLines, airflowLines,
+  loggerDeploymentLines, loggerEventLines, interviewLines, comparisonRow, checksRow,
+  continuousMonitoringRows, airflowInstrumentRow, autoLoggerCaption, buildSamplingSection,
+} from './captureRender'
+import {
   REPORT_PROFILES, REPORT_STATUS, DEFAULT_PROFILE, DEFAULT_STATUS,
   reportChrome, resolveLifecycle, statusLabel, SCREENING_LIMITATION,
 } from '../constants/reportLifecycle'
@@ -305,6 +310,11 @@ export function zoneObservations(z = {}) {
   if (hasList(z.src_adjacent)) out.push(`Adjacent to: ${listOf(z.src_adjacent).toLowerCase()}.`)
   if (has(z.path_pressure)) out.push(`Zone pressure relative to adjacent spaces: ${String(z.path_pressure).toLowerCase()}.`)
   if (has(z.path_crosstalk)) out.push(`Cross-contamination: ${String(z.path_crosstalk).toLowerCase()}.`)
+  // The structured records (docs/WALKTHROUGH_CAPTURE.md): what each ticked
+  // source actually is, the airflow measured, the checks made, and the
+  // logger that sat here with what happened while it ran. Each is a fact
+  // recorded in the zone, restated; none is a verdict.
+  out.push(...sourceDetailLines(z), ...airflowLines(z), ...checksPerformedLines(z), ...loggerDeploymentLines(z), ...loggerEventLines(z))
   return out
 }
 
@@ -317,6 +327,7 @@ export function zoneOccupantReports(z = {}) {
   if (symptoms.length) out.push(`Symptoms reported: ${symptoms.join(', ').toLowerCase()}.`)
   if (has(z.sr)) out.push(`Symptoms away from the building: ${String(z.sr).toLowerCase()}.`)
   if (has(z.cc)) out.push(`Clustering: ${String(z.cc).toLowerCase()}.`)
+  out.push(...interviewLines(z))
   return out
 }
 
@@ -352,6 +363,7 @@ export function buildObservations(data = {}) {
   const building = buildingObservations(bldg, presurvey)
   const zoneBlocks = zones.map((z, i) => ({
     zone: (z && z.zn) || `Zone ${i + 1}`,
+    role: zoneRoleLabel(z),
     use: spaceUse(z),
     area: (z && z.sf) || '',
     occupants: (z && z.oc) || '',
@@ -613,6 +625,12 @@ export function buildQaQc(presurvey = {}, zones = []) {
         || 'Formaldehyde readings were recorded; no instrument for them is documented in the project record.',
     })
   }
+  // A logger that sat in a zone is an instrument of this assessment and is
+  // recorded as one — it used to reach the reader only as whatever the
+  // assessor wrote under "Other instruments", printed under the wrong label.
+  rows.push(...continuousMonitoringRows(zones))
+  const flow = airflowInstrumentRow(presurvey, zones)
+  if (flow) rows.push(flow)
   rows.push({ label: 'Assessor review', value: 'Draft — requires qualified-professional review before issuance.' })
   return rows
 }
@@ -745,7 +763,7 @@ export function buildLimitations(data) {
   const zones = data.zones || []
   const n = zones.length
   if (n) extra.push(`Findings apply to the ${n} area${n === 1 ? '' : 's'} assessed and do not characterize areas that were not entered or measured.`)
-  const quantifiedVent = zones.some(z => z && (num(z.cfm_person) !== null || num(z.ach) !== null))
+  const quantifiedVent = zones.some(z => z && (num(z.cfm_person) !== null || num(z.ach) !== null || num(z.oa_flow_cfm) !== null))
   if (!quantifiedVent && zones.some(z => z && num(z.co2) !== null)) {
     extra.push('No quantified ventilation-rate measurement (outdoor-air cfm per person or air changes per hour) was made; ventilation adequacy is inferred from CO₂ as an indicator only.')
   }
@@ -800,9 +818,9 @@ export function buildReportModel(data = {}, opts = {}) {
   })
 
   const graphs = (data.sensorData && data.sensorData.graphs)
-    ? Object.values(data.sensorData.graphs)
-        .filter(g => g && g.include && typeof g.imageDataUrl === 'string' && g.imageDataUrl.startsWith('data:image'))
-        .map(g => ({ type: 'image', title: g.title || 'Logger chart', imageDataUrl: g.imageDataUrl, caption: g.caption || '' }))
+    ? Object.entries(data.sensorData.graphs)
+        .filter(([, g]) => g && g.include && typeof g.imageDataUrl === 'string' && g.imageDataUrl.startsWith('data:image'))
+        .map(([id, g]) => ({ type: 'image', id, title: g.title || 'Logger chart', imageDataUrl: g.imageDataUrl, caption: g.caption || '' }))
     : []
   const co2Bars = peakCo2ByZone(zones, zoneScores)
   const charts = [...graphs]
@@ -1065,9 +1083,12 @@ export function assembleRenderModel(data = {}, opts = {}) {
   }))
 
   // Measurement results rows (+ site mean).
-  const resultsRows = rd.zones.map(z => ({
+  const resultsRows = rd.zones.map((z, i) => ({
     id: z.id, use: z.use || '', co2: z.co2, co: z.co, t: z.temperature, rh: z.relativeHumidity, pm: z.pm25, tvoc: z.tvoc,
     sev: OUTCOME_TO_SEV[z.outcome] || 'ok',
+    // The recorded role, printed beside the name so a comparison area reads
+    // as one. Rows and zones are built in the same order (zoneRows).
+    role: zoneRoleLabel((data.zones || [])[i]),
   }))
   // The outdoor baseline sits beside the zones it is compared against. It is
   // a reference, not a judged location, so it carries no outcome.
@@ -1128,7 +1149,9 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const loggerImages = imageCharts.length ? {
     disclaimer: 'The following timelines were generated from uploaded sensor logger data for documentation and interpretation purposes. Interpretation should be reviewed by a qualified IAQ professional; AtmosFlow does not make compliance determinations.',
     dataSource: src ? `Data source: ${src}` : null,
-    images: imageCharts.map(c => ({ title: c.title, imageDataUrl: c.imageDataUrl, caption: c.caption })),
+    // A caption the assessor wrote wins; otherwise the figure states what
+    // the dataset and the zone's logger record say about it (captureRender).
+    images: imageCharts.map(c => ({ title: c.title, imageDataUrl: c.imageDataUrl, caption: c.caption || autoLoggerCaption(c.id, data.sensorData, data.zones || []) || '' })),
   } : null
 
   // Peak-CO2-by-zone bar (walkthrough data).
@@ -1181,6 +1204,9 @@ export function assembleRenderModel(data = {}, opts = {}) {
       ['Receptor (location)', primary.zone || (Array.isArray(primary.contributingZones) ? primary.contributingZones.join(', ') : '—')],
       ['Source & mechanism', primary.rootCause || '—'],
       ['Evidence', Array.isArray(primary.evidence) ? primary.evidence.join('; ') : (primary.evidence || '—')],
+      // The comparison area's readings beside the affected area's evidence,
+      // and the checks already made there — both stated, neither judged.
+      ...([comparisonRow(data.zones || [], PARAMS), checksRow(data.zones || [], primary.zone)].filter(Boolean)),
       ['Status', 'Working hypothesis — no causal relationship has been established'],
       ...(primary.verification ? [['Verification required', `${upperFirst(primary.verification)}.`]] : []),
     ],
@@ -1349,6 +1375,10 @@ export function assembleRenderModel(data = {}, opts = {}) {
     scope: {
       paras: [
         `The assessment covered ${rd.projectSummary.numberOfZones} zone${rd.projectSummary.numberOfZones === 1 ? '' : 's'} at ${meta.facilityName}${rd.projectSummary.buildingDescription ? ` (${rd.projectSummary.buildingDescription})` : ''}${rd.projectSummary.hvacDescription ? `, served by ${rd.projectSummary.hvacDescription}` : ''}. ${rd.projectSummary.assessmentPurpose ? `The assessment was prompted by ${String(rd.projectSummary.assessmentPurpose).toLowerCase()}.` : ''}`.trim(),
+        // What happened and when — the renovation card, the complaint card
+        // and the dated timeline — so the background reads as a sequence
+        // rather than a one-word trigger. Absent when nothing dated exists.
+        ...siteHistoryParagraphs(data.presurvey || {}),
         'The objective was to characterize indoor air quality indicators, confirm whether observed conditions fall within recognized comfort and ventilation references, identify any zones warranting follow-up, and provide a defensible, prioritized action list.',
       ],
     },
@@ -1391,6 +1421,9 @@ export function assembleRenderModel(data = {}, opts = {}) {
       register: actionRegister(data.recs || {}),
       registerNote: 'Owner is the role proposed for each action; the client assigns named individuals and target dates. Completion evidence is what would show the action was carried out.',
     },
+    // The confirmatory sampling the engine proposed, read verbatim. The app's
+    // Actions tab already printed it; the DOCX now does.
+    sampling: buildSamplingSection(data.samplingPlan),
     qaQc,
     limitations: rd.limitations,
     review,

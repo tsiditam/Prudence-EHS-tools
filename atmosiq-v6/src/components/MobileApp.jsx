@@ -37,6 +37,9 @@ import { extractDocxText, REVIEW_INSTRUCTIONS, REVIEW_CREDIT_COST } from '../uti
 import { getSubscriptionBannerState } from '../utils/subscriptionState'
 import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
+import { TimelineEditor, SourceDetailCards, ChecksPerformed, LoggerDeployment, MassBalancePrompt } from './walkthrough/CaptureRecords'
+import { calcCfmPerPerson } from '../utils/ventilation'
+import { zoneRoleLabel } from '../report/captureRender'
 import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
 import { deriveInvestigation } from '../engine/investigation'
 import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasurementConfidence, readNumber } from '../engines/scoring'
@@ -3091,8 +3094,21 @@ export default function MobileApp() {
           {q.other&&data[`${q.id}_other`]!=null&&!exclusiveSel&&<input type="text" value={data[`${q.id}_other`]||''} onChange={e=>setField(`${q.id}_other`,e.target.value)} placeholder="Describe it…" aria-label="Other — describe" autoFocus style={{width:'100%',padding:'16px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:10}} />}
           </>)})()}
           {q.t==='combo'&&q.opts&&(()=>{const otherOpts=q.opts.filter(o=>o!=='Other');const isOther=(data[q.id]||'')==='__other__'||((data[q.id]||'')&&!otherOpts.includes(data[q.id]));return(<div><select value={isOther?'__other__':(data[q.id]||'')} onChange={e=>setField(q.id,e.target.value)} style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${BORDER}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',appearance:'auto'}}><option value="">Select or skip...</option>{otherOpts.map(o=><option key={o} value={o}>{o}</option>)}<option value="__other__">Other</option></select>{isOther&&<input type="text" value={data[q.id]==='__other__'?'':data[q.id]} onChange={e=>setField(q.id,e.target.value||'__other__')} placeholder="Type here..." autoFocus style={{width:'100%',padding:'18px 20px',background:CARD,border:`1.5px solid ${ACCENT}`,borderRadius:14,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',marginTop:8}} />}</div>)})()}
+          {/* The structured records (docs/WALKTHROUGH_CAPTURE.md): each is
+              a list or a card set the wizard could not express as a
+              dropdown, and each prints in a named report sentence. */}
+          {q.t==='timeline'&&<TimelineEditor value={data[q.id]} onChange={v=>setField(q.id,v)} />}
+          {q.t==='sourcecards'&&<SourceDetailCards value={data[q.id]} onChange={v=>setField(q.id,v)} zone={data} />}
+          {q.t==='checks'&&<ChecksPerformed value={data[q.id]} onChange={v=>setField(q.id,v)} />}
+          {q.t==='logger'&&<LoggerDeployment value={data[q.id]} onChange={v=>setField(q.id,v)} />}
           {q.t==='sensors'&&<>
             <SensorScreen data={data} onChange={setField} sensorData={sensorData} isDesktop={false} showOutdoor={curZone === 0} />
+            {/* Once indoor CO₂, outdoor CO₂ and the occupant count exist
+                and no outdoor-air rate has been recorded, offer the
+                ASHRAE 62.1 mass-balance estimate here — the cfm_person
+                question carries the same helper, but it is asked before
+                the readings exist. */}
+            {!data.cfm_person && data.co2 && data.co2o && data.oc && <MassBalancePrompt estimate={calcCfmPerPerson(data.co2, data.co2o)} onApply={v=>setField('cfm_person', v)} />}
             <InstrumentLogImport calibrationGas={data.pid_cal_gas} onApply={(payload)=>{
               // Apply the aggregated mean values into the zone's sensor
               // fields. Each value is rounded by the parser to its
@@ -4000,7 +4016,7 @@ export default function MobileApp() {
                       <span aria-hidden="true" style={{width:8, height:8, borderRadius:4, background:OUTCOME[o].tone, justifySelf:'center'}} />
                       <div style={{minWidth:0}}>
                         <div style={{...V3.T.bodyStrong, color: isFocus ? V3.TEXT_PRIMARY : V3.TEXT_SECONDARY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{zsc.zoneName}</div>
-                        <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{[spaceUse(zoneOf(i)), n ? `${n} reading${n === 1 ? '' : 's'}` : 'No readings'].filter(Boolean).join(' · ')}</div>
+                        <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{[zoneRoleLabel(zoneOf(i)), spaceUse(zoneOf(i)), n ? `${n} reading${n === 1 ? '' : 's'}` : 'No readings'].filter(Boolean).join(' · ')}</div>
                       </div>
                       <span style={{...V3.T.caption, color:OUTCOME[o].tone, whiteSpace:'nowrap'}}>{OUTCOME[o].label}</span>
                     </button>

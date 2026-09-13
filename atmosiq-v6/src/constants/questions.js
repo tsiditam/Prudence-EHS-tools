@@ -53,12 +53,14 @@ export const Q_PRESURVEY = [
   { id:'ps_inst_press_res_units',sec:'Instruments',   q:'Resolution units?',                      t:'ch',   sk:1, ic:'📏', opts:['Pa','in. w.c.'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
   { id:'ps_inst_press_cal',      sec:'Instruments',   q:'Pressure meter last calibration date?',  t:'date', sk:1, ic:'🔧', cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
   { id:'ps_inst_press_cal_status',sec:'Instruments',  q:'Pressure meter calibration status',      t:'ch',   sk:1, ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'], cond:{f:'bld_press_dp_measured',eq:'Yes — differential pressure measured'} },
+  { id:'ps_inst_flow',           sec:'Instruments',   q:'Airflow instrument (if used)?',        t:'combo', sk:1, ic:'💨', ph:'Or type your own...', opts:['TSI AccuBalance 8380','TSI VelociCalc 9565','Alnor EBT731','Testo 420','Kanomax 6710','Shortridge FlowHood','Other'] },
   { id:'ps_inst_other',          sec:'Instruments',   q:'Other instruments used?',              t:'ta',   sk:1,  ic:'🛠️', ph:'Moisture meter, thermal camera, smoke pencil, etc.' },
   // Trigger
   { id:'ps_reason',              sec:'Trigger Event', q:'What triggered this investigation?',   t:'ch',   req:1, ic:'🎯', opts:['Occupant complaint(s)','Routine / scheduled assessment','Post-renovation / construction','Water intrusion event','Odor event','Regulatory requirement','Due diligence / pre-lease','Insurance / litigation','Other'] },
   { id:'ps_complaint_narrative', sec:'Trigger Event', q:'Describe the complaint(s) in detail',  t:'ta',          ic:'📝', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, ph:'Who reported, symptoms, when, where' },
   { id:'ps_complaint_severity',  sec:'Trigger Event', q:'Severity?',                            t:'ch',          ic:'⚡', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, opts:['Minor — comfort concern only','Moderate — symptoms reported','Significant — multiple occupants affected','Severe — medical attention sought','Critical — evacuation or work stoppage'] },
   { id:'ps_complaint_formal',    sec:'Trigger Event', q:'Formal written complaints filed?',     t:'ch',          ic:'📄', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, opts:['No — verbal only','Yes — internal complaint form','Yes — to management / HR','Yes — to OSHA or regulatory agency','Yes — legal / attorney involved'] },
+  { id:'ps_complaint_pattern',   sec:'Trigger Event', q:'When in the day are complaints worst?', t:'ch', sk:1,   ic:'🕐', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, opts:['Morning','Afternoon','Evening / night','All day','No pattern','Unknown'] },
   { id:'ps_water_event_type',    sec:'Trigger Event', q:'Type of water event?',                 t:'ch',          ic:'🌊', cond:{f:'ps_reason',eq:'Water intrusion event'}, opts:['Roof leak','Pipe burst / plumbing failure','Flooding (weather)','HVAC condensate overflow','Fire suppression discharge','Foundation / below-grade seepage','Unknown source'] },
   { id:'ps_water_event_date',    sec:'Trigger Event', q:'When did the water event occur?',      t:'ch',          ic:'📅', cond:{f:'ps_reason',eq:'Water intrusion event'}, opts:['Within 24 hours','2-7 days ago','1-2 weeks ago','2-4 weeks ago','Over 1 month ago','Ongoing / recurring'] },
   { id:'ps_water_event_response',sec:'Trigger Event', q:'Response actions taken?',              t:'multi',       ic:'🔧', cond:{f:'ps_reason',eq:'Water intrusion event'}, opts:['Water extraction performed','Dehumidifiers deployed','Wet materials removed','Professional remediation hired','Fans / air movers used','Nothing yet','Unknown'] },
@@ -67,7 +69,19 @@ export const Q_PRESURVEY = [
   { id:'ps_reno_scope',          sec:'Trigger Event', q:'Renovation scope?',                    t:'multi',       ic:'🏗️', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Flooring replacement','Painting / wall finishing','Furniture / workstation install','Ceiling work','Ductwork modification','Plumbing work','Demolition / abatement','Full build-out','Roofing'] },
   { id:'ps_reno_completion',     sec:'Trigger Event', q:'Renovation completed?',                t:'ch',          ic:'📅', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Still in progress','Within 1 week','1-4 weeks ago','1-3 months ago','Over 3 months ago'] },
   { id:'ps_reno_containment',    sec:'Trigger Event', q:'Containment / occupant protection?',  t:'ch',          ic:'🛡️', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Yes — full containment with negative pressure','Yes — partial barriers','No containment used','Unknown'] },
+  // What the renovation put into the space. The scope names the trade;
+  // the materials name the likely emitters, which is what the source
+  // survey and the sampling plan's controls note need.
+  { id:'ps_reno_materials',      sec:'Trigger Event', q:'Materials installed?',                 t:'multi', other:1, sk:1, ic:'🪵', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Particleboard / MDF furniture','Carpet','Vinyl / LVP flooring','Paint / coatings','Adhesives / sealants','Ceiling tiles','Insulation','Drywall / joint compound'] },
+  { id:'ps_reno_reoccupied',     sec:'Trigger Event', q:'Date the space was re-occupied',       t:'date', sk:1,   ic:'📅', cond:{f:'ps_reason',eq:'Post-renovation / construction'} },
+  { id:'ps_reno_flushout',       sec:'Trigger Event', q:'Flush-out ventilation before re-occupancy?', t:'ch', sk:1, ic:'🌬️', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Yes — documented','Partial','No','Unknown'] },
   { id:'ps_reg_agency',          sec:'Trigger Event', q:'Which agency or requirement?',         t:'ta',          ic:'🏛️', cond:{f:'ps_reason',eq:'Regulatory requirement'}, ph:'OSHA inspection, local health dept, lease requirement, etc.' },
+  // The sequence of events, dated. The report states the site background
+  // as a sequence — renovation, materials, re-occupancy, first complaints,
+  // prior actions, logger placed and retrieved — and a sequence cannot be
+  // reconstructed from the range answers above. Stored as
+  // [{ id, date, kind, description }]; see CaptureRecords.TimelineEditor.
+  { id:'ps_timeline',            sec:'Trigger Event', q:'Event timeline',                       t:'timeline', sk:1, ic:'🗓️', ref:'Dated events the report states in sequence: renovation, materials installed, re-occupancy, first complaints, prior actions, logger placed and retrieved.' },
   // Prior History
   { id:'ps_prior',               sec:'Prior History',  q:'Prior IAQ investigations?',            t:'ch',          ic:'📁', opts:['No — first assessment','Yes — with findings','Yes — no significant findings','Unknown'] },
   { id:'ps_prior_notes',         sec:'Prior History',  q:'Prior investigation summary',          t:'ta',   sk:1,  ic:'📋', cond:{f:'ps_prior',eq:'Yes — with findings'}, ph:'Findings, dates, actions taken, unresolved issues' },
@@ -180,6 +194,16 @@ export const Q_DETAILS = [
   { id:'ps_complaint_count',     sec:'Complaint Details', q:'Total documented complaints?',  t:'num',  sk:1, ic:'📊', ph:'Number', cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
   { id:'ps_complaint_timeline',  sec:'Complaint Details', q:'When did complaints begin?',    t:'ch',   sk:1, ic:'📅', opts:['Within 1 week','Within 1 month','1-6 months ago','Over 6 months ago','Intermittent / recurring','Unknown'], cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
   { id:'ps_affected_areas',      sec:'Complaint Details', q:'Most affected areas?',          t:'ta',   sk:1, ic:'📍', ph:'Floor numbers, rooms, departments', cond:{f:'ps_reason',eq:'Occupant complaint(s)'} },
+  { id:'ps_complaint_pattern',   sec:'Complaint Details', q:'When in the day are complaints worst?', t:'ch', sk:1, ic:'🕐', cond:{f:'ps_reason',eq:'Occupant complaint(s)'}, opts:['Morning','Afternoon','Evening / night','All day','No pattern','Unknown'] },
+  // Renovation details — the post-renovation trigger's own capture card.
+  { id:'ps_reno_scope',          sec:'Renovation Details', q:'Renovation scope?',            t:'multi', sk:1, ic:'🏗️', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Flooring replacement','Painting / wall finishing','Furniture / workstation install','Ceiling work','Ductwork modification','Plumbing work','Demolition / abatement','Full build-out','Roofing'] },
+  { id:'ps_reno_materials',      sec:'Renovation Details', q:'Materials installed?',         t:'multi', other:1, sk:1, ic:'🪵', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Particleboard / MDF furniture','Carpet','Vinyl / LVP flooring','Paint / coatings','Adhesives / sealants','Ceiling tiles','Insulation','Drywall / joint compound'] },
+  { id:'ps_reno_reoccupied',     sec:'Renovation Details', q:'Date the space was re-occupied', t:'date', sk:1, ic:'📅', cond:{f:'ps_reason',eq:'Post-renovation / construction'} },
+  { id:'ps_reno_flushout',       sec:'Renovation Details', q:'Flush-out ventilation before re-occupancy?', t:'ch', sk:1, ic:'🌬️', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Yes — documented','Partial','No','Unknown'] },
+  { id:'ps_reno_containment',    sec:'Renovation Details', q:'Containment / occupant protection?', t:'ch', sk:1, ic:'🛡️', cond:{f:'ps_reason',eq:'Post-renovation / construction'}, opts:['Yes — full containment with negative pressure','Yes — partial barriers','No containment used','Unknown'] },
+  // The dated sequence the report's site background reads from — see the
+  // note on the same field in Q_PRESURVEY.
+  { id:'ps_timeline',            sec:'Timeline',       q:'Event timeline',                  t:'timeline', sk:1, ic:'🗓️', ref:'Dated events the report states in sequence: renovation, materials installed, re-occupancy, first complaints, prior actions, logger placed and retrieved.' },
   // History
   { id:'ps_prior',          sec:'Prior History',  q:'Prior IAQ investigations?',       t:'ch',  sk:1, ic:'📁', opts:['No — first assessment','Yes — with findings','Yes — no significant findings','Unknown'] },
   { id:'ps_prior_notes',    sec:'Prior History',  q:'Prior investigation summary',     t:'ta',  sk:1, ic:'📋', cond:{f:'ps_prior',eq:'Yes — with findings'}, ph:'Findings, dates, actions taken' },
@@ -196,6 +220,7 @@ export const Q_DETAILS = [
   { id:'ps_inst_iaq_accuracy',   sec:'Instruments',   q:'Stated accuracy (manufacturer spec)?', t:'text', sk:1,  ic:'🎯', ph:'e.g. CO₂ ±3% · Temp ±0.5°F · RH ±3%' },
   { id:'ps_inst_iaq_cal',        sec:'Instruments',   q:'Last factory/field calibration date?', t:'date', sk:1,  ic:'🔧' },
   { id:'ps_inst_iaq_cal_status', sec:'Instruments',   q:'Calibration status',                   t:'ch',   sk:1,  ic:'✅', opts:['Calibrated within manufacturer spec','Calibrated — overdue for recertification','Field-zeroed only','Not calibrated','Unknown'] },
+  { id:'ps_inst_flow',           sec:'Instruments',   q:'Airflow instrument (if used)?',        t:'combo', sk:1, ic:'💨', ph:'Or type your own...', opts:['TSI AccuBalance 8380','TSI VelociCalc 9565','Alnor EBT731','Testo 420','Kanomax 6710','Shortridge FlowHood','Other'] },
   // Differential-pressure instrument. Reuses the ps_inst_* envelope
   // (model / serial / accuracy / calibration) rather than declaring a
   // parallel instrument shape; `resolution` is the one attribute the
@@ -273,6 +298,11 @@ export const Q_ZONE = [
   { id:'zone_subtype', sec:'Zone', q:'Zone subtype?',                     t:'ch',   sk:1, ic:'🏗️', opts:[], profileDynamic:true },
   { id:'su', sec:'Zone',        q:'Space use?',                           t:'ch',   req:1, ic:'🪑', opts:['office','classroom','retail','healthcare','lab','warehouse','manufacturing','conference','data_center','restaurant / kitchen','hotel / hospitality','gym / fitness','residential','library','auditorium / theater','daycare / childcare','church / worship','parking garage','mechanical room','server / telecom room','Other'], other:1 },
   { id:'sf', sec:'Zone',        q:'Zone area?',                           t:'num',  req:1, ic:'📐', u:'sq ft' },
+  // Why this zone is in the assessment. A comparison area — same use and
+  // ventilation, no complaint — is the first discriminating observation an
+  // investigator takes, and the report pairs it with the affected area
+  // only when the record says which is which.
+  { id:'zone_role', sec:'Zone',  q:'Role of this zone in the assessment?', t:'ch',   sk:1, ic:'🎯', opts:['Complaint / affected area','Comparison area (no complaint)','Representative area'], ref:'A comparison area is one of the same use and ventilation with no complaint; the report pairs it with the affected area.' },
   { id:'oc', sec:'Zone',        q:'Occupant count?',                      t:'num',  req:1, ic:'👥' },
   { id:'cx', sec:'Complaints',  q:'Complaints in this zone?',             t:'ch',   req:1, ic:'🗣️', opts:['No complaints','Yes — complaints reported'], br:1 },
   // `other:1` on a multi-select adds an "Other" write-in. The text is
@@ -283,21 +313,40 @@ export const Q_ZONE = [
   { id:'sr', sec:'Complaints',  q:'Symptoms improve away from building?', t:'ch',          ic:'🏠', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Yes — clear pattern','Partially','No — persist','Unknown'] },
   { id:'ac', sec:'Complaints',  q:'How many affected?',                   t:'ch',          ic:'👥', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['1-2','3-5','6-10','More than 10','Unknown'] },
   { id:'cc', sec:'Complaints',  q:'Clustered in this zone?',              t:'ch',          ic:'📌', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Yes — this zone','Scattered','Unknown'] },
+  // The occupant interview as a record, not four dropdowns: onset, the
+  // time-of-day and day-of-week pattern, where in the zone, and what
+  // relieves it (NIOSH IEQ questionnaire; EPA/NIOSH BAQ Occupant Interview
+  // form). Each answer is what was reported; none is a finding.
+  { id:'sy_onset',  sec:'Complaints', q:'When did symptoms begin?',            t:'ch',   sk:1, ic:'📅', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Within the past week','Within the past month','1-6 months ago','Over 6 months ago','Unknown'] },
+  { id:'sy_time',   sec:'Complaints', q:'When in the day are symptoms worst?', t:'ch',   sk:1, ic:'🕐', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Morning','Afternoon','Evening / night','All day','No pattern','Unknown'] },
+  { id:'sy_days',   sec:'Complaints', q:'Which days?',                         t:'ch',   sk:1, ic:'📆', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Weekdays only','Every day','Specific days','No pattern','Unknown'] },
+  { id:'sy_where',  sec:'Complaints', q:'Where in the zone are symptoms reported?', t:'text', sk:1, ic:'📍', cond:{f:'cx',eq:'Yes — complaints reported'}, ph:'e.g. desks along the north wall, near the copier' },
+  { id:'sy_relief', sec:'Complaints', q:'What relieves the symptoms?',         t:'multi', other:1, sk:1, ic:'🌿', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Leaving the building','Opening a window','Moving within the zone','Nothing identified','Unknown'] },
   { id:'tc', sec:'Environment', q:'Thermal comfort?',                     t:'ch',          ic:'🌡️', opts:['Comfortable','Slightly warm','Slightly cool','Too hot','Too cold','Fluctuating','Drafty'] },
   { id:'hp', sec:'Environment', q:'Humidity?',                            t:'ch',          ic:'💧', opts:['Comfortable','Too humid / stuffy','Too dry','Variable'] },
   { id:'vd', sec:'Environment', q:'Visible dust?',                        t:'ch',          ic:'🌫️', opts:['None','Light surface dust','Airborne haze','Heavy accumulation'] },
   { id:'wd', sec:'Environment', q:'Water damage?',                        t:'ch',          ic:'🚿', opts:['None','Old staining','Active leak','Extensive damage'], br:1, photo:1 },
   { id:'wl', sec:'Environment', q:'Water damage location?',               t:'multi', other:1, ic:'📍', cond:{f:'wd',ne:'None'}, opts:['Ceiling','Walls','Floor','Windows','Pipes','Roof','Below grade'] },
   { id:'mi', sec:'Environment', q:'Mold indicators?',                     t:'ch',          ic:'🦠', opts:['None','Suspected discoloration','Small (< 10 sq ft)','Moderate (10-100 sq ft)','Extensive (> 100 sq ft)'], photo:1 },
-  { id:'op', sec:'Environment', q:'Unusual odors?',                       t:'ch',          ic:'👃', opts:['None','Faint / intermittent','Moderate persistent','Strong / overpowering'], br:1 },
+  { id:'op', sec:'Environment', q:'Unusual odors?',                       t:'ch',          ic:'👃', opts:['None','Faint / intermittent','Moderate persistent','Strong / overpowering'], br:1, photo:1 },
   { id:'ot', sec:'Environment', q:'Odor type?',                           t:'multi', other:1, ic:'🧪', cond:{f:'op',ne:'None'}, opts:['Chemical','Musty / Earthy','Sewage','Exhaust','Off-gassing','Sweet','Unknown'] },
   { id:'src_adjacent',      sec:'Source ID',   q:'Adjacent to this zone?',        t:'multi',sk:1, other:1, ic:'🔎', opts:['Copier / printer room','Janitorial / chemical closet','Kitchen / break room','Restrooms','Loading dock','Parking garage','Mechanical room','Lab space','New construction / renovation area','Exterior wall (traffic side)','Roof (near exhaust)','None of concern'] },
   { id:'src_internal',      sec:'Source ID',   q:'Sources WITHIN this zone?',     t:'multi',sk:1, other:1, ic:'🏭', opts:['New furniture / carpet / paint','Space heaters','Personal air fresheners','Stored chemicals','Aquariums / plants','Laser printers','3D printers','Cleaning in progress','Construction materials','Food preparation','None identified'] },
+  // One detail card per source ticked above: what it actually is, when it
+  // was installed or began, how much of the area it covers. The category
+  // is what the engine matches on; the detail is what the report prints.
+  // Stored as { [source]: { what, installedOn, extent } }.
+  { id:'src_detail',        sec:'Source ID',   q:'Source details',                t:'sourcecards', sk:1, ic:'🔍', photo:1, ref:'For each source ticked: what it is, when it was installed or began, and how much of the area it covers.' },
   { id:'cfm_person',        sec:'Airflow',     q:'Measured outdoor air (cfm/person)?', t:'num', sk:1, ic:'💨', u:'cfm/person', ph:'e.g. 18', ref:'ASHRAE 62.1-2025 Table 6.2.2.1', helper:'co2_mass_balance' },
   { id:'ach',               sec:'Airflow',     q:'Air changes per hour (ACH)?',   t:'num', sk:1, ic:'🔄', u:'ACH', ph:'e.g. 4.5', ref:'≥4 office · ≥6 healthcare (CDC/ASHRAE 170)' },
   { id:'path_pressure',     sec:'Airflow',     q:'Zone pressure vs adjacent?',    t:'ch',   sk:1, ic:'🌀', opts:['Positive (pushes out)','Negative (draws in)','Neutral','Not assessed'], ref:'Use smoke pencil at doorways/gaps' },
   { id:'path_crosstalk',    sec:'Airflow',     q:'Cross-contamination evidence?', t:'ch',   sk:1, ic:'🔄', opts:['None observed','Odors migrating from adjacent space','Visible air movement at gaps / penetrations','Duct cross-talk suspected','Stack effect pulling from below','Not assessed'] },
   { id:'path_crosstalk_source',sec:'Airflow',  q:'Cross-contamination source?',  t:'ta',   sk:1, ic:'📝', cond:{f:'path_crosstalk',ne:'None observed'} },
+  { id:'oa_flow_cfm',       sec:'Airflow',     q:'Measured supply / outdoor-air flow?', t:'num', sk:1, ic:'💨', u:'cfm', ph:'e.g. 85', ref:'A balometer or flow-hood reading at the supply or outdoor-air grille. Divide by occupants for cfm/person.' },
+  // The pathway checks an investigator makes on the way through, recorded
+  // so the report can say what was already tested instead of asking for
+  // it. Stored as { [check]: { result, method } }; see CaptureRecords.
+  { id:'zone_checks',       sec:'Airflow',     q:'Checks performed in this zone', t:'checks', sk:1, ic:'✅', ref:'What was tested and what it showed. The hypotheses section reads these before asking for verification.' },
   { id:'meas_time',         sec:'Measurements',q:'Time of readings?',            t:'time', sk:1, ic:'🕐', ph:'Select time…' },
   { id:'meas_occ',          sec:'Measurements',q:'Occupancy at time of measurement?',t:'ch',sk:1,ic:'👥', opts:['Typical occupancy','Above typical (meeting/event)','Below typical','Unoccupied','Unknown'] },
   { id:'meas_duration',     sec:'Measurements',q:'Measurement type?',            t:'ch',   sk:1, ic:'⏱️', opts:['Spot check (instantaneous)','5-minute average','15-minute average','1-hour average','Continuous logging'] },
@@ -307,6 +356,13 @@ export const Q_ZONE = [
   { id:'pid_rf',            sec:'Measurements',q:'Response factor applied?',        t:'num',  sk:1, ic:'📊', cond:{f:'pid_lamp',ne:'No PID used'}, ph:'1.0 = isobutylene-equivalent' },
   { id:'tvoc_source_class', sec:'Measurements',q:'Dominant VOC source class (if known)?', t:'ch', sk:1, ic:'🧪', cond:{f:'pid_lamp',ne:'No PID used'}, opts:['Paint solvents','Cleaning agents','Off-gassing materials','Combustion byproducts','Unknown'] },
   { id:'_sensors',          sec:'Measurements',q:'Instrument readings for this zone',t:'sensors',sk:1,ic:'📏' },
+  // A continuous logger placed in this zone: the instrument, where it sat,
+  // when it ran, and the events during the logging period that explain
+  // what the trace shows. Captured when the logger goes down and comes up,
+  // not in Logger Studio afterwards. Stored as { placed, instrument, serial,
+  // position, height_m, start, end, interval_min, events: [{ id, at, kind,
+  // description }] }; see CaptureRecords.LoggerDeployment.
+  { id:'logger_deployment', sec:'Measurements',q:'Continuous logger',            t:'logger', sk:1, ic:'📈', photo:1, ref:'Record the logger when it goes down and when it comes up. Events during the logging period explain what the trace shows.' },
   { id:'znt',               sec:'Zone Notes',  q:'Zone observations / notes?',   t:'ta',   sk:1, ic:'📝' },
 ]
 

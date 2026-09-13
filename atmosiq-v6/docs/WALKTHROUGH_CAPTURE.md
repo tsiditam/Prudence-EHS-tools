@@ -1,8 +1,20 @@
 # Capturing the walkthrough the way the report reads
 
 *Written against the third demo (Larkin Hall, `constants/demoDataHcho.js`)
-and the AtmosFlow Word report it produces, September 2026. A plan, not a
-change: nothing here is implemented yet.*
+and the AtmosFlow Word report it produces, September 2026.*
+
+**Status (September 2026).** Tranches 1 and 2 are implemented, and the
+sampling-plan section from tranche 3, which turned out to be a renderer
+change and not an engine one. What landed: the fields in `questions.js`
+(§3), the editors in `components/walkthrough/CaptureRecords.jsx`, the
+renderers in `report/captureRender.js` wired through `reportModel.js` and
+`sections-atmosflow.js`, the two readiness gaps in
+`engines/defensibility-gaps.js`, the mass-balance prompt on the readings
+screen, and the demo filled in. Two items were deferred with a reason:
+note-to-field proposals through the assistant, because
+`observable-fields.js` only admits fields an engine reads and these are
+read by the report; and the three engine-conclusion decisions in §5, which
+remain the product's to make.
 
 ## 1. Why the demo report reads well, and what that tells us
 

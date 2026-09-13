@@ -1,5 +1,41 @@
 # AtmosFlow Changelog
 
+## Capturing the walkthrough the way the report reads (September 2026)
+
+The report was already written; the walkthrough now asks for what it
+prints. `docs/WALKTHROUGH_CAPTURE.md` is the plan; this is tranches 1 and 2.
+
+- **Seven records the report reads** (`constants/questions.js`,
+  `components/walkthrough/CaptureRecords.jsx`, `report/captureRender.js`):
+  an **event timeline** on the pre-survey, printed as the dated sequence in
+  section 1; a **zone role** (affected / comparison / representative),
+  printed beside the zone in Observations, in the results table and as a
+  "Comparison area" row of the conceptual site model with that zone's
+  readings; **source detail cards** per ticked source (what, installed
+  when, extent); the **occupant interview's** onset, time-of-day and
+  day-of-week pattern, location and relief; **checks performed** (door
+  smoke test, diffuser airflow, damper, drain pan, grille flow), printed in
+  Observations and beside the site model's verification; a **measured
+  supply / outdoor-air flow** with its instrument; and the **logger
+  deployment** (instrument, position, height, period, interval) with an
+  **event log** during the logging period, printed as a "Continuous
+  monitoring" QA/QC row, in Observations, and as the derived caption on
+  any logger figure the assessor left uncaptioned.
+- **The trigger cards ask for what section 1 states**: the post-renovation
+  branch gains materials installed, re-occupancy date and flush-out; the
+  complaint branch gains the time of day complaints are worst.
+- **The mass-balance estimate is offered where its inputs exist**: once
+  indoor CO₂, the outdoor baseline and the occupant count are on the
+  readings screen and no outdoor-air rate is recorded, the ASHRAE 62.1
+  steady-state estimate is one tap to record.
+- **The DOCX prints the sampling plan** as 6.1 Confirmatory sampling, read
+  verbatim from what the Actions tab already showed.
+- **Two readiness gaps**: a complaint zone with no comparison area
+  recorded; logger data with no deployment record.
+- **Photo prompts** on the odor answer, the source cards and the logger
+  deployment.
+- The third demo carries every record, so its report exercises all of them.
+
 ## A third demo: post-renovation formaldehyde, with a week of logger data (September 2026)
 
 - **Demo · Post-Renovation Logger** (`constants/demoDataHcho.js`): a college
