@@ -208,27 +208,31 @@ function Field({ name, label, type, value, onChange, autoComplete, placeholder, 
     <div style={{ position: 'relative', ...style }}>
       <div
         style={{
+          // The app's glass (see --glass-* in index.html): the translucent
+          // fill, the hairline edge, the accent edge and a 2px ring on
+          // focus, no glow.
           width: '100%',
-          padding: '10px 18px',
-          background: 'color-mix(in srgb, var(--surface) 55%, transparent)',
-          border: `1px solid ${focused ? ACCENT : 'color-mix(in srgb, var(--border) 70%, transparent)'}`,
+          padding: '10px 16px',
+          background: 'var(--glass-fill)',
+          border: `1px solid ${focused ? ACCENT : 'var(--glass-edge)'}`,
           borderRadius: 14,
           minHeight: 58,
           display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3,
-          boxShadow: focused
-            ? '0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent), 0 8px 22px -12px color-mix(in srgb, var(--accent) 45%, transparent)'
-            : 'inset 0 1px 0 color-mix(in srgb, #fff 3%, transparent)',
-          transition: 'border-color 160ms ease, box-shadow 200ms ease, background 160ms ease',
+          boxShadow: focused ? '0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent)' : 'none',
+          backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+          transition: 'border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease',
           boxSizing: 'border-box',
         }}
       >
         <label
           htmlFor={inputId}
           style={{
-            fontSize: 10, fontWeight: 600, letterSpacing: '0.14em',
+            // The eyebrow scale (11 / 500 / 0.7px), the accent only while
+            // the field has focus.
+            fontSize: 11, fontWeight: 500, letterSpacing: '0.7px',
             color: focused ? ACCENT : SUB,
             textTransform: 'uppercase',
-            transition: 'color 150ms ease',
+            transition: 'color var(--dur-fast) ease',
           }}
         >{label}</label>
         <input
@@ -402,13 +406,15 @@ export default function AuthScreen({ onAuth }) {
             }}
           />
           <div style={{ position: 'relative', zIndex: 1, ...rise(90) }}>
+            {/* The tagline in the eyebrow scale and the secondary ink — the
+                mark above carries the brand; a cyan line under it was the
+                accent spent on decoration. */}
             <div style={{
-              fontSize: 11, fontWeight: 600, color: ACCENT,
-              marginTop: 18, letterSpacing: '0.16em',
+              fontSize: 11, fontWeight: 500, color: SUB,
+              marginTop: 16, letterSpacing: '0.7px', textTransform: 'uppercase',
               lineHeight: 1.5, maxWidth: 320,
               marginLeft: 'auto', marginRight: 'auto',
             }}>{tagline}</div>
-            <div style={{ width: 44, height: 2, background: ACCENT, borderRadius: 1, margin: '8px auto 0' }} />
           </div>
         </div>
 
@@ -523,11 +529,11 @@ export default function AuthScreen({ onAuth }) {
             </label>
           )}
 
-          {/* Primary CTA — floats above the plane: bright cyan with a
-              subtle top-highlight gradient, an inset sheen, a soft cyan
-              ambient glow, and a tactile press (lift on hover, depress on
-              :active — see .auth-cta in the style block). This is the one
-              element meant to feel desirable, not just functional. */}
+          {/* Primary CTA — the app's primary: the flat accent fill and its
+              inscription, the 600 weight every button carries, the press
+              from the motion system. The gradient, sheen and cyan glow it
+              used to wear were the one surface in the app still on the
+              pre-flat treatment. */}
           <button
             type="submit"
             className="auth-cta"
@@ -536,17 +542,17 @@ export default function AuthScreen({ onAuth }) {
             aria-busy={loading}
             style={{
               width: '100%', padding: '13px 0', marginTop: 10,
-              background: 'linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 86%, #ffffff 14%) 0%, var(--accent-fill) 100%)',
-              border: 'none', borderRadius: 14,
+              background: 'var(--accent-fill)',
+              border: '1px solid var(--accent-fill)', borderRadius: 14,
               color: 'var(--on-accent-fill, #07080C)',
-              fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
+              fontSize: 15, fontWeight: 600, letterSpacing: '-0.1px',
               cursor: loading ? 'wait' : 'pointer',
               minHeight: 50,
               opacity: loading ? 0.75 : 1,
-              boxShadow: '0 10px 26px -8px color-mix(in srgb, var(--accent) 55%, transparent), 0 3px 8px -3px rgba(0,0,0,0.45), inset 0 1px 0 color-mix(in srgb, #ffffff 38%, transparent)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.20)',
               fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              transition: 'transform 130ms cubic-bezier(.2,.7,.2,1), box-shadow 220ms ease, opacity 150ms ease',
+              transition: 'transform var(--dur-fast) var(--ease-out), filter var(--dur-fast) ease, opacity var(--dur-fast) ease',
               ...rise(300),
             }}
           >
@@ -671,8 +677,8 @@ export default function AuthScreen({ onAuth }) {
             </div>
             {/* Standards-body trust signals as lightweight pills —
                 cleaner than a bordered card, reads at a glance. Each pill
-                glows cyan when touched/hovered (.auth-pill in the style
-                block). */}
+                takes the glass hover step when touched (.auth-pill in the
+                style block). */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, maxWidth: 360 }}>
               {['NIOSH', 'ASHRAE', 'AIHA'].map(label => (
                 <span key={label} className="auth-pill" style={{
@@ -745,17 +751,16 @@ export default function AuthScreen({ onAuth }) {
         @keyframes auth-flow{from{stroke-dashoffset:0;}to{stroke-dashoffset:-220;}}
         @keyframes auth-spin{from{transform:rotate(0);}to{transform:rotate(360deg);}}
         @keyframes auth-banner{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
-        /* Tactile primary CTA — lifts on hover, depresses on press, with
-           the cyan ambient glow swelling/contracting to sell the depth. */
-        .auth-cta:hover:not(:disabled){transform:translateY(-1.5px);box-shadow:0 14px 34px -8px color-mix(in srgb, var(--accent) 65%, transparent), 0 4px 10px -3px rgba(0,0,0,0.5), inset 0 1px 0 color-mix(in srgb, #ffffff 46%, transparent);}
-        .auth-cta:active:not(:disabled){transform:translateY(1px) scale(.992);box-shadow:0 5px 14px -6px color-mix(in srgb, var(--accent) 50%, transparent), inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent);}
-        .auth-quiet:hover:not(:disabled){border-color:color-mix(in srgb, var(--accent) 38%, transparent);background:color-mix(in srgb, var(--accent) 5%, transparent);}
+        /* Primary CTA — the press every button in the app has: a step
+           brighter on hover, sunk on press, sprung back on release. */
+        .auth-cta:hover:not(:disabled){filter:brightness(1.06);}
+        .auth-cta:active:not(:disabled){transform:scale(.97);}
+        .auth-quiet:hover:not(:disabled){background:var(--glass-fill-hover);}
         .auth-quiet:active:not(:disabled){transform:scale(.99);}
-        /* Trust pills glow cyan when touched (and on hover). :active is
-           held while a finger is down, so the pill lights up under touch. */
-        .auth-pill{transition:box-shadow .2s ease, border-color .2s ease, background .2s ease, transform .12s ease;}
-        .auth-pill:hover{border-color:color-mix(in srgb, var(--accent) 45%, transparent);box-shadow:0 0 10px color-mix(in srgb, var(--accent) 38%, transparent);}
-        .auth-pill:active{border-color:color-mix(in srgb, var(--accent) 70%, transparent);background:color-mix(in srgb, var(--accent) 16%, transparent);box-shadow:0 0 16px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);transform:scale(.97);}
+        /* Trust pills — the glass hover step, no glow. */
+        .auth-pill{transition:background var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-fast) ease;}
+        .auth-pill:hover{background:var(--glass-fill-hover);}
+        .auth-pill:active{transform:scale(.97);}
         @media (prefers-reduced-motion: reduce){
           *,*:before,*:after{animation-duration:0.01ms !important;animation-delay:0ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;}
         }

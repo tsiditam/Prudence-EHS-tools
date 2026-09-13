@@ -11,6 +11,7 @@
  */
 
 import React from 'react'
+import DrawnCheck from './components/ui/DrawnCheck'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -63,7 +64,24 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       {root}
       {kgEnabled && !isDevEvidenceMap && <DevPreviewButton />}
     </ErrorBoundary>
-    <Toaster theme={getTheme()} richColors closeButton position="top-center" />
+    {/* Toasts in the header controls' glass and the motion system's
+        timing — the same material the rest of the chrome is made of. */}
+    <Toaster
+      theme={getTheme()}
+      richColors
+      closeButton
+      position="top-center"
+      duration={4000}
+      icons={{ success: <DrawnCheck size={18} /> }}
+      toastOptions={{
+        style: {
+          background: 'color-mix(in srgb, var(--surface) 88%, transparent)',
+          backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+          border: '1px solid var(--glass-edge)', borderRadius: 14, boxShadow: 'none',
+          color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 14,
+        },
+      }}
+    />
   </React.StrictMode>
 )
 

@@ -25,6 +25,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Exhibit from '../ui/Exhibit'
 import * as V3 from '../../styles/tokens'
 import TactileButton from '../ui/TactileButton'
 import BottomSheet from '../ui/BottomSheet'
@@ -434,15 +435,9 @@ export default function ProjectDetail({ id, onBack, profile, editSignal, onNewAs
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, paddingTop: 4 }}>
                 {project.evidence.map(ev => (
-                  <div key={ev.id} style={{ position: 'relative', borderRadius: V3.R.md, overflow: 'hidden', background: 'var(--surface)' }}>
-                    <button onClick={() => downloadDataUrl(ev.dataUrl, ev.name)} style={{ display: 'block', width: '100%', border: 'none', padding: 0, background: 'none', cursor: 'pointer' }}>
-                      <img src={ev.dataUrl} alt={ev.caption || ev.name} style={{ display: 'block', width: '100%', height: 120, objectFit: 'cover' }} />
-                    </button>
-                    <div style={{ padding: '8px 10px' }}>
-                      <div style={{ ...V3.T.caption, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.caption || ev.name}</div>
-                      <div style={{ ...V3.T.captionDim, fontSize: 10 }}>{fmtDate(ev.uploadedAt)}</div>
-                    </div>
-                    <button onClick={() => removeEvidence(id, ev.id).then(refresh)} aria-label={`Remove ${ev.caption || ev.name}`} style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 8, border: 'none', background: 'rgba(0,0,0,0.55)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div key={ev.id} style={{ position: 'relative' }}>
+                    <Exhibit src={ev.dataUrl} alt={ev.caption || ev.name} title={ev.caption || ev.name} meta={fmtDate(ev.uploadedAt)} onClick={() => downloadDataUrl(ev.dataUrl, ev.name)} />
+                    <button onClick={() => removeEvidence(id, ev.id).then(refresh)} aria-label={`Remove ${ev.caption || ev.name}`} style={{ position: 'absolute', top: 6, right: 6, zIndex: 2, width: 26, height: 26, borderRadius: 13, border: 'none', background: 'rgba(0,0,0,0.55)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <I n="trash" s={14} c="#fff" w={1.8} />
                     </button>
                   </div>

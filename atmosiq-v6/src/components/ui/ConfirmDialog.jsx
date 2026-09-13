@@ -77,7 +77,7 @@ export default function ConfirmDialog({
         backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 20,
-        animation: `sg-fade ${SPRING.durMed} ${SPRING.settle}`,
+        animation: `sg-fade ${SPRING.durScrim} ease`,
       }}
     >
       <div

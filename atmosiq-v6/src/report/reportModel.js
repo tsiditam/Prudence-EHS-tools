@@ -289,7 +289,7 @@ const hasList = (v) => Array.isArray(v) && v.filter(x => has(x)).length > 0
 const listOf = (v) => (v || []).filter(x => has(x)).join(', ')
 
 /** Per-zone environmental observations, as sentences. */
-function zoneObservations(z = {}) {
+export function zoneObservations(z = {}) {
   const out = []
   if (has(z.tc)) out.push(`Thermal comfort reported as ${String(z.tc).toLowerCase()}.`)
   if (has(z.hp)) out.push(`Humidity reported as ${String(z.hp).toLowerCase()}.`)
@@ -309,7 +309,7 @@ function zoneObservations(z = {}) {
 }
 
 /** Per-zone occupant reports, as sentences. */
-function zoneOccupantReports(z = {}) {
+export function zoneOccupantReports(z = {}) {
   if (z.cx !== 'Yes — complaints reported') return []
   const out = []
   const symptoms = [...(z.sy || []), ...(z.sy_other ? [z.sy_other] : [])].filter(Boolean)

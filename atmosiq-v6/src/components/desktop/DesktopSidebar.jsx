@@ -103,7 +103,7 @@ const rowStyle = (active, collapsed) => ({
   // tinted accent box. Cyan is reserved (see the header comment).
   background: active ? 'var(--raised)' : 'transparent',
   WebkitTapHighlightColor: 'transparent',
-  transition: 'background 120ms ease, color 120ms ease',
+  transition: 'background var(--dur-fast) ease, color var(--dur-fast) ease',
   boxSizing: 'border-box',
 })
 
@@ -119,7 +119,7 @@ function Row({ item, active, onSelect, collapsed }) {
       aria-label={collapsed ? item.label : undefined}
       title={collapsed ? item.label : undefined}
       style={rowStyle(active, collapsed)}>
-      <span className="af-rail-ink" style={{ display: 'inline-flex', flexShrink: 0, width: 18, justifyContent: 'center', color: active ? 'var(--text)' : 'var(--sub)', transition: 'color 120ms ease' }}>
+      <span className="af-rail-ink" style={{ display: 'inline-flex', flexShrink: 0, width: 18, justifyContent: 'center', color: active ? 'var(--text)' : 'var(--sub)', transition: 'color var(--dur-fast) ease' }}>
         {item.renderIcon ? item.renderIcon(active) : <I n={item.icon} s={17} c="currentColor" w={1.7} />}
       </span>
       {!collapsed && (
@@ -180,7 +180,7 @@ export default function DesktopSidebar({
     width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent',
     color: 'var(--sub)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
     justifyContent: 'center', fontFamily: 'inherit', flexShrink: 0, padding: 0,
-    transition: 'background 120ms ease, color 120ms ease', WebkitTapHighlightColor: 'transparent',
+    transition: 'background var(--dur-fast) ease, color var(--dur-fast) ease', WebkitTapHighlightColor: 'transparent',
   }
   const sidePad = collapsed ? '0 12px' : '0 10px'
   const renderItems = (items) => (items || []).map((item) => (
@@ -200,7 +200,7 @@ export default function DesktopSidebar({
         paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)',
         boxSizing: 'border-box',
-        transition: 'width 200ms cubic-bezier(.22,1,.36,1)',
+        transition: 'width var(--dur-sheet) var(--ease-out)',
         overflow: 'hidden',
       }}
     >

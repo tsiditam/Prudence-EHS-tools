@@ -72,19 +72,30 @@ export const GLASS = {
 // 1-property transitions; `bounce` for sheet enter; `settle` for sheet
 // exit (no overshoot on the way out — feels weird).
 
+// Motion system (2026-09): the canonical curves and durations are the
+// --ease-* / --dur-* custom properties in index.html; these aliases let
+// inline styles read the same values. `enter` is THE curve for anything
+// that enters or moves; `settle` for exits; `bouncy` for a press release
+// only. `gentle` and `bounce` are kept as names for the call sites that
+// still spell them, and now resolve to the same two curves.
 export const SPRING = {
-  gentle: 'cubic-bezier(0.34, 1.4, 0.64, 1)',
-  bounce: 'cubic-bezier(0.16, 1.2, 0.3, 1)',
-  settle: 'cubic-bezier(0.4, 0, 0.2, 1)',
+  enter:  'var(--ease-out)',
+  gentle: 'var(--ease-out)',
+  bounce: 'var(--ease-out)',
+  settle: 'var(--ease-in)',
   // Springier overshoot for the release of a press — the button "settles"
   // back past its rest size and eases in, the iOS-26 "liquid" tap read.
-  bouncy: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  bouncy: 'var(--ease-spring)',
   // Duration aliases keep transitions consistent across primitives.
-  durFast: '140ms',
-  durMed:  '220ms',
-  durSlow: '320ms',
+  durFast:  'var(--dur-fast)',
+  durMed:   'var(--dur-enter)',
+  durEnter: 'var(--dur-enter)',
+  durExit:  'var(--dur-exit)',
+  durSlow:  'var(--dur-sheet)',
+  durSheet: 'var(--dur-sheet)',
+  durScrim: 'var(--dur-scrim)',
   // Longer settle so the spring overshoot on release has room to read.
-  durSettle: '360ms',
+  durSettle: 'var(--dur-settle)',
 }
 
 // ── Radii ────────────────────────────────────────────────────────────
@@ -137,7 +148,7 @@ export const tapResetStyle = {
 // button settles back rather than snapping. Spread the matching scale on
 // pointerdown (PRESS_SCALE) / pointerup (1). Reduced-motion callers should
 // swap both transitions for 'none' so the state change is instant.
-export const pressInTransition = `transform 110ms ${SPRING.settle}`
+export const pressInTransition = `transform ${SPRING.durFast} ${SPRING.settle}`
 export const pressOutTransition = `transform ${SPRING.durSettle} ${SPRING.bouncy}`
 export const PRESS_SCALE = 0.96
 

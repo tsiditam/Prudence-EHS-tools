@@ -39,7 +39,7 @@ import { VER, STANDARDS_MANIFEST } from '../constants/standards'
 import { Q_ZONE, Q_QUICKSTART, Q_DETAILS, SENSOR_FIELDS } from '../constants/questions'
 import { BUILDING_SCOPED_IDS } from '../constants/field-registry'
 import { deriveInvestigation } from '../engine/investigation'
-import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasurementConfidence } from '../engines/scoring'
+import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasurementConfidence, readNumber } from '../engines/scoring'
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains, pickPrimaryChain } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
@@ -60,6 +60,18 @@ import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
 import EmptyState from './ui/EmptyState'
+import Reading from './ui/Reading'
+import AiAction from './ui/AiAction'
+import DrawnCheck from './ui/DrawnCheck'
+import Exhibit from './ui/Exhibit'
+// The Investigation tab reads a zone the way the report does — the same
+// parameter table, the same engine outcome per parameter, the same
+// observation and occupant-report sentences — so the screen and the DOCX
+// never describe one zone in two vocabularies.
+import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports } from '../report/reportModel'
+import { photosForZone, photoCaption } from '../utils/photoIndex'
+import { spaceUse } from '../utils/samplePoints'
+import Select from './ui/Select'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import LaunchFrame, { LazyPlaceholder } from './LaunchFrame'
@@ -254,7 +266,18 @@ const RESULT_TAB_ALIASES = {
 // over content that parts from the previous section with a hairline — no
 // card, no icon tile, no tinted pill. Every result tab uses the same two
 // styles, so the screen reads as one document rather than a dashboard.
-const RS_SECTION = { paddingTop: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
+//
+// The rhythm is symmetric: 18px above the hairline and 18px below it, so
+// the rule sits centered in the gap between two blocks. It used to be
+// 18px below and 0px above — every section's last line hugged the next
+// section's rule while its own heading floated 18px under it, and the
+// page read as unevenly spaced. A section whose last child is a padded
+// row (a zone list, an action list) takes RS_SECTION_ROWS, which trims
+// the bottom padding by the row's own so the gap stays 18.
+const RS_SECTION = { paddingTop: 18, paddingBottom: 18, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }
+const RS_SECTION_ROWS = { ...RS_SECTION, paddingBottom: 7 }
+// The first section under the tab bar: the bar already draws the rule.
+const RS_SECTION_FIRST = { ...RS_SECTION, borderTop: 'none', paddingTop: 4 }
 const RS_HEAD = { ...V3.T.micro, marginBottom: 10 }
 
 // The audit panel's shape, read off the stored `narrativeMeta` record
@@ -905,7 +928,7 @@ export default function MobileApp() {
   const [exportFormat, setExportFormat] = useState(null)
   // Pen-writing overlay shown while a DOCX generates: { label, durationMs } | null
   const [genWriting, setGenWriting] = useState(null)
-  const [rTab, setRTab] = useState('overview')
+  const [rTab, setRTab] = useState('investigation')
   const [selZone, setSelZone] = useState(0)
 
   const [viewRpt, setViewRpt] = useState(null)
@@ -1138,6 +1161,15 @@ export default function MobileApp() {
   // zqi exactly on the target question.
   const [pendingZoneFix, setPendingZoneFix] = useState(null)
   const [voicePrefill, setVoicePrefill] = useState(null)
+  // A contextual AI action: open the assistant with the question already
+  // asked, the current screen as its context. The same prefill path the
+  // voice command uses; the source names the surface for analytics.
+  const askAI = (question, source) => {
+    supabase && trackEvent('jasper_open', { source })
+    setNewChatNonce(n => n + 1)
+    setVoicePrefill(question)
+    setFaOpen(true)
+  }
   // AtmosFlow AI "Review for discrepancies" — chooser + the payload/prompt
   // handed to the assistant. reviewPayload rides the request context;
   // reviewPrefill is the visible directive the sheet auto-sends on open.
@@ -1318,8 +1350,8 @@ export default function MobileApp() {
       transform: on ? 'scale(0.92)' : 'scale(1)',
       filter: on ? 'brightness(1.3)' : 'none',
       transition: on
-        ? 'transform 120ms cubic-bezier(.2,.85,.3,1), filter 120ms ease'
-        : 'transform 360ms cubic-bezier(.34,1.56,.64,1), filter 260ms ease',
+        ? 'transform var(--dur-fast) var(--ease-out), filter var(--dur-fast) ease'
+        : 'transform var(--dur-settle) var(--ease-spring), filter var(--dur-enter) ease',
       willChange: 'transform',
     }
   }
@@ -1680,7 +1712,7 @@ export default function MobileApp() {
     const mold = demoZones.map(z => evalMold(z)).filter(Boolean)
     const mc = evalMeasurementConfidence(demoZones)
     setZoneScores(zScores); setComp(composite); setOshaResult(osha); setRecs(recommendations)
-    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('overview'); setNarrative(null); setAiSections(null); setView('results')
+    setSamplingPlan(sp); setCausalChains(cc); setMoldResults(mold); setMeasConf(mc); setSelZone(0); setRTab('investigation'); setNarrative(null); setAiSections(null); setView('results')
   }
 
   /**
@@ -1970,7 +2002,7 @@ export default function MobileApp() {
     // refresh stay after the transition: they never touch `draftId`, and
     // an offline queue should not hold the screen.
     const minHold = new Promise((resolve) => setTimeout(resolve, 1600))
-    const showResults = () => { setMilestone(null); setRTab('overview'); setView('results') }
+    const showResults = () => { setMilestone(null); setRTab('investigation'); setView('results') }
     let report = null
     let rid = null
     try {
@@ -2803,7 +2835,7 @@ export default function MobileApp() {
     setPhotos(rpt.photos||{}); setPhotoOverrides(rpt.photoOverrides||{}); setFloorPlans(await expandFloorPlans(normalizeFloorPlans(rpt))); setZoneScores(rpt.zoneScores||[]); setComp(rpt.comp||rpt.composite)
     setOshaResult(rpt.oshaEvals?.[0]||rpt.osha||null); setRecs(rpt.recs||null)
     setSamplingPlan(rpt.samplingPlan||null); setCausalChains(rpt.causalChains||[])
-    setSelZone(0); setRTab('overview'); setNarrative(rpt.narrative||null); setNarrativeMeta(rpt.narrativeMeta||null); setView('report')
+    setSelZone(0); setRTab('investigation'); setNarrative(rpt.narrative||null); setNarrativeMeta(rpt.narrativeMeta||null); setView('report')
   }
 
   const deleteItem = async (id, name, type) => {
@@ -3483,7 +3515,7 @@ export default function MobileApp() {
               duplication this comment exists to prevent. ── */}
           {/* The verdict on the page, not in a bordered card: the severity
               is a word in its color above the serif headline. */}
-          <div style={{...RS_SECTION, paddingTop:18}}>
+          <div style={{...RS_SECTION, paddingBottom:0}}>
             <div>
               <div>
                 <div style={{minWidth:0,flex:1}}>
@@ -3508,17 +3540,14 @@ export default function MobileApp() {
                   that used to be one line of the At-a-glance list. A reader
                   sees the scale of the investigation before the verdict's
                   reasoning, which is how a consultant report opens. */}
-              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(118px, 1fr))', gap:12, marginTop:18, maxWidth:620}}>
+              <div style={{display:'grid', gridTemplateColumns:`repeat(${isDesktop ? 4 : 2}, minmax(0, 1fr))`, gap:16, marginTop:18, maxWidth:620}}>
                 {[
                   [comp.count, userMode === 'fm' ? (comp.count===1?'Area assessed':'Areas assessed') : (comp.count===1?'Zone assessed':'Zones assessed')],
                   [heroCensus.meas, heroCensus.meas===1?'Measurement':'Measurements'],
                   [heroCensus.obs, heroCensus.obs===1?'Observation':'Observations'],
                   [heroCensus.occ, heroCensus.occ===1?'Occupant report':'Occupant reports'],
                 ].map(([v, l]) => (
-                  <div key={l} style={{padding:'10px 0 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}}>
-                    <div style={{...V3.N.lg}}>{v}</div>
-                    <div style={{...V3.T.captionDim, marginTop:2}}>{l}</div>
-                  </div>
+                  <Reading key={l} label={l} value={v} size="lg" animate style={{padding:'10px 0 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}} />
                 ))}
               </div>
               {/* Footer — the one link out of the hero, into Actions. The
@@ -3624,8 +3653,8 @@ export default function MobileApp() {
           active={rTab}
           onChange={(k)=>{ setRTab(k); haptic('light') }}
           tabs={[...(userMode === 'fm'
-            ? [['overview','findings','Findings'],['plan','check','Actions'],['report','notes','Report']]
-            : [['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Actions'],['report','notes','Report']]),
+            ? [['investigation','eye','Investigation'],['overview','findings','Findings'],['plan','check','Actions'],['report','notes','Report']]
+            : [['investigation','eye','Investigation'],['overview','findings','Findings'],['rootcause','chain','Pathways'],...(KG_EVIDENCE_ENABLED&&isDesktop?[['evidence','search','Evidence']]:[]),['plan','check','Actions'],['report','notes','Report']]),
             ['locations','bldg','Site plan'],
             ...(hasLoggerData ? [['logger','chart','Logger']] : [])
           ].map(([tid,icon,label])=>({ id:tid, icon, label, badge: tid === 'report' && readiness.finalization_blockers.length > 0 ? readiness.finalization_blockers.length : undefined }))}
@@ -3718,10 +3747,16 @@ export default function MobileApp() {
                               again — it was never meant to strand the assessor
                               with a warning and no way to act on it. */}
                           {!revising && (
-                            <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap'}}>
+                            <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                               <TactileButton variant="secondary" size="sm" pill onClick={()=>setEditDraft({ key, text: sectionText(aiSections, key) || '' })}>
                                 {revised ? 'Edit your wording…' : 'Edit this section…'}
                               </TactileButton>
+                              {/* Refine — the assistant rewrites THIS section from the
+                                  same evidence; the result is pasted back through the
+                                  edit path, which re-audits it like any revision. */}
+                              <AiAction label="Refine" onClick={()=>askAI(
+                                `Refine the ${AI_SECTION_LABELS[key] || key} of this report. Tighten it to what the findings and criteria support, keep every limitation it states, and return only the revised paragraph so I can paste it into the section editor.\n\nCurrent text:\n${sectionText(aiSections, key) || ''}`,
+                                'report_section')} />
                               {revised && <TactileButton variant="secondary" size="sm" pill onClick={()=>revertSection(key)}>Restore the AI text</TactileButton>}
                             </div>
                           )}
@@ -3905,6 +3940,135 @@ export default function MobileApp() {
           )
         })()}
 
+        {/* ── Investigation — what was measured and observed, zone by zone,
+            BEFORE what the engine concluded. Zones as rows carrying their
+            governing outcome; the focused zone opens into its readings as
+            instrument tiles (value, unit, the engine's criterion state),
+            its observations and occupant input in the report's own
+            sentences, the assessor's notes and its exhibits. Nothing here
+            is judged on this screen: every outcome is zoneParamOutcome,
+            the same call the results table in the DOCX makes. ── */}
+        {rTab==='investigation' && zs && (() => {
+          const OUTCOME = {
+            not_evaluated: { label: 'Not evaluated',   tone: V3.TEXT_TERTIARY },
+            acceptable:    { label: 'Within criteria', tone: V3.SEVERITY.pass },
+            advisory:      { label: 'Advisory',        tone: V3.SEVERITY.medium },
+            elevated:      { label: 'Elevated',        tone: V3.SEVERITY.high },
+            priority:      { label: 'Priority',        tone: V3.SEVERITY.critical },
+          }
+          const RANK = ['not_evaluated', 'acceptable', 'advisory', 'elevated', 'priority']
+          const worse = (a, b) => (a === null ? b : RANK.indexOf(b) > RANK.indexOf(a) ? b : a)
+          const SHORT = { co2: 'CO₂', co: 'CO', temperature: 'Temperature', relativeHumidity: 'Relative humidity', pm25: 'PM₂.₅', tvoc: 'TVOC' }
+          const zoneOf = (i) => zones[i] || {}
+          const readingsOf = (i) => REPORT_PARAMETERS
+            .map(p => ({ ...p, value: readNumber(zoneOf(i)[p.zoneKey]) }))
+            .filter(r => r.value !== null)
+            .map(r => ({ ...r, outcome: r.key === 'tvoc' ? null : zoneParamOutcome(zoneScores[i], r.key) }))
+          const governing = (i) => readingsOf(i).filter(r => r.outcome).reduce((w, r) => worse(w, r.outcome), null) || 'not_evaluated'
+          const z = zoneOf(selZone)
+          const readings = readingsOf(selZone)
+          const observed = zoneObservations(z)
+          const occupant = zoneOccupantReports(z)
+          const exhibits = photosForZone(photos, selZone)
+          const when = [z.meas_duration, z.meas_time, z.meas_occ].filter(v => typeof v === 'string' && v.trim()).join(' · ')
+          const ROW = { display:'grid', gridTemplateColumns:'8px minmax(0,1fr) auto', columnGap:12, alignItems:'center', padding:'11px 0', textAlign:'left', background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit', width:'100%', WebkitTapHighlightColor:'transparent' }
+          const line = (text, i) => (
+            <div key={i} style={{display:'flex', alignItems:'flex-start', gap:10, padding:'5px 0'}}>
+              <span aria-hidden="true" style={{width:6, height:6, borderRadius:3, background:V3.TEXT_TERTIARY, marginTop:7, flexShrink:0}} />
+              <span style={{...V3.T.body, minWidth:0}}>{text}</span>
+            </div>
+          )
+          return (
+            <div>
+              <div style={{...RS_SECTION_FIRST, paddingBottom:RS_SECTION_ROWS.paddingBottom}}>
+                <div style={RS_HEAD}>{userMode === 'fm' ? 'Areas' : 'Zones'} · {zoneScores.length}</div>
+                {zoneScores.map((zsc, i) => {
+                  const o = governing(i)
+                  const n = readingsOf(i).length
+                  const isFocus = selZone === i
+                  return (
+                    <button key={i} onClick={()=>setSelZone(i)} aria-pressed={isFocus} style={{...ROW, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                      <span aria-hidden="true" style={{width:8, height:8, borderRadius:4, background:OUTCOME[o].tone, justifySelf:'center'}} />
+                      <div style={{minWidth:0}}>
+                        <div style={{...V3.T.bodyStrong, color: isFocus ? V3.TEXT_PRIMARY : V3.TEXT_SECONDARY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{zsc.zoneName}</div>
+                        <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{[spaceUse(zoneOf(i)), n ? `${n} reading${n === 1 ? '' : 's'}` : 'No readings'].filter(Boolean).join(' · ')}</div>
+                      </div>
+                      <span style={{...V3.T.caption, color:OUTCOME[o].tone, whiteSpace:'nowrap'}}>{OUTCOME[o].label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* The focused zone's readings. The head names the zone and
+                  carries the one AI action; the grid beneath it is
+                  self-evidently the measurements, so no second label sits
+                  between them (it used to, and wrapped to two lines beside
+                  the action on a phone). Same head row as the Findings
+                  tab's "Findings · zone". */}
+              <div style={RS_SECTION}>
+                <div style={{display:'flex', alignItems:'center', flexWrap:'wrap', gap:'6px 12px', marginBottom:12}}>
+                  <div style={{...RS_HEAD, marginBottom:0}}>Readings · {zs.zoneName}</div>
+                  {readings.length > 0 && (
+                    <AiAction label="Explain these readings" style={{marginLeft:'auto', marginRight:-8}} onClick={()=>askAI(
+                      `Explain the readings in ${zs.zoneName}: ${readings.map(r => `${SHORT[r.key] || r.label} ${r.value} ${r.unit}`).join(', ')}${when ? ` (${when})` : ''}. What do they indicate together, what does each criterion state mean here, and what would settle it?`,
+                      'investigation')} />
+                  )}
+                </div>
+                {readings.length === 0 ? (
+                  <div style={V3.T.bodyDim}>No instrument readings recorded for this {userMode === 'fm' ? 'area' : 'zone'}.</div>
+                ) : (
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(136px, 1fr))', gap:'18px 14px'}}>
+                    {readings.map(r => (
+                      <Reading key={r.key} label={SHORT[r.key] || r.label} value={r.value} unit={r.unit}
+                        state={r.key === 'tvoc' ? { label: 'Reported, not judged', tone: V3.TEXT_TERTIARY } : OUTCOME[r.outcome]} />
+                    ))}
+                  </div>
+                )}
+                {when && <div style={{...V3.T.captionDim, marginTop:12}}>{when}</div>}
+              </div>
+
+              <div style={RS_SECTION}>
+                <div style={{...V3.T.micro, marginBottom:8}}>Observations</div>
+                {observed.length === 0
+                  ? <div style={V3.T.bodyDim}>No conditions recorded beyond the readings.</div>
+                  : observed.map(line)}
+              </div>
+
+              <div style={RS_SECTION}>
+                <div style={{...V3.T.micro, marginBottom:8}}>Occupant input</div>
+                {z.cx === 'Yes — complaints reported' && occupant.length > 0
+                  ? occupant.map(line)
+                  : <div style={V3.T.bodyDim}>{z.cx === 'Yes — complaints reported' ? 'Complaints reported; no detail recorded.' : 'No complaints reported in this ' + (userMode === 'fm' ? 'area' : 'zone') + '.'}</div>}
+              </div>
+
+              {typeof z.znt === 'string' && z.znt.trim() && (
+                <div style={RS_SECTION}>
+                  <div style={{...V3.T.micro, marginBottom:8}}>Assessor notes</div>
+                  <div style={{...V3.T.body, whiteSpace:'pre-wrap'}}>{z.znt.trim()}</div>
+                </div>
+              )}
+
+              {exhibits.length > 0 && (
+                <div style={RS_SECTION}>
+                  <div style={{...V3.T.micro, marginBottom:12}}>Exhibits · {exhibits.length}</div>
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))', gap:14}}>
+                    {exhibits.map(({ key, fieldId, photo }, i) => (
+                      <Exhibit key={`${key}-${i}`} photo={photo}
+                        alt={photoCaption(key, zones) || fieldId}
+                        title={(photoCaption(key, zones) || fieldId).split(' — ')[0]}
+                        meta={photo.ts ? new Date(photo.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={RS_SECTION}>
+                <button onClick={()=>{ haptic('light'); setRTab('overview') }} style={RS_LINK}>See the findings for {zs.zoneName} <span aria-hidden="true">›</span></button>
+              </div>
+            </div>
+          )
+        })()}
+
         {rTab==='overview' && zs && (() => {
           // ── v3 Findings tab — derive panels from existing engine state ──
           // Data Gaps: combine OSHA-relevant gaps, not-scored categories
@@ -3943,7 +4107,7 @@ export default function MobileApp() {
                   scored how many parameters were captured, and beside a
                   verdict it read as confidence in the conclusion. The
                   evidence census moved into the hero's stat strip. */}
-              <div style={{...RS_SECTION, borderTop:'none', paddingTop:4}}>
+              <div style={RS_SECTION_FIRST}>
                 <div style={RS_HEAD}>At a glance</div>
                 {[
                   ['Basis', describeAssessmentBasis({ sensorData: loggerSd, labResults: viewRpt?.labResults })],
@@ -3961,7 +4125,7 @@ export default function MobileApp() {
 
               {/* Zones as rows: name, finding count, and the focused zone
                   named as such. Tap a row to focus it for the findings below. */}
-              <div id="result-zones-anchor" style={RS_SECTION}>
+              <div id="result-zones-anchor" style={RS_SECTION_ROWS}>
                 <div style={RS_HEAD}>Zones · {zoneScores.length}</div>
                 {zoneScores.map((z, i) => {
                   const isFocus = selZone === i
@@ -3984,8 +4148,15 @@ export default function MobileApp() {
                   drilldown for the currently focused zone. Kept as the
                   authoritative engine readout so the redesigned panels
                   above act as the executive summary, not a substitute. ── */}
-              <div style={{...RS_SECTION, marginTop:4}}>
-                <div style={RS_HEAD}>Findings · {zs.zoneName}</div>
+              <div style={{...RS_SECTION, paddingBottom:6}}>
+                <div style={{display:'flex', alignItems:'center', flexWrap:'wrap', gap:'6px 12px', marginBottom:10}}>
+                  <div style={{...RS_HEAD, marginBottom:0}}>Findings · {zs.zoneName}</div>
+                  {countFindings([zs]).total > 1 && (
+                    <AiAction label="Summarize relationships" style={{marginLeft:'auto', marginRight:-8}} onClick={()=>askAI(
+                      `Summarize how the ${countFindings([zs]).total} findings in ${zs.zoneName} relate to each other: shared causes, the ventilation picture, which single condition explains the most, and what would confirm it.`,
+                      'findings')} />
+                  )}
+                </div>
               </div>
               <div key={selZone} style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:0}}>
           {zs.cats.map((cat,ci)=>{
@@ -4157,7 +4328,7 @@ export default function MobileApp() {
                 // legacy "Zone: text" strings of pre-v2.8 reports.
                 const rows = groupActionsByText(recs[cat.k], knownZones)
                 return (
-                  <div key={cat.k} style={ci===0?undefined:RS_SECTION}>
+                  <div key={cat.k} style={{...(ci===0?{}:RS_SECTION), paddingBottom:8}}>
                     <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:4,alignItems:'baseline'}}>
                       <div style={{color:cat.c,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>{cat.l}</div>
                       <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{cat.s}</div>
@@ -4172,7 +4343,7 @@ export default function MobileApp() {
                 )
               })}
               {samples.length > 0 && (
-                <div style={tiers.length===0?undefined:RS_SECTION}>
+                <div style={{...(tiers.length===0?{}:RS_SECTION), paddingBottom:7}}>
                   <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:4,alignItems:'baseline'}}>
                     <div style={{color:TEXT,fontWeight:700,fontSize:16,lineHeight:1.4,letterSpacing:'-0.1px'}}>Measure</div>
                     <div style={{...V3.T.caption, whiteSpace:'nowrap'}}>{samples.length} {samples.length===1?'method':'methods'}</div>
@@ -4201,7 +4372,7 @@ export default function MobileApp() {
                       </div>
                     </details>
                   )})}
-                  {samplingPlan?.outdoorGaps?.length>0&&<div style={RS_SECTION}><div style={{...RS_HEAD, color:WARN}}>Outdoor control gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}
+                  {samplingPlan?.outdoorGaps?.length>0&&<div style={{...RS_SECTION, paddingBottom:11}}><div style={{...RS_HEAD, color:WARN}}>Outdoor control gaps</div>{samplingPlan.outdoorGaps.map((g,i)=><div key={i} style={{fontSize:13,color:SUB,lineHeight:1.6,marginBottom:i<samplingPlan.outdoorGaps.length-1?6:0}}>{g}</div>)}</div>}
                 </div>
               )}
               {/* The result-screen action bar (Word · Share · Map Zones ·
@@ -4460,8 +4631,8 @@ export default function MobileApp() {
         ] },
         { key: 'ai', items: [
           // The one cyan mark on the rail. Toggles the docked panel.
-          { label: 'AtmosFlow AI', icon: 'sparkle', active: faOpen, hint: `${MOD_LABEL} J`,
-            renderIcon: () => <I n="sparkle" s={17} c="var(--accent)" w={1.8} />,
+          { label: 'AtmosFlow AI', icon: 'brain', active: faOpen, hint: `${MOD_LABEL} J`,
+            renderIcon: () => <JasperBrainIcon size={18} animate={false} />,
             onClick: () => (faOpen ? closeChat() : openChat('desktop_rail')) },
         ] },
         { key: 'library', label: 'Library', items: [
@@ -4537,7 +4708,7 @@ export default function MobileApp() {
           background: chromeScrolled ? 'var(--chrome-glass)' : 'transparent',
           boxShadow: chromeScrolled ? '0 1px 0 var(--chrome-hair)' : '0 1px 0 transparent',
           backdropFilter:'blur(10px) saturate(130%)', WebkitBackdropFilter:'blur(10px) saturate(130%)',
-          transition:'background 180ms ease, box-shadow 180ms ease',
+          transition:'background var(--dur-enter) ease, box-shadow var(--dur-enter) ease',
         }}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           {/* Left cluster — hamburger menu (with its dropdown) followed
@@ -4699,7 +4870,10 @@ export default function MobileApp() {
         )
       })()}
 
-      {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${mix('accent', 7)}`,border:`1.5px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
+      {/* Milestone — a piece of work has ended (a zone, the assessment).
+          A check that draws itself, the title in the page-title scale,
+          the note beneath in the secondary ink. */}
+      {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn var(--dur-sheet) var(--ease-out)'}}><div style={{marginBottom:22,display:'flex',justifyContent:'center'}}><DrawnCheck size={72} strokeWidth={1.6} /></div><div style={V3.T.h1}>{milestone.title}</div><div style={{...V3.T.bodyDim,marginTop:8}}>{milestone.sub}</div></div></div>}
       <PeerReviewModal
         open={peerReviewOpen}
         facility={bldg?.fn || ''}
@@ -5747,11 +5921,18 @@ export default function MobileApp() {
           {/* ── Finalized ─────────────────────────────────────────── */}
           <div style={{...RS_HEAD, marginTop:22, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>Finalized{reports.length>0?` · ${reports.length}`:''}</div>
           {reports.length > 0 && (
-            <div style={{display:'flex',gap:10,padding:'12px 0 4px'}}>
-              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports" aria-label="Search finalized reports" style={{flex:1,minWidth:0,padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
-              <select value={hSort} onChange={e=>setHSort(e.target.value)} aria-label="Sort reports" style={{padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:16,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
+            // The search field and the sort in the header controls' glass
+            // (40px, the capsule radius, the glyph in the secondary ink) —
+            // the last two platform-default controls on the list screens.
+            <div style={{display:'flex',gap:8,padding:'12px 0 4px'}}>
+              <div style={{position:'relative',flex:1,minWidth:0}}>
+                <span aria-hidden="true" style={{position:'absolute',left:13,top:'50%',transform:'translateY(-50%)',display:'inline-flex',color:V3.TEXT_TERTIARY,pointerEvents:'none'}}><I n="search" s={16} w={2} /></span>
+                <input type="search" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports" aria-label="Search finalized reports" className="af-glass-input"
+                  style={{width:'100%',height:40,padding:'0 14px 0 38px',background:'var(--glass-fill)',border:'1px solid var(--glass-edge)',borderRadius:20,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',WebkitAppearance:'none',appearance:'none',outline:'none'}} />
+              </div>
+              <Select size="lg" value={hSort} onChange={e=>setHSort(e.target.value)} aria-label="Sort reports" style={{flexShrink:0,color:V3.TEXT_SECONDARY}}>
                 <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="findings-high">Most findings</option><option value="findings-low">Fewest findings</option>
-              </select>
+              </Select>
             </div>
           )}
           {fReports.length === 0 ? (
@@ -5786,7 +5967,7 @@ export default function MobileApp() {
         {/* A tool carries the project it was opened from as its params
             (see ProjectDetail's onOpenLogger) — nothing in the shell
             remembers it. */}
-        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} /></Suspense>}
+        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} onAskAI={(q)=>askAI(q, 'logger_studio')} /></Suspense>}
         {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} onTryDemo={()=>runDemo(userMode === 'fm' ? undefined : 'findings')} />}
         {/* Desktop landing — the state of the work. A phone that restores a
             'home' entry (window resized below 1024) gets Projects above. */}
@@ -6063,8 +6244,8 @@ export default function MobileApp() {
         @keyframes drawerIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
         @keyframes drawerOut{from{transform:translateX(0);}to{transform:translateX(-100%);}}
         @keyframes scrimOut{from{opacity:1;}to{opacity:0;}}
-        .af-drawer-in{animation:drawerIn .26s cubic-bezier(.22,1,.36,1);}
-        .af-drawer-out{animation:drawerOut .22s ease-in forwards;}
+        .af-drawer-in{animation:drawerIn var(--dur-sheet) var(--ease-out);}
+        .af-drawer-out{animation:drawerOut var(--dur-exit) var(--ease-in) forwards;}
         /* Theme-aware drawer surface: midnight black in dark mode, the
            light --card surface in light mode. Driven by CSS (not inline)
            so it flips with [data-theme="light"] on <html>; the contents
@@ -6118,9 +6299,9 @@ export default function MobileApp() {
              Modern iOS keeps momentum scrolling without it. */
           transform:none; transform-origin:center;
           border-radius:0;
-          transition:transform 320ms cubic-bezier(0.22,1,0.36,1),
-                     border-radius 320ms cubic-bezier(0.22,1,0.36,1),
-                     box-shadow 320ms ease;
+          transition:transform var(--dur-sheet) var(--ease-out),
+                     border-radius var(--dur-sheet) var(--ease-out),
+                     box-shadow var(--dur-sheet) ease;
           /* NO will-change/transform when closed: a persistent will-change:
              transform makes this a containing block for the fixed header/dock
              even at rest, which on iOS re-anchors them to the scroll
@@ -6145,8 +6326,8 @@ export default function MobileApp() {
         /* Dimmed tap-to-close cover over the content card while open. */
         .af-content-cover{ position:fixed; inset:0; z-index:240; background:rgba(0,0,0,0.18); cursor:pointer; }
         @media (prefers-reduced-motion: reduce){ .af-content-surface{ transition:none; } }
-        .af-scrim-in{animation:fadeIn .26s ease;}
-        .af-scrim-out{animation:scrimOut .22s ease forwards;}
+        .af-scrim-in{animation:fadeIn var(--dur-scrim) ease;}
+        .af-scrim-out{animation:scrimOut var(--dur-exit) ease forwards;}
         /* ── Notion-style dropdown / action-menu animation ──
            Reusable classes for the three-dot / action menus: soft fade +
            slight scale + subtle vertical lift, over a blurred glass surface.
@@ -6158,7 +6339,7 @@ export default function MobileApp() {
           position:fixed; inset:0; z-index:1000;
           background:rgba(0,0,0,0.22);
           -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
-          opacity:0; transition:opacity 160ms ease;
+          opacity:0; transition:opacity var(--dur-scrim) ease;
         }
         .af-menu-backdrop.is-open{opacity:1;}
         .af-menu{
@@ -6175,10 +6356,10 @@ export default function MobileApp() {
              overshoot so the panel "grows" rather than just fading in. The
              springy curve is gated behind reduced-motion below. */
           opacity:0; transform:translateY(-4px) scale(0.9); pointer-events:none;
-          transition:opacity 160ms ease, transform 200ms ease;
+          transition:opacity var(--dur-enter) ease, transform var(--dur-enter) var(--ease-out);
         }
         @media (prefers-reduced-motion: no-preference){
-          .af-menu{transition:opacity 180ms ease, transform 300ms cubic-bezier(.34,1.5,.64,1);}
+          .af-menu{transition:opacity var(--dur-enter) ease, transform var(--dur-enter) var(--ease-out);}
         }
         .af-menu.is-open{opacity:1; transform:translateY(0) scale(1); pointer-events:auto;}
         [data-theme="light"] .af-menu{border-color:rgba(15,23,42,0.10); box-shadow:0 18px 45px rgba(15,23,42,0.18);}
@@ -6188,7 +6369,7 @@ export default function MobileApp() {
           background:transparent; border:none; border-radius:12px;
           text-align:left; cursor:pointer; font-family:inherit;
           color:var(--text); font-size:14px; font-weight:500;
-          transition:background 140ms ease, transform 140ms ease;
+          transition:background var(--dur-fast) ease, transform var(--dur-fast) ease;
         }
         .af-menu-item:hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
         .af-menu-item:active{transform:scale(0.98);}
@@ -6200,6 +6381,9 @@ export default function MobileApp() {
            menu opens. position:relative is kept for stacking; the transform /
            transition / filter all come from the inline style. */
         .af-menu-trigger{position:relative;}
+        .af-glass-input::placeholder{color:var(--dim);}
+        .af-glass-input:focus{border-color:var(--accent) !important;}
+        .af-glass-input::-webkit-search-cancel-button{-webkit-appearance:none;}
         @media (hover: hover) and (pointer: fine){
           .af-circle-btn:hover{ background:var(--glass-fill-hover) !important; }
         }

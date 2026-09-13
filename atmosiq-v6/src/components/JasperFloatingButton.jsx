@@ -15,11 +15,15 @@
  *     window, so the listener watches every scroll target — a
  *     window-only listener never fired and the launcher sat full-size
  *     over the text it was meant to clear. Calms under reduced-motion.
- *   • Breathing two-tone (cyan ↔ purple) aura so the assistant reads as
- *     "alive". The launcher is the identity mark, so this glow is
- *     deliberately outside the flat token pass that neutralized the chrome
- *     (product decision, reaffirmed 2026-09 after a restraint pass removed
- *     it: it stays).
+ *   • The measured glass (see --glass-* in index.html): a 48px disc, the
+ *     translucent fill, a 1px edge, no shadow — the same material as the
+ *     dock and the header controls.
+ *   • Breathing two-tone (cyan ↔ purple) aura behind the disc so the
+ *     assistant reads as "alive". The launcher is the identity mark, so
+ *     this glow is deliberately outside the flat token pass that
+ *     neutralized the chrome (product decision, reaffirmed 2026-09 — twice:
+ *     after a restraint pass removed it, and again after the chrome pass
+ *     that put the disc on the glass. It stays.)
  *   • Draggable anywhere in the viewport. It rests at the bottom-right
  *     until the user moves it; from then on the chosen spot is remembered
  *     (localStorage) and re-clamped on resize so a rotation or a smaller
@@ -69,13 +73,10 @@ if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   s.textContent =
     // The breathe: the aura swells, brightens and rotates a half turn, so
     // the two-tone sweep below reads as moving light rather than a static
-    // ring. This is the one piece of motion that says "assistant", and it
-    // is deliberately exempt from the flat token pass — the launcher is the
-    // app's identity mark, not chrome.
+    // ring. This is the one piece of motion that says "assistant".
     '@keyframes jfbBreathe{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(.84) rotate(0deg)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.26) rotate(180deg)}}' +
-    '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 8px 24px rgba(0,0,0,0.34)!important;}' +
-    // Light mode: theme tokens flip the fill and edge; only the shadow softens.
-    '[data-theme="light"] .jfb-btn{box-shadow:0 8px 24px rgba(15,23,42,0.16),0 1px 2px rgba(15,23,42,0.08)!important;}' +
+    '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
+    '@media (hover: hover) and (pointer: fine){.jfb-btn:hover{background:var(--glass-fill-hover)!important;}}' +
     '@media (prefers-reduced-motion: reduce){.jfb-glow{animation:none!important}.jfb-btn{transition:none!important}}'
   document.head.appendChild(s)
 }
@@ -133,14 +134,13 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
     }
   }, [])
 
-  const size = shrunk ? 46 : 60
+  const size = shrunk ? 40 : 48
   const glyph = shrunk ? 17 : 22
   // The aura keeps one extent whatever the disc is doing. It used to track
   // `size`, which resized the masked span in a single step while the disc
-  // eased over 280ms — Safari drew the mask against the old bounds for
-  // those frames and the glow sat off-center and clipped. The disc is
-  // what gets out of the way while reading; the glow is the identity and
-  // stays the same.
+  // eased — Safari drew the mask against the old bounds for those frames
+  // and the glow sat off-center and clipped. The disc is what gets out of
+  // the way while reading; the glow is the identity and stays the same.
   const glowSize = 60
 
   // Free placement. `pos` is null until the user drags: that keeps the
@@ -238,14 +238,14 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
         justifyContent: 'center',
         padding: 0,
         cursor: 'pointer',
-        // Same flat material as the dock beside it: card tone, hairline
-        // edge, one lifted shadow. No blur, no specular inset.
-        border: '1px solid var(--border)',
-        background: 'var(--card)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30)',
+        // The same glass as the dock and the header controls.
+        border: '1px solid var(--glass-edge)',
+        background: 'var(--glass-fill)',
+        backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+        boxShadow: 'none',
         // Only size animates. left/top are deliberately untransitioned so the
         // button tracks the pointer exactly instead of easing behind it.
-        transition: 'width 280ms cubic-bezier(.22,1,.36,1), height 280ms cubic-bezier(.22,1,.36,1)',
+        transition: 'width var(--dur-enter) var(--ease-out), height var(--dur-enter) var(--ease-out), background var(--dur-fast) ease',
         WebkitTapHighlightColor: 'transparent',
         // Dragging needs the browser to NOT claim the gesture for scroll/pan.
         touchAction: 'none',

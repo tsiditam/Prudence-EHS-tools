@@ -44,10 +44,13 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     // Dark mode: the selected glyph is bright cyan (--accent-fill). Exposed as
     // a CSS var on the capsule so the active <I> can read it; light mode flips
     // it back to the monochrome foreground in the override below.
-    '.affd-dock{--affd-active-icon: var(--accent-fill);}' +
+    // The selected glyph is the primary ink in both themes (2026-09): the
+    // dock's selected state is the rail's — neutral — and the brand cyan
+    // stays with the primary action, the selected data point and the AI.
+    '.affd-dock{--affd-active-icon: var(--text);}' +
     // Icons/text sit ABOVE the selector bubble (which is z-index:1 on the
     // glass). Press feedback unchanged.
-    '.affd-tab{position:relative;z-index:2;transition:transform 130ms cubic-bezier(0.22,1,0.36,1), background 200ms ease;}' +
+    '.affd-tab{position:relative;z-index:2;transition:transform var(--dur-fast) var(--ease-out), background var(--dur-fast) ease;}' +
     '.affd-tab:active{transform:scale(0.92);}' +
     // The single sliding "selector bubble": a floating frosted-glass pill that
     // glides behind the active destination. Width + X are driven by CSS vars
@@ -59,12 +62,10 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     '.affd-selector{position:absolute;top:50%;left:0;height:' + TILE_H + 'px;' +
       'width:var(--bubble-width,64px);border-radius:999px;' +
       'transform:translate3d(var(--bubble-x,0px),-50%,0);' +
-      // Flat neutral tile — a step of the text color over the capsule, so
-      // it reads as "raised" in both themes without a specular highlight.
-      'background:color-mix(in srgb, var(--text) 8%, transparent);' +
-      'box-shadow:inset 0 0 0 1px var(--border);' +
+      // The hover step of the glass — a neutral tile, no ring.
+      'background:var(--glass-fill-hover);' +
       'pointer-events:none;z-index:1;opacity:0;' +
-      'transition:transform 420ms cubic-bezier(0.22,1,0.36,1), width 320ms cubic-bezier(0.22,1,0.36,1), opacity 200ms ease;}' +
+      'transition:transform var(--dur-sheet) var(--ease-out), width var(--dur-sheet) var(--ease-out), opacity var(--dur-scrim) ease;}' +
     '.affd-tab:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
     // Scroll contract/expand: while the page is scrolling the dock gets
     // `is-contracted`, which subtly scales the capsule down, tightens the gap +
@@ -72,15 +73,11 @@ if (typeof document !== 'undefined' && !document.getElementById('affd-style')) {
     // its DEFAULT size. CSS transitions cover only transform / gap / padding /
     // icon-scale; base width, height, layout, colors, and position are
     // untouched. (gap/padding are set inline, so the override needs !important.)
-    '.affd-ico{transition:transform 280ms cubic-bezier(.22,1,.36,1);}' +
+    '.affd-ico{transition:transform var(--dur-enter) var(--ease-out);}' +
     '.affd-dock.is-contracted{transform:scale(0.94);gap:2px!important;padding:4px!important;}' +
     '.affd-dock.is-contracted .affd-ico{transform:scale(0.86);}' +
     '@media (prefers-reduced-motion: reduce){.affd-tab{transition:none!important;}.affd-tab:active{transform:none;}.affd-dock,.affd-ico,.affd-selector{transition:none!important;}}' +
-    // Light mode: flip the dark frosted capsule to a white frosted one, the
-    // active tile to a bright frosted tile, and the selected glyph back to the
-    // monochrome foreground (cyan-on-white would clash). !important beats the
-    // inline dark-mode styles.
-    '[data-theme="light"] .affd-dock{--affd-active-icon: var(--text);box-shadow:0 8px 24px rgba(15,23,42,0.14),0 1px 2px rgba(15,23,42,0.08)!important;}'
+    ''
   document.head.appendChild(s)
 }
 
@@ -233,15 +230,17 @@ export default function AtmosFlowFloatingDock({ tabs, aux, maxWidth, ariaLabel =
           padding: 6,
           // Transition ONLY the contract/expand properties so the dock eases
           // between its default and contracted sizes (class toggled on scroll).
-          transition: 'transform 280ms cubic-bezier(.22,1,.36,1), gap 280ms cubic-bezier(.22,1,.36,1), padding 280ms cubic-bezier(.22,1,.36,1)',
+          transition: 'transform var(--dur-enter) var(--ease-out), gap var(--dur-enter) var(--ease-out), padding var(--dur-enter) var(--ease-out)',
           transformOrigin: 'center bottom',
-          // Floating capsule in the app's flat material: card tone, hairline
-          // edge, one lifted shadow. Theme tokens do the light-mode flip;
-          // the injected stylesheet only softens the shadow there.
+          // The measured glass (Grok's bottom bar: #141414 on black, a 1px
+          // edge, no shadow): the control surface at 88% over a backdrop
+          // blur, so the page reads through it faintly, and the glass edge.
+          // Theme tokens do the light-mode flip.
           borderRadius: 999,
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30)',
+          background: 'color-mix(in srgb, var(--surface) 88%, transparent)',
+          backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+          border: '1px solid var(--glass-edge)',
+          boxShadow: 'none',
         }}
       >
         {/* Single sliding selector bubble — sits behind the glyphs, glides to

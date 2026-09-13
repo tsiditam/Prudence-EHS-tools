@@ -40,14 +40,16 @@ import { useState, useRef, useLayoutEffect } from 'react'
 // a tab crossfades — 240 ms in, 200 ms out, and nothing scales. The
 // 300 ms glide with a 0.985 scale on every page read as a flourish on
 // each tap; a slide alone says "you went somewhere" and stops.
-const ENTER_MS = 240
-const EXIT_MS = 200
+// Motion system: --dur-enter / --dur-exit, --ease-out. Numbers here because
+// the keyframe durations below are composed into the stylesheet once.
+const ENTER_MS = 220
+const EXIT_MS = 160
 
 if (typeof document !== 'undefined' && !document.getElementById('affp-style')) {
   const s = document.createElement('style')
   s.id = 'affp-style'
   s.textContent = `
-.affp-in, .affp-out { animation-timing-function: cubic-bezier(0.22,1,0.36,1); will-change: transform, opacity; }
+.affp-in, .affp-out { animation-timing-function: var(--ease-out); will-change: transform, opacity; }
 .affp-in  { animation-duration: ${ENTER_MS}ms; animation-fill-mode: backwards; }
 .affp-out { animation-duration: ${EXIT_MS}ms; animation-fill-mode: forwards; position: absolute; inset: 0; pointer-events: none; }
 

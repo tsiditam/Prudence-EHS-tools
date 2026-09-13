@@ -24,6 +24,7 @@ import { I } from '../Icons'
 import TactileButton from '../ui/TactileButton'
 import StatusPill from '../ui/StatusPill'
 import Skeleton, { SkeletonRows } from '../ui/Skeleton'
+import Reading from '../ui/Reading'
 import { STATUS_LABEL, STATUS_TONE } from '../projects/projectsTheme'
 import { formatDate } from '../../utils/formatDate'
 
@@ -96,12 +97,10 @@ export function buildActivity({ drafts = [], reports = [], projects = [] } = {},
   return rows.slice(0, limit)
 }
 
+// A count as an instrument reading (ui/Reading), ticking up on arrival.
 function Stat({ value, label, first }) {
   return (
-    <div style={{ padding: first ? '0 24px 0 0' : '0 24px', borderLeft: first ? 'none' : HAIRLINE, minWidth: 0 }}>
-      <div style={{ ...V3.N.lg, fontSize: 28, lineHeight: '32px' }}>{value}</div>
-      <div style={{ ...V3.T.caption, marginTop: 4 }}>{label}</div>
-    </div>
+    <Reading value={value} label={label} size="lg" animate style={{ padding: first ? '0 24px 0 0' : '0 24px', borderLeft: first ? 'none' : HAIRLINE }} />
   )
 }
 

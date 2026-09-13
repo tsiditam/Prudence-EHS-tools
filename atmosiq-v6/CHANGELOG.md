@@ -1,5 +1,94 @@
 # AtmosFlow Changelog
 
+## Results page rhythm (September 2026)
+
+- **Sections are spaced symmetrically.** A results section is now 18px
+  above its rule and 18px below it, so the hairline sits centered between
+  two blocks. It used to be 18px below and none above: every section's
+  last line hugged the next rule while its heading floated under it, and
+  the page read as unevenly spaced. Row lists (zones, actions) trim the
+  bottom by their own row padding so the gap stays 18. The first section
+  under the tab bar no longer draws a second rule beneath the bar's own.
+- **The census is a 2×2 on a phone, a row of four on desktop.** Four
+  counts in three columns left one orphaned on its own row with its label
+  clipped to "OCCUPANT REPOR…". Every label now prints in full.
+- **One head per zone on the Investigation tab.** "Readings · zone" with
+  the AI action beside it, and the grid beneath; the separate
+  "Environmental measurements" label that wrapped to two lines against
+  the action is gone. An AI action that does not fit beside its head
+  drops beneath it, right-aligned, rather than squeezing the head.
+
+## Micro-interactions, contextual AI, first impressions (September 2026)
+
+- **Moments that matter.** `ui/DrawnCheck` — a ring and a tick that draw
+  themselves — is the milestone overlay's mark (a zone or an assessment
+  completed) and every success toast's icon (export, save, attach).
+  `Reading` gains `animate`: a count ticks up on arrival, used by the
+  results hero and the Home counts, never by a measurement.
+- **Contextual AI actions.** `ui/AiAction` — the AtmosFlow AI brain mark beside a plain
+  verb — placed where the AI is useful: **Refine** on each AI-authored
+  report section (the question carries the current text and asks for the
+  revised paragraph, pasted back through the edit path that re-audits it);
+  **Summarize relationships** on a zone's findings; **Explain these
+  readings** on the Investigation grid; **Explain this pattern** on a
+  Logger Studio chart, with the chart's own mean, peak and exceedance in
+  the question. Each opens the assistant with the question already asked
+  (`askAI`, the voice command's prefill path).
+- **First impressions.** The welcome slides are on the type scale, the
+  glass tile and the shared button primitive, with the slide entering on
+  the page-in tokens. The auth screen's fields are the glass with an
+  accent edge and 2px ring on focus; its primary is the flat accent fill
+  (the gradient, sheen and cyan glow it wore were the last of the
+  pre-flat treatment); the tagline sits in the eyebrow scale with no
+  cyan rule beneath; the trust pills take the glass hover step.
+
+## Results as an investigation, numbers as instruments, photos as exhibits (September 2026)
+
+- **Investigation tab, first and default.** The results screen opens on
+  what was measured and observed, zone by zone, before what the engine
+  concluded: zones as rows carrying their governing outcome; the focused
+  zone opens into its readings as instrument tiles, its observations and
+  occupant input, the assessor's notes and its exhibits. Nothing is judged
+  on the screen — every outcome is `zoneParamOutcome`, and the sentences
+  are `zoneObservations` / `zoneOccupantReports`, the same calls the DOCX
+  results table and Observations section make (both now exported from
+  `reportModel.js`). TVOC is shown as "Reported, not judged".
+- **Reading primitive** (`ui/Reading`): a number the way an instrument
+  shows it — eyebrow label, the value in the numeric scale with tabular
+  figures, the unit a step smaller beside it, the criterion state beneath
+  in its semantic color. Used by the Investigation grid, the results hero
+  counts and the Logger Studio chart stat row.
+- **Exhibit primitive** (`ui/Exhibit`): a photo or plan framed as evidence
+  — a strong hairline, an inner glaze along the top edge, a caption row
+  (what, where, when). Used for the zone's exhibits on the Investigation
+  tab, the walkthrough photo grid (now 96 / 112px with the time beneath,
+  not burned into the corner), the floor plan under its pins, and the
+  project's evidence grid.
+
+## Chrome pass: one motion system, native controls, dock and launcher (September 2026)
+
+- **One motion system.** `--ease-out` / `--ease-in` / `--ease-spring` and
+  `--dur-fast` / `--dur-enter` / `--dur-exit` / `--dur-sheet` /
+  `--dur-scrim` / `--dur-settle` in `index.html`, mirrored by
+  `SPRING` in `soft-glass.js` and the Jasper tokens. Every animated
+  surface reads them: page transitions, bottom sheets and dialogs, the
+  side drawer and its scrim, the action menus, the command palette, the
+  AI panel, the rail, the dock, the launcher, the segmented tab rule,
+  the press feedback. The overshooting sheet spring and the eight
+  different durations those surfaces carried are gone.
+- **Native controls replaced.** `Select` is now the app's own chrome
+  over the native element (glass fill and edge, a drawn chevron, three
+  sizes, an accent focus ring); the Reports search field and sort are
+  40px glass controls with the search glyph inside the field. Toasts
+  render in the same glass.
+- **Dock and launcher finished.** The bottom dock is the measured glass
+  (the control surface at 88% over a backdrop blur, the glass edge, no
+  shadow) with a neutral selected glyph in both themes; the AtmosFlow AI
+  launcher is a 48px glass disc (40px while reading). Its breathing
+  two-tone aura stays — the launcher is the identity mark (product
+  decision, reaffirmed). Both were the last chrome on the older capsule
+  treatment.
+
 ## Desktop pro pass (September 2026)
 
 Second desktop tranche. The first made the shell behave like a current AI

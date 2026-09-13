@@ -27,21 +27,24 @@
 // iOS sheet present curve — used by jasperSheetIn. Source: Apple's
 // own "sheet present" cubic-bezier from UIKit. Reads as a gentle
 // spring without an actual physics engine.
-export const JASPER_SPRING = 'cubic-bezier(0.32, 0.72, 0, 1)'
+// Motion system (2026-09): the same ease-out every other surface uses.
+export const JASPER_SPRING = 'var(--ease-out)'
 
 // Ease-out-quart — used for message arrival, chip arrival, tap-feel
 // transitions. Settles quickly without abruptness.
-export const JASPER_EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)'
+export const JASPER_EASE_OUT = 'var(--ease-out)'
 
+// Numbers (not the --dur-* vars) because consumers compose them into
+// animation shorthands and setTimeouts; they match index.html exactly.
 export const JASPER_DURATION = {
-  // Backdrop scrim fade-in.
-  backdrop: 280,
-  // Sheet rise. Longer than UI default because of the 28px translation.
-  sheet:    380,
-  // Bubble / chip / status entrance.
-  enter:    280,
-  // Hover / focus state transitions on interactive primitives.
-  hover:    160,
+  // Backdrop scrim fade-in (--dur-scrim).
+  backdrop: 200,
+  // Sheet / panel travel (--dur-sheet).
+  sheet:    320,
+  // Bubble / chip / status entrance (--dur-enter).
+  enter:    220,
+  // Hover / focus state transitions on interactive primitives (--dur-fast).
+  hover:    140,
 }
 
 // Stagger between consecutive items in the same list (chip strip,

@@ -97,7 +97,7 @@ export default function BottomSheet({
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',
-        animation: `sg-fade ${SPRING.durMed} ${SPRING.settle}`,
+        animation: `sg-fade ${SPRING.durScrim} ease`,
       }}
     >
       <div
@@ -117,7 +117,7 @@ export default function BottomSheet({
           maxHeight: '90vh',
           overflowY: 'auto',
           boxShadow: FLOATING_BAR_SHADOW,
-          animation: `sg-sheet-in ${SPRING.durSlow} ${SPRING.bounce}`,
+          animation: `sg-sheet-in ${SPRING.durSheet} ${SPRING.enter}`,
           color: TEXT_PRIMARY,
         }}
       >

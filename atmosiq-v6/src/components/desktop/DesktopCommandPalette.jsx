@@ -64,10 +64,10 @@ if (typeof document !== 'undefined' && !document.getElementById('afcp-style')) {
   s.textContent = `
     @keyframes afcpIn { from { opacity: 0; transform: translateY(-6px) scale(0.985); } to { opacity: 1; transform: none; } }
     @keyframes afcpScrim { from { opacity: 0; } to { opacity: 1; } }
-    .af-cp-panel { animation: afcpIn 160ms cubic-bezier(.22,1,.36,1) both; }
-    .af-cp-scrim { animation: afcpScrim 160ms ease both; }
+    .af-cp-panel { animation: afcpIn var(--dur-enter) var(--ease-out) both; }
+    .af-cp-scrim { animation: afcpScrim var(--dur-scrim) ease both; }
     @media (prefers-reduced-motion: reduce) { .af-cp-panel, .af-cp-scrim { animation: none !important; } }
-    .af-cp-row { transition: background 100ms ease; }
+    .af-cp-row { transition: background var(--dur-fast) ease; }
     .af-cp-row[data-active="true"] { background: var(--raised); }
   `
   document.head.appendChild(s)
