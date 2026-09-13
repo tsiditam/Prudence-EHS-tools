@@ -72,6 +72,8 @@ import Exhibit from './ui/Exhibit'
 // observation and occupant-report sentences — so the screen and the DOCX
 // never describe one zone in two vocabularies.
 import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports, collectReferences, collectFindings } from '../report/reportModel'
+import { evalCondition, visibleQuestions } from '../utils/conditions.js'
+import { zoneGaps } from '../engines/zone-gaps.js'
 import { photosForZone, photoCaption } from '../utils/photoIndex'
 import { spaceUse } from '../utils/samplePoints'
 import Select from './ui/Select'
@@ -1483,8 +1485,8 @@ export default function MobileApp() {
     setQSField('ps_inst_iaq_cal_status', mapInstrumentCalStatus(inst))
   }, [setQSField])
 
-  const qsVis = useMemo(() => Q_QUICKSTART.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
-  const dtVis = useMemo(() => Q_DETAILS.filter(q => { if (!q.cond) return true; if (q.cond.eq && mergedData[q.cond.f] !== q.cond.eq) return false; if (q.cond.ne && mergedData[q.cond.f] === q.cond.ne) return false; return true }), [mergedData])
+  const qsVis = useMemo(() => visibleQuestions(Q_QUICKSTART, mergedData), [mergedData])
+  const dtVis = useMemo(() => visibleQuestions(Q_DETAILS, mergedData), [mergedData])
 
   // Pick a saved instrument from either entry point (advisory modal or
   // the instrument step), then route to the instrument step so the
@@ -1513,10 +1515,7 @@ export default function MobileApp() {
     qs = qs.filter(q => {
       if (q.profileDynamic && (!buildingProfile || !buildingProfile.zoneSubtypes?.length)) return false
       if (suppressedIds.includes(q.id)) return false
-      if (!q.cond) return true
-      if (q.cond.eq && zData[q.cond.f] !== q.cond.eq) return false
-      if (q.cond.ne && zData[q.cond.f] === q.cond.ne) return false
-      return true
+      return evalCondition(q.cond, zData)
     })
     // Inject additional fields from profile at end
     if (additionalQs.length > 0) qs = [...qs, ...additionalQs]
@@ -5090,6 +5089,50 @@ export default function MobileApp() {
           prompt state back to false without finishing. */}
       {zonePrompt && (
         <BottomSheet title="Zone complete" onClose={()=>setZonePrompt(false)} ariaLabel="Zone complete, add another or finish">
+          {/* What is still worth recording HERE, while the assessor is still
+              standing in the zone.
+
+              Every item comes from `zoneGaps`, which composes the sufficiency
+              engine and the defensibility rules — the same two streams the
+              Readiness panel renders at review. This surfaces them earlier,
+              it does not compute them again: the panel and this list cannot
+              disagree, because they read the same functions.
+
+              It never blocks. Both existing actions stay exactly where they
+              were, and a zone with nothing outstanding shows none of this —
+              a complete walkthrough should stay as fast as it is today. */}
+          {(() => {
+            const gaps = zoneGaps({ zones, presurvey, bldg }, curZone)
+            if (!gaps.length) return null
+            const SHOWN = 4
+            const shown = gaps.slice(0, SHOWN)
+            const rest = gaps.length - shown.length
+            return (
+              <div style={{margin:'4px 0 18px',paddingBottom:16,borderBottom:`1px solid ${V3.BORDER_SUBTLE}`}}>
+                <div style={{...V3.T.micro, marginBottom:10}}>Before you leave {zData.zn || 'this zone'}</div>
+                <div style={{...V3.T.bodyDim, marginBottom:12, lineHeight:1.5}}>
+                  {gaps.length === 1 ? 'One item would strengthen the investigation:' : `${gaps.length} items would strengthen the investigation:`}
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:9}}>
+                  {shown.map(g => (
+                    <div key={g.id} style={{display:'flex',alignItems:'flex-start',gap:9}}>
+                      <span aria-hidden="true" style={{width:5,height:5,borderRadius:'50%',background:g.kind==='required'||g.kind==='warn'?WARN:DIM,flexShrink:0,marginTop:7}} />
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{...V3.T.body, lineHeight:'19px'}}>{g.label}</div>
+                        <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{g.why}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {rest > 0 && <div style={{...V3.T.captionDim}}>and {rest} more</div>}
+                </div>
+                <div style={{marginTop:14}}>
+                  <TactileButton variant="neutral" fullWidth onClick={()=>setZonePrompt(false)}>
+                    Keep recording in this zone
+                  </TactileButton>
+                </div>
+              </div>
+            )
+          })()}
           <div style={{...V3.T.bodyDim, margin:'4px 0 18px'}}>Add another zone to this assessment, or wrap up and review findings?</div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             <TactileButton
