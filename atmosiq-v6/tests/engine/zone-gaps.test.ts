@@ -63,6 +63,87 @@ describe('it surfaces what the sufficiency engine already found', () => {
   })
 })
 
+describe('it evaluates the same record scoring does', () => {
+  // scoring.js:91 — `const d = { ...bldg, ...z }` — then evaluateAllSufficiency(d).
+  // Several inputs sufficiency asks for are building-scoped: `od` satisfies
+  // Ventilation's altRequired, `sa` is a Ventilation optional, and `hm` / `fc`
+  // are the whole of HVAC. Reading the bare zone made all of them look absent.
+  const merged = (bldg: any, zone: any) => ({ ...bldg, ...zone })
+
+  it('a building-level OA damper status satisfies the gap surface exactly as it satisfies scoring', () => {
+    const bldg = { od: 'Open — verified at unit' }
+    const zone = { zn: 'Room 214', co2: '900', pm: '8', co: '1', cx: 'No complaints', tf: '72', rh: '45' }
+
+    // What scoring concludes about this zone's Ventilation completeness.
+    const scoringView = evaluateCategorySufficiency('Ventilation', merged(bldg, zone))
+    // What the walkthrough panel shows.
+    const panel = zoneGaps({ zones: [zone], presurvey: {}, bldg, recs: {}, zoneScores: [] }, 0)
+    const panelVentRequired = panel
+      .filter((g) => g.id.startsWith('req:Ventilation:'))
+      .map((g) => g.label)
+
+    expect(scoringView.missing).toEqual([])
+    expect(panelVentRequired).toEqual([])
+    expect(panelVentRequired.sort()).toEqual([...scoringView.missing].sort())
+  })
+
+  it('without the building value, both agree it is missing', () => {
+    const zone = { zn: 'Room 214', co2: '900', pm: '8', co: '1', cx: 'No complaints', tf: '72', rh: '45' }
+    const scoringView = evaluateCategorySufficiency('Ventilation', merged({}, zone))
+    const panel = zoneGaps({ zones: [zone], presurvey: {}, bldg: {}, recs: {}, zoneScores: [] }, 0)
+      .filter((g) => g.id.startsWith('req:Ventilation:'))
+      .map((g) => g.label)
+
+    expect(scoringView.missing.length).toBeGreaterThan(0)
+    expect(panel.sort()).toEqual([...scoringView.missing].sort())
+  })
+
+  it('building-scoped HVAC and airflow inputs are not reported missing when the building holds them', () => {
+    const bldg = { hm: '2026-03-01', fc: 'Clean', sa: 'Yes — supply airflow confirmed' }
+    const zone = { ...completeZone() }
+    const labels = zoneGaps({ zones: [zone], presurvey: {}, bldg, recs: {}, zoneScores: [] }, 0).map((g) => g.label)
+    expect(labels).not.toContain('Last HVAC maintenance')
+    expect(labels).not.toContain('Filter condition')
+    expect(labels).not.toContain('Supply airflow')
+  })
+
+  it('every category agrees with the scoring merge, not just Ventilation', () => {
+    const bldg = { od: 'Open — verified at unit', hm: '2026-03-01', fc: 'Clean' }
+    const zone = { zn: 'Z', co2: '900', tf: '72' }
+    const d = { zones: [zone], presurvey: {}, bldg, recs: {}, zoneScores: [] }
+    for (const category of ['Ventilation', 'Contaminants', 'HVAC', 'Complaints', 'Environment']) {
+      const fromEngine = evaluateCategorySufficiency(category, merged(bldg, zone)).missing
+      const fromPanel = zoneGaps(d, 0)
+        .filter((g) => g.id.startsWith(`req:${category}:`))
+        .map((g) => g.label)
+      expect(fromPanel.sort(), `${category} disagrees with the scoring merge`).toEqual([...fromEngine].sort())
+    }
+  })
+
+  it('the zone still wins over the building, as the spread order requires', () => {
+    // `{ ...bldg, ...zone }` — a zone value overrides a building one. If this
+    // inverted, a stale building default would mask a zone's own answer.
+    const bldg = { fc: 'Clean' }
+    const zone = { ...completeZone(), fc: '' }
+    const labels = zoneGaps({ zones: [zone], presurvey: {}, bldg, recs: {}, zoneScores: [] }, 0).map((g) => g.label)
+    expect(labels).toContain('Filter condition')
+  })
+})
+
+describe('it tolerates both record shapes', () => {
+  it('accepts the draft `bldg` and the finalized `building` alike', () => {
+    // The live walkthrough draft carries `bldg`; the finalized report renames
+    // it to `building`. The rules read `assessment.building`, so a caller
+    // passing the draft would otherwise have the HVAC-status rule evaluated
+    // against an empty building record.
+    const b = { od: 'Open — verified at unit' }
+    const zone = { zn: 'Z', co2: '900', pm: '8', co: '1', cx: 'No complaints', tf: '72', rh: '45' }
+    const asDraft = zoneGaps({ zones: [zone], presurvey: {}, bldg: b, recs: {}, zoneScores: [] }, 0)
+    const asReport = zoneGaps({ zones: [zone], presurvey: {}, building: b, recs: {}, zoneScores: [] }, 0)
+    expect(JSON.stringify(asDraft)).toBe(JSON.stringify(asReport))
+  })
+})
+
 describe('it surfaces defensibility rules, scoped to the zone', () => {
   it('flags a zone with indoor CO₂ and no outdoor baseline', () => {
     const zone = { ...completeZone(), co2: '1200', co2o: '' }
@@ -97,6 +178,18 @@ describe('ordering and shape', () => {
     const firstOptional = gaps.findIndex((g) => g.kind === 'optional')
     const lastRequired = gaps.map((g) => g.kind).lastIndexOf('required')
     if (firstOptional >= 0 && lastRequired >= 0) expect(lastRequired).toBeLessThan(firstOptional)
+  })
+
+  it('required items read as advisory, not as blockers', () => {
+    // This surface gates nothing — the assessor decides when a zone is done.
+    // Blocker language on a screen that blocks nothing trains people to
+    // dismiss it.
+    const whys = zoneGaps(draft({ zn: 'Z' }), 0).filter((g) => g.kind === 'required').map((g) => g.why)
+    expect(whys.length).toBeGreaterThan(0)
+    for (const why of whys) {
+      expect(why).toMatch(/^Needed for a complete /)
+      expect(why).not.toMatch(/cannot|must|required|blocked/i)
+    }
   })
 
   it('every item carries a label, a why and a traceable source', () => {

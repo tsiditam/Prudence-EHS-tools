@@ -5104,7 +5104,9 @@ export default function MobileApp() {
           {(() => {
             const gaps = zoneGaps({ zones, presurvey, bldg }, curZone)
             if (!gaps.length) return null
-            const SHOWN = 4
+            // Three on a phone. This is read standing up, one-handed, at the
+            // end of a zone — a longer list is skimmed rather than acted on.
+            const SHOWN = 3
             const shown = gaps.slice(0, SHOWN)
             const rest = gaps.length - shown.length
             return (

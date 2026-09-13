@@ -67,6 +67,24 @@ export function zoneGaps(assessment, zoneIndex) {
   const name = zoneName(zone, zoneIndex)
   const out = []
 
+  // The record sufficiency is evaluated against is `{ ...bldg, ...zone }`,
+  // exactly as `scoreZone` builds it (scoring.js: `const d = { ...bldg, ...z }`).
+  //
+  // Several inputs sufficiency asks for are BUILDING-scoped — `od` (the OA
+  // damper status that satisfies Ventilation's `altRequired`), `sa`, and
+  // HVAC's `hm` / `fc`. Reading the bare zone made every one of them look
+  // absent, so this panel would tell an assessor to record a damper status
+  // the building record already held, while scoring counted it as present.
+  // Two surfaces, one question, two answers — which is the failure this
+  // module exists to avoid, committed by the module itself.
+  const effective = { ...(assessment.bldg || assessment.building || {}), ...zone }
+
+  // The rules read `assessment.building`; the live walkthrough draft carries
+  // the same record as `bldg` and only the finalized report renames it
+  // (`building: bldg`). Normalized here so a caller cannot pass the draft and
+  // silently get a rule evaluated against an empty building.
+  const forRules = { ...assessment, building: assessment.building || assessment.bldg || {} }
+
   // 1. Data completeness, per category, straight from the sufficiency engine.
   //
   // Its `missing` / `unmetOptional` are already reader-facing labels ("CO₂
@@ -75,12 +93,16 @@ export function zoneGaps(assessment, zoneIndex) {
   // the question list applies through `cond`, so the two agree without this
   // module restating either.
   for (const category of CATEGORIES) {
-    const s = evaluateCategorySufficiency(category, zone)
+    const s = evaluateCategorySufficiency(category, effective)
     for (const label of s.missing || []) {
       out.push({
         id: `req:${category}:${label}`,
         label,
-        why: `${category} cannot be assessed without it.`,
+        // Not "cannot be assessed without it". This surface is advisory and
+        // gates nothing; the assessor decides when a zone is done. Wording
+        // that reads like a blocker on a screen that blocks nothing teaches
+        // people to dismiss it.
+        why: `Needed for a complete ${category.toLowerCase()} assessment.`,
         kind: 'required',
         source: 'sufficiency',
         rank: RANK.required,
@@ -104,7 +126,7 @@ export function zoneGaps(assessment, zoneIndex) {
   // the live draft. The rules that need `zoneScores` simply produce nothing
   // before scoring has run, which is the correct answer mid-walkthrough
   // rather than a special case to write here.
-  for (const g of detectDefensibilityGaps(assessment) || []) {
+  for (const g of detectDefensibilityGaps(forRules) || []) {
     if (!Array.isArray(g.zones) || !g.zones.includes(name)) continue
     out.push({
       id: `gap:${g.kind}`,
