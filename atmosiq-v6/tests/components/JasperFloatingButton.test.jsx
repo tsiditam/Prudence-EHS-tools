@@ -137,25 +137,33 @@ describe('JasperFloatingButton', () => {
     expect(scrollOffsetOf(scroller)).toBe(600)
   })
 
-  // The launcher is the same glass as the dock and the header controls
-  // (chrome pass, 2026-09): the two-tone breathing aura it carried is gone,
-  // and the cyan brain glyph is the one identity mark.
-  it('is a glass disc with no aura behind the glyph', () => {
+  // The two-tone breathing aura is the launcher's identity mark and stays
+  // (product decision, reaffirmed twice: after a restraint pass removed it,
+  // and after the chrome pass put the disc on the glass).
+  it('keeps the breathing two-tone aura behind the glass disc', () => {
     const { container } = render(<JasperFloatingButton onClick={() => {}} />)
-    expect(container.querySelector('.jfb-glow')).toBeNull()
+    const glow = container.querySelector('.jfb-glow')
+    expect(glow).not.toBeNull()
+    expect(glow.getAttribute('aria-hidden')).toBe('true')
+    expect(glow.style.animation).toContain('jfbBreathe')
     const btn = container.querySelector('.jfb-btn')
     expect(btn.style.background).toContain('--glass-fill')
     expect(btn.style.boxShadow).toBe('none')
   })
 
-  // The disc shrinks to the header controls' 40px while reading and grows
-  // back to 48px; nothing else about it changes.
-  it('shrinks to 40px while the page scrolls down', () => {
-    render(<JasperFloatingButton onClick={() => {}} />)
+  // The aura keeps one extent while the disc shrinks to the header
+  // controls' 40px. It used to resize in a single step while the disc
+  // eased, and Safari drew the mask against the old bounds for those
+  // frames — the glow sat off-center and clipped.
+  it('keeps the aura at full extent while the disc is shrunk', () => {
+    const { container } = render(<JasperFloatingButton onClick={() => {}} />)
     const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
+    const glow = container.querySelector('.jfb-glow')
     expect(btn.style.width).toBe('48px')
     setScrollY(240); fireEvent.scroll(window)
     expect(btn.style.width).toBe('40px')
+    expect(glow.style.width).toBe('60px')
+    expect(glow.style.height).toBe('60px')
   })
 
   describe('free placement', () => {

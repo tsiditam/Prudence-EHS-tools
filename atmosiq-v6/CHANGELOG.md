@@ -19,9 +19,10 @@
 - **Dock and launcher finished.** The bottom dock is the measured glass
   (the control surface at 88% over a backdrop blur, the glass edge, no
   shadow) with a neutral selected glyph in both themes; the AtmosFlow AI
-  launcher is a 48px glass disc (40px while reading) with no aura — the
-  cyan brain glyph is its one identity mark. Both were the last chrome on
-  the older capsule-and-glow treatment.
+  launcher is a 48px glass disc (40px while reading). Its breathing
+  two-tone aura stays — the launcher is the identity mark (product
+  decision, reaffirmed). Both were the last chrome on the older capsule
+  treatment.
 
 ## Desktop pro pass (September 2026)
 
