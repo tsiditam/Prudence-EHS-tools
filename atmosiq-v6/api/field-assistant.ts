@@ -670,6 +670,13 @@ interface ToolDispatchContext {
   // owned by a conversation, and a user with two open threads must not be
   // able to read one from the other by guessing an id.
   conversationId: string
+  // Everything the ASSESSOR has written in this thread, and nothing the model
+  // wrote. `record_zone_observation` will not propose a value unless the words
+  // stating it appear here verbatim, so this is the evidence base for the
+  // attestation gate — which is exactly why assistant turns are excluded. A
+  // model quoting its own earlier sentence back at itself would attest
+  // anything it had already said.
+  assessorText: string
 }
 
 async function runAgentLoop(
@@ -1390,6 +1397,14 @@ async function handler(req: VercelLikeRequest, res: VercelLikeResponse): Promise
     userId: user.id,
     // read_attached_document resolves against the documents in THIS thread.
     conversationId,
+    // The whole thread's assessor-authored text, not just this turn: they say
+    // "CO2's about fourteen fifty in here" and then, two turns later, answer a
+    // clarifying question. Scoping attestation to the latest message alone
+    // would refuse the proposal that finally has everything it needs.
+    assessorText: [
+      ...history.filter((m) => m.role === 'user').map((m) => String(m.content || '')),
+      userMessage,
+    ].join('\n'),
     assessmentContext:
       (body.context && typeof body.context === 'object'
         ? (body.context as Record<string, unknown>)

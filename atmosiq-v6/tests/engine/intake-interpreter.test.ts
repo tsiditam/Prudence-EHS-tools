@@ -74,8 +74,11 @@ describe('2. moisture / water intrusion', () => {
       facts: [{ field: 'wl', value: 'Ceiling', quote: 'water damage somewhere in the room' }],
     }, ctxFor('There is water damage somewhere in the room.'))
     expect(r.facts).toEqual([])
-    // wl is cond-gated on wd and wd is unanswered, so it is not writable here.
-    expect(r.rejected[0].reason).toBeTruthy()
+    // `wl` is not in the writable catalog at all, so gate 2 refuses it by id
+    // before any question of what the words support arises. (Its display
+    // condition is a separate matter — `{ ne: 'None' }` against an unanswered
+    // `wd` is true, so the walkthrough does show it.)
+    expect(r.rejected[0].reason).toBe('unknown_field')
   })
 })
 
@@ -294,6 +297,90 @@ describe('negative: the VALUE must be attested, not just the quote', () => {
     }, ctxFor(text))
     expect(r.facts).toEqual([])
     expect(r.rejected[0].reason).toBe('value_not_stated')
+  })
+})
+
+describe('negative: a value is not attested by its own negation', () => {
+  const NO_COMPLAINTS = 'No complaints were reported.'
+
+  it('"No complaints were reported" cannot attest the YES option', () => {
+    // The sentence contains the word "complaints", which is an alias for the
+    // option it denies. Specificity settles it: "no complaints" is the longer
+    // phrase and the shorter one is not independent evidence.
+    const r = interpretProposals({
+      facts: [{ field: 'cx', value: 'Yes — complaints reported', quote: NO_COMPLAINTS }],
+    }, ctxFor(NO_COMPLAINTS))
+    expect(r.facts).toEqual([])
+    expect(r.rejected[0].reason).toBe('value_not_stated')
+  })
+
+  it('the same sentence DOES attest the option it states', () => {
+    const r = interpretProposals({
+      facts: [{ field: 'cx', value: 'No complaints', quote: NO_COMPLAINTS }],
+    }, ctxFor(NO_COMPLAINTS))
+    expect(r.facts.map((f) => f.value)).toEqual(['No complaints'])
+  })
+
+  it('"the odor was not strong" cannot attest Strong / overpowering', () => {
+    const text = 'The odor was not strong.'
+    const r = interpretProposals({
+      facts: [{ field: 'op', value: 'Strong / overpowering', quote: text }],
+    }, ctxFor(text))
+    expect(r.facts).toEqual([])
+    expect(r.rejected[0].reason).toBe('value_not_stated')
+  })
+
+  it.each(["isn't strong", "wasn't strong", 'is not strong', 'never strong'])(
+    'and the same for "%s"', (phrase) => {
+      const text = `The odor ${phrase} in this room.`
+      const r = interpretProposals({
+        facts: [{ field: 'op', value: 'Strong / overpowering', quote: text }],
+      }, ctxFor(text))
+      expect(r.facts).toEqual([])
+    },
+  )
+
+  it('a denial does not attest the opposite option either — it attests nothing', () => {
+    // "not strong" is not a claim that the odor was faint. Fail closed.
+    const text = 'The odor was not strong.'
+    const r = interpretProposals({
+      facts: [{ field: 'op', value: 'Faint / intermittent', quote: text }],
+    }, ctxFor(text))
+    expect(r.facts).toEqual([])
+    expect(r.rejected[0].reason).toBe('value_not_stated')
+  })
+})
+
+describe('negative: two supported options are an ambiguity, not a choice', () => {
+  it('a single-select field with independent support for two options fails closed', () => {
+    // Both terms are genuinely stated and neither negates the other. The
+    // field holds one value, so the words do not settle it — and breaking
+    // the tie is the authority this envelope withholds.
+    const text = 'Some occupants said it was too hot, others said too cold.'
+    const r = interpretProposals({
+      facts: [{ field: 'tc', value: 'Too hot', quote: text }],
+    }, ctxFor(text))
+    expect(r.facts).toEqual([])
+    expect(r.rejected[0]).toMatchObject({ reason: 'ambiguous_attestation' })
+    expect(r.rejected[0].detail).toContain('Too cold')
+  })
+
+  it('the assessor is asked the structured question instead', () => {
+    const text = 'Some occupants said it was too hot, others said too cold.'
+    const r = interpretProposals({
+      facts: [{ field: 'tc', value: 'Too hot', quote: text }],
+      questions: [{ question_id: 'tc', reason: 'Thermal reports conflict; not recorded.' }],
+    }, ctxFor(text))
+    expect(r.questions.map((q) => q.question_id)).toEqual(['tc'])
+  })
+
+  it('a multi-select is NOT ambiguous for holding several options', () => {
+    // The contradiction only exists for a field that holds one value.
+    const text = 'Musty smell near the sink, and a sewage odor in the corridor.'
+    const r = interpretProposals({
+      facts: [{ field: 'ot', value: ['Musty / Earthy', 'Sewage'], quote: text }],
+    }, ctxFor(text))
+    expect(r.facts.map((f) => f.value)).toEqual([['Musty / Earthy', 'Sewage']])
   })
 })
 

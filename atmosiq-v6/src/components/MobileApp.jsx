@@ -6371,6 +6371,29 @@ export default function MobileApp() {
               setPendingRescore((n) => n + 1)
               return true
             }
+            if (action.type === 'ask_zone_question') {
+              // Phase 2's other half. The dispatcher has already checked that
+              // this question is one the walkthrough would ask in this zone
+              // right now — in the catalog, condition satisfied, unanswered —
+              // so accepting only has to GO there. It writes nothing, which is
+              // the point: the assessor answers it themselves, in the field
+              // the engine reads, and the model never held the value.
+              //
+              // A finalized report is a record, not a live assessment; there
+              // is no walkthrough to send them back into.
+              if (viewRpt) return false
+              const qid = action.question_id
+              if (!qid || !zones[curZone]) return false
+              // pendingZoneFix is the existing mechanism the Readiness panel's
+              // tap-to-fix cards use: it survives the navigation and lands zqi
+              // on the question once zVis has rebuilt for that zone. Reusing it
+              // means the two surfaces cannot drift apart.
+              setPendingZoneFix({ zoneIndex: curZone, field: qid })
+              setView('zone')
+              setFaOpen(false)
+              setVoicePrefill(null)
+              return true
+            }
             if (action.type === 'add_zone_note') {
               const noteText = (action.note_text || '').trim()
               if (!noteText) return false
