@@ -1,5 +1,27 @@
 # AtmosFlow Changelog
 
+## A third demo: post-renovation formaldehyde, with a week of logger data (September 2026)
+
+- **Demo · Post-Renovation Logger** (`constants/demoDataHcho.js`): a college
+  residence hall whose second floor was refurnished three weeks earlier —
+  pressed-wood furniture, vinyl plank flooring, a repaint — with a
+  refurnished room and an original-furniture comparison room on the same
+  DOAS. The walkthrough finds formaldehyde at 0.032 ppm, above the NIOSH REL
+  and flagged as the indicative finding a spot reading is; the comparison
+  room reads a third of that with the same CO₂, temperature, RH and PM2.5.
+- **The logger record is real-world-shaped and loaded verbatim.** 168 hourly
+  rows over seven days, parsed by the same code path as an uploaded file
+  (formaldehyde arrives in mg/m³ and is normalized to ppb; temperature in
+  °C is carried through), so the Logger tab, the monitoring statistics and
+  the four report figures — formaldehyde, CO₂, PM2.5, TVOC — all read the
+  same rows. It carries what the walkthrough alone would have missed: a
+  25-hour formaldehyde excursion above the WHO 30-minute guideline, an
+  overnight CO₂ rise inside the tagged occupancy windows, and a coincident
+  TVOC and PM2.5 rise at 18:00 on all seven days.
+- **The demo's own season.** `runDemo` scores a demo against its survey date
+  when the demo states one, as finalize does, so the comfort band is the
+  demo's, not the month it is opened in.
+
 ## Results page rhythm (September 2026)
 
 - **Sections are spaced symmetrically.** A results section is now 18px
