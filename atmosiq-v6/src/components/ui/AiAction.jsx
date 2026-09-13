@@ -7,15 +7,16 @@
  *
  *   <AiAction label="Refine" onClick={() => askAI('Refine the executive summary…')} />
  *
- * The one control on a screen that carries the AI mark: a ✦ in the accent
- * beside a short verb in the primary ink, no fill, no edge, the raised
- * tone on hover. It sits where the AI is useful — beside a section it can
+ * The one control on a screen that carries the AI mark: the AtmosFlow AI
+ * brain (the mark beside the wordmark in the menu, and the launcher's
+ * glyph) beside a short verb in the primary ink, no fill, no edge, the
+ * raised tone on hover. It sits where the AI is useful — beside a section it can
  * rewrite, a finding set it can relate, a chart it can explain — and its
  * click opens the assistant with the question already asked, with the
  * screen the user is looking at as the evidence. The AI is marked by its
  * glyph, so the label stays a plain verb ("Refine", not "Ask AI to refine").
  */
-import { I } from '../Icons'
+import JasperBrainIcon from '../JasperBrainIcon'
 
 if (typeof document !== 'undefined' && !document.getElementById('afai-style')) {
   const s = document.createElement('style')
@@ -45,7 +46,7 @@ export default function AiAction({ label, onClick, disabled = false, title, styl
         whiteSpace: 'nowrap', WebkitTapHighlightColor: 'transparent', flexShrink: 0,
         ...style,
       }}>
-      <I n="sparkle" s={14} c="var(--accent)" w={2} />
+      <JasperBrainIcon size={16} animate={false} />
       <span>{label}</span>
     </button>
   )

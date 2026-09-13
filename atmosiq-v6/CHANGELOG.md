@@ -7,7 +7,7 @@
   completed) and every success toast's icon (export, save, attach).
   `Reading` gains `animate`: a count ticks up on arrival, used by the
   results hero and the Home counts, never by a measurement.
-- **Contextual AI actions.** `ui/AiAction` — the ✦ mark beside a plain
+- **Contextual AI actions.** `ui/AiAction` — the AtmosFlow AI brain mark beside a plain
   verb — placed where the AI is useful: **Refine** on each AI-authored
   report section (the question carries the current text and asks for the
   revised paragraph, pasted back through the edit path that re-audits it);

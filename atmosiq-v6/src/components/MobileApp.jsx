@@ -4615,8 +4615,8 @@ export default function MobileApp() {
         ] },
         { key: 'ai', items: [
           // The one cyan mark on the rail. Toggles the docked panel.
-          { label: 'AtmosFlow AI', icon: 'sparkle', active: faOpen, hint: `${MOD_LABEL} J`,
-            renderIcon: () => <I n="sparkle" s={17} c="var(--accent)" w={1.8} />,
+          { label: 'AtmosFlow AI', icon: 'brain', active: faOpen, hint: `${MOD_LABEL} J`,
+            renderIcon: () => <JasperBrainIcon size={18} animate={false} />,
             onClick: () => (faOpen ? closeChat() : openChat('desktop_rail')) },
         ] },
         { key: 'library', label: 'Library', items: [
