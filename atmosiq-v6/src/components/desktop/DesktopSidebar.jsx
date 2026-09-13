@@ -301,9 +301,9 @@ export default function DesktopSidebar({
           <span aria-hidden="true" style={{
             width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            border: '1px solid var(--border-strong)',
-            background: profile?.avatar_url ? 'transparent' : 'var(--raised)',
-            color: 'var(--text)', fontSize: 10, fontWeight: 600,
+            border: profile?.avatar_url ? '1px solid var(--border-strong)' : 'none',
+            background: profile?.avatar_url ? 'transparent' : 'var(--avatar-fill)',
+            color: 'var(--on-avatar)', fontSize: 10, fontWeight: 600,
           }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />

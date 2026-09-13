@@ -50,13 +50,15 @@ import {
 
 const INTRO_FLAG_KEY = 'jasper_intro_v1'
 
-// Header control: a 36px round ghost button; `on` tints it accent (the
-// history toggle while the panel is open).
+// Header control: the app's glass circle (the header hamburger / kebab —
+// see --glass-* in index.html for the measured spec), 40px; `on` tints it
+// accent (the history toggle while the panel is open).
 const HEADER_BTN = (on) => ({
-  width: 36, height: 36, borderRadius: 18,
-  background: on ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'transparent',
-  border: `1px solid ${on ? 'var(--accent)' : 'transparent'}`,
-  color: on ? 'var(--accent)' : 'var(--sub)',
+  width: 40, height: 40, borderRadius: 20,
+  background: on ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'var(--glass-fill)',
+  border: `1px solid ${on ? 'var(--accent)' : 'var(--glass-edge)'}`,
+  backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+  color: on ? 'var(--accent)' : 'var(--text)',
   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
   fontFamily: 'inherit', flexShrink: 0, WebkitTapHighlightColor: 'transparent',
 })
@@ -1461,7 +1463,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
               onClick={onClose}
               aria-label="Close AtmosFlow AI"
               title="Close"
-              style={{ ...HEADER_BTN(false), background: SURFACE, color: TEXT }}>
+              style={HEADER_BTN(false)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
@@ -2290,7 +2292,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                 title="Attach a photo, report (DOCX/PDF), logger export, or lab results"
                 style={{
                   width: 40, height: 40, borderRadius: 20,
-                  background: CARD, border: `1px solid ${BORDER}`,
+                  background: 'var(--glass-fill)', border: '1px solid var(--glass-edge)',
                   cursor: sending || !introAccepted || attachSlotsFull ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontFamily: 'inherit', flexShrink: 0,
@@ -2311,7 +2313,7 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     height: 40, padding: '0 12px 0 11px', borderRadius: 20,
-                    background: CARD, border: `1px solid ${BORDER}`,
+                    background: 'var(--glass-fill)', border: '1px solid var(--glass-edge)',
                     color: TEXT, fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
                     cursor: 'pointer', minWidth: 0, maxWidth: 180,
                     WebkitTapHighlightColor: 'transparent',

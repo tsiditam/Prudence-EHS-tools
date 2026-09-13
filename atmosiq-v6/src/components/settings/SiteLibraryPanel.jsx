@@ -27,6 +27,8 @@
 import { useEffect, useState } from 'react'
 import * as V3 from '../../styles/tokens'
 import { useStorage } from '../../contexts/StorageContext'
+import EmptyState from '../ui/EmptyState'
+import { SkeletonRows } from '../ui/Skeleton'
 
 // The panel mounts INSIDE a Settings <Group>, whose container is already
 // painted --card. Per-site cards use --surface so they read as rows nested
@@ -167,14 +169,14 @@ export default function SiteLibraryPanel() {
       )}
 
       {loading && sites.length === 0 && (
-        <div style={{...V3.T.bodyDim, padding: 20, textAlign: 'center'}}>Loading sites…</div>
+        <SkeletonRows rows={3} label="Loading sites" />
       )}
 
       {!loading && sites.length === 0 && (
-        <div style={{padding: 18, borderRadius: 12, border: `1px dashed ${BORDER}`, background: CARD, textAlign: 'center'}}>
-          <div style={{...V3.T.bodyStrong, marginBottom: 6}}>No sites saved yet</div>
-          <div style={{...V3.T.captionDim}}>Finalize an assessment to add the building as a site.</div>
-        </div>
+        <EmptyState
+          title="Your sites will appear here"
+          body="Finalize an assessment and its building is saved with a re-assessment reminder and a profile that pre-fills the next visit."
+        />
       )}
 
       {sites.map(s => (

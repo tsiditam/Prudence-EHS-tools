@@ -68,10 +68,12 @@ const VARIANT = {
   // --bg so it is a neutral tint in both themes (--raised is cyan-tinted in
   // light mode, which is not what this is).
   neutral: {
-    background: 'color-mix(in srgb, var(--text) 9%, var(--bg))',
+    background: 'var(--glass-fill)',
     color: 'var(--text)',
-    border: '1px solid color-mix(in srgb, var(--text) 14%, var(--bg))',
+    border: '1px solid var(--glass-edge)',
     boxShadow: 'none',
+    backdropFilter: 'var(--glass-blur)',
+    WebkitBackdropFilter: 'var(--glass-blur)',
   },
   ghost: {
     background: 'transparent',

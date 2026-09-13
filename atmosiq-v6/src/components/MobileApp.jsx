@@ -59,6 +59,7 @@ import AnimatedPageTransition from './ui/AnimatedPageTransition'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
+import EmptyState from './ui/EmptyState'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import LaunchFrame, { LazyPlaceholder } from './LaunchFrame'
@@ -1016,20 +1017,18 @@ export default function MobileApp() {
   // Projects for the rail's RECENT section and the Home screen. Reloaded
   // whenever the index or the screen changes so a rename or a new project
   // shows without a reload; desktop only.
-  const [desktopProjects, setDesktopProjects] = useState([])
+  const [desktopProjects, setDesktopProjects] = useState(null)
   useEffect(() => {
     if (!isDesktop || !profile) return undefined
     let alive = true
     import('../utils/projectStore').then(m => m.getProjects()).then(p => { if (alive) setDesktopProjects(p || []) }).catch(() => {})
     return () => { alive = false }
   }, [isDesktop, profile, index, view])
-  // Project switcher (top of the side menu). Loads the project list each
-  // time the menu opens so the recents are fresh; `menuSwitcherOpen`
-  // expands the inline recents list under the chip.
+  // Projects for the side menu's RECENT section. Loaded each time the menu
+  // opens so the list is fresh.
   const [menuProjects, setMenuProjects] = useState([])
-  const [menuSwitcherOpen, setMenuSwitcherOpen] = useState(false)
   useEffect(() => {
-    if (!showHomeMenu) { setMenuSwitcherOpen(false); return }
+    if (!showHomeMenu) return undefined
     let alive = true
     import('../utils/projectStore').then(m => m.getProjects()).then(p => { if (alive) setMenuProjects(p || []) }).catch(() => {})
     return () => { alive = false }
@@ -1298,24 +1297,29 @@ export default function MobileApp() {
     onPointerLeave: () => setPressedTrigger((k) => (k === key ? null : k)),
     onPointerCancel:() => setPressedTrigger((k) => (k === key ? null : k)),
   })
-  // peak = how much the control swells while held (icon buttons can take a
-  // bigger swell than the wide back pill). The glow is an INSET (internal)
-  // box-shadow rather than an outer drop-shadow so the header's overflow can't
-  // clip it — it blooms inside the control. Brand cyan reads on both themes;
-  // boxShadow is left undefined when idle so the .af-glass-control glass
-  // shadow shows through.
-  const triggerFx = (key, peak = 1.3) => {
+  // Circular header control (hamburger, kebab) — Grok's corner controls,
+  // to the measured numbers (see --glass-* in index.html): a 40px disc,
+  // translucent fill, 1px edge, no highlight, no shadow, a white glyph.
+  // Pressing sinks it (scale down, a touch brighter) and it springs back on
+  // release. The back pill shares the material and the press (width auto).
+  const CIRCLE_BTN = {
+    width: 40, height: 40, borderRadius: 20, padding: 0,
+    background: 'var(--glass-fill)', border: '1px solid var(--glass-edge)',
+    boxShadow: 'none',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+    color: V3.TEXT_PRIMARY,
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxSizing: 'border-box', WebkitTapHighlightColor: 'transparent', flexShrink: 0,
+  }
+  const circleFx = (key) => {
     const on = pressedTrigger === key
-    if (reduceMotion) return { transform: on ? 'scale(0.97)' : 'scale(1)', transition: 'transform 90ms ease' }
+    if (reduceMotion) return { transform: on ? 'scale(0.96)' : 'scale(1)', transition: 'transform 90ms ease' }
     return {
-      transform: on ? `scale(${peak})` : 'scale(1)',
-      boxShadow: on ? 'inset 0 0 18px rgba(57,192,217,0.72), inset 0 0 7px rgba(57,192,217,0.6)' : undefined,
-      filter: on ? 'brightness(1.12)' : 'none',
-      // Quick ease-out on the way up (tracks the finger), springy overshoot on
-      // the way back so the release reads "liquid", not snapped.
+      transform: on ? 'scale(0.92)' : 'scale(1)',
+      filter: on ? 'brightness(1.3)' : 'none',
       transition: on
-        ? 'transform 200ms cubic-bezier(.2,.85,.3,1), box-shadow 180ms ease, filter 200ms ease'
-        : 'transform 460ms cubic-bezier(.34,1.56,.64,1), box-shadow 320ms ease, filter 360ms ease',
+        ? 'transform 120ms cubic-bezier(.2,.85,.3,1), filter 120ms ease'
+        : 'transform 360ms cubic-bezier(.34,1.56,.64,1), filter 260ms ease',
       willChange: 'transform',
     }
   }
@@ -4330,89 +4334,84 @@ export default function MobileApp() {
     <>
     {profile && (
       <nav className="af-sidemenu" aria-label="Main menu" aria-hidden={!showHomeMenu}>
-        {/* Header — bold AtmosFlow wordmark left + a glass circular avatar
-            right (Claude mobile style); the avatar opens the Account page. */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 4px 16px',marginBottom:6,borderBottom:'1px solid var(--m-hair)'}}>
-          <span style={{fontSize:23,fontWeight:800,letterSpacing:'-0.03em',color:'var(--text)'}}>AtmosFlow</span>
+        {/* Header — Grok's mobile menu: the assessor's avatar and name on the
+            left (one tap target, opens the Account page), and a circular
+            "close" control on the right. The wordmark is gone — the person
+            using the tool is the identity of their workspace, and the brand
+            lives on the launch frame. The name drops any credential suffix
+            ("Tsidi Tamakloe, CIH" → "Tsidi Tamakloe"), as the initials do. */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'2px 0 16px',marginBottom:6,borderBottom:'1px solid var(--m-hair)'}}>
           <button
             onClick={() => go(() => setView('account'))}
             aria-label="Account"
             style={{
-              width:40, height:40, borderRadius:'50%', flexShrink:0,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              background:'var(--m-ctl)',
-              backdropFilter:'blur(12px) saturate(160%)', WebkitBackdropFilter:'blur(12px) saturate(160%)',
-              border:'1px solid var(--m-border)',
-              boxShadow:'inset 0 1px 0 var(--m-inset)',
-              color:'var(--accent)', fontSize:14, fontWeight:700, letterSpacing:'0.02em',
-              cursor:'pointer', fontFamily:'inherit', overflow:'hidden', WebkitTapHighlightColor:'transparent',
+              display:'flex', alignItems:'center', gap:12, minWidth:0, flex:1,
+              padding:0, background:'transparent', border:'none', cursor:'pointer',
+              fontFamily:'inherit', textAlign:'left', WebkitTapHighlightColor:'transparent',
             }}>
-            {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt="" aria-hidden="true" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
-              : getInitials(profile)}
+            <span aria-hidden="true" style={{
+              width:34, height:34, borderRadius:'50%', flexShrink:0,
+              display:'inline-flex', alignItems:'center', justifyContent:'center',
+              background: profile?.avatar_url ? 'var(--m-ctl)' : 'var(--avatar-fill)',
+              border: profile?.avatar_url ? '1px solid var(--m-border)' : 'none',
+              color:'var(--on-avatar)', fontSize:13, fontWeight:700, letterSpacing:'0.02em', overflow:'hidden',
+            }}>
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
+                : getInitials(profile)}
+            </span>
+            <span style={{fontSize:17,fontWeight:600,letterSpacing:'-0.01em',color:'var(--text)',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              {(profile?.name || '').split(',')[0].trim() || 'Account'}
+            </span>
+          </button>
+          <button
+            onClick={closeSideMenu}
+            aria-label="Close menu"
+            style={{
+              width:40, height:40, borderRadius:20, flexShrink:0, padding:0,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              background:'var(--glass-fill)', border:'1px solid var(--glass-edge)', color:'var(--text)',
+              cursor:'pointer', fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
+            }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 17 11 12 6 7" />
+              <polyline points="13 17 18 12 13 7" />
+            </svg>
           </button>
         </div>
-        {/* ── Project switcher ── persistent context chip: shows the
-            project you're working in (or "All projects"), and expands an
-            inline recents list. Selecting a project opens its workspace. */}
-        {(() => {
-          const current = activeProjectId ? menuProjects.find(p => p.id === activeProjectId) : null
-          const recents = [...menuProjects].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5)
-          const openProject = (id) => go(() => { setActiveProjectId(id); setView('project-detail') })
-          return (
-            <div style={{marginBottom:8}}>
-              <button
-                onClick={() => setMenuSwitcherOpen(o => !o)}
-                aria-expanded={menuSwitcherOpen}
-                aria-label="Switch project"
-                style={{
-                  width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 12px',
-                  borderRadius:14, border:'1px solid var(--m-border)', cursor:'pointer', textAlign:'left',
-                  fontFamily:'inherit', background:'var(--m-ctl)',
-                  boxShadow:'inset 0 1px 0 var(--m-inset)',
-                  WebkitTapHighlightColor:'transparent',
-                }}>
-                <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,background:'var(--accent)'}} />
-                <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                  {current ? current.name : 'All projects'}
-                </span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-                  style={{transform: menuSwitcherOpen ? 'rotate(180deg)' : 'none', transition:'transform 180ms cubic-bezier(.22,1,.36,1)', flexShrink:0}}>
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-              {menuSwitcherOpen && (
-                <div style={{marginTop:4, padding:'2px 0 4px'}}>
-                  {recents.map(p => (
-                    <button key={p.id} onClick={() => openProject(p.id)} style={{
-                      width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
-                      borderRadius:12, border:'none', background:'transparent', cursor:'pointer', textAlign:'left',
-                      fontFamily:'inherit', fontSize:14, fontWeight: p.id === activeProjectId ? 600 : 500,
-                      color: p.id === activeProjectId ? 'var(--accent)' : 'var(--text)',
-                      WebkitTapHighlightColor:'transparent',
-                    }}>
-                      <I n="bldg" s={15} c={p.id === activeProjectId ? 'var(--accent)' : 'var(--sub)'} w={1.7} />
-                      <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
-                    </button>
-                  ))}
-                  {recents.length === 0 && (
-                    <div style={{padding:'10px 12px 8px 22px', fontSize:13, color:'var(--sub)'}}>No projects yet</div>
-                  )}
-                  <button onClick={() => go(() => setView('projects'))} style={{
-                    width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
-                    borderRadius:12, border:'none', background:'transparent', cursor:'pointer', textAlign:'left',
-                    fontFamily:'inherit', fontSize:13, fontWeight:600, color:'var(--accent)',
-                    WebkitTapHighlightColor:'transparent',
-                  }}>
-                    All projects ›
-                  </button>
-                </div>
-              )}
-            </div>
-          )
-        })()}
         <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
           {sideMenuPrimary.map(sideMenuRow)}
+          {/* ── Recent ── the projects touched last, as plain rows (Grok's
+              Conversations list; the desktop rail's Recent). This replaced
+              the "All projects" switcher chip that sat above the Projects
+              row: in its usual state it only reopened the list the row below
+              opens, and the recents it hid behind a tap are the one thing a
+              returning user wants from this menu. Hidden until there is a
+              project to list. */}
+          {(() => {
+            const recents = [...menuProjects].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 4)
+            if (recents.length === 0) return null
+            const openProject = (id) => go(() => { setActiveProjectId(id); setView('project-detail') })
+            return (
+              <div>
+                {sideMenuSectionLabel({ key: 'recent', label: 'Recent' })}
+                {recents.map(p => {
+                  const active = view === 'project-detail' && p.id === activeProjectId
+                  return (
+                    <button key={p.id} onClick={() => openProject(p.id)} aria-current={active ? 'page' : undefined} style={{
+                      width:'100%', display:'flex', alignItems:'center', padding:'11px 14px',
+                      margin:'1px 0', borderRadius:14, border:'none', cursor:'pointer', textAlign:'left',
+                      fontFamily:'inherit', fontSize:15, fontWeight: active ? 600 : 500,
+                      color:'var(--text)', background: active ? 'var(--m-ctl)' : 'transparent',
+                      WebkitTapHighlightColor:'transparent',
+                    }}>
+                      <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })()}
           {sideMenuGroups.map(g => (
             <div key={g.key}>
               {sideMenuSectionLabel(g)}
@@ -4473,7 +4472,7 @@ export default function MobileApp() {
         ] },
       ]
       const openProject = (pid) => { setActiveProjectId(pid); setView('project-detail') }
-      const railRecent = { label: 'Recent', items: desktopProjects.slice(0, 4).map(p => ({
+      const railRecent = { label: 'Recent', items: (desktopProjects || []).slice(0, 4).map(p => ({
         key: p.id, label: p.name, active: view === 'project-detail' && activeProjectId === p.id, onClick: () => openProject(p.id),
       })) }
       const railBottom = [
@@ -4489,7 +4488,7 @@ export default function MobileApp() {
         { id: 'ai', label: faOpen ? 'Close AtmosFlow AI' : 'Ask AtmosFlow AI', group: 'AtmosFlow AI', hint: `${MOD_LABEL} J`, renderIcon: () => <JasperBrainIcon size={18} animate={false} />, keywords: ['jasper', 'ask', 'ai', 'assistant', 'chat'], onSelect: () => (faOpen ? closeChat() : openChat('command_palette')) },
         { id: 'new-investigation', label: 'New investigation', group: 'Actions', icon: 'plus', keywords: ['start', 'assessment', 'walkthrough', 'survey'], onSelect: () => startNew() },
         ...railSections.filter(sec => sec.key !== 'ai').flatMap(sec => sec.items.map(it => ({ id: `go-${it.view}`, label: it.label, group: sec.label || 'Workspace', icon: it.icon, keywords: ['go to', 'open'], onSelect: () => go(it.onClick) }))),
-        ...desktopProjects.slice(0, 8).map(p => ({ id: `project-${p.id}`, label: p.name, group: 'Projects', icon: 'bldg', hint: [p.client, p.siteType].filter(Boolean).join(' · '), keywords: ['project', 'site', p.client || ''], onSelect: () => openProject(p.id) })),
+        ...(desktopProjects || []).slice(0, 8).map(p => ({ id: `project-${p.id}`, label: p.name, group: 'Projects', icon: 'bldg', hint: [p.client, p.siteType].filter(Boolean).join(' · '), keywords: ['project', 'site', p.client || ''], onSelect: () => openProject(p.id) })),
         ...drafts.slice(0, 8).map(d => ({ id: `draft-${d.id}`, label: d.facility || 'Untitled assessment', group: 'Drafts', icon: 'draft', hint: fD(d.ua || d.ts), keywords: ['draft', 'resume', 'assessment'], onSelect: () => resumeDraft(d.id) })),
         ...reports.slice(0, 8).map(r => ({ id: `report-${r.id}`, label: r.facility || 'Untitled report', group: 'Reports', icon: 'report', hint: fD(r.ts), keywords: ['report', 'finalized'], onSelect: () => openReport(r) })),
         ...railBottom.map(it => ({ id: `go-${it.view}`, label: it.label, group: 'System', icon: it.icon, onSelect: () => go(it.onClick) })),
@@ -4562,12 +4561,14 @@ export default function MobileApp() {
                 onClick={()=>{ nav.back(); setViewRpt(null) }}
                 {...triggerPress('back')}
                 aria-label={`Back to ${backLabel}`}
-                className="af-menu-trigger"
-                // Bare: a chevron and the destination in the primary ink,
-                // no capsule. The accent is for the primary action and
-                // the selected state, and the way back is neither.
-                style={{display:'flex',alignItems:'center',gap:2,height:36,padding:'0 8px 0 0',background:'transparent',border:'none',boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:V3.TEXT_PRIMARY,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+                className="af-menu-trigger af-circle-btn"
+                // The same glass capsule as the header circles (CIRCLE_BTN):
+                // 40px tall so it sits level with the kebab on the same row,
+                // a chevron and the destination in the primary ink. The
+                // accent is for the primary action and the selected state,
+                // and the way back is neither.
+                style={{...CIRCLE_BTN, width:'auto', gap:4, padding:'0 14px 0 10px', ...circleFx('back')}}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{backLabel}</span>
               </button>
             )}
@@ -4580,16 +4581,9 @@ export default function MobileApp() {
                 aria-label="Open menu"
                 aria-haspopup="menu"
                 aria-expanded={showHomeMenu}
-                className="af-menu-trigger"
-                style={{
-                  // A bare glyph in the primary ink; no circle, no glass.
-                  width:40, height:40, marginLeft:-10,
-                  padding:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-                  background:'transparent', border:'none', color:V3.TEXT_PRIMARY,
-                  boxSizing:'border-box', WebkitTapHighlightColor:'transparent',
-                  ...triggerFx('menu', 1.3),
-                }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                className="af-menu-trigger af-circle-btn"
+                style={{ ...CIRCLE_BTN, ...circleFx('menu') }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
                   <line x1="4" y1="7"  x2="20" y2="7" />
                   <line x1="4" y1="12" x2="15" y2="12" />
                   <line x1="4" y1="17" x2="11" y2="17" />
@@ -4627,7 +4621,7 @@ export default function MobileApp() {
             {profile && view!=='dash' && (
               <button
                 type="button"
-                className="af-menu-trigger"
+                className="af-menu-trigger af-circle-btn"
                 onClick={(e) => {
                   const r = e.currentTarget.getBoundingClientRect()
                   setActionsAnchor({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
@@ -4637,17 +4631,8 @@ export default function MobileApp() {
                 aria-label="More actions"
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
-                style={{
-                  // A bare glyph in the primary ink; no circle, no glass.
-                  width:40, height:40, marginRight:-10,
-                  cursor:'pointer', display:'flex',
-                  alignItems:'center', justifyContent:'center',
-                  padding:0, boxSizing:'border-box',
-                  background:'transparent', border:'none', color:V3.TEXT_PRIMARY,
-                  WebkitTapHighlightColor:'transparent',
-                  ...triggerFx('kebab', 1.3),
-                }}>
-                <I n="dots" s={22} c="currentColor" w={2} />
+                style={{ ...CIRCLE_BTN, ...circleFx('kebab') }}>
+                <I n="dots" s={18} c="currentColor" w={2.2} />
               </button>
             )}
           </div>
@@ -5702,29 +5687,66 @@ export default function MobileApp() {
             )}
           </div>
 
+          {(() => {
+            const drafts = index.drafts || []
+            const reports = index.reports || []
+            // First run: one empty state for the whole screen — a ghost of
+            // the list, the outcome, the one action — instead of two empty
+            // sections each apologizing on its own line.
+            if (drafts.length === 0 && reports.length === 0) {
+              return (
+                <EmptyState
+                  title="Your reports will appear here"
+                  body="Finalize an assessment and its report is listed with its findings, what needs attention and its status."
+                  action={<TactileButton variant="neutral" pill haptic="success" onClick={() => startNew()} style={{ height: 37, minHeight: 37, padding: '0 22px', fontSize: 17, letterSpacing: 0 }}>Start an assessment</TactileButton>}
+                  secondary={{ label: 'View a sample report', onClick: () => runDemo(userMode === 'fm' ? undefined : 'findings') }}
+                  minHeight={`calc(${V3.FULL_VH} - 260px)`}
+                />
+              )
+            }
+            // A row carries its verdict at a glance: a dot in the worst
+            // finding's severity color (green when there is none), the
+            // finding census in the caption, and a status pill — in fixed
+            // columns so the eye scans down the list. Every value is already
+            // on the index entry (findings / attention / worstSeverity);
+            // legacy entries without them fall back to the date alone.
+            const sevTone = (r) => (typeof r.findings !== 'number' ? V3.STATUS.draft : r.findings === 0 ? V3.SEVERITY.pass : (V3.SEVERITY[r.worstSeverity] || V3.SEVERITY.medium))
+            const reportMeta = (r) => {
+              const parts = []
+              if (typeof r.findings === 'number') parts.push(r.findings === 0 ? 'No findings' : `${r.findings} finding${r.findings === 1 ? '' : 's'}`)
+              if (r.attention > 0) parts.push(`${r.attention} need${r.attention === 1 ? 's' : ''} attention`)
+              parts.push(fD(r.ts))
+              return parts.join(' · ')
+            }
+            const ROW = { padding:'12px 0', display:'grid', gridTemplateColumns:'8px minmax(0,1fr) auto', alignItems:'center', columnGap:12, fontFamily:'inherit', WebkitTapHighlightColor:'transparent' }
+            const dot = (tone) => <span aria-hidden="true" style={{width:8,height:8,borderRadius:4,background:tone,justifySelf:'center'}} />
+            return (<>
           {/* ── Drafts / In Progress ──────────────────────────────── */}
-          <div style={{...RS_HEAD, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>{userMode === 'fm' ? 'In progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
-          {(index.drafts||[]).length === 0 ? (
+          <div style={{...RS_HEAD, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>{userMode === 'fm' ? 'In progress' : 'Drafts'}{drafts.length>0?` · ${drafts.length}`:''}</div>
+          {drafts.length === 0 ? (
             <div style={{padding:'12px 0 6px'}}>
               <span style={V3.T.bodyDim}>None in progress. </span>
               <button onClick={startNew} aria-label="Start new assessment" style={RS_LINK}>Start an assessment <span aria-hidden="true">›</span></button>
             </div>
-          ) : (index.drafts||[]).map((d, i) => (
-            <div key={d.id} style={{padding:'12px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,display:'flex',alignItems:'center',gap:12}}>
-              <div style={{flex:1,minWidth:0}}>
+          ) : drafts.map((d, i) => (
+            <div key={d.id} style={{...ROW, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+              {dot(V3.STATUS.inProgress)}
+              <div style={{minWidth:0}}>
                 <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled assessment'}</div>
-                <div style={{...V3.T.captionDim, marginTop:2}}>{fD(d.ua||d.ts)}</div>
+                <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>Walkthrough in progress · last touched {fD(d.ua||d.ts)}</div>
               </div>
-              <button onClick={()=>resumeDraft(d.id)} style={RS_LINK}>Resume <span aria-hidden="true">›</span></button>
-              <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} aria-label={`Delete draft ${d.facility||'Untitled assessment'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
-                <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
-              </button>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <button onClick={()=>resumeDraft(d.id)} style={RS_LINK}>Resume <span aria-hidden="true">›</span></button>
+                <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} aria-label={`Delete draft ${d.facility||'Untitled assessment'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                  <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
+                </button>
+              </div>
             </div>
           ))}
 
           {/* ── Finalized ─────────────────────────────────────────── */}
-          <div style={{...RS_HEAD, marginTop:22, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}</div>
-          {(index.reports||[]).length > 0 && (
+          <div style={{...RS_HEAD, marginTop:22, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>Finalized{reports.length>0?` · ${reports.length}`:''}</div>
+          {reports.length > 0 && (
             <div style={{display:'flex',gap:10,padding:'12px 0 4px'}}>
               <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports" aria-label="Search finalized reports" style={{flex:1,minWidth:0,padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
               <select value={hSort} onChange={e=>setHSort(e.target.value)} aria-label="Sort reports" style={{padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:16,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
@@ -5734,21 +5756,28 @@ export default function MobileApp() {
           )}
           {fReports.length === 0 ? (
             <div style={{padding:'12px 0 6px'}}>
-              <span style={V3.T.bodyDim}>{hSearch ? 'No reports match your search.' : 'None yet. Finalize an assessment to generate a report. '}</span>
-              {!hSearch && <button onClick={runDemo} style={RS_LINK}>View a sample report <span aria-hidden="true">›</span></button>}
+              <span style={V3.T.bodyDim}>{hSearch ? 'No reports match your search.' : 'None yet. Finalize an assessment to generate a report.'}</span>
             </div>
           ) : fReports.map((r, i) => (
-            <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{padding:'12px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
-              <div style={{flex:1,minWidth:0}}>
+            <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{...ROW, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`, cursor:'pointer'}}>
+              {dot(sevTone(r))}
+              <div style={{minWidth:0}}>
                 <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
-                <div style={{...V3.T.captionDim, marginTop:2}}>{fD(r.ts)}</div>
+                <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{reportMeta(r)}</div>
               </div>
-              <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} aria-label={`Delete report ${r.facility||'Untitled'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
-                <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
-              </button>
-              <span aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1}}>›</span>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                {r.attention > 0
+                  ? <StatusPill tone={V3.SEVERITY.medium}>Attention</StatusPill>
+                  : <StatusPill tone={V3.STATUS.draft} dim>Issued</StatusPill>}
+                <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} aria-label={`Delete report ${r.facility||'Untitled'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                  <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
+                </button>
+                <span aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1}}>›</span>
+              </div>
             </div>
           ))}
+            </>)
+          })()}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='tools'&&<ToolsHub onOpen={openTool} desktop={isDesktop} />}
@@ -5758,14 +5787,15 @@ export default function MobileApp() {
             (see ProjectDetail's onOpenLogger) — nothing in the shell
             remembers it. */}
         {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} /></Suspense>}
-        {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} />}
+        {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} onTryDemo={()=>runDemo(userMode === 'fm' ? undefined : 'findings')} />}
         {/* Desktop landing — the state of the work. A phone that restores a
             'home' entry (window resized below 1024) gets Projects above. */}
         {view==='home' && isDesktop && (
           <DesktopHome
             profile={profile}
             index={index}
-            projects={desktopProjects}
+            projects={desktopProjects || []}
+            projectsLoading={desktopProjects === null}
             loadDraft={(id)=>STO.get(id)}
             onNewInvestigation={()=>startNew()}
             onResumeDraft={(id)=>resumeDraft(id)}
@@ -5825,9 +5855,9 @@ export default function MobileApp() {
           <span aria-hidden="true" style={{
             width: 27, height: 27, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            border: '1px solid var(--border)',
-            background: profile?.avatar_url ? 'transparent' : 'var(--surface)',
-            color: 'var(--sub)', fontSize: 10, fontWeight: 700, letterSpacing: '-0.2px',
+            border: profile?.avatar_url ? '1px solid var(--border)' : 'none',
+            background: profile?.avatar_url ? 'transparent' : 'var(--avatar-fill)',
+            color: 'var(--on-avatar)', fontSize: 10, fontWeight: 700, letterSpacing: '-0.2px',
           }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -6165,11 +6195,14 @@ export default function MobileApp() {
         .af-menu-item.is-active{color:var(--accent);}
         /* Header glass controls (back pill, hamburger, kebab). The sustained
            "liquid" press — grow + glow while held, spring back on release — is
-           driven by React state (pressedTrigger) via triggerFx() inline styles
+           driven by React state (pressedTrigger) via circleFx() inline styles
            so it holds for a press-and-hold and survives the re-render when the
            menu opens. position:relative is kept for stacking; the transform /
            transition / filter all come from the inline style. */
         .af-menu-trigger{position:relative;}
+        @media (hover: hover) and (pointer: fine){
+          .af-circle-btn:hover{ background:var(--glass-fill-hover) !important; }
+        }
         /* ── Shared header control ──
            The same flat material as the bottom dock (AtmosFlowFloatingDock)
            and every card: solid card tone, hairline edge, one soft contact

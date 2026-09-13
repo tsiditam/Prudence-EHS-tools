@@ -18,11 +18,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as V3 from '../../styles/tokens'
 import TactileButton from '../ui/TactileButton'
+import StatusPill from '../ui/StatusPill'
+import EmptyState from '../ui/EmptyState'
+import { SkeletonRows } from '../ui/Skeleton'
 import BottomSheet from '../ui/BottomSheet'
 import { I } from '../Icons'
 import { getProjects, createProject, deleteProject, PROJECT_STATUSES } from '../../utils/projectStore'
 import ProjectForm from './ProjectForm'
-import { STATUS_LABEL, fmtDate } from './projectsTheme'
+import { STATUS_LABEL, STATUS_TONE, fmtDate } from './projectsTheme'
 import AssessmentSegmentedPillNav from '../ui/AssessmentSegmentedPillNav'
 
 const HAIRLINE = `1px solid ${V3.BORDER_SUBTLE}`
@@ -48,18 +51,21 @@ function ProjectRow({ project, first, onOpen, onRequestDelete }) {
       tabIndex={0}
       onClick={() => onOpen(project.id)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(project.id) } }}
-      style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 0', borderTop: first ? 'none' : HAIRLINE, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      // The row carries its state at a glance — a status dot, the name, one
+      // caption line (client · type · assessments · updated), a status pill
+      // — in fixed columns so a list scans vertically.
+      style={{ display: 'grid', gridTemplateColumns: '8px minmax(0, 1fr) auto', alignItems: 'center', columnGap: 12, padding: '13px 0', borderTop: first ? 'none' : HAIRLINE, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 4, background: STATUS_TONE[project.status] || V3.STATUS.draft, justifySelf: 'center' }} />
+      <div style={{ minWidth: 0 }}>
         <div style={{ ...V3.T.h3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
-        {meta && <div style={{ ...V3.T.caption, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</div>}
-        <div style={{ ...V3.T.captionDim, marginTop: 6 }}>
-          {counts ? `${counts} · ` : ''}Updated {fmtDate(project.updatedAt)}
+        <div style={{ ...V3.T.captionDim, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {[meta, counts, `Updated ${fmtDate(project.updatedAt)}`].filter(Boolean).join(' · ')}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginTop: 1 }}>
-        {/* Status is a word, not a chip. Only follow-up carries a color:
-            it is the one status that asks for something. */}
-        <span style={{ ...V3.T.caption, color: project.status === 'follow-up' ? 'var(--warn)' : V3.TEXT_TERTIARY }}>{status}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+        {/* Follow-up is the one status that asks for something, so it keeps
+            its full tone; the rest sit dim. */}
+        <StatusPill tone={STATUS_TONE[project.status] || V3.STATUS.draft} dim={project.status !== 'follow-up'}>{status}</StatusPill>
         <button
           type="button"
           onClick={requestDelete}
@@ -75,7 +81,7 @@ function ProjectRow({ project, first, onOpen, onRequestDelete }) {
   )
 }
 
-export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
+export default function ProjectsScreen({ onBack, onOpen, onReportIncident, onTryDemo }) {
   const [projects, setProjects] = useState(null)
   const [filter, setFilter] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
@@ -112,11 +118,12 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
   const newProjectButton = (
     <TactileButton
       variant="neutral"
-      size={list.length === 0 ? 'md' : 'sm'}
       pill
       haptic="success"
       onClick={() => setShowCreate(true)}
-      style={list.length === 0 ? { padding: '14px 30px', fontSize: 15 } : undefined}
+      // Grok's capsule, measured: 37pt tall, a 17pt semibold label, ~22pt
+      // of side padding. The same in both placements.
+      style={{ height: 37, minHeight: 37, padding: '0 22px', fontSize: 17, letterSpacing: 0 }}
     >
       New project
     </TactileButton>
@@ -159,32 +166,29 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       )}
 
       {projects === null ? (
-        <div style={{ ...V3.T.bodyDim, textAlign: 'center', padding: '40px 0' }}>Loading…</div>
+        // The list's own shape while it loads, never a "Loading…" word.
+        <SkeletonRows rows={4} label="Loading projects" />
+      ) : list.length === 0 ? (
+        // First run: a ghost of the list above the outcome, one action (the
+        // same pill the populated screen shows) and, where the app has a
+        // sample building, one quiet link to it. Centered in the open page
+        // — the min-height subtracts the chrome above and the dock below.
+        <EmptyState
+          title="Start with a project"
+          body="A project keeps a site's assessments, documents and photos together, with its history in one place."
+          action={newProjectButton}
+          secondary={onTryDemo ? { label: 'Try a sample building', onClick: onTryDemo } : undefined}
+          minHeight={`calc(${V3.FULL_VH} - 250px)`}
+        />
       ) : filtered.length === 0 ? (
-        // Empty state, centered in the open page rather than pinned under
-        // the heading: an icon tile, the title, one line on what a project
-        // is for, and the action. The min-height subtracts the chrome above
-        // (header spacer, heading) and below (the dock) so the group sits at
-        // the visual center of what the assessor can see, not of the scroll
-        // height. A filter with nothing in it uses the same frame without
-        // the tile and the line.
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: `calc(${V3.FULL_VH} - 250px)`, padding: '0 24px' }}>
-          {list.length === 0 ? (
-            <>
-              <div aria-hidden="true" style={{ width: 64, height: 64, borderRadius: '50%', background: V3.RAISED, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                <I n="bldg" s={26} c={V3.TEXT_PRIMARY} w={1.6} />
-              </div>
-              <div style={{ ...V3.T.h2, marginBottom: 6 }}>Start with a project</div>
-              <div style={{ ...V3.T.bodyDim, fontSize: 15, lineHeight: '22px', maxWidth: 300, marginBottom: 22 }}>Use projects to group a site's assessments, documents and photos.</div>
-              {newProjectButton}
-            </>
-          ) : (
-            <>
-              <div style={{ ...V3.T.h2, marginBottom: 16 }}>{`No ${filter === 'all' ? '' : STATUS_LABEL[filter].toLowerCase() + ' '}projects`}</div>
-              <button type="button" onClick={() => setFilter('all')} style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: V3.TEXT_PRIMARY, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Show all ›</button>
-            </>
-          )}
-        </div>
+        // A filter with nothing in it: the layout is already on screen, so
+        // no ghost — the fact and the way back.
+        <EmptyState
+          preview={null}
+          title={`No ${filter === 'all' ? '' : STATUS_LABEL[filter].toLowerCase() + ' '}projects`}
+          secondary={{ label: 'Show all', onClick: () => setFilter('all') }}
+          minHeight={`calc(${V3.FULL_VH} - 300px)`}
+        />
       ) : (
         <div>
           {filtered.map((p, i) => <ProjectRow key={p.id} project={p} first={i === 0} onOpen={onOpen} onRequestDelete={setPendingDelete} />)}
