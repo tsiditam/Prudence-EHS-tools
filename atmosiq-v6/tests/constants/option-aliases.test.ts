@@ -12,7 +12,7 @@
  *      dressed as a rule.
  */
 import { describe, it, expect } from 'vitest'
-import { ALIASES, deriveVariants, variantsFor, zoneFieldOptions } from '../../src/constants/option-aliases.js'
+import { ALIASES, deriveVariants, resolveOptions, variantsFor, fieldOptions } from '../../src/constants/option-aliases.js'
 
 describe('derived variants read the option string', () => {
   it('keeps the full option', () => {
@@ -43,10 +43,10 @@ describe('derived variants read the option string', () => {
 })
 
 describe('the curated aliases are real and unambiguous', () => {
-  it('every alias names a field and option that exist in the zone schema', () => {
+  it('every alias names a writable field and an option that field defines', () => {
     for (const [fieldId, byOption] of Object.entries(ALIASES)) {
-      const opts = zoneFieldOptions(fieldId)
-      expect(opts, `${fieldId} is not a zone question with options`).toBeTruthy()
+      const opts = fieldOptions(fieldId)
+      expect(opts, `${fieldId} is not a writable field with options`).toBeTruthy()
       for (const option of Object.keys(byOption)) {
         expect(opts, `${fieldId}."${option}" is not an option of that field`).toContain(option)
       }
@@ -69,7 +69,7 @@ describe('the curated aliases are real and unambiguous', () => {
   it('no DERIVED variant collides across options of one field either', () => {
     // The same trap, arriving from the schema rather than the curation.
     for (const fieldId of Object.keys(ALIASES)) {
-      const opts = zoneFieldOptions(fieldId) || []
+      const opts = fieldOptions(fieldId) || []
       const seen = new Map<string, string>()
       for (const option of opts) {
         for (const v of variantsFor(fieldId, option)) {
@@ -100,5 +100,43 @@ describe('variantsFor', () => {
 
   it('returns only derived variants for a field with no curation', () => {
     expect(variantsFor('nonexistent_field', 'Some Option')).toEqual(['some option'])
+  })
+})
+
+describe('resolveOptions reads the words, not the proposal', () => {
+  it('matches at phrase boundaries only', () => {
+    expect(resolveOptions('ot', 'A sweetener spill by the machine.')).toEqual([])
+    expect(resolveOptions('ot', 'A sweet smell by the machine.')).toEqual(['Sweet'])
+    // "too dry" must not be found inside "laundry".
+    expect(resolveOptions('hp', 'the laundry room')).toEqual([])
+  })
+
+  it('prefers the longer phrase when one match contains another', () => {
+    // "no complaints" contains "complaints"; only the longer phrase says
+    // what the sentence says.
+    expect(resolveOptions('cx', 'No complaints were reported.')).toEqual(['No complaints'])
+    expect(resolveOptions('cx', 'Two occupants complained.')).toEqual(['Yes — complaints reported'])
+  })
+
+  it('drops a phrase the words before it deny', () => {
+    expect(resolveOptions('op', 'The odor was not strong.')).toEqual([])
+    expect(resolveOptions('op', "The odor isn't strong.")).toEqual([])
+    expect(resolveOptions('op', 'A strong chemical odor.')).toEqual(['Strong / overpowering'])
+  })
+
+  it('does not mistake a negation INSIDE an option for a denial of it', () => {
+    // "no odor" is how the None option is stated, not a denial of it.
+    expect(resolveOptions('op', 'No odor detected.')).toEqual(['None'])
+  })
+
+  it('returns every option the words support, and lets the caller decide', () => {
+    // Resolution reports; it does not adjudicate. A single-select caller
+    // treats two as ambiguous, a multi-select caller treats two as a set.
+    expect(resolveOptions('tc', 'some said too hot, others too cold')).toEqual(['Too hot', 'Too cold'])
+  })
+
+  it('is empty for an unknown field or empty quote', () => {
+    expect(resolveOptions('nonexistent_field', 'anything')).toEqual([])
+    expect(resolveOptions('cx', '')).toEqual([])
   })
 })

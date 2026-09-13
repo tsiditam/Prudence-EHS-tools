@@ -39,7 +39,7 @@
  * neither option, so it must not be listed for either.
  */
 
-import { Q_ZONE } from './questions.js'
+import { getObservableField } from './observable-fields.js'
 
 const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/[\s ]+/g, ' ').trim()
 
@@ -117,8 +117,95 @@ export function variantsFor(fieldId, option) {
   return [...new Set([...deriveVariants(option), ...curated.map(norm)])]
 }
 
-/** The zone question that declares this field, for the guards. */
-export function zoneFieldOptions(fieldId) {
-  const q = Q_ZONE.find((x) => x.id === fieldId)
-  return (q && q.opts) || null
+/**
+ * The options of a WRITABLE field.
+ *
+ * Scoped to the observable catalog rather than to one questionnaire, because
+ * that catalog is exactly the set of fields a proposal can name — and it
+ * spans scopes: `dp`, `od` and `sa` are declared in the building interview
+ * and are just as proposable as a zone's `op`. Reading Q_ZONE here would have
+ * left every building-scoped choice with an empty vocabulary, which attests
+ * NOTHING and therefore refuses every one of them. Silent, and it would have
+ * read as the model failing to propose.
+ */
+export function fieldOptions(fieldId) {
+  const contract = getObservableField(fieldId)
+  return (contract && contract.opts) || null
+}
+
+/** Regex-escape an interpolated literal. A decimal point is not a wildcard. */
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Words that turn a phrase into a denial of itself.
+ *
+ * Deliberately a fixed list and not a parser. The job is not to understand
+ * the sentence — it is to stop "the odor was not strong" from attesting
+ * `Strong / overpowering`. Anything this list does not recognize stays
+ * ambiguous and fails closed, which ends with the assessor being asked the
+ * structured question. That is the correct outcome, not a degraded one.
+ */
+const NEGATORS = new Set([
+  'not', 'no', 'never', 'without', 'nor',
+  'isnt', 'wasnt', 'arent', 'werent', 'didnt', 'doesnt', 'dont', 'cant', 'cannot',
+])
+
+/** Is the phrase starting at `start` denied by the words just before it? */
+function negatedAt(text, start) {
+  // Apostrophes are dropped so "isn't" and "isnt" are one token.
+  const words = text.slice(0, start).replace(/['\u2019]/g, '').split(/[^a-z0-9]+/).filter(Boolean)
+  return words.slice(-2).some((w) => NEGATORS.has(w))
+}
+
+/**
+ * Which options of a field the assessor's words actually support.
+ *
+ * ── Why this is resolution and not a lookup ────────────────────────────
+ * Asking "does the quote contain an alias for the option the model picked?"
+ * cannot tell a value from its own negation, because the aliases overlap by
+ * construction: "No complaints were reported" contains the word `complaints`,
+ * so it attests `Yes — complaints reported` just as readily as the option it
+ * actually states. The question has to be asked of ALL options at once and
+ * answered by the text, not by the proposal.
+ *
+ * Three deterministic rules do that:
+ *
+ *  1. PHRASE BOUNDARIES. A variant matches only at token edges, so `complaint`
+ *     does not match inside "complaints" and `dry` does not match inside
+ *     "laundry".
+ *  2. SPECIFICITY. A match lying wholly inside a longer one is not independent
+ *     evidence — "no complaints" contains "complaints", and only the longer
+ *     phrase describes what the sentence says. The longer phrase wins.
+ *  3. NEGATION. A surviving phrase denied by the words before it is dropped.
+ *
+ * What comes back is the set of options the quote supports on its own terms.
+ * A caller decides what to do with more than one; for a single-select field
+ * the honest answer is that the words do not settle it.
+ */
+export function resolveOptions(fieldId, quote) {
+  const q = norm(quote)
+  const opts = fieldOptions(fieldId)
+  if (!q || !opts) return []
+
+  const hits = []
+  for (const option of opts) {
+    for (const phrase of variantsFor(fieldId, option)) {
+      if (!phrase) continue
+      // No lookbehind: iOS Safari is a shipping target. The leading group is
+      // consumed and its width subtracted instead.
+      const re = new RegExp(`(^|[^a-z0-9])(${escapeRe(phrase)})(?![a-z0-9])`, 'g')
+      let m
+      while ((m = re.exec(q)) !== null) {
+        const start = m.index + m[1].length
+        hits.push({ option, start, end: start + phrase.length })
+        // Step forward by one so overlapping phrases are all seen.
+        re.lastIndex = start + 1
+      }
+    }
+  }
+
+  const independent = hits.filter((h) => !hits.some(
+    (o) => o.start <= h.start && o.end >= h.end && (o.end - o.start) > (h.end - h.start),
+  ))
+  return [...new Set(independent.filter((h) => !negatedAt(q, h.start)).map((h) => h.option))]
 }

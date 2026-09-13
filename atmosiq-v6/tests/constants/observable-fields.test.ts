@@ -182,11 +182,17 @@ describe('validation', () => {
   })
 })
 
+// Every record proposal now carries the assessor's own words, and they are
+// checked against what they actually typed. `said()` builds the turn context
+// the dispatcher reads; the quote is a substring of it, as it is in the app.
+const said = (text: string) => ({ assessorText: text })
+
 describe('propose_action carries the write', () => {
   it('proposes a validated write with its scope and a readable summary', async () => {
     const r: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'dp', value: 'standing water',
-    }, {})
+      quote: 'standing water in the drain pan',
+    }, said('There is standing water in the drain pan.'))
     expect(r.status).toBe('proposed')
     expect(r.action).toMatchObject({
       type: 'record_zone_observation', field: 'dp', value: 'Standing water', scope: 'building',
@@ -197,7 +203,8 @@ describe('propose_action carries the write', () => {
   it('rejects before the assessor is ever shown an Accept button', async () => {
     const r: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'mi', value: 'some mold',
-    }, {})
+      quote: 'some mold on the north wall',
+    }, said('I can see some mold on the north wall.'))
     expect(r.status).toBe('rejected')
     expect(r.allowed_values).toBeTruthy()
   })
@@ -205,7 +212,8 @@ describe('propose_action carries the write', () => {
   it('tells the model the state has NOT moved yet', async () => {
     const r: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'co2', value: 1450,
-    }, {})
+      quote: 'CO2 is 1450 in here',
+    }, said('CO2 is 1450 in here.'))
     expect(r.message).toMatch(/has NOT moved/)
   })
 })
@@ -249,7 +257,8 @@ describe('an accepted write moves the investigation', () => {
 
     const proposal: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'rh', value: 68,
-    }, {})
+      quote: 'RH is 68',
+    }, said('RH is 68 percent at the desk.'))
     expect(proposal.status).toBe('proposed')
 
     const applied = apply(proposal.action, zones, bldg)
@@ -271,7 +280,8 @@ describe('an accepted write moves the investigation', () => {
 
     const proposal: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'co', value: 0.4,
-    }, {})
+      quote: 'CO reads 0.4 ppm',
+    }, said('CO reads 0.4 ppm on the meter.'))
     const applied = apply(proposal.action, zones, bldg)
     const after = investigate(applied.zones, applied.bldg)
 
@@ -288,7 +298,8 @@ describe('an accepted write moves the investigation', () => {
 
     const proposal: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'od', value: 'Stuck / inoperable',
-    }, {})
+      quote: 'the outdoor air damper is stuck',
+    }, said('the outdoor air damper is stuck.'))
     expect(proposal.action.scope).toBe('building')
     const applied = apply(proposal.action, zones, {})
     const after = investigate(applied.zones, applied.bldg)
@@ -306,7 +317,8 @@ describe('an accepted write moves the investigation', () => {
     ]
     const proposal: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'pmo', value: 9,
-    }, {})
+      quote: 'outdoor PM2.5 is 9',
+    }, said('outdoor PM2.5 is 9 right now.'))
     const applied = apply(proposal.action, zones, {})
     expect(applied.zones.every((z) => z.pmo === '9'), 'outdoor baseline must propagate').toBe(true)
   })
@@ -316,7 +328,8 @@ describe('an accepted write moves the investigation', () => {
     const before = investigate(zones, {})
     const proposal: any = await dispatchTool('propose_action', {
       action_type: 'record_zone_observation', field: 'mi', value: 'a fair bit of mould', // spelling-ok: free text a user might type
-    }, {})
+      quote: 'a fair bit of mould', // spelling-ok: quoting the user verbatim
+    }, said('There is a fair bit of mould in the corner.')) // spelling-ok: quoting a user's own typing
     expect(proposal.status).toBe('rejected')
     expect(proposal.action).toBeUndefined()
     expect(JSON.stringify(investigate(zones, {}))).toBe(JSON.stringify(before))
