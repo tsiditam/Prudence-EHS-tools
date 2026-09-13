@@ -3739,22 +3739,29 @@ export default function MobileApp() {
               )}
               {reportSectionsLoading && <div style={{padding:'8px 0',display:'flex',alignItems:'center',gap:12}}><div style={{width:20,height:20,borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite',flexShrink:0}} /><div style={V3.T.bodyDim}>Writing report sections from assessment data…</div></div>}
               {aiSections && aiSectionsSummaryCounts.total > 0 && !reportSectionsLoading && (
-                <div style={{marginTop:14,padding:'12px 14px',borderRadius:RADII.md,border:`1px solid ${aiSectionsSummaryCounts.blocked === 0 ? 'var(--border)' : `color-mix(in srgb, ${WARN} 45%, transparent)`}`,background:`color-mix(in srgb, ${aiSectionsSummaryCounts.blocked === 0 ? 'var(--surface)' : WARN} 8%, transparent)`}}>
-                  <div style={{...V3.T.caption,color:aiSectionsSummaryCounts.blocked===0?SUB:WARN,marginBottom:8}}>
+                <div style={{marginTop:14}}>
+                  {/* The check's result as rows parting with a hairline, like
+                      every other list on the results screen — the tinted box
+                      it wore was the last boxed treatment on this tab. */}
+                  <div style={{...V3.T.caption,color:aiSectionsSummaryCounts.blocked===0?SUB:WARN,marginBottom:4}}>
                     {aiSectionsSummaryCounts.blocked === 0
                       ? `Checked against the assessment record — ${aiSectionsSummaryCounts.total} of ${aiSectionsSummaryCounts.total} section${aiSectionsSummaryCounts.total===1?'':'s'} traced and will be used in the export.`
                       : `Checked against the assessment record — ${aiSectionsSummaryCounts.blocked} of ${aiSectionsSummaryCounts.total} section${aiSectionsSummaryCounts.total===1?'':'s'} could not be supported and will use the deterministic report text instead.`}
                   </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                    {Object.entries(aiSections.auditSummary || {}).map(([key, summary]) => {
+                  <div>
+                    {Object.entries(aiSections.auditSummary || {}).map(([key, summary], si) => {
                       const blocked = !!(summary && summary.supported === false)
                       const kept = blocked && isOverridden(aiSections, key)
                       const editing = overrideDraft.key === key
                       const revised = isEdited(aiSections, key)
                       const revising = editDraft.key === key
+                      const okTone = !blocked || kept
                       return (
-                        <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5}}>
-                          <span style={{color:!blocked||kept?'var(--success)':WARN,fontWeight:600}}>{!blocked?'✓':kept?'✓':'⚠'} {AI_SECTION_LABELS[key] || key}</span>
+                        <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5,padding:'10px 0',borderTop: si === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                          {/* A status dot and the section name in the primary
+                              ink; the typed ✓ / ⚠ glyphs it wore are gone. */}
+                          <span aria-hidden="true" style={{display:'inline-block',width:8,height:8,borderRadius:4,background:okTone?V3.SEVERITY.pass:WARN,marginRight:8,verticalAlign:'middle'}} />
+                          <span style={{color:TEXT,fontWeight:600}}>{AI_SECTION_LABELS[key] || key}</span>
                           {revised && <span style={{color:SUB}}> · your wording</span>}
                           {blocked && !kept && <>{' — '}{(aiSections.audit && aiSections.audit[key] || []).map(i=>i.message).join(' ')}</>}
                           {kept && <>{' — '}<span style={{color:SUB}}>Kept over the evidence check; the reason prints in the report’s QA notes.</span></>}
@@ -3773,7 +3780,7 @@ export default function MobileApp() {
                               with a warning and no way to act on it. */}
                           {!revising && (
                             <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                              <TactileButton variant="secondary" size="sm" pill onClick={()=>setEditDraft({ key, text: sectionText(aiSections, key) || '' })}>
+                              <TactileButton variant="neutral" size="sm" pill onClick={()=>setEditDraft({ key, text: sectionText(aiSections, key) || '' })}>
                                 {revised ? 'Edit your wording…' : 'Edit this section…'}
                               </TactileButton>
                               {/* Refine — the assistant rewrites THIS section from the
@@ -3782,7 +3789,7 @@ export default function MobileApp() {
                               <AiAction label="Refine" onClick={()=>askAI(
                                 `Refine the ${AI_SECTION_LABELS[key] || key} of this report. Tighten it to what the findings and criteria support, keep every limitation it states, and return only the revised paragraph so I can paste it into the section editor.\n\nCurrent text:\n${sectionText(aiSections, key) || ''}`,
                                 'report_section')} />
-                              {revised && <TactileButton variant="secondary" size="sm" pill onClick={()=>revertSection(key)}>Restore the AI text</TactileButton>}
+                              {revised && <TactileButton variant="neutral" size="sm" pill onClick={()=>revertSection(key)}>Restore the AI text</TactileButton>}
                             </div>
                           )}
                           {revising && (
@@ -3802,14 +3809,14 @@ export default function MobileApp() {
                                 <TactileButton variant="primary" size="sm" pill onClick={()=>editSection(key)} disabled={editDraft.text.trim().length < MIN_SECTION_TEXT || editDraft.text.trim() === (sectionText(aiSections, key) || '')}>
                                   Save and re-check
                                 </TactileButton>
-                                <TactileButton variant="secondary" size="sm" pill onClick={()=>setEditDraft({ key:null, text:'' })}>Cancel</TactileButton>
+                                <TactileButton variant="neutral" size="sm" pill onClick={()=>setEditDraft({ key:null, text:'' })}>Cancel</TactileButton>
                                 <span style={V3.T.captionDim}>Blank lines start a new paragraph</span>
                               </div>
                             </div>
                           )}
                           {blocked && !kept && !editing && !revising && (
                             <div style={{marginTop:6}}>
-                              <TactileButton variant="secondary" size="sm" pill onClick={()=>setOverrideDraft({ key, text: '' })}>Use this section anyway…</TactileButton>
+                              <TactileButton variant="neutral" size="sm" pill onClick={()=>setOverrideDraft({ key, text: '' })}>Use this section anyway…</TactileButton>
                             </div>
                           )}
                           {blocked && !kept && editing && (
@@ -3826,7 +3833,7 @@ export default function MobileApp() {
                                 <TactileButton variant="primary" size="sm" pill onClick={()=>overrideSection(key)} disabled={overrideDraft.text.trim().length < MIN_OVERRIDE_JUSTIFICATION}>
                                   Record and keep
                                 </TactileButton>
-                                <TactileButton variant="secondary" size="sm" pill onClick={()=>setOverrideDraft({ key:null, text:'' })}>Cancel</TactileButton>
+                                <TactileButton variant="neutral" size="sm" pill onClick={()=>setOverrideDraft({ key:null, text:'' })}>Cancel</TactileButton>
                                 <span style={V3.T.captionDim}>
                                   {overrideDraft.text.trim().length < MIN_OVERRIDE_JUSTIFICATION
                                     ? `${MIN_OVERRIDE_JUSTIFICATION - overrideDraft.text.trim().length} more characters`
@@ -3837,7 +3844,7 @@ export default function MobileApp() {
                           )}
                           {kept && !revising && (
                             <div style={{marginTop:6}}>
-                              <TactileButton variant="secondary" size="sm" pill onClick={()=>withdrawOverride(key)}>Withdraw override</TactileButton>
+                              <TactileButton variant="neutral" size="sm" pill onClick={()=>withdrawOverride(key)}>Withdraw override</TactileButton>
                             </div>
                           )}
                         </div>
@@ -3858,7 +3865,10 @@ export default function MobileApp() {
               {!narrative&&!narrativeLoading&&<div>
                 <div style={{...V3.T.bodyDim, maxWidth:420, marginBottom:14}}>Written from the deterministic findings, not from a free reading of the data. You review and approve before delivery.</div>
                 <div style={{display:'flex',alignItems:'center',gap:12}}>
-                  <TactileButton variant="primary" size="sm" pill onClick={requestNarrative}>Generate narrative</TactileButton>
+                  {/* The neutral glass, not a second accent pill: report
+                      sections feed the client deliverable and keep the
+                      screen's one primary; this is a share one-pager. */}
+                  <TactileButton variant="neutral" size="sm" pill onClick={requestNarrative}>Generate narrative</TactileButton>
                   <span style={V3.T.captionDim}>3 credits</span>
                 </div>
               </div>}
@@ -3873,14 +3883,15 @@ export default function MobileApp() {
                     the old banned-language gate behaved, and the assessor
                     could not see why. */}
                 {narrativeAudit && narrativeAudit.issues.length > 0 && (
-                  <div style={{marginTop:14,padding:'12px 14px',borderRadius:RADII.md,border:`1px solid ${narrativeAudit.summary && narrativeAudit.summary.supported ? 'var(--border)' : `color-mix(in srgb, ${WARN} 45%, transparent)`}`,background:`color-mix(in srgb, ${narrativeAudit.summary && narrativeAudit.summary.supported ? 'var(--surface)' : WARN} 8%, transparent)`}}>
-                    <div style={{...V3.T.caption,color:narrativeAudit.summary && narrativeAudit.summary.supported?SUB:WARN,marginBottom:8}}>
+                  <div style={{marginTop:14}}>
+                    <div style={{...V3.T.caption,color:narrativeAudit.summary && narrativeAudit.summary.supported?SUB:WARN,marginBottom:4}}>
                       Checked against the assessment record — {narrativeAudit.summary ? narrativeAudit.summary.summary : ''}
                     </div>
-                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    <div>
                       {narrativeAudit.issues.map((iss,i)=>(
-                        <div key={`${iss.id}-${i}`} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5}}>
-                          <span style={{color:iss.severity==='blocking'?WARN:SUB,fontWeight:600}}>{iss.where}</span>
+                        <div key={`${iss.id}-${i}`} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5,padding:'10px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                          <span aria-hidden="true" style={{display:'inline-block',width:8,height:8,borderRadius:4,background:iss.severity==='blocking'?WARN:V3.TEXT_TERTIARY,marginRight:8,verticalAlign:'middle'}} />
+                          <span style={{color:TEXT,fontWeight:600}}>{iss.where}</span>
                           {' — '}{iss.message}
                         </div>
                       ))}
@@ -3904,9 +3915,9 @@ export default function MobileApp() {
                     consultant report. */}
                 <div style={{marginTop:14,display:'flex',gap:10,flexWrap:'wrap'}}>
                   {narrativeStale && !narrativeLoading && (
-                    <TactileButton variant="secondary" onClick={requestNarrative}>Regenerate narrative · 3 credits</TactileButton>
+                    <TactileButton variant="neutral" onClick={requestNarrative}>Regenerate narrative · 3 credits</TactileButton>
                   )}
-                  <TactileButton variant="secondary" onClick={handleShareNarrative} icon={<I n="send" s={15} c="var(--accent)" w={1.8} />}>
+                  <TactileButton variant="neutral" onClick={handleShareNarrative} icon={<I n="send" s={15} w={1.8} />}>
                     Share narrative as Word
                   </TactileButton>
                 </div>

@@ -98,3 +98,31 @@ describe('report consistency section', () => {
     expect(screen.getByText(/while 2 of 2 zone rows carry a finding/)).toBeTruthy()
   })
 })
+
+describe('finishing pass', () => {
+  it('states the verdict once as an eyebrow and offers "Fix" as a text action with the location beneath it', () => {
+    render(
+      <ReadinessPanel
+        assessment={cleanAssessment({
+          client: { name: 'Not Specified', contact_name: '', contact_role: '' },
+        })}
+        onFix={() => {}}
+      />,
+    )
+    // The fix affordance is the text action, not a pill — and it exists.
+    expect(screen.getAllByText(/^Fix/).length).toBeGreaterThan(0)
+    // The confidence breakdown is counts, never a bar: no element is a
+    // proportional segment (a percent width other than the full row).
+    const segments = Array.from(document.querySelectorAll<HTMLElement>('[style*="width"]'))
+      .filter((el) => /^\d+(\.\d+)?%$/.test(el.style.width) && el.style.width !== '100%')
+    expect(segments.length).toBe(0)
+    expect(screen.getByText('Confidence · 1')).toBeTruthy()
+  })
+
+  it('reads every color from the severity tokens — no hex literal of its own', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const src = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ReadinessPanel.jsx'), 'utf8')
+    expect(src).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+  })
+})

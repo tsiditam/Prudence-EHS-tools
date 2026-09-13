@@ -1,5 +1,35 @@
 # AtmosFlow Changelog
 
+## Report tab and readiness panel finishing pass (September 2026)
+
+The Review and Report tabs were the last two surfaces still speaking the
+pre-modernization dialect: a bold red status banner, item cards with a
+colored edge, a green-to-orange confidence bar, tinted check-result boxes
+with typed ✓ / ⚠ glyphs, and two accent primaries competing on one screen.
+They now read like the rest of the results screen.
+
+- **The readiness status is the hero's pattern** (`ReadinessPanel.jsx`):
+  the verdict as a colored caption eyebrow over the summary in the primary
+  ink, not a banner. Section heads are the neutral micro labels with their
+  count, on the same 18px rhythm as every other results section.
+- **"Fix ›" is the app's text action**, in the primary ink, with the field's
+  location as a quiet caption beneath it; an item with no fix target says
+  "Fix in: …" in the caption alone.
+- **A gap carries its severity as a word** — `Warning` in the high tone,
+  `Note` in the tertiary ink — the way zone rows carry their outcome.
+- **The confidence bar is three counts.** A segmented green-to-orange bar
+  reads as a score of the assessment, which is the impression v3.0 removed;
+  "1 High · 3 Medium · 2 Low" says what the numbers are, which is findings
+  by the evidence behind them.
+- **Every color reads a severity token**; the panel's own hex values are
+  gone.
+- **The check results on the Report tab** are hairline rows with an 8px
+  status dot and the section name in the primary ink, replacing the tinted
+  `color-mix` boxes and the typed glyphs. Row remedies (edit, restore,
+  cancel, use anyway, withdraw), the narrative controls and the share
+  button are the neutral glass; **Generate report sections keeps the one
+  accent primary** and Generate narrative no longer competes with it.
+
 ## Capturing the walkthrough the way the report reads (September 2026)
 
 The report was already written; the walkthrough now asks for what it
