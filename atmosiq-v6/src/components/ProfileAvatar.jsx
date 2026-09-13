@@ -160,14 +160,12 @@ export default function ProfileAvatar({
     width: size,
     height: size,
     borderRadius: '50%',
-    background: photo
-      ? 'transparent'
-      : 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 25%, transparent), color-mix(in srgb, var(--accent) 6%, transparent))',
+    background: photo ? 'transparent' : 'var(--avatar-fill)',
     border: ringWidth ? `${ringWidth}px solid ${ringColor}` : 'none',
     boxShadow: size >= 64
       ? '0 4px 12px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.12)'
       : '0 1px 2px rgba(0,0,0,0.18)',
-    color: 'var(--text)',
+    color: photo ? 'var(--text)' : 'var(--on-avatar)',
     fontSize,
     fontWeight: 700,
     letterSpacing: '-0.3px',

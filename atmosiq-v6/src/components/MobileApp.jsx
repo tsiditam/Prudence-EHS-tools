@@ -4372,8 +4372,9 @@ export default function MobileApp() {
             <span aria-hidden="true" style={{
               width:40, height:40, borderRadius:'50%', flexShrink:0,
               display:'inline-flex', alignItems:'center', justifyContent:'center',
-              background:'var(--m-ctl)', border:'1px solid var(--m-border)',
-              color:'var(--text)', fontSize:14, fontWeight:700, letterSpacing:'0.02em', overflow:'hidden',
+              background: profile?.avatar_url ? 'var(--m-ctl)' : 'var(--avatar-fill)',
+              border: profile?.avatar_url ? '1px solid var(--m-border)' : 'none',
+              color:'var(--on-avatar)', fontSize:14, fontWeight:700, letterSpacing:'0.02em', overflow:'hidden',
             }}>
               {profile?.avatar_url
                 ? <img src={profile.avatar_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
@@ -5855,9 +5856,9 @@ export default function MobileApp() {
           <span aria-hidden="true" style={{
             width: 27, height: 27, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            border: '1px solid var(--border)',
-            background: profile?.avatar_url ? 'transparent' : 'var(--surface)',
-            color: 'var(--sub)', fontSize: 10, fontWeight: 700, letterSpacing: '-0.2px',
+            border: profile?.avatar_url ? '1px solid var(--border)' : 'none',
+            background: profile?.avatar_url ? 'transparent' : 'var(--avatar-fill)',
+            color: 'var(--on-avatar)', fontSize: 10, fontWeight: 700, letterSpacing: '-0.2px',
           }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
