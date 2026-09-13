@@ -1,5 +1,28 @@
 # AtmosFlow Changelog
 
+## Chrome pass: one motion system, native controls, dock and launcher (September 2026)
+
+- **One motion system.** `--ease-out` / `--ease-in` / `--ease-spring` and
+  `--dur-fast` / `--dur-enter` / `--dur-exit` / `--dur-sheet` /
+  `--dur-scrim` / `--dur-settle` in `index.html`, mirrored by
+  `SPRING` in `soft-glass.js` and the Jasper tokens. Every animated
+  surface reads them: page transitions, bottom sheets and dialogs, the
+  side drawer and its scrim, the action menus, the command palette, the
+  AI panel, the rail, the dock, the launcher, the segmented tab rule,
+  the press feedback. The overshooting sheet spring and the eight
+  different durations those surfaces carried are gone.
+- **Native controls replaced.** `Select` is now the app's own chrome
+  over the native element (glass fill and edge, a drawn chevron, three
+  sizes, an accent focus ring); the Reports search field and sort are
+  40px glass controls with the search glyph inside the field. Toasts
+  render in the same glass.
+- **Dock and launcher finished.** The bottom dock is the measured glass
+  (the control surface at 88% over a backdrop blur, the glass edge, no
+  shadow) with a neutral selected glyph in both themes; the AtmosFlow AI
+  launcher is a 48px glass disc (40px while reading) with no aura — the
+  cyan brain glyph is its one identity mark. Both were the last chrome on
+  the older capsule-and-glow treatment.
+
 ## Desktop pro pass (September 2026)
 
 Second desktop tranche. The first made the shell behave like a current AI

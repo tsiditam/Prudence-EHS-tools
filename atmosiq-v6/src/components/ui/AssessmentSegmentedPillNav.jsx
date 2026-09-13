@@ -29,7 +29,7 @@ if (typeof document !== 'undefined' && !document.getElementById('aspn-style')) {
     // tabs (left/width from the CSS vars the effect below publishes), not
     // a border each tab draws for itself. Same ease as the dock's selector
     // bubble, so the two strips on a screen move the same way.
-    '.aspn-rule{position:absolute;bottom:0;height:2px;border-radius:1px;background:var(--text);pointer-events:none;left:var(--aspn-x,0px);width:var(--aspn-w,0px);transition:left 260ms cubic-bezier(.22,1,.36,1),width 260ms cubic-bezier(.22,1,.36,1)}' +
+    '.aspn-rule{position:absolute;bottom:0;height:2px;border-radius:1px;background:var(--text);pointer-events:none;left:var(--aspn-x,0px);width:var(--aspn-w,0px);transition:left var(--dur-enter) var(--ease-out),width var(--dur-enter) var(--ease-out)}' +
     '@media (prefers-reduced-motion: reduce){.aspn-rule{transition:none}}'
   document.head.appendChild(s)
 }

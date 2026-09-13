@@ -67,7 +67,7 @@ describe('JasperFloatingButton', () => {
 
   it('starts full-size at the top of the page', () => {
     render(<JasperFloatingButton onClick={() => {}} />)
-    expect(screen.getByRole('button', { name: 'AtmosFlow AI' }).style.width).toBe('60px')
+    expect(screen.getByRole('button', { name: 'AtmosFlow AI' }).style.width).toBe('48px')
   })
 
   it('shrinks while scrolling down and grows back when scrolling up', () => {
@@ -75,16 +75,16 @@ describe('JasperFloatingButton', () => {
     const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
 
     setScrollY(240); fireEvent.scroll(window)         // scrolled down
-    expect(btn.style.width).toBe('46px')
+    expect(btn.style.width).toBe('40px')
 
     setScrollY(120); fireEvent.scroll(window)         // scrolled up (still past top)
-    expect(btn.style.width).toBe('60px')
+    expect(btn.style.width).toBe('48px')
 
     setScrollY(400); fireEvent.scroll(window)         // down again -> shrink
-    expect(btn.style.width).toBe('46px')
+    expect(btn.style.width).toBe('40px')
 
     setScrollY(10); fireEvent.scroll(window)          // back near the top -> full
-    expect(btn.style.width).toBe('60px')
+    expect(btn.style.width).toBe('48px')
   })
 
   // The app's content scrolls inside a fixed element, not the window. Scroll
@@ -97,10 +97,10 @@ describe('JasperFloatingButton', () => {
     const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
 
     scroller.scrollTop = 240; fireEvent.scroll(scroller)
-    expect(btn.style.width).toBe('46px')
+    expect(btn.style.width).toBe('40px')
 
     scroller.scrollTop = 120; fireEvent.scroll(scroller)
-    expect(btn.style.width).toBe('60px')
+    expect(btn.style.width).toBe('48px')
     scroller.remove()
   })
 
@@ -119,9 +119,9 @@ describe('JasperFloatingButton', () => {
     const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
 
     scroller.scrollTop = 90; fireEvent.scroll(scroller)     // the overshoot
-    expect(btn.style.width).toBe('60px')
+    expect(btn.style.width).toBe('48px')
     scroller.scrollTop = 0; fireEvent.scroll(scroller)      // the spring back
-    expect(btn.style.width).toBe('60px')
+    expect(btn.style.width).toBe('48px')
     scroller.remove()
   })
 
@@ -137,27 +137,25 @@ describe('JasperFloatingButton', () => {
     expect(scrollOffsetOf(scroller)).toBe(600)
   })
 
-  // The two-tone breathing aura is the launcher's identity mark and stays
-  // (product decision, reaffirmed after a restraint pass removed it).
-  it('keeps the breathing two-tone aura behind the glyph', () => {
+  // The launcher is the same glass as the dock and the header controls
+  // (chrome pass, 2026-09): the two-tone breathing aura it carried is gone,
+  // and the cyan brain glyph is the one identity mark.
+  it('is a glass disc with no aura behind the glyph', () => {
     const { container } = render(<JasperFloatingButton onClick={() => {}} />)
-    const glow = container.querySelector('.jfb-glow')
-    expect(glow).not.toBeNull()
-    expect(glow.getAttribute('aria-hidden')).toBe('true')
-    expect(glow.style.animation).toContain('jfbBreathe')
+    expect(container.querySelector('.jfb-glow')).toBeNull()
+    const btn = container.querySelector('.jfb-btn')
+    expect(btn.style.background).toContain('--glass-fill')
+    expect(btn.style.boxShadow).toBe('none')
   })
 
-  // The aura keeps one extent while the disc shrinks. It used to resize in
-  // a single step while the disc eased, and Safari drew the mask against
-  // the old bounds for those frames — the glow sat off-center and clipped.
-  it('keeps the aura at full extent while the disc is shrunk', () => {
-    const { container } = render(<JasperFloatingButton onClick={() => {}} />)
+  // The disc shrinks to the header controls' 40px while reading and grows
+  // back to 48px; nothing else about it changes.
+  it('shrinks to 40px while the page scrolls down', () => {
+    render(<JasperFloatingButton onClick={() => {}} />)
     const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
-    const glow = container.querySelector('.jfb-glow')
+    expect(btn.style.width).toBe('48px')
     setScrollY(240); fireEvent.scroll(window)
-    expect(btn.style.width).toBe('46px')
-    expect(glow.style.width).toBe('60px')
-    expect(glow.style.height).toBe('60px')
+    expect(btn.style.width).toBe('40px')
   })
 
   describe('free placement', () => {
@@ -223,9 +221,9 @@ describe('JasperFloatingButton', () => {
 
       act(() => { setViewport(390, 700); fireEvent(window, new Event('resize')) })
 
-      // 390 − 60 (button) − 8 (margin) = 322; 700 − 60 − 8 = 632.
-      expect(btn.style.left).toBe('322px')
-      expect(btn.style.top).toBe('632px')
+      // 390 − 48 (button) − 8 (margin) = 334; 700 − 48 − 8 = 644.
+      expect(btn.style.left).toBe('334px')
+      expect(btn.style.top).toBe('644px')
     })
 
     it('ignores a malformed stored position instead of throwing', () => {

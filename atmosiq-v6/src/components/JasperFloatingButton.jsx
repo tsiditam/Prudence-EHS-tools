@@ -15,11 +15,11 @@
  *     window, so the listener watches every scroll target — a
  *     window-only listener never fired and the launcher sat full-size
  *     over the text it was meant to clear. Calms under reduced-motion.
- *   • Breathing two-tone (cyan ↔ purple) aura so the assistant reads as
- *     "alive". The launcher is the identity mark, so this glow is
- *     deliberately outside the flat token pass that neutralized the chrome
- *     (product decision, reaffirmed 2026-09 after a restraint pass removed
- *     it: it stays).
+ *   • The measured glass (see --glass-* in index.html): a 48px disc, the
+ *     translucent fill, a 1px edge, no shadow, the cyan brain mark as the
+ *     one identity color. The breathing two-tone aura it used to carry was
+ *     retired in the 2026-09 chrome pass so the launcher, the dock and the
+ *     header controls are one material — the AI is marked by its glyph.
  *   • Draggable anywhere in the viewport. It rests at the bottom-right
  *     until the user moves it; from then on the chosen spot is remembered
  *     (localStorage) and re-clamped on resize so a rotation or a smaller
@@ -67,16 +67,9 @@ if (typeof document !== 'undefined' && !document.getElementById('jfb-style')) {
   const s = document.createElement('style')
   s.id = 'jfb-style'
   s.textContent =
-    // The breathe: the aura swells, brightens and rotates a half turn, so
-    // the two-tone sweep below reads as moving light rather than a static
-    // ring. This is the one piece of motion that says "assistant", and it
-    // is deliberately exempt from the flat token pass — the launcher is the
-    // app's identity mark, not chrome.
-    '@keyframes jfbBreathe{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(.84) rotate(0deg)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.26) rotate(180deg)}}' +
-    '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 8px 24px rgba(0,0,0,0.34)!important;}' +
-    // Light mode: theme tokens flip the fill and edge; only the shadow softens.
-    '[data-theme="light"] .jfb-btn{box-shadow:0 8px 24px rgba(15,23,42,0.16),0 1px 2px rgba(15,23,42,0.08)!important;}' +
-    '@media (prefers-reduced-motion: reduce){.jfb-glow{animation:none!important}.jfb-btn{transition:none!important}}'
+    '.jfb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent)!important;}' +
+    '@media (hover: hover) and (pointer: fine){.jfb-btn:hover{background:var(--glass-fill-hover)!important;}}' +
+    '@media (prefers-reduced-motion: reduce){.jfb-btn{transition:none!important}}'
   document.head.appendChild(s)
 }
 
@@ -133,15 +126,8 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
     }
   }, [])
 
-  const size = shrunk ? 46 : 60
+  const size = shrunk ? 40 : 48
   const glyph = shrunk ? 17 : 22
-  // The aura keeps one extent whatever the disc is doing. It used to track
-  // `size`, which resized the masked span in a single step while the disc
-  // eased over 280ms — Safari drew the mask against the old bounds for
-  // those frames and the glow sat off-center and clipped. The disc is
-  // what gets out of the way while reading; the glow is the identity and
-  // stays the same.
-  const glowSize = 60
 
   // Free placement. `pos` is null until the user drags: that keeps the
   // original bottom-right anchor (and its safe-area math) as the resting
@@ -238,45 +224,19 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
         justifyContent: 'center',
         padding: 0,
         cursor: 'pointer',
-        // Same flat material as the dock beside it: card tone, hairline
-        // edge, one lifted shadow. No blur, no specular inset.
-        border: '1px solid var(--border)',
-        background: 'var(--card)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30)',
+        // The same glass as the dock and the header controls.
+        border: '1px solid var(--glass-edge)',
+        background: 'var(--glass-fill)',
+        backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+        boxShadow: 'none',
         // Only size animates. left/top are deliberately untransitioned so the
         // button tracks the pointer exactly instead of easing behind it.
-        transition: 'width 280ms cubic-bezier(.22,1,.36,1), height 280ms cubic-bezier(.22,1,.36,1)',
+        transition: 'width var(--dur-enter) var(--ease-out), height var(--dur-enter) var(--ease-out), background var(--dur-fast) ease',
         WebkitTapHighlightColor: 'transparent',
         // Dragging needs the browser to NOT claim the gesture for scroll/pan.
         touchAction: 'none',
       }}
     >
-      <span
-        aria-hidden="true"
-        className="jfb-glow"
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          width: glowSize,
-          height: glowSize,
-          borderRadius: '50%',
-          pointerEvents: 'none',
-          // Base centering transform so the glow stays put even when the
-          // breathe animation is disabled under reduced-motion (the keyframe
-          // otherwise owns the translate).
-          transform: 'translate(-50%, -50%)',
-          // Two-tone aura — cyan ↔ purple swept around the disc (conic), then
-          // faded to nothing at the edge with a radial mask so it still reads as
-          // a soft glow, not a hard ring. Cyan at both ends of the sweep so the
-          // 0°/360° wrap is seamless. The brain glyph itself stays neon cyan.
-          background: 'conic-gradient(from 0deg, #22E0F2, #A855F7, #22E0F2)',
-          WebkitMaskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
-          maskImage: 'radial-gradient(circle, #000 0%, #000 36%, transparent 72%)',
-          // Slower, calmer breathe — cool but not distracting.
-          animation: 'jfbBreathe 5.4s ease-in-out infinite',
-        }}
-      />
       <span style={{ position: 'relative', display: 'inline-flex' }}>
         <JasperBrainIcon size={glyph} />
       </span>

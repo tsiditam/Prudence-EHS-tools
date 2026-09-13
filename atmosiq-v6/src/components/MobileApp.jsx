@@ -60,6 +60,7 @@ import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
 import EmptyState from './ui/EmptyState'
+import Select from './ui/Select'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import LaunchFrame, { LazyPlaceholder } from './LaunchFrame'
@@ -1318,8 +1319,8 @@ export default function MobileApp() {
       transform: on ? 'scale(0.92)' : 'scale(1)',
       filter: on ? 'brightness(1.3)' : 'none',
       transition: on
-        ? 'transform 120ms cubic-bezier(.2,.85,.3,1), filter 120ms ease'
-        : 'transform 360ms cubic-bezier(.34,1.56,.64,1), filter 260ms ease',
+        ? 'transform var(--dur-fast) var(--ease-out), filter var(--dur-fast) ease'
+        : 'transform var(--dur-settle) var(--ease-spring), filter var(--dur-enter) ease',
       willChange: 'transform',
     }
   }
@@ -4537,7 +4538,7 @@ export default function MobileApp() {
           background: chromeScrolled ? 'var(--chrome-glass)' : 'transparent',
           boxShadow: chromeScrolled ? '0 1px 0 var(--chrome-hair)' : '0 1px 0 transparent',
           backdropFilter:'blur(10px) saturate(130%)', WebkitBackdropFilter:'blur(10px) saturate(130%)',
-          transition:'background 180ms ease, box-shadow 180ms ease',
+          transition:'background var(--dur-enter) ease, box-shadow var(--dur-enter) ease',
         }}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:48,padding:`0 ${padX}px`,maxWidth:contentMax,margin:'0 auto'}}>
           {/* Left cluster — hamburger menu (with its dropdown) followed
@@ -5747,11 +5748,18 @@ export default function MobileApp() {
           {/* ── Finalized ─────────────────────────────────────────── */}
           <div style={{...RS_HEAD, marginTop:22, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>Finalized{reports.length>0?` · ${reports.length}`:''}</div>
           {reports.length > 0 && (
-            <div style={{display:'flex',gap:10,padding:'12px 0 4px'}}>
-              <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports" aria-label="Search finalized reports" style={{flex:1,minWidth:0,padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
-              <select value={hSort} onChange={e=>setHSort(e.target.value)} aria-label="Sort reports" style={{padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:16,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
+            // The search field and the sort in the header controls' glass
+            // (40px, the capsule radius, the glyph in the secondary ink) —
+            // the last two platform-default controls on the list screens.
+            <div style={{display:'flex',gap:8,padding:'12px 0 4px'}}>
+              <div style={{position:'relative',flex:1,minWidth:0}}>
+                <span aria-hidden="true" style={{position:'absolute',left:13,top:'50%',transform:'translateY(-50%)',display:'inline-flex',color:V3.TEXT_TERTIARY,pointerEvents:'none'}}><I n="search" s={16} w={2} /></span>
+                <input type="search" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports" aria-label="Search finalized reports" className="af-glass-input"
+                  style={{width:'100%',height:40,padding:'0 14px 0 38px',background:'var(--glass-fill)',border:'1px solid var(--glass-edge)',borderRadius:20,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',WebkitAppearance:'none',appearance:'none',outline:'none'}} />
+              </div>
+              <Select size="lg" value={hSort} onChange={e=>setHSort(e.target.value)} aria-label="Sort reports" style={{flexShrink:0,color:V3.TEXT_SECONDARY}}>
                 <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="findings-high">Most findings</option><option value="findings-low">Fewest findings</option>
-              </select>
+              </Select>
             </div>
           )}
           {fReports.length === 0 ? (
@@ -6063,8 +6071,8 @@ export default function MobileApp() {
         @keyframes drawerIn{from{transform:translateX(-100%);}to{transform:translateX(0);}}
         @keyframes drawerOut{from{transform:translateX(0);}to{transform:translateX(-100%);}}
         @keyframes scrimOut{from{opacity:1;}to{opacity:0;}}
-        .af-drawer-in{animation:drawerIn .26s cubic-bezier(.22,1,.36,1);}
-        .af-drawer-out{animation:drawerOut .22s ease-in forwards;}
+        .af-drawer-in{animation:drawerIn var(--dur-sheet) var(--ease-out);}
+        .af-drawer-out{animation:drawerOut var(--dur-exit) var(--ease-in) forwards;}
         /* Theme-aware drawer surface: midnight black in dark mode, the
            light --card surface in light mode. Driven by CSS (not inline)
            so it flips with [data-theme="light"] on <html>; the contents
@@ -6118,9 +6126,9 @@ export default function MobileApp() {
              Modern iOS keeps momentum scrolling without it. */
           transform:none; transform-origin:center;
           border-radius:0;
-          transition:transform 320ms cubic-bezier(0.22,1,0.36,1),
-                     border-radius 320ms cubic-bezier(0.22,1,0.36,1),
-                     box-shadow 320ms ease;
+          transition:transform var(--dur-sheet) var(--ease-out),
+                     border-radius var(--dur-sheet) var(--ease-out),
+                     box-shadow var(--dur-sheet) ease;
           /* NO will-change/transform when closed: a persistent will-change:
              transform makes this a containing block for the fixed header/dock
              even at rest, which on iOS re-anchors them to the scroll
@@ -6145,8 +6153,8 @@ export default function MobileApp() {
         /* Dimmed tap-to-close cover over the content card while open. */
         .af-content-cover{ position:fixed; inset:0; z-index:240; background:rgba(0,0,0,0.18); cursor:pointer; }
         @media (prefers-reduced-motion: reduce){ .af-content-surface{ transition:none; } }
-        .af-scrim-in{animation:fadeIn .26s ease;}
-        .af-scrim-out{animation:scrimOut .22s ease forwards;}
+        .af-scrim-in{animation:fadeIn var(--dur-scrim) ease;}
+        .af-scrim-out{animation:scrimOut var(--dur-exit) ease forwards;}
         /* ── Notion-style dropdown / action-menu animation ──
            Reusable classes for the three-dot / action menus: soft fade +
            slight scale + subtle vertical lift, over a blurred glass surface.
@@ -6158,7 +6166,7 @@ export default function MobileApp() {
           position:fixed; inset:0; z-index:1000;
           background:rgba(0,0,0,0.22);
           -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
-          opacity:0; transition:opacity 160ms ease;
+          opacity:0; transition:opacity var(--dur-scrim) ease;
         }
         .af-menu-backdrop.is-open{opacity:1;}
         .af-menu{
@@ -6175,10 +6183,10 @@ export default function MobileApp() {
              overshoot so the panel "grows" rather than just fading in. The
              springy curve is gated behind reduced-motion below. */
           opacity:0; transform:translateY(-4px) scale(0.9); pointer-events:none;
-          transition:opacity 160ms ease, transform 200ms ease;
+          transition:opacity var(--dur-enter) ease, transform var(--dur-enter) var(--ease-out);
         }
         @media (prefers-reduced-motion: no-preference){
-          .af-menu{transition:opacity 180ms ease, transform 300ms cubic-bezier(.34,1.5,.64,1);}
+          .af-menu{transition:opacity var(--dur-enter) ease, transform var(--dur-enter) var(--ease-out);}
         }
         .af-menu.is-open{opacity:1; transform:translateY(0) scale(1); pointer-events:auto;}
         [data-theme="light"] .af-menu{border-color:rgba(15,23,42,0.10); box-shadow:0 18px 45px rgba(15,23,42,0.18);}
@@ -6188,7 +6196,7 @@ export default function MobileApp() {
           background:transparent; border:none; border-radius:12px;
           text-align:left; cursor:pointer; font-family:inherit;
           color:var(--text); font-size:14px; font-weight:500;
-          transition:background 140ms ease, transform 140ms ease;
+          transition:background var(--dur-fast) ease, transform var(--dur-fast) ease;
         }
         .af-menu-item:hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
         .af-menu-item:active{transform:scale(0.98);}
@@ -6200,6 +6208,9 @@ export default function MobileApp() {
            menu opens. position:relative is kept for stacking; the transform /
            transition / filter all come from the inline style. */
         .af-menu-trigger{position:relative;}
+        .af-glass-input::placeholder{color:var(--dim);}
+        .af-glass-input:focus{border-color:var(--accent) !important;}
+        .af-glass-input::-webkit-search-cancel-button{-webkit-appearance:none;}
         @media (hover: hover) and (pointer: fine){
           .af-circle-btn:hover{ background:var(--glass-fill-hover) !important; }
         }
