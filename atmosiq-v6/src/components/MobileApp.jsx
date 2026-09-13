@@ -1023,13 +1023,11 @@ export default function MobileApp() {
     import('../utils/projectStore').then(m => m.getProjects()).then(p => { if (alive) setDesktopProjects(p || []) }).catch(() => {})
     return () => { alive = false }
   }, [isDesktop, profile, index, view])
-  // Project switcher (top of the side menu). Loads the project list each
-  // time the menu opens so the recents are fresh; `menuSwitcherOpen`
-  // expands the inline recents list under the chip.
+  // Projects for the side menu's RECENT section. Loaded each time the menu
+  // opens so the list is fresh.
   const [menuProjects, setMenuProjects] = useState([])
-  const [menuSwitcherOpen, setMenuSwitcherOpen] = useState(false)
   useEffect(() => {
-    if (!showHomeMenu) { setMenuSwitcherOpen(false); return }
+    if (!showHomeMenu) return undefined
     let alive = true
     import('../utils/projectStore').then(m => m.getProjects()).then(p => { if (alive) setMenuProjects(p || []) }).catch(() => {})
     return () => { alive = false }
@@ -4380,67 +4378,39 @@ export default function MobileApp() {
             </svg>
           </button>
         </div>
-        {/* ── Project switcher ── persistent context chip: shows the
-            project you're working in (or "All projects"), and expands an
-            inline recents list. Selecting a project opens its workspace. */}
-        {(() => {
-          const current = activeProjectId ? menuProjects.find(p => p.id === activeProjectId) : null
-          const recents = [...menuProjects].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5)
-          const openProject = (id) => go(() => { setActiveProjectId(id); setView('project-detail') })
-          return (
-            <div style={{marginBottom:8}}>
-              <button
-                onClick={() => setMenuSwitcherOpen(o => !o)}
-                aria-expanded={menuSwitcherOpen}
-                aria-label="Switch project"
-                style={{
-                  width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 12px',
-                  borderRadius:14, border:'1px solid var(--m-border)', cursor:'pointer', textAlign:'left',
-                  fontFamily:'inherit', background:'var(--m-ctl)',
-                  boxShadow:'inset 0 1px 0 var(--m-inset)',
-                  WebkitTapHighlightColor:'transparent',
-                }}>
-                <span style={{width:8,height:8,borderRadius:'50%',flexShrink:0,background:'var(--accent)'}} />
-                <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                  {current ? current.name : 'All projects'}
-                </span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-                  style={{transform: menuSwitcherOpen ? 'rotate(180deg)' : 'none', transition:'transform 180ms cubic-bezier(.22,1,.36,1)', flexShrink:0}}>
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-              {menuSwitcherOpen && (
-                <div style={{marginTop:4, padding:'2px 0 4px'}}>
-                  {recents.map(p => (
-                    <button key={p.id} onClick={() => openProject(p.id)} style={{
-                      width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
-                      borderRadius:12, border:'none', background:'transparent', cursor:'pointer', textAlign:'left',
-                      fontFamily:'inherit', fontSize:14, fontWeight: p.id === activeProjectId ? 600 : 500,
-                      color: p.id === activeProjectId ? 'var(--accent)' : 'var(--text)',
-                      WebkitTapHighlightColor:'transparent',
-                    }}>
-                      <I n="bldg" s={15} c={p.id === activeProjectId ? 'var(--accent)' : 'var(--sub)'} w={1.7} />
-                      <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
-                    </button>
-                  ))}
-                  {recents.length === 0 && (
-                    <div style={{padding:'10px 12px 8px 22px', fontSize:13, color:'var(--sub)'}}>No projects yet</div>
-                  )}
-                  <button onClick={() => go(() => setView('projects'))} style={{
-                    width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px 10px 22px',
-                    borderRadius:12, border:'none', background:'transparent', cursor:'pointer', textAlign:'left',
-                    fontFamily:'inherit', fontSize:13, fontWeight:600, color:'var(--accent)',
-                    WebkitTapHighlightColor:'transparent',
-                  }}>
-                    All projects ›
-                  </button>
-                </div>
-              )}
-            </div>
-          )
-        })()}
         <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
           {sideMenuPrimary.map(sideMenuRow)}
+          {/* ── Recent ── the projects touched last, as plain rows (Grok's
+              Conversations list; the desktop rail's Recent). This replaced
+              the "All projects" switcher chip that sat above the Projects
+              row: in its usual state it only reopened the list the row below
+              opens, and the recents it hid behind a tap are the one thing a
+              returning user wants from this menu. Hidden until there is a
+              project to list. */}
+          {(() => {
+            const recents = [...menuProjects].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 4)
+            if (recents.length === 0) return null
+            const openProject = (id) => go(() => { setActiveProjectId(id); setView('project-detail') })
+            return (
+              <div>
+                {sideMenuSectionLabel({ key: 'recent', label: 'Recent' })}
+                {recents.map(p => {
+                  const active = view === 'project-detail' && p.id === activeProjectId
+                  return (
+                    <button key={p.id} onClick={() => openProject(p.id)} aria-current={active ? 'page' : undefined} style={{
+                      width:'100%', display:'flex', alignItems:'center', padding:'11px 14px',
+                      margin:'1px 0', borderRadius:14, border:'none', cursor:'pointer', textAlign:'left',
+                      fontFamily:'inherit', fontSize:15, fontWeight: active ? 600 : 500,
+                      color:'var(--text)', background: active ? 'var(--m-ctl)' : 'transparent',
+                      WebkitTapHighlightColor:'transparent',
+                    }}>
+                      <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })()}
           {sideMenuGroups.map(g => (
             <div key={g.key}>
               {sideMenuSectionLabel(g)}
