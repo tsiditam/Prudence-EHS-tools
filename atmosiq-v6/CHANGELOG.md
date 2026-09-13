@@ -1,5 +1,36 @@
 # AtmosFlow Changelog
 
+## The ⋯ menu is what you can do here (September 2026)
+
+The header overflow held the one action the app exists to produce, and
+nearly nothing else that belonged to it. `handleExport` had exactly one
+call site: a menu item labeled "Generate reports" (it made one Word file,
+immediately). "Ask AtmosFlow AI" opened the voice-capture modal while the
+same name everywhere else opened the assistant. Off the report screens the
+menu was Search and that mic, both reachable from the side menu, the rail
+and the palette. The PDF renderer was wired and had no way in.
+
+- **One rule.** The hamburger and the rail are where you go; the ⋯ is what
+  you can do to the thing on screen. It carries no destinations now, and a
+  screen with nothing of its own draws no ⋯ at all, the dashboard's own
+  precedent. Search stays in Tools; dictation is in the assistant's
+  composer.
+- **The deliverable is on the Report tab** (`MobileApp.jsx`), directly
+  under the sign-off verdict that says whether it should be issued, as the
+  tab's one accent primary: Export Word report, with PDF and Share beside
+  it. Generate report sections gives up the accent. The menu keeps a copy.
+- **On a report, four groups parted by a hairline**: what it becomes
+  (Export Word report, Export PDF in draft or final mode, Share); what
+  happens next (Send for peer review, Check for discrepancies, Reopen for
+  edits); what it is (Report details: id, finalized date, engine and
+  manifest versions, what the record carries); and, alone at the bottom in
+  the danger ink, Move to trash, through the same confirm sheet the list
+  uses. Trashing the open report leaves it.
+- **A menu widget for the keyboard and assistive tech.** It declared
+  `role="menu"` and handled clicks. Now the first item takes focus on
+  open, arrows move, Home/End jump, Escape and Tab close, and focus returns
+  to the ⋯. Pinned by `tests/components/screen-actions-menu.test.ts`.
+
 ## Report tab and readiness panel finishing pass (September 2026)
 
 The Review and Report tabs were the last two surfaces still speaking the
@@ -34,8 +65,8 @@ They now read like the rest of the results screen.
   status dot and the section name in the primary ink, replacing the tinted
   `color-mix` boxes and the typed glyphs. Row remedies (edit, restore,
   cancel, use anyway, withdraw), the narrative controls and the share
-  button are the neutral glass; **Generate report sections keeps the one
-  accent primary** and Generate narrative no longer competes with it.
+  button are the neutral glass; Generate narrative no longer competes for
+  the accent (the export took it, in the entry above).
 
 ## Capturing the walkthrough the way the report reads (September 2026)
 

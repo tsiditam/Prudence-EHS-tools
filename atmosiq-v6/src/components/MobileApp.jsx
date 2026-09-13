@@ -1140,6 +1140,10 @@ export default function MobileApp() {
   // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
   const [actionsAnchor, setActionsAnchor] = useState(null)
+  // The ⋯ button itself, so focus can return to it when its menu closes.
+  const kebabRef = useRef(null)
+  // "Report details" — the provenance sheet opened from the ⋯ menu.
+  const [reportInfoOpen, setReportInfoOpen] = useState(false)
   // Which header glass control (hamburger / kebab / back) is currently held.
   // Drives a sustained "liquid" expand: the control grows + glows while
   // pressed and springs back on release (state-driven so it persists through
@@ -1158,7 +1162,10 @@ export default function MobileApp() {
   }, [actionsOpen])
   const closeActions = useCallback(() => {
     setActionsVis(false)
-    setTimeout(() => setActionsOpen(false), 190)
+    // Focus goes back to the ⋯ once the menu has left, as a menu button
+    // must; `focus-visible` stays off after a pointer press, so this draws
+    // no ring on touch.
+    setTimeout(() => { setActionsOpen(false); kebabRef.current?.focus?.() }, 190)
   }, [])
   // A Readiness "Fix" that targets a zone field — held until the zone's
   // question list (zVis) recomputes for the new zone, then an effect lands
@@ -2857,6 +2864,8 @@ export default function MobileApp() {
       try { await supabase.from('assessments').delete().eq('id', id) } catch {}
     }
     await refreshIndex(); setDelConf(null)
+    // Trashed from its own ⋯ menu: the open report is gone, so leave it.
+    if (view === 'report' && viewRpt?.id === id) { setViewRpt(null); setView('history') }
   }
 
   const fReports = useMemo(() => {
@@ -3696,6 +3705,25 @@ export default function MobileApp() {
               onFeedback={()=>openFeedback('Findings & readiness')}
               onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
             />
+            {/* The deliverable. Until 2026-09 the only way to produce the
+                Word report was the header ⋯ overflow — the terminal action
+                of the whole app behind an unlabeled menu, with `handleExport`
+                called from nowhere else. It sits here now, directly under
+                the sign-off verdict that says whether it should be issued,
+                as the tab's one accent primary; the AI sections and the
+                narrative below are refinements of the document, not the
+                document. The overflow keeps a copy. */}
+            <div style={RS_SECTION}>
+              <div style={RS_HEAD}>Export</div>
+              <div style={{...V3.T.bodyDim, maxWidth:460, marginBottom:14}}>
+                The AtmosFlow report as a Word document, or as a fixed-layout PDF{viewingIssuedReport() ? '' : ' marked draft'}. The PDF is laid out on the server, so it needs a connection.
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                <TactileButton variant="primary" size="sm" pill icon={<I n="notes" s={15} w={1.8} />} onClick={()=>handleExport('docx','atmosflow')}>Export Word report</TactileButton>
+                <TactileButton variant="neutral" size="sm" pill icon={<I n="download" s={15} w={1.8} />} onClick={()=>handleExport('pdf', viewingIssuedReport() ? 'final' : 'draft')}>PDF</TactileButton>
+                <TactileButton variant="neutral" size="sm" pill icon={<I n="send" s={15} w={1.8} />} onClick={()=>handleShare()}>Share</TactileButton>
+              </div>
+            </div>
             {/* AI-authored sections of the AtmosFlow DOCX itself (the client
                 deliverable) — src/report/aiSections.js, src/report/evidencePackage.js.
                 Distinct from "Findings narrative" below, which is a separate
@@ -3731,7 +3759,9 @@ export default function MobileApp() {
               )}
               {!reportSectionsLoading && !aiSectionsLocked && (
                 <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-                  <TactileButton variant="primary" size="sm" pill onClick={requestReportSections}>
+                  {/* Neutral, not the accent: the export above is the one
+                      primary on this tab, and this refines what it produces. */}
+                  <TactileButton variant="neutral" size="sm" pill onClick={requestReportSections}>
                     {aiSections && aiSectionsSummaryCounts.total > 0 ? 'Regenerate report sections' : 'Generate report sections'}
                   </TactileButton>
                   <span style={V3.T.captionDim}>5 credits</span>
@@ -3869,9 +3899,8 @@ export default function MobileApp() {
                     says so (the Refine action above it, "Explain these
                     readings" on Investigation). A pill here said only that
                     something would happen; the mark says who writes it.
-                    Report sections keep the screen's one accent primary —
-                    they feed the client deliverable; this is a one-pager the
-                    reviewer shares. */}
+                    Export keeps the screen's one accent primary — it is the
+                    deliverable; this is a one-pager the reviewer shares. */}
                 <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:-8}}>
                   <AiAction label="Generate narrative" onClick={requestNarrative}
                     title="AtmosFlow AI writes the findings narrative from the report's own findings" />
@@ -4551,6 +4580,54 @@ export default function MobileApp() {
     </div>
   )
 
+  // ── Screen actions (the header ⋯ overflow) ─────────────────────────
+  // One rule decides what goes here: the hamburger and the rail are
+  // where you GO; this menu is what you can DO to the thing on screen.
+  // So it carries no destinations — Search lives in Tools, and the
+  // assistant has its own launcher on every screen with dictation in
+  // its composer — and a screen with nothing of its own draws no ⋯ at
+  // all. Groups, in reading order: what the report becomes, what
+  // happens to it next, what it is, and last and apart, the one action
+  // that removes it. Every item maps to an existing handler.
+  const onReportScreen = view==='results' || view==='report'
+  const savedReport = view==='report' && !!viewRpt?.id
+  const screenActionGroups = (onReportScreen ? [
+    [
+      { label:'Export Word report', icon:'notes',    onClick:()=>handleExport('docx','atmosflow') },
+      // Online only — the PDF is laid out server-side (/api/report-pdf).
+      { label:'Export PDF',         icon:'download', onClick:()=>handleExport('pdf', viewingIssuedReport() ? 'final' : 'draft') },
+      { label:'Share',              icon:'send',     onClick:()=>handleShare() },
+    ],
+    [
+      { label:'Send for peer review',    icon:'check',    onClick:()=>setPeerReviewOpen(true) },
+      { label:'Check for discrepancies', icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
+      // A saved report reopens as its draft (resumeAndFix with no
+      // target field); the live results are still the draft, so the
+      // editor is one view away.
+      savedReport
+        ? { label:'Reopen for edits', icon:'draft', onClick:()=>resumeAndFix(null) }
+        : { label:'Reopen for edits', icon:'draft', onClick:()=>{ setDqi(0); setView('details') } },
+    ],
+    [
+      { label:'Report details', icon:'report', onClick:()=>setReportInfoOpen(true) },
+    ],
+    // Trash is offered on a saved report, where the record is the thing
+    // on screen; the results view right after finalize is still the
+    // draft, and the list is where that one is removed.
+    ...(savedReport ? [[
+      { label:'Move to trash', icon:'trash', danger:true, onClick:()=>setDelConf({ id: viewRpt.id, name: viewRpt.facility || bldg?.fn || 'Untitled', type:'rpt' }) },
+    ]] : []),
+  ] : [
+    // Logger Studio: send the included charts to a report, once at
+    // least one graph is toggled "Include in report".
+    view==='sensor-data' && sensorData?.graphs && Object.values(sensorData.graphs).some(g => g && g.include)
+      ? [{ label:'Send graphs to a report', icon:'send', onClick:()=>setGraphTargetOpen(true) }] : [],
+    // Project workspace: "Edit details" lives here rather than as a
+    // header button inside the project card.
+    view==='project-detail'
+      ? [{ label:'Edit details', icon:'draft', onClick:()=>setProjectEditNonce(n=>n+1) }] : [],
+  ]).filter(g => g.length > 0)
+
   return (
     <>
     {profile && (
@@ -4833,14 +4910,16 @@ export default function MobileApp() {
                 </button>
               )
             })()}
-            {/* Overflow (⋯) — context actions for the current screen,
+            {/* Overflow (⋯) — what can be done to the thing on this screen,
                 opened as a compact dropdown anchored to this button
                 (top-right), matching the hamburger menu's popover.
                 Replaces the always-on search/mic icons per the Senior
-                top-bar design. Hidden on the dashboard, where the
-                hamburger menu already exposes these actions. */}
-            {profile && view!=='dash' && (
+                top-bar design. Drawn only when the screen has actions of
+                its own (screenActionGroups, below the palette): a ⋯ that
+                opens on two global items is one people learn to ignore. */}
+            {profile && screenActionGroups.length > 0 && (
               <button
+                ref={kebabRef}
                 type="button"
                 className="af-menu-trigger af-circle-btn"
                 onClick={(e) => {
@@ -4864,35 +4943,31 @@ export default function MobileApp() {
       {/* Context action menu — opened from the header ⋯ overflow.
           Compact dropdown anchored to the kebab button (top-right),
           same soft-glass popover as the hamburger menu; no report
-          title/address header. Items are scoped to the current screen:
-          on the report views they surface the report's own actions
-          (search, voice, map, share); elsewhere the global search +
-          voice. Every item maps to an existing handler — no
-          placeholder actions. */}
+          title/address header. The items are screenActionGroups (built
+          above the shell's return): groups part with a hairline, the
+          destructive action sits alone at the bottom in the danger ink.
+          It is the menu widget it declares itself to be — the first item
+          takes focus on open, arrows move, Home/End jump, Escape and Tab
+          close, and focus returns to the ⋯ (closeActions). */}
       {actionsOpen && (() => {
-        const onResults = view==='results' || view==='report'
         const close = closeActions
-        const items = onResults ? [
-          { label:'Generate reports',         icon:'notes',    onClick:()=>handleExport('docx','atmosflow') },
-          { label:'Share',                    icon:'send',     onClick:()=>handleShare() },
-          { label:'Send for peer review',     icon:'check',    onClick:()=>{ setActionsOpen(false); setPeerReviewOpen(true) } },
-          { label:'Discrepancies Check',      icon:'findings', onClick:()=>{ setReviewError(null); setReviewChooserOpen(true) } },
-          { label:'Ask AtmosFlow AI',         icon:'mic',      onClick:()=>{ supabase && trackEvent('jasper_open',{source:'report_actions'}); setVoiceCmdOpen(true) } },
-        ] : [
-          // Logger Studio: offer "send the included charts to a report" when
-          // the user has toggled at least one graph "Include in report".
-          ...(view==='sensor-data' && sensorData?.graphs && Object.values(sensorData.graphs).some(g => g && g.include)
-            ? [{ label:'Send graphs to a report', icon:'send', onClick:()=>{ close(); setGraphTargetOpen(true) } }]
-            : []),
-          // Project workspace: "Edit details" lives here (top-right overflow)
-          // rather than as a header button inside the project card.
-          ...(view==='project-detail'
-            ? [{ label:'Edit details', icon:'draft', onClick:()=>setProjectEditNonce(n=>n+1) }]
-            : []),
-          { label:'Search',             icon:'search', onClick:()=>setView('search') },
-          { label:'Ask AtmosFlow AI', icon:'mic',    onClick:()=>{ supabase && trackEvent('jasper_open',{source:'header_actions'}); setVoiceCmdOpen(true) } },
-        ]
+        const groups = screenActionGroups
         const anchor = actionsAnchor || { top: 60, right: 12 }
+        const itemsOf = (menuEl) => Array.from(menuEl.querySelectorAll('[role="menuitem"]:not(:disabled)'))
+        const focusAt = (menuEl, idx) => {
+          const items = itemsOf(menuEl)
+          if (!items.length) return
+          items[((idx % items.length) + items.length) % items.length].focus()
+        }
+        const onKeyDown = (e) => {
+          const menuEl = e.currentTarget
+          const cur = itemsOf(menuEl).indexOf(document.activeElement)
+          if (e.key === 'ArrowDown')      { e.preventDefault(); focusAt(menuEl, cur + 1) }
+          else if (e.key === 'ArrowUp')   { e.preventDefault(); focusAt(menuEl, cur - 1) }
+          else if (e.key === 'Home')      { e.preventDefault(); focusAt(menuEl, 0) }
+          else if (e.key === 'End')       { e.preventDefault(); focusAt(menuEl, -1) }
+          else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); close() }
+        }
         return createPortal(
           <>
             <div
@@ -4903,17 +4978,27 @@ export default function MobileApp() {
               role="menu"
               aria-label="Screen actions"
               className={actionsVis ? 'af-menu is-open' : 'af-menu'}
-              style={{ top: anchor.top, right: anchor.right, minWidth: 220 }}>
-              {items.map(item => (
-                <button
-                  key={item.label}
-                  role="menuitem"
-                  className="af-menu-item"
-                  onClick={()=>{ close(); item.onClick() }}>
-                  <I n={item.icon} s={18} c={SUB} w={1.6} />
-                  <span style={{flex:1}}>{item.label}</span>
-                </button>
-              ))}
+              onKeyDown={onKeyDown}
+              style={{ top: anchor.top, right: anchor.right, minWidth: 236 }}>
+              {groups.flatMap((g, gi) => [
+                gi > 0 ? <div key={`sep-${gi}`} className="af-menu-sep" role="separator" /> : null,
+                <div key={`group-${gi}`} role="group">
+                  {g.map((item, ii) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      role="menuitem"
+                      tabIndex={-1}
+                      autoFocus={gi === 0 && ii === 0}
+                      disabled={item.disabled}
+                      className={item.danger ? 'af-menu-item is-danger' : 'af-menu-item'}
+                      onClick={()=>{ close(); item.onClick() }}>
+                      <I n={item.icon} s={18} c={item.danger ? 'var(--danger)' : SUB} w={1.6} />
+                      <span style={{flex:1}}>{item.label}</span>
+                    </button>
+                  ))}
+                </div>,
+              ])}
             </div>
           </>,
           document.body
@@ -5234,6 +5319,39 @@ export default function MobileApp() {
           backdrop click handler). Delete is a danger TactileButton
           with a heavier haptic so the confirmatory tap reads as
           deliberate. */}
+      {/* Report details — what this record is, read off the record. The
+          engine and manifest versions were already in the standards
+          disclosure on the results screen; the id, the finalized date and
+          what the record carries had nowhere to be read. */}
+      {reportInfoOpen && (() => {
+        const rpt = viewRpt || null
+        const manifest = rpt?.standardsManifest || STANDARDS_MANIFEST
+        const ai = rpt?.aiSections || aiSections
+        const aiCount = Object.keys(ai?.auditSummary || {}).length
+        const rows = [
+          ['Facility', bldg?.fn || '—'],
+          ['Report ID', rpt?.id || draftId || '—'],
+          ['Finalized', rpt?.ts ? fD(rpt.ts) : (viewingIssuedReport() ? 'Just now' : 'Not yet — still a draft')],
+          ['Engine', `v${rpt?.ver || manifest.engineVersion || VER}`],
+          ['Standards manifest', manifest.manifestUpdated || '—'],
+          ['Zones', String((zones || []).length)],
+          ['Logger data', (rpt ? rpt.sensorData : sensorData) ? 'Attached' : 'None'],
+          ['Calibration exception', (rpt ? rpt.calibrationAcknowledgement : calAck) ? 'Acknowledged in writing' : 'None recorded'],
+          ['AI report sections', aiCount > 0 ? `${aiCount} written` : 'None'],
+        ]
+        return (
+          <BottomSheet title="Report details" onClose={()=>setReportInfoOpen(false)} maxWidth={440} ariaLabel="Report details">
+            <div>
+              {rows.map(([k, v], i) => (
+                <div key={k} style={{display:'flex',justifyContent:'space-between',gap:16,alignItems:'baseline',padding:'11px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+                  <div style={{...V3.T.captionDim, whiteSpace:'nowrap'}}>{k}</div>
+                  <div style={{...V3.T.body, color:TEXT, textAlign:'right', minWidth:0, overflowWrap:'anywhere', fontVariantNumeric:'tabular-nums'}}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </BottomSheet>
+        )
+      })()}
       {delConf && (
         <BottomSheet
           title="Move to trash?"
@@ -6139,7 +6257,11 @@ export default function MobileApp() {
           the nav is now the single launcher across the app. */}
       {/* Voice command modal — speaks → routes the transcript to
           Jasper via initialMessage. Lives at the app shell so it's
-          available from every screen via the header pill's mic. */}
+          available from every screen via the header pill's mic.
+          TODO(claude): nothing opens this any more. Its last launcher was
+          the ⋯ menu's "Ask AtmosFlow AI" (a mic behind an assistant's
+          name), removed when the menu was cut to screen actions; the
+          assistant's own composer dictates. Remove with its component. */}
       {profile && (
         <VoiceCommandModal
           open={voiceCmdOpen}
@@ -6424,6 +6546,15 @@ export default function MobileApp() {
         .af-menu-item:hover{background:color-mix(in srgb, var(--text) 8%, transparent);}
         .af-menu-item:active{transform:scale(0.98);}
         .af-menu-item.is-active{color:var(--accent);}
+        .af-menu-item:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+        .af-menu-item:disabled{opacity:0.45; cursor:default;}
+        .af-menu-item:disabled:hover{background:transparent;}
+        .af-menu-item:disabled:active{transform:none;}
+        /* The one destructive item: the danger ink, a danger-tinted hover,
+           and a hairline above it (af-menu-sep) so it stands apart. */
+        .af-menu-item.is-danger{color:var(--danger);}
+        .af-menu-item.is-danger:hover{background:color-mix(in srgb, var(--danger) 10%, transparent);}
+        .af-menu-sep{height:1px; margin:6px 10px; background:var(--border);}
         /* Header glass controls (back pill, hamburger, kebab). The sustained
            "liquid" press — grow + glow while held, spring back on release — is
            driven by React state (pressedTrigger) via circleFx() inline styles
