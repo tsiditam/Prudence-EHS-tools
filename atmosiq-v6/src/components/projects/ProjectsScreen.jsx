@@ -115,9 +115,9 @@ export default function ProjectsScreen({ onBack, onOpen, onReportIncident }) {
       pill
       haptic="success"
       onClick={() => setShowCreate(true)}
-      // 44px, the height of the circular header controls, in both
-      // placements — one glass material at one size across the screen.
-      style={{ height: 44, minHeight: 44, padding: list.length === 0 ? '0 28px' : '0 18px', fontSize: 15 }}
+      // Grok's capsule, measured: 37pt tall, a 17pt semibold label, ~22pt
+      // of side padding. The same in both placements.
+      style={{ height: 37, minHeight: 37, padding: '0 22px', fontSize: 17, letterSpacing: 0 }}
     >
       New project
     </TactileButton>

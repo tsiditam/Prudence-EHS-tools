@@ -1319,16 +1319,15 @@ export default function MobileApp() {
       willChange: 'transform',
     }
   }
-  // Circular header control (hamburger, kebab) — Grok's mobile controls: a
-  // 44px charcoal disc one step above the page, no edge, the glyph in the
-  // primary ink. Pressing sinks it (scale down, a touch brighter) and it
-  // springs back on release; the cyan inset bloom of triggerFx stays with
-  // the back pill. Mixed from --text over --bg so the disc is a neutral
-  // tint in both themes.
+  // Circular header control (hamburger, kebab) — Grok's corner controls,
+  // to the measured numbers (see --glass-* in index.html): a 40px disc,
+  // translucent fill, 1px edge, no highlight, no shadow, a white glyph.
+  // Pressing sinks it (scale down, a touch brighter) and it springs back on
+  // release; the cyan inset bloom of triggerFx stays with the back pill.
   const CIRCLE_BTN = {
-    width: 44, height: 44, borderRadius: 22, padding: 0,
+    width: 40, height: 40, borderRadius: 20, padding: 0,
     background: 'var(--glass-fill)', border: '1px solid var(--glass-edge)',
-    boxShadow: 'inset 0 1px 0 var(--glass-sheen), var(--glass-shadow)',
+    boxShadow: 'none',
     backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
     color: V3.TEXT_PRIMARY,
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -4373,17 +4372,17 @@ export default function MobileApp() {
               fontFamily:'inherit', textAlign:'left', WebkitTapHighlightColor:'transparent',
             }}>
             <span aria-hidden="true" style={{
-              width:40, height:40, borderRadius:'50%', flexShrink:0,
+              width:34, height:34, borderRadius:'50%', flexShrink:0,
               display:'inline-flex', alignItems:'center', justifyContent:'center',
               background: profile?.avatar_url ? 'var(--m-ctl)' : 'var(--avatar-fill)',
               border: profile?.avatar_url ? '1px solid var(--m-border)' : 'none',
-              color:'var(--on-avatar)', fontSize:14, fontWeight:700, letterSpacing:'0.02em', overflow:'hidden',
+              color:'var(--on-avatar)', fontSize:13, fontWeight:700, letterSpacing:'0.02em', overflow:'hidden',
             }}>
               {profile?.avatar_url
                 ? <img src={profile.avatar_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
                 : getInitials(profile)}
             </span>
-            <span style={{fontSize:17,fontWeight:700,letterSpacing:'-0.01em',color:'var(--text)',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+            <span style={{fontSize:17,fontWeight:600,letterSpacing:'-0.01em',color:'var(--text)',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
               {(profile?.name || '').split(',')[0].trim() || 'Account'}
             </span>
           </button>
@@ -4391,12 +4390,12 @@ export default function MobileApp() {
             onClick={closeSideMenu}
             aria-label="Close menu"
             style={{
-              width:44, height:44, borderRadius:22, flexShrink:0, padding:0,
+              width:40, height:40, borderRadius:20, flexShrink:0, padding:0,
               display:'flex', alignItems:'center', justifyContent:'center',
-              background:'var(--m-ctl)', border:'none', color:'var(--text)',
+              background:'var(--glass-fill)', border:'1px solid var(--glass-edge)', color:'var(--text)',
               cursor:'pointer', fontFamily:'inherit', WebkitTapHighlightColor:'transparent',
             }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="6 17 11 12 6 7" />
               <polyline points="13 17 18 12 13 7" />
             </svg>
@@ -4632,7 +4631,7 @@ export default function MobileApp() {
                 aria-expanded={showHomeMenu}
                 className="af-menu-trigger af-circle-btn"
                 style={{ ...CIRCLE_BTN, ...circleFx('menu') }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
                   <line x1="4" y1="7"  x2="20" y2="7" />
                   <line x1="4" y1="12" x2="15" y2="12" />
                   <line x1="4" y1="17" x2="11" y2="17" />
@@ -4681,7 +4680,7 @@ export default function MobileApp() {
                 aria-haspopup="menu"
                 aria-expanded={actionsOpen}
                 style={{ ...CIRCLE_BTN, ...circleFx('kebab') }}>
-                <I n="dots" s={20} c="currentColor" w={2} />
+                <I n="dots" s={18} c="currentColor" w={2.2} />
               </button>
             )}
           </div>

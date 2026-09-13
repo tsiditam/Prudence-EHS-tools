@@ -169,20 +169,21 @@
            lime green (Grok's), the same in both themes: it is an identity
            mark, not a semantic tone, so it does not join the severity or
            accent scales. White initials: 4.6:1 on this green. */
-        --avatar-fill:#6F9E36;
+        --avatar-fill:#759E49;
         --on-avatar:#FFFFFF;
-        /* Glass control (Grok's mobile controls — the corner circles and
-           the capsule buttons). A translucent fill a step above the page,
-           blurred so what scrolls beneath reads through, a hairline edge
-           and a one-pixel specular along the top. Every such control is
-           44px tall so circles and capsules sit on one line. Flipped for
-           light below. */
-        --glass-fill:rgba(255,255,255,0.09);
-        --glass-fill-hover:rgba(255,255,255,0.13);
-        --glass-edge:rgba(255,255,255,0.10);
-        --glass-sheen:rgba(255,255,255,0.12);
+        /* Glass control — Grok's mobile controls (the corner circles and
+           the capsule buttons), measured off the app at native pixel scale
+           (2026-09): a 40pt circle / 37pt capsule, fill ~7 units above the
+           page (#181818 on #111111), a 1px edge peaking near #373737 —
+           about 13% white — NO specular highlight (the top and bottom edge
+           profiles are symmetric) and NO drop shadow, white glyphs at
+           15–16pt, a 17pt semibold label. The fill is translucent so a
+           header control still frosts what scrolls beneath it. Flipped
+           for light below. */
+        --glass-fill:rgba(255,255,255,0.05);
+        --glass-fill-hover:rgba(255,255,255,0.09);
+        --glass-edge:rgba(255,255,255,0.13);
         --glass-blur:blur(18px) saturate(160%);
-        --glass-shadow:0 1px 2px rgba(0,0,0,0.28);
         /* ── Liquid-glass "bubble" controls (iOS-26-style tactile buttons) ──
            Shared surface/press tokens consumed by the global .bubble-btn
            class. --bubble-bg is the fill (a control overrides it for a tint,
@@ -285,11 +286,9 @@
         --bubble-press-scale:0.97;
         --chrome-glass:rgba(255,255,255,0.58);
         --chrome-hair:rgba(15,23,42,0.08);
-        --glass-fill:rgba(15,23,42,0.06);
-        --glass-fill-hover:rgba(15,23,42,0.10);
-        --glass-edge:rgba(15,23,42,0.10);
-        --glass-sheen:rgba(255,255,255,0.65);
-        --glass-shadow:0 1px 2px rgba(15,23,42,0.08);
+        --glass-fill:rgba(15,23,42,0.05);
+        --glass-fill-hover:rgba(15,23,42,0.09);
+        --glass-edge:rgba(15,23,42,0.13);
       }
       /* The page canvas — html is what iOS paints into the safe areas and
          behind anything the app moves out of the way (the side menu slides

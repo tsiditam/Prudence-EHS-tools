@@ -71,7 +71,7 @@ const VARIANT = {
     background: 'var(--glass-fill)',
     color: 'var(--text)',
     border: '1px solid var(--glass-edge)',
-    boxShadow: 'inset 0 1px 0 var(--glass-sheen), var(--glass-shadow)',
+    boxShadow: 'none',
     backdropFilter: 'var(--glass-blur)',
     WebkitBackdropFilter: 'var(--glass-blur)',
   },
