@@ -215,42 +215,35 @@
         --chrome-hair:rgba(255,255,255,0.07);
       }
       [data-theme="light"]{
-        /* Premium Light palette — a clean WHITE page (was a warm beige
-           #F8F4EB). The surface ladder still reads: bg is pure white,
-           surface is a cool-grey tier for grouped / selected areas, and
-           cards stay white, lifting off the page via the neutral border +
-           soft shadow rather than a bg/card tint gap. The restrained cyan
-           is reserved for text, icons, and active states, and the
-           brighter #39C0D9 fills emphasis CTAs. The light-mode --accent
-           is a deeper cyan-700 than dark mode's #2EA7BF (which measured
-           2.84:1 on white — the audit's SC 1.4.3 failure): #0C6F86 is
-           5.78:1 on --bg, 4.69:1 on --surface and 5.17:1 on --raised,
-           so accent text passes AA on every light surface it sits on. */
-        --bg:#FFFFFF;
-        /* Surface tier sits one step below a white card, not four: the
-           previous #E4E8EC was a mid grey that turned every var(--surface)
-           control (AI suggestion cards, composer, chips, segmented
-           controls, stat tiles) into heavy slate slabs on an otherwise
-           white sheet. #F3F5F7 reads as a grouped area and still sits
-           visibly under a white card. */
-        --surface:#F3F5F7;
+        /* Light palette — the same five-step depth ladder as dark (depth
+           pass, 2026-09), mirrored: an off-white page, a rail a half-step
+           below it, a control surface below that, WHITE cards that lift
+           off the page by tone alone, and a neutral raised tint for the
+           selected row. Light used to put a white card on a white page,
+           so the depth the dark ladder carries vanished the moment the
+           theme flipped and every panel was only its border. The steps
+           are 2–3 L* apart, zinc-tinted like dark. The restrained cyan is
+           reserved for text, icons and active states; #39C0D9 fills
+           emphasis CTAs. The light-mode --accent is a deeper cyan-700
+           than dark mode's #2EA7BF (2.84:1 on white — the audit's SC 1.4.3
+           failure): #0C6F86 is 5.6:1 on --bg and above 4.5:1 on every
+           light surface it sits on. */
+        --bg:#F8F8F9;
+        --surface:#F0F0F2;
         --card:#FFFFFF;
-        --group:#F3F5F7;
-        --surface-deep:#FFFFFF;
-        /* Light-mode raised surface for "selected" / "focused" rows.
-           A pale cyan tint (the brand's light tint) so selected/active
-           rows read as an accent highlight against pure-white cards,
-           rather than the previous neutral off-white. Subtle enough to
-           stay a background, not a fill. */
-        --raised:#DDF7FB;
-        /* Neutral cool-grey card edge (was a cyan-tinted #B6E0E8). The
-           v3 Clinical-Light mockups use a clean near-neutral border so
-           white cards read crisp against the cool page rather than
-           cyan-outlined. Cyan still carries active/selected states via
-           --accent and the pale --raised tint. */
-        --border:#D6DBE1;
-        --border-subtle:#E6EAEE;
-        --border-strong:#C2C9D2;
+        /* Grouped list cells — white on the off-white page, the way iOS
+           draws grouped settings in light. */
+        --group:#FFFFFF;
+        --surface-deep:#F3F3F5;
+        /* Selected / focused rows: a NEUTRAL tint one step below the
+           control surface. It was a pale cyan (#DDF7FB), which made every
+           selected row an accent highlight and spent the brand color on
+           state; the dark ladder's --raised is neutral and so is this. */
+        --raised:#E9E9EC;
+        /* Neutral zinc edges, one step apart, matching the dark ladder. */
+        --border:#E2E2E6;
+        --border-subtle:#ECECEF;
+        --border-strong:#D2D2D8;
         --accent:#0C6F86;
         --accent-dim:#155E75;
         --text:#0F172A;
@@ -284,7 +277,7 @@
         --bubble-blur:none;
         --bubble-sheen:none;
         --bubble-press-scale:0.97;
-        --chrome-glass:rgba(255,255,255,0.58);
+        --chrome-glass:rgba(248,248,249,0.62);
         --chrome-hair:rgba(15,23,42,0.08);
         --glass-fill:rgba(15,23,42,0.05);
         --glass-fill-hover:rgba(15,23,42,0.09);

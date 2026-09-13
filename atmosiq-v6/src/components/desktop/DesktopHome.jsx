@@ -23,6 +23,7 @@ import * as V3 from '../../styles/tokens'
 import { I } from '../Icons'
 import TactileButton from '../ui/TactileButton'
 import StatusPill from '../ui/StatusPill'
+import Skeleton, { SkeletonRows } from '../ui/Skeleton'
 import { STATUS_LABEL, STATUS_TONE } from '../projects/projectsTheme'
 import { formatDate } from '../../utils/formatDate'
 
@@ -123,6 +124,7 @@ export default function DesktopHome({
   profile,
   index,
   projects = [],
+  projectsLoading = false,
   loadDraft,
   onNewInvestigation,
   onResumeDraft,
@@ -187,10 +189,12 @@ export default function DesktopHome({
                 <div style={V3.T.h2}>{activeDraft.facility || 'Untitled assessment'}</div>
                 <div style={{ ...V3.T.captionDim, marginTop: 2 }}>IAQ investigation · last touched {relativeTime(activeDraft.ua || activeDraft.ts)} ago</div>
                 <div style={{ ...V3.T.body, marginTop: 14 }}>Walkthrough in progress</div>
-                {census && (
+                {census ? (
                   <div style={{ ...V3.T.captionDim, marginTop: 4 }}>
                     {census.zones} {census.zones === 1 ? 'zone' : 'zones'} · {census.readings} {census.readings === 1 ? 'reading' : 'readings'} · {census.observations} {census.observations === 1 ? 'observation' : 'observations'}
                   </div>
+                ) : (
+                  <Skeleton w={210} h={10} style={{ marginTop: 7 }} />
                 )}
               </div>
               <button type="button" onClick={() => onResumeDraft?.(activeDraft.id)} style={{ ...linkBtn, alignSelf: 'flex-end', flexShrink: 0 }}>Continue investigation <span aria-hidden="true">→</span></button>
@@ -222,7 +226,12 @@ export default function DesktopHome({
       {/* Two columns: recent projects (or recent work) and recent activity. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 40 }}>
         <div>
-          {recentProjects.length > 0 ? (
+          {projectsLoading && recentProjects.length === 0 ? (
+            <>
+              <SectionHead>Recent projects</SectionHead>
+              <SkeletonRows rows={4} label="Loading projects" />
+            </>
+          ) : recentProjects.length > 0 ? (
             <>
               <SectionHead action="View all" onAction={onOpenProjects}>Recent projects</SectionHead>
               <div>

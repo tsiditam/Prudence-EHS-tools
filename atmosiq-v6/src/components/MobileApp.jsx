@@ -59,6 +59,7 @@ import AnimatedPageTransition from './ui/AnimatedPageTransition'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
+import EmptyState from './ui/EmptyState'
 import TactileButton from './ui/TactileButton'
 import BottomSheet from './ui/BottomSheet'
 import LaunchFrame, { LazyPlaceholder } from './LaunchFrame'
@@ -1016,7 +1017,7 @@ export default function MobileApp() {
   // Projects for the rail's RECENT section and the Home screen. Reloaded
   // whenever the index or the screen changes so a rename or a new project
   // shows without a reload; desktop only.
-  const [desktopProjects, setDesktopProjects] = useState([])
+  const [desktopProjects, setDesktopProjects] = useState(null)
   useEffect(() => {
     if (!isDesktop || !profile) return undefined
     let alive = true
@@ -4471,7 +4472,7 @@ export default function MobileApp() {
         ] },
       ]
       const openProject = (pid) => { setActiveProjectId(pid); setView('project-detail') }
-      const railRecent = { label: 'Recent', items: desktopProjects.slice(0, 4).map(p => ({
+      const railRecent = { label: 'Recent', items: (desktopProjects || []).slice(0, 4).map(p => ({
         key: p.id, label: p.name, active: view === 'project-detail' && activeProjectId === p.id, onClick: () => openProject(p.id),
       })) }
       const railBottom = [
@@ -4487,7 +4488,7 @@ export default function MobileApp() {
         { id: 'ai', label: faOpen ? 'Close AtmosFlow AI' : 'Ask AtmosFlow AI', group: 'AtmosFlow AI', hint: `${MOD_LABEL} J`, renderIcon: () => <JasperBrainIcon size={18} animate={false} />, keywords: ['jasper', 'ask', 'ai', 'assistant', 'chat'], onSelect: () => (faOpen ? closeChat() : openChat('command_palette')) },
         { id: 'new-investigation', label: 'New investigation', group: 'Actions', icon: 'plus', keywords: ['start', 'assessment', 'walkthrough', 'survey'], onSelect: () => startNew() },
         ...railSections.filter(sec => sec.key !== 'ai').flatMap(sec => sec.items.map(it => ({ id: `go-${it.view}`, label: it.label, group: sec.label || 'Workspace', icon: it.icon, keywords: ['go to', 'open'], onSelect: () => go(it.onClick) }))),
-        ...desktopProjects.slice(0, 8).map(p => ({ id: `project-${p.id}`, label: p.name, group: 'Projects', icon: 'bldg', hint: [p.client, p.siteType].filter(Boolean).join(' · '), keywords: ['project', 'site', p.client || ''], onSelect: () => openProject(p.id) })),
+        ...(desktopProjects || []).slice(0, 8).map(p => ({ id: `project-${p.id}`, label: p.name, group: 'Projects', icon: 'bldg', hint: [p.client, p.siteType].filter(Boolean).join(' · '), keywords: ['project', 'site', p.client || ''], onSelect: () => openProject(p.id) })),
         ...drafts.slice(0, 8).map(d => ({ id: `draft-${d.id}`, label: d.facility || 'Untitled assessment', group: 'Drafts', icon: 'draft', hint: fD(d.ua || d.ts), keywords: ['draft', 'resume', 'assessment'], onSelect: () => resumeDraft(d.id) })),
         ...reports.slice(0, 8).map(r => ({ id: `report-${r.id}`, label: r.facility || 'Untitled report', group: 'Reports', icon: 'report', hint: fD(r.ts), keywords: ['report', 'finalized'], onSelect: () => openReport(r) })),
         ...railBottom.map(it => ({ id: `go-${it.view}`, label: it.label, group: 'System', icon: it.icon, onSelect: () => go(it.onClick) })),
@@ -5686,29 +5687,66 @@ export default function MobileApp() {
             )}
           </div>
 
+          {(() => {
+            const drafts = index.drafts || []
+            const reports = index.reports || []
+            // First run: one empty state for the whole screen — a ghost of
+            // the list, the outcome, the one action — instead of two empty
+            // sections each apologizing on its own line.
+            if (drafts.length === 0 && reports.length === 0) {
+              return (
+                <EmptyState
+                  title="Your reports will appear here"
+                  body="Finalize an assessment and its report is listed with its findings, what needs attention and its status."
+                  action={<TactileButton variant="neutral" pill haptic="success" onClick={() => startNew()} style={{ height: 37, minHeight: 37, padding: '0 22px', fontSize: 17, letterSpacing: 0 }}>Start an assessment</TactileButton>}
+                  secondary={{ label: 'View a sample report', onClick: () => runDemo(userMode === 'fm' ? undefined : 'findings') }}
+                  minHeight={`calc(${V3.FULL_VH} - 260px)`}
+                />
+              )
+            }
+            // A row carries its verdict at a glance: a dot in the worst
+            // finding's severity color (green when there is none), the
+            // finding census in the caption, and a status pill — in fixed
+            // columns so the eye scans down the list. Every value is already
+            // on the index entry (findings / attention / worstSeverity);
+            // legacy entries without them fall back to the date alone.
+            const sevTone = (r) => (typeof r.findings !== 'number' ? V3.STATUS.draft : r.findings === 0 ? V3.SEVERITY.pass : (V3.SEVERITY[r.worstSeverity] || V3.SEVERITY.medium))
+            const reportMeta = (r) => {
+              const parts = []
+              if (typeof r.findings === 'number') parts.push(r.findings === 0 ? 'No findings' : `${r.findings} finding${r.findings === 1 ? '' : 's'}`)
+              if (r.attention > 0) parts.push(`${r.attention} need${r.attention === 1 ? 's' : ''} attention`)
+              parts.push(fD(r.ts))
+              return parts.join(' · ')
+            }
+            const ROW = { padding:'12px 0', display:'grid', gridTemplateColumns:'8px minmax(0,1fr) auto', alignItems:'center', columnGap:12, fontFamily:'inherit', WebkitTapHighlightColor:'transparent' }
+            const dot = (tone) => <span aria-hidden="true" style={{width:8,height:8,borderRadius:4,background:tone,justifySelf:'center'}} />
+            return (<>
           {/* ── Drafts / In Progress ──────────────────────────────── */}
-          <div style={{...RS_HEAD, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>{userMode === 'fm' ? 'In progress' : 'Drafts'}{(index.drafts||[]).length>0?` · ${(index.drafts||[]).length}`:''}</div>
-          {(index.drafts||[]).length === 0 ? (
+          <div style={{...RS_HEAD, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>{userMode === 'fm' ? 'In progress' : 'Drafts'}{drafts.length>0?` · ${drafts.length}`:''}</div>
+          {drafts.length === 0 ? (
             <div style={{padding:'12px 0 6px'}}>
               <span style={V3.T.bodyDim}>None in progress. </span>
               <button onClick={startNew} aria-label="Start new assessment" style={RS_LINK}>Start an assessment <span aria-hidden="true">›</span></button>
             </div>
-          ) : (index.drafts||[]).map((d, i) => (
-            <div key={d.id} style={{padding:'12px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,display:'flex',alignItems:'center',gap:12}}>
-              <div style={{flex:1,minWidth:0}}>
+          ) : drafts.map((d, i) => (
+            <div key={d.id} style={{...ROW, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
+              {dot(V3.STATUS.inProgress)}
+              <div style={{minWidth:0}}>
                 <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{d.facility||'Untitled assessment'}</div>
-                <div style={{...V3.T.captionDim, marginTop:2}}>{fD(d.ua||d.ts)}</div>
+                <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>Walkthrough in progress · last touched {fD(d.ua||d.ts)}</div>
               </div>
-              <button onClick={()=>resumeDraft(d.id)} style={RS_LINK}>Resume <span aria-hidden="true">›</span></button>
-              <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} aria-label={`Delete draft ${d.facility||'Untitled assessment'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
-                <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
-              </button>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <button onClick={()=>resumeDraft(d.id)} style={RS_LINK}>Resume <span aria-hidden="true">›</span></button>
+                <button onClick={(e)=>{e.stopPropagation();setDelConf({id:d.id,name:d.facility,type:'dft'})}} aria-label={`Delete draft ${d.facility||'Untitled assessment'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                  <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
+                </button>
+              </div>
             </div>
           ))}
 
           {/* ── Finalized ─────────────────────────────────────────── */}
-          <div style={{...RS_HEAD, marginTop:22, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>Finalized{(index.reports||[]).length>0?` · ${(index.reports||[]).length}`:''}</div>
-          {(index.reports||[]).length > 0 && (
+          <div style={{...RS_HEAD, marginTop:22, paddingBottom:8, borderBottom:`1px solid ${V3.BORDER_SUBTLE}`, marginBottom:0}}>Finalized{reports.length>0?` · ${reports.length}`:''}</div>
+          {reports.length > 0 && (
             <div style={{display:'flex',gap:10,padding:'12px 0 4px'}}>
               <input type="text" value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Search reports" aria-label="Search finalized reports" style={{flex:1,minWidth:0,padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:TEXT,fontSize:16,fontFamily:'inherit',boxSizing:'border-box',minHeight:44}} />
               <select value={hSort} onChange={e=>setHSort(e.target.value)} aria-label="Sort reports" style={{padding:'10px 12px',background:'var(--surface)',border:`1px solid ${V3.BORDER_SUBTLE}`,borderRadius:V3.R.md,color:V3.TEXT_SECONDARY,fontSize:16,fontFamily:'inherit',minHeight:44,cursor:'pointer'}}>
@@ -5718,21 +5756,28 @@ export default function MobileApp() {
           )}
           {fReports.length === 0 ? (
             <div style={{padding:'12px 0 6px'}}>
-              <span style={V3.T.bodyDim}>{hSearch ? 'No reports match your search.' : 'None yet. Finalize an assessment to generate a report. '}</span>
-              {!hSearch && <button onClick={runDemo} style={RS_LINK}>View a sample report <span aria-hidden="true">›</span></button>}
+              <span style={V3.T.bodyDim}>{hSearch ? 'No reports match your search.' : 'None yet. Finalize an assessment to generate a report.'}</span>
             </div>
           ) : fReports.map((r, i) => (
-            <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{padding:'12px 0',borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`,cursor:'pointer',display:'flex',alignItems:'center',gap:12,fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
-              <div style={{flex:1,minWidth:0}}>
+            <div key={r.id} {...clickable(()=>openReport(r), { label: `Open report ${r.facility || 'Untitled'}` })} style={{...ROW, borderTop: i === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`, cursor:'pointer'}}>
+              {dot(sevTone(r))}
+              <div style={{minWidth:0}}>
                 <div style={{...V3.T.bodyStrong, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.facility||'Untitled'}</div>
-                <div style={{...V3.T.captionDim, marginTop:2}}>{fD(r.ts)}</div>
+                <div style={{...V3.T.captionDim, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{reportMeta(r)}</div>
               </div>
-              <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} aria-label={`Delete report ${r.facility||'Untitled'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
-                <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
-              </button>
-              <span aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1}}>›</span>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                {r.attention > 0
+                  ? <StatusPill tone={V3.SEVERITY.medium}>Attention</StatusPill>
+                  : <StatusPill tone={V3.STATUS.draft} dim>Issued</StatusPill>}
+                <button onClick={e=>{e.stopPropagation();setDelConf({id:r.id,name:r.facility,type:'rpt'})}} aria-label={`Delete report ${r.facility||'Untitled'}`} style={{background:'none',border:'none',padding:6,cursor:'pointer',display:'inline-flex',fontFamily:'inherit',WebkitTapHighlightColor:'transparent'}}>
+                  <I n="trash" s={15} c={V3.TEXT_TERTIARY} w={1.6} />
+                </button>
+                <span aria-hidden="true" style={{color:V3.TEXT_TERTIARY,fontSize:18,lineHeight:1}}>›</span>
+              </div>
             </div>
           ))}
+            </>)
+          })()}
         </div>}
         {view==='trash'&&<TrashView onRecover={async(id)=>{await Backup.recover(id);await refreshIndex()}} onDelete={async(id)=>{await Backup.permanentDelete(id)}} />}
         {view==='tools'&&<ToolsHub onOpen={openTool} desktop={isDesktop} />}
@@ -5742,14 +5787,15 @@ export default function MobileApp() {
             (see ProjectDetail's onOpenLogger) — nothing in the shell
             remembers it. */}
         {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} /></Suspense>}
-        {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} />}
+        {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} onTryDemo={()=>runDemo(userMode === 'fm' ? undefined : 'findings')} />}
         {/* Desktop landing — the state of the work. A phone that restores a
             'home' entry (window resized below 1024) gets Projects above. */}
         {view==='home' && isDesktop && (
           <DesktopHome
             profile={profile}
             index={index}
-            projects={desktopProjects}
+            projects={desktopProjects || []}
+            projectsLoading={desktopProjects === null}
             loadDraft={(id)=>STO.get(id)}
             onNewInvestigation={()=>startNew()}
             onResumeDraft={(id)=>resumeDraft(id)}

@@ -98,6 +98,21 @@ describe('DesktopHome', () => {
     expect(onNew).toHaveBeenCalled()
   })
 
+  it('shows the list skeleton while projects load, and a census skeleton until the draft body arrives', () => {
+    render(<DesktopHome
+      profile={{ name: 'J' }}
+      index={{ drafts: [{ id: 'd1', facility: 'Lakeside', ua: new Date(NOW).toISOString() }], reports: [] }}
+      projects={[]}
+      projectsLoading
+      loadDraft={() => new Promise(() => {})}
+    />)
+    expect(screen.getByRole('status', { name: 'Loading projects' })).toBeTruthy()
+    expect(screen.queryByText('Recent work')).toBeNull()
+    // No census line yet — a bar stands in for it under the draft's title.
+    expect(screen.queryByText(/zones? ·/)).toBeNull()
+    expect(document.querySelectorAll('.af-skeleton').length).toBeGreaterThan(12)
+  })
+
   it('opens a recent project and the projects list', () => {
     const onOpenProject = vi.fn()
     const onOpenProjects = vi.fn()

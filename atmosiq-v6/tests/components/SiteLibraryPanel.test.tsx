@@ -100,7 +100,7 @@ describe('SiteLibraryPanel', () => {
   it('surfaces the empty state rather than a blank panel', async () => {
     mockFetch(() => ({ json: { sites: [] } }))
     withProvider(<SiteLibraryPanel />)
-    expect(await screen.findByText('No sites saved yet')).toBeTruthy()
+    expect(await screen.findByText('Your sites will appear here')).toBeTruthy()
   })
 
   it('surfaces a server error instead of failing silently', async () => {
