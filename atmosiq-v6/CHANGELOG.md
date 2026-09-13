@@ -1,5 +1,29 @@
 # AtmosFlow Changelog
 
+## Micro-interactions, contextual AI, first impressions (September 2026)
+
+- **Moments that matter.** `ui/DrawnCheck` — a ring and a tick that draw
+  themselves — is the milestone overlay's mark (a zone or an assessment
+  completed) and every success toast's icon (export, save, attach).
+  `Reading` gains `animate`: a count ticks up on arrival, used by the
+  results hero and the Home counts, never by a measurement.
+- **Contextual AI actions.** `ui/AiAction` — the ✦ mark beside a plain
+  verb — placed where the AI is useful: **Refine** on each AI-authored
+  report section (the question carries the current text and asks for the
+  revised paragraph, pasted back through the edit path that re-audits it);
+  **Summarize relationships** on a zone's findings; **Explain these
+  readings** on the Investigation grid; **Explain this pattern** on a
+  Logger Studio chart, with the chart's own mean, peak and exceedance in
+  the question. Each opens the assistant with the question already asked
+  (`askAI`, the voice command's prefill path).
+- **First impressions.** The welcome slides are on the type scale, the
+  glass tile and the shared button primitive, with the slide entering on
+  the page-in tokens. The auth screen's fields are the glass with an
+  accent edge and 2px ring on focus; its primary is the flat accent fill
+  (the gradient, sheen and cyan glow it wore were the last of the
+  pre-flat treatment); the tagline sits in the eyebrow scale with no
+  cyan rule beneath; the trust pills take the glass hover step.
+
 ## Results as an investigation, numbers as instruments, photos as exhibits (September 2026)
 
 - **Investigation tab, first and default.** The results screen opens on

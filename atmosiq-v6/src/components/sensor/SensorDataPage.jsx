@@ -26,6 +26,7 @@ import Select from '../ui/Select'
 import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
 import Reading from '../ui/Reading'
+import AiAction from '../ui/AiAction'
 import EmptyState from '../ui/EmptyState'
 import { SkeletonChart } from '../ui/Skeleton'
 import { parseSensorRows, SENSOR_PARAMS, convertTvoc, tvocBasis, parseCalibrationGas, ppbToUgm3, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
@@ -259,7 +260,7 @@ function AnalyzingCard({ fileName, phase }) {
   )
 }
 
-export default function SensorDataPage({ value, onChange, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], onApplyAverages }) {
+export default function SensorDataPage({ value, onChange, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], onApplyAverages, onAskAI }) {
   // The PID span gas, read off the assessor's saved profile — the same place
   // the report sheet seeds its own field from, so the reference tick on these
   // cards and the reference line in the generated report are derived from one
@@ -520,7 +521,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
   const renderChartBlock = (tab, blockMode) => {
     if (!tab) return null
     if (tab.kind === 'graph') {
-      return <GraphCard def={tab.def} data={data} state={graphsState[tab.def.id] || {}} onState={(patch) => setGraph(tab.def.id, patch)} chartProps={{ showRefs: !!refs[tab.def.refKey], occupancy: occWindows }} mode={blockMode} calibrationGas={calGas} />
+      return <GraphCard def={tab.def} data={data} state={graphsState[tab.def.id] || {}} onState={(patch) => setGraph(tab.def.id, patch)} chartProps={{ showRefs: !!refs[tab.def.refKey], occupancy: occWindows }} mode={blockMode} calibrationGas={calGas} onAskAI={onAskAI} />
     }
     if (tab.kind === 'multi') {
       return <MultiParamSection data={data} state={graphsState.multi || {}} onState={(patch) => setGraph('multi', patch)} occupancy={occWindows} mode={blockMode} calibrationGas={calGas} />
@@ -907,7 +908,7 @@ function MultiParamSection({ data, state, onState, occupancy = [], mode = 'repor
   )
 }
 
-function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report', calibrationGas }) {
+function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report', calibrationGas, onAskAI }) {
   const hiddenRef = useRef(null)
   const [capture, setCapture] = useState(null) // null | 'include' | 'export' | 'export-svg'
   const [busy, setBusy] = useState(false)
@@ -1000,6 +1001,22 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
         <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={pal} {...chartProps} />
       </div>
       {stats && <ChartStatRow stats={stats} unit={data.units[statParam] || ''} reference={statRef} />}
+      {/* The AI, where it is useful: the question carries the chart's own
+          numbers, so the answer is about THIS trace. */}
+      {onAskAI && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: stats ? -6 : 4, marginBottom: 6 }}>
+          <AiAction label="Explain this pattern" onClick={() => {
+            const u = data.units[statParam] || ''
+            const parts = [`Explain the ${def.title} pattern in this logger run (${fmtRange(data.summary.start, data.summary.end)})`]
+            if (stats) {
+              parts.push(`mean ${fmtAvg(stats.mean)} ${u}, peak ${fmtAvg(stats.peak)} ${u}${stats.peakOccupied === true ? ' during occupied hours' : stats.peakOccupied === false ? ' while unoccupied' : ''}`)
+              if (stats.pctOver != null) parts.push(`${Math.round(stats.pctOver)}% of readings above ${statRef?.limitLabel || 'the reference'}`)
+              if (stats.deltaOccNoc != null) parts.push(`occupied minus unoccupied ${stats.deltaOccNoc >= 0 ? '+' : ''}${fmtAvg(stats.deltaOccNoc)} ${u}`)
+            }
+            onAskAI(`${parts.join(': ')}. What does the shape of the trace indicate about ventilation or sources, and what would confirm it?`)
+          }} />
+        </div>
+      )}
       {mode !== 'analysis' && (
         <div style={{ padding: '0 0 16px', paddingTop: stats ? 0 : 12 }}>
           <textarea value={state.caption || ''} onChange={(e) => onState({ caption: e.target.value })} placeholder="Add a caption (optional)"

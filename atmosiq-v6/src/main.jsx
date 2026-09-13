@@ -11,6 +11,7 @@
  */
 
 import React from 'react'
+import DrawnCheck from './components/ui/DrawnCheck'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -71,6 +72,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       closeButton
       position="top-center"
       duration={4000}
+      icons={{ success: <DrawnCheck size={18} /> }}
       toastOptions={{
         style: {
           background: 'color-mix(in srgb, var(--surface) 88%, transparent)',

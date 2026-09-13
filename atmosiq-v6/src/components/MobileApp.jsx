@@ -61,6 +61,8 @@ import FeedbackButton from './ui/FeedbackButton'
 import StatusPill from './ui/StatusPill'
 import EmptyState from './ui/EmptyState'
 import Reading from './ui/Reading'
+import AiAction from './ui/AiAction'
+import DrawnCheck from './ui/DrawnCheck'
 import Exhibit from './ui/Exhibit'
 // The Investigation tab reads a zone the way the report does — the same
 // parameter table, the same engine outcome per parameter, the same
@@ -1148,6 +1150,15 @@ export default function MobileApp() {
   // zqi exactly on the target question.
   const [pendingZoneFix, setPendingZoneFix] = useState(null)
   const [voicePrefill, setVoicePrefill] = useState(null)
+  // A contextual AI action: open the assistant with the question already
+  // asked, the current screen as its context. The same prefill path the
+  // voice command uses; the source names the surface for analytics.
+  const askAI = (question, source) => {
+    supabase && trackEvent('jasper_open', { source })
+    setNewChatNonce(n => n + 1)
+    setVoicePrefill(question)
+    setFaOpen(true)
+  }
   // AtmosFlow AI "Review for discrepancies" — chooser + the payload/prompt
   // handed to the assistant. reviewPayload rides the request context;
   // reviewPrefill is the visible directive the sheet auto-sends on open.
@@ -3525,7 +3536,7 @@ export default function MobileApp() {
                   [heroCensus.obs, heroCensus.obs===1?'Observation':'Observations'],
                   [heroCensus.occ, heroCensus.occ===1?'Occupant report':'Occupant reports'],
                 ].map(([v, l]) => (
-                  <Reading key={l} label={l} value={v} size="lg" style={{padding:'10px 0 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}} />
+                  <Reading key={l} label={l} value={v} size="lg" animate style={{padding:'10px 0 0', borderTop:`1px solid ${V3.BORDER_SUBTLE}`}} />
                 ))}
               </div>
               {/* Footer — the one link out of the hero, into Actions. The
@@ -3725,10 +3736,16 @@ export default function MobileApp() {
                               again — it was never meant to strand the assessor
                               with a warning and no way to act on it. */}
                           {!revising && (
-                            <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap'}}>
+                            <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                               <TactileButton variant="secondary" size="sm" pill onClick={()=>setEditDraft({ key, text: sectionText(aiSections, key) || '' })}>
                                 {revised ? 'Edit your wording…' : 'Edit this section…'}
                               </TactileButton>
+                              {/* Refine — the assistant rewrites THIS section from the
+                                  same evidence; the result is pasted back through the
+                                  edit path, which re-audits it like any revision. */}
+                              <AiAction label="Refine" onClick={()=>askAI(
+                                `Refine the ${AI_SECTION_LABELS[key] || key} of this report. Tighten it to what the findings and criteria support, keep every limitation it states, and return only the revised paragraph so I can paste it into the section editor.\n\nCurrent text:\n${sectionText(aiSections, key) || ''}`,
+                                'report_section')} />
                               {revised && <TactileButton variant="secondary" size="sm" pill onClick={()=>revertSection(key)}>Restore the AI text</TactileButton>}
                             </div>
                           )}
@@ -3973,7 +3990,14 @@ export default function MobileApp() {
 
               <div style={{...RS_SECTION, marginTop:4}}>
                 <div style={{...RS_HEAD, marginBottom:14}}>{zs.zoneName}</div>
-                <div style={{...V3.T.micro, marginBottom:12}}>Environmental measurements</div>
+                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:12}}>
+                  <div style={V3.T.micro}>Environmental measurements</div>
+                  {readings.length > 0 && (
+                    <AiAction label="Explain these readings" style={{marginRight:-8}} onClick={()=>askAI(
+                      `Explain the readings in ${zs.zoneName}: ${readings.map(r => `${SHORT[r.key] || r.label} ${r.value} ${r.unit}`).join(', ')}${when ? ` (${when})` : ''}. What do they indicate together, what does each criterion state mean here, and what would settle it?`,
+                      'investigation')} />
+                  )}
+                </div>
                 {readings.length === 0 ? (
                   <div style={V3.T.bodyDim}>No instrument readings recorded for this {userMode === 'fm' ? 'area' : 'zone'}.</div>
                 ) : (
@@ -4109,7 +4133,14 @@ export default function MobileApp() {
                   authoritative engine readout so the redesigned panels
                   above act as the executive summary, not a substitute. ── */}
               <div style={{...RS_SECTION, marginTop:4}}>
-                <div style={RS_HEAD}>Findings · {zs.zoneName}</div>
+                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:10}}>
+                  <div style={{...RS_HEAD, marginBottom:0}}>Findings · {zs.zoneName}</div>
+                  {countFindings([zs]).total > 1 && (
+                    <AiAction label="Summarize relationships" style={{marginRight:-8}} onClick={()=>askAI(
+                      `Summarize how the ${countFindings([zs]).total} findings in ${zs.zoneName} relate to each other: shared causes, the ventilation picture, which single condition explains the most, and what would confirm it.`,
+                      'findings')} />
+                  )}
+                </div>
               </div>
               <div key={selZone} style={{display:isTablet?'grid':'flex',gridTemplateColumns:isTablet?'1fr 1fr':'none',flexDirection:'column',gap:0}}>
           {zs.cats.map((cat,ci)=>{
@@ -4823,7 +4854,10 @@ export default function MobileApp() {
         )
       })()}
 
-      {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn .5s cubic-bezier(.22,1,.36,1)'}}><div style={{marginBottom:20,display:'flex',justifyContent:'center'}}><div style={{width:80,height:80,borderRadius:22,background:`${mix('accent', 7)}`,border:`1.5px solid ${mix('accent', 19)}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I n={milestone.icon} s={40} c={ACCENT} w={2} /></div></div><div style={{fontSize:26,fontWeight:800,letterSpacing:'-0.5px',color:TEXT}}>{milestone.title}</div><div style={{fontSize:15,color:ACCENT,fontFamily:"var(--font-mono)",marginTop:10}}>{milestone.sub}</div></div></div>}
+      {/* Milestone — a piece of work has ended (a zone, the assessment).
+          A check that draws itself, the title in the page-title scale,
+          the note beneath in the secondary ink. */}
+      {milestone&&<div style={{position:'fixed',inset:0,background:`${mix('bg', 94)}`,zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 32px'}}><div style={{textAlign:'center',animation:'milestoneIn var(--dur-sheet) var(--ease-out)'}}><div style={{marginBottom:22,display:'flex',justifyContent:'center'}}><DrawnCheck size={72} strokeWidth={1.6} /></div><div style={V3.T.h1}>{milestone.title}</div><div style={{...V3.T.bodyDim,marginTop:8}}>{milestone.sub}</div></div></div>}
       <PeerReviewModal
         open={peerReviewOpen}
         facility={bldg?.fn || ''}
@@ -5917,7 +5951,7 @@ export default function MobileApp() {
         {/* A tool carries the project it was opened from as its params
             (see ProjectDetail's onOpenLogger) — nothing in the shell
             remembers it. */}
-        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} /></Suspense>}
+        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} onAskAI={(q)=>askAI(q, 'logger_studio')} /></Suspense>}
         {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} onTryDemo={()=>runDemo(userMode === 'fm' ? undefined : 'findings')} />}
         {/* Desktop landing — the state of the work. A phone that restores a
             'home' entry (window resized below 1024) gets Projects above. */}
