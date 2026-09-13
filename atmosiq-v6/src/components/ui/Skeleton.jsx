@@ -75,4 +75,30 @@ export function SkeletonRows({ rows = 3, label = 'Loading', hairline = 'color-mi
   )
 }
 
+/**
+ * A chart surface while its data is read: the source strip (title, caption,
+ * two small pills) over a chart block with a baseline. Used by Logger Studio
+ * between picking a file and the parsed dataset arriving.
+ */
+export function SkeletonChart({ label = 'Reading logger data', style }) {
+  return (
+    <div role="status" aria-label={label} aria-busy="true" style={style}>
+      <div aria-hidden="true">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 0 14px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Skeleton w="46%" h={14} />
+            <Skeleton w="30%" h={10} style={{ marginTop: 8 }} />
+          </div>
+          <Skeleton w={72} h={26} r={13} />
+          <Skeleton w={56} h={26} r={13} />
+        </div>
+        <Skeleton w="100%" h={180} r={12} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} w={22} h={8} />)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default Skeleton

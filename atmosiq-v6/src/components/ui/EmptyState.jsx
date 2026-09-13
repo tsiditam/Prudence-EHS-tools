@@ -22,8 +22,10 @@
  * Group's on empty states: use the space to teach the layout the user is
  * about to fill, and give them the one thing to do next.
  *
- * `preview` — 'rows' (default) draws the ghost list; null draws none (for a
- * filter with no matches, where the layout is already on screen).
+ * `preview` — 'rows' (default) draws the ghost list; 'chart' draws a ghost
+ * time-series (gridlines and a soft trace) for a surface whose content is a
+ * chart; null draws none (for a filter with no matches, where the layout is
+ * already on screen).
  */
 import * as V3 from '../../styles/tokens'
 
@@ -57,6 +59,29 @@ function GhostRows({ rows = 3 }) {
   )
 }
 
+function GhostChart() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: '100%', maxWidth: 420, margin: '0 auto 26px',
+        WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.6) 65%, rgba(0,0,0,0) 100%)',
+        maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.6) 65%, rgba(0,0,0,0) 100%)',
+      }}>
+      <svg viewBox="0 0 420 132" width="100%" height="132" style={{ display: 'block' }}>
+        {/* Three gridlines and a baseline, the trace of an occupied day —
+            a rise through the morning, a plateau, a fall — and the axis
+            ticks, all in the ghost tint. */}
+        {[20, 52, 84].map((y) => <line key={y} x1="0" y1={y} x2="420" y2={y} stroke={GHOST_HAIR} strokeWidth="1" />)}
+        <line x1="0" y1="116" x2="420" y2="116" stroke={GHOST} strokeWidth="1" />
+        <path d="M0 104 C 40 100, 60 96, 90 84 S 140 40, 180 38 S 250 30, 290 44 S 350 92, 420 100" fill="none" stroke={GHOST} strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M0 104 C 40 100, 60 96, 90 84 S 140 40, 180 38 S 250 30, 290 44 S 350 92, 420 100 L 420 116 L 0 116 Z" fill={GHOST_HAIR} opacity="0.6" />
+        {[0, 84, 168, 252, 336, 420].map((x) => <rect key={x} x={Math.min(x, 402)} y="122" width="18" height="6" rx="3" fill={GHOST_HAIR} />)}
+      </svg>
+    </div>
+  )
+}
+
 export default function EmptyState({ title, body, action, secondary, preview = 'rows', minHeight, style }) {
   return (
     <div
@@ -66,6 +91,7 @@ export default function EmptyState({ title, body, action, secondary, preview = '
         ...style,
       }}>
       {preview === 'rows' && <GhostRows />}
+      {preview === 'chart' && <GhostChart />}
       <div style={{ ...V3.T.h2, fontSize: 17, lineHeight: '24px' }}>{title}</div>
       {body && <div style={{ ...V3.T.bodyDim, fontSize: 14.5, lineHeight: '21px', maxWidth: 340, marginTop: 6 }}>{body}</div>}
       {action && <div style={{ marginTop: 20 }}>{action}</div>}

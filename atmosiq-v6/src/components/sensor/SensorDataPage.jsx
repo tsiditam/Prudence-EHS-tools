@@ -25,6 +25,8 @@ import GhostButton from '../ui/GhostButton'
 import Select from '../ui/Select'
 import RoleBadge from '../ui/RoleBadge'
 import InlineError from '../ui/InlineError'
+import EmptyState from '../ui/EmptyState'
+import { SkeletonChart } from '../ui/Skeleton'
 import { parseSensorRows, SENSOR_PARAMS, convertTvoc, tvocBasis, parseCalibrationGas, ppbToUgm3, HCHO_MW, normalizeSensorData, primaryDataset, alignDatasets, sensorAveragesToFields, detectDatasetRole, SENSOR_DATA_VERSION, withDisplayTempUnit } from '../../utils/sensorParser'
 import SendToReportSheet from './SendToReportSheet'
 import Profiles from '../../utils/profiles'
@@ -587,10 +589,15 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
     return null
   }
 
+  // Nothing chartable in the file: the fact and the one way to fix it.
   const emptyCharts = (
-    <div style={{ ...V3.T.bodyDim, textAlign: 'center', padding: '40px 20px 0' }}>
-      No chartable IAQ parameters detected. Use “Adjust column mapping” in Overview to map your columns.
-    </div>
+    <EmptyState
+      preview={null}
+      title="No chartable parameters detected"
+      body="The columns were read but none mapped to an IAQ parameter. Map them and the charts fill in."
+      secondary={{ label: 'Adjust column mapping', onClick: () => { setMode('overview'); setMapOpen(true) } }}
+      style={{ padding: '28px 20px 8px' }}
+    />
   )
 
   return (
@@ -605,25 +612,24 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
       {/* Single hidden file input; pendingTarget decides where the file lands. */}
       <input ref={fileRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={onPick} style={{ display: 'none' }} aria-hidden="true" />
 
-      {/* Empty state: a line, the action, and the alternative — on the open
-          page. The upload button is the one accent on the screen. */}
-      {!data && (
-        <div style={{ textAlign: 'center', padding: '72px 24px 0' }}>
-          <div style={{ ...V3.T.h2, marginBottom: 6 }}>Upload logger data</div>
-          <div style={{ ...V3.T.bodyDim, maxWidth: 400, margin: '0 auto 20px' }}>
-            CSV or XLSX from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings and most loggers.
-          </div>
-          {error && <InlineError style={{ marginBottom: 14 }}>{error}</InlineError>}
-          <TactileButton variant="primary" size="sm" pill disabled={busy} onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>
-            {busy ? 'Reading…' : 'Upload data'}
-          </TactileButton>
-          <div style={{ marginTop: 14 }}>
-            <button type="button" disabled={busy} onClick={() => pickProjectFor({ role: 'indoor', label: 'Indoor' })}
-              style={{ background: 'transparent', border: 'none', padding: 0, ...V3.T.body, color: V3.TEXT_PRIMARY, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
-              Load from a project
-            </button>
-          </div>
-        </div>
+      {/* Reading a file: the chart's own shape while the parser runs. */}
+      {!data && busy && <SkeletonChart />}
+
+      {/* Empty state: a ghost of the chart the file will become, the
+          outcome, the one action — the upload pill is the one accent on the
+          screen — and the alternative source as a quiet link. */}
+      {!data && !busy && (
+        <>
+          {error && <InlineError style={{ marginTop: 14 }}>{error}</InlineError>}
+          <EmptyState
+            preview="chart"
+            title="Chart your logger data"
+            body="CSV or XLSX from TSI Q-Trak, HOBO, Aeroqual, GrayWolf, Airthings and most loggers. AtmosFlow charts the run, marks the occupied period and attaches the averages to an assessment."
+            action={<TactileButton variant="primary" size="sm" pill onClick={() => pickFor({ role: 'indoor', label: 'Indoor' })}>Upload data</TactileButton>}
+            secondary={{ label: 'Load from a project', onClick: () => pickProjectFor({ role: 'indoor', label: 'Indoor' }) }}
+            style={{ padding: '40px 20px 0' }}
+          />
+        </>
       )}
 
       {data && analyzing && <AnalyzingCard fileName={data.fileName} phase={phase} />}
