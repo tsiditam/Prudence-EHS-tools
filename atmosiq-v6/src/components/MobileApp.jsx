@@ -1298,32 +1298,11 @@ export default function MobileApp() {
     onPointerLeave: () => setPressedTrigger((k) => (k === key ? null : k)),
     onPointerCancel:() => setPressedTrigger((k) => (k === key ? null : k)),
   })
-  // peak = how much the control swells while held (icon buttons can take a
-  // bigger swell than the wide back pill). The glow is an INSET (internal)
-  // box-shadow rather than an outer drop-shadow so the header's overflow can't
-  // clip it — it blooms inside the control. Brand cyan reads on both themes;
-  // boxShadow is left undefined when idle so the .af-glass-control glass
-  // shadow shows through.
-  const triggerFx = (key, peak = 1.3) => {
-    const on = pressedTrigger === key
-    if (reduceMotion) return { transform: on ? 'scale(0.97)' : 'scale(1)', transition: 'transform 90ms ease' }
-    return {
-      transform: on ? `scale(${peak})` : 'scale(1)',
-      boxShadow: on ? 'inset 0 0 18px rgba(57,192,217,0.72), inset 0 0 7px rgba(57,192,217,0.6)' : undefined,
-      filter: on ? 'brightness(1.12)' : 'none',
-      // Quick ease-out on the way up (tracks the finger), springy overshoot on
-      // the way back so the release reads "liquid", not snapped.
-      transition: on
-        ? 'transform 200ms cubic-bezier(.2,.85,.3,1), box-shadow 180ms ease, filter 200ms ease'
-        : 'transform 460ms cubic-bezier(.34,1.56,.64,1), box-shadow 320ms ease, filter 360ms ease',
-      willChange: 'transform',
-    }
-  }
   // Circular header control (hamburger, kebab) — Grok's corner controls,
   // to the measured numbers (see --glass-* in index.html): a 40px disc,
   // translucent fill, 1px edge, no highlight, no shadow, a white glyph.
   // Pressing sinks it (scale down, a touch brighter) and it springs back on
-  // release; the cyan inset bloom of triggerFx stays with the back pill.
+  // release. The back pill shares the material and the press (width auto).
   const CIRCLE_BTN = {
     width: 40, height: 40, borderRadius: 20, padding: 0,
     background: 'var(--glass-fill)', border: '1px solid var(--glass-edge)',
@@ -4611,12 +4590,14 @@ export default function MobileApp() {
                 onClick={()=>{ nav.back(); setViewRpt(null) }}
                 {...triggerPress('back')}
                 aria-label={`Back to ${backLabel}`}
-                className="af-menu-trigger"
-                // Bare: a chevron and the destination in the primary ink,
-                // no capsule. The accent is for the primary action and
-                // the selected state, and the way back is neither.
-                style={{display:'flex',alignItems:'center',gap:2,height:36,padding:'0 8px 0 0',background:'transparent',border:'none',boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit',color:V3.TEXT_PRIMARY,WebkitTapHighlightColor:'transparent', ...triggerFx('back', 1.1)}}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+                className="af-menu-trigger af-circle-btn"
+                // The same glass capsule as the header circles (CIRCLE_BTN):
+                // 40px tall so it sits level with the kebab on the same row,
+                // a chevron and the destination in the primary ink. The
+                // accent is for the primary action and the selected state,
+                // and the way back is neither.
+                style={{...CIRCLE_BTN, width:'auto', gap:4, padding:'0 14px 0 10px', ...circleFx('back')}}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
                 <span style={{fontSize:15,fontWeight:600,letterSpacing:'-0.01em',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{backLabel}</span>
               </button>
             )}
@@ -6198,7 +6179,7 @@ export default function MobileApp() {
         .af-menu-item.is-active{color:var(--accent);}
         /* Header glass controls (back pill, hamburger, kebab). The sustained
            "liquid" press — grow + glow while held, spring back on release — is
-           driven by React state (pressedTrigger) via triggerFx() inline styles
+           driven by React state (pressedTrigger) via circleFx() inline styles
            so it holds for a press-and-hold and survives the re-render when the
            menu opens. position:relative is kept for stacking; the transform /
            transition / filter all come from the inline style. */
