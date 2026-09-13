@@ -23,6 +23,13 @@ They now read like the rest of the results screen.
   by the evidence behind them.
 - **Every color reads a severity token**; the panel's own hex values are
   gone.
+- **Generating the findings narrative carries the AtmosFlow AI mark**
+  rather than a pill. The assistant writes it, and the brain is how every
+  other surface says so — the Refine action above it, "Explain these
+  readings" on Investigation. A pill said only that something would
+  happen. Regenerating carries the mark too; sharing the narrative as Word
+  keeps the neutral glass, because handing a document on is not the
+  assistant's work.
 - **The check results on the Report tab** are hairline rows with an 8px
   status dot and the section name in the primary ink, replacing the tinted
   `color-mix` boxes and the typed glyphs. Row remedies (edit, restore,

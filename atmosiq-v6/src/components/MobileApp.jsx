@@ -3864,11 +3864,17 @@ export default function MobileApp() {
               </div>
               {!narrative&&!narrativeLoading&&<div>
                 <div style={{...V3.T.bodyDim, maxWidth:420, marginBottom:14}}>Written from the deterministic findings, not from a free reading of the data. You review and approve before delivery.</div>
-                <div style={{display:'flex',alignItems:'center',gap:12}}>
-                  {/* The neutral glass, not a second accent pill: report
-                      sections feed the client deliverable and keep the
-                      screen's one primary; this is a share one-pager. */}
-                  <TactileButton variant="neutral" size="sm" pill onClick={requestNarrative}>Generate narrative</TactileButton>
+                {/* The AtmosFlow AI mark, not a pill: the assistant writes
+                    this narrative, and the brain is how every other surface
+                    says so (the Refine action above it, "Explain these
+                    readings" on Investigation). A pill here said only that
+                    something would happen; the mark says who writes it.
+                    Report sections keep the screen's one accent primary —
+                    they feed the client deliverable; this is a one-pager the
+                    reviewer shares. */}
+                <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:-8}}>
+                  <AiAction label="Generate narrative" onClick={requestNarrative}
+                    title="AtmosFlow AI writes the findings narrative from the report's own findings" />
                   <span style={V3.T.captionDim}>3 credits</span>
                 </div>
               </div>}
@@ -3913,9 +3919,16 @@ export default function MobileApp() {
                     reviewing IH can hand it off as an editable draft
                     (Mail, Slack, Files) without bundling the full
                     consultant report. */}
-                <div style={{marginTop:14,display:'flex',gap:10,flexWrap:'wrap'}}>
+                {/* Writing is the assistant's, so it carries the mark;
+                    handing the document on is not, so it keeps the neutral
+                    glass. */}
+                <div style={{marginTop:14,display:'flex',gap:10,rowGap:12,flexWrap:'wrap',alignItems:'center'}}>
                   {narrativeStale && !narrativeLoading && (
-                    <TactileButton variant="neutral" onClick={requestNarrative}>Regenerate narrative · 3 credits</TactileButton>
+                    <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:-8}}>
+                      <AiAction label="Regenerate narrative" onClick={requestNarrative}
+                        title="AtmosFlow AI writes the findings narrative again, from the assessment as it stands now" />
+                      <span style={V3.T.captionDim}>3 credits</span>
+                    </div>
                   )}
                   <TactileButton variant="neutral" onClick={handleShareNarrative} icon={<I n="send" s={15} w={1.8} />}>
                     Share narrative as Word

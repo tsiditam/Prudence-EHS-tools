@@ -15,6 +15,12 @@
  * click opens the assistant with the question already asked, with the
  * screen the user is looking at as the evidence. The AI is marked by its
  * glyph, so the label stays a plain verb ("Refine", not "Ask AI to refine").
+ *
+ * Most of them open the assistant. A few run the assistant's work in place
+ * and render it below — "Generate narrative" on the Report tab is one — and
+ * those pass their own `title`, because the default ("Ask AtmosFlow AI: …")
+ * describes a conversation that does not open. The mark means the AI does
+ * the work either way; it does not promise the sheet.
  */
 import JasperBrainIcon from '../JasperBrainIcon'
 
