@@ -71,7 +71,7 @@ import Exhibit from './ui/Exhibit'
 // parameter table, the same engine outcome per parameter, the same
 // observation and occupant-report sentences — so the screen and the DOCX
 // never describe one zone in two vocabularies.
-import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports } from '../report/reportModel'
+import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports, collectReferences, collectFindings } from '../report/reportModel'
 import { photosForZone, photoCaption } from '../utils/photoIndex'
 import { spaceUse } from '../utils/samplePoints'
 import Select from './ui/Select'
@@ -153,7 +153,6 @@ import V21InternalPanel from './V21InternalPanel'
 import { FAQ_SECTIONS } from '../constants/faq'
 import SearchView from './SearchView'
 import SimilarAssessmentsPanel from './SimilarAssessmentsPanel'
-import VoiceCommandModal from './VoiceCommandModal'
 import JasperBrainIcon from './JasperBrainIcon'
 import PendingSyncIndicator from './PendingSyncIndicator'
 import OfflineBanner from './OfflineBanner'
@@ -1132,11 +1131,6 @@ export default function MobileApp() {
     }).catch(() => {})
     return () => { alive = false }
   }, [faOpen])
-  // Voice-command modal state. When the user submits a transcribed
-  // question, we drop the transcript into `voicePrefill` and open
-  // the Jasper sheet; FieldAssistant's initialMessage prop picks it
-  // up and auto-sends.
-  const [voiceCmdOpen, setVoiceCmdOpen] = useState(false)
   // Header ⋯ overflow — opens a context action menu (Senior top-bar design).
   const [actionsOpen, setActionsOpen] = useState(false)
   const [actionsAnchor, setActionsAnchor] = useState(null)
@@ -1173,8 +1167,8 @@ export default function MobileApp() {
   const [pendingZoneFix, setPendingZoneFix] = useState(null)
   const [voicePrefill, setVoicePrefill] = useState(null)
   // A contextual AI action: open the assistant with the question already
-  // asked, the current screen as its context. The same prefill path the
-  // voice command uses; the source names the surface for analytics.
+  // asked, the current screen as its context. The source names the
+  // surface for analytics.
   const askAI = (question, source) => {
     supabase && trackEvent('jasper_open', { source })
     setNewChatNonce(n => n + 1)
@@ -4312,20 +4306,28 @@ export default function MobileApp() {
               </div>
             )})}
           </div>}
-          {/* Standards Used — collapsible */}
+          {/* Standards applied — collapsible.
+              This listed the ENTIRE manifest, every entry, whatever the
+              assessment measured: an IAQ walkthrough showed the assessor the
+              five mold references, ASHRAE 241 and the ACGIH TLVs, none of
+              which it applied. It now lists what this assessment actually
+              cited, which is the same list `collectReferenceUsage` gives the
+              DOCX appendix — one answer to "which standards did this use",
+              not two. */}
           {(() => {
             const manifest = viewRpt?.standardsManifest || STANDARDS_MANIFEST
+            const cited = collectReferences(collectFindings(zoneScores), causalChains, zoneScores)
             return (
               <details style={{marginTop:10}}>
                 <summary style={{fontSize:11,fontWeight:600,color:DIM,cursor:'pointer',padding:'10px 0',listStyle:'none',display:'flex',alignItems:'center',gap:6}}>
-                  <span style={{fontSize:8,color:DIM}}>▶</span> Standards reference · Engine v{manifest.engineVersion || '1.x'}
+                  <span style={{fontSize:8,color:DIM}}>▶</span> Standards applied · {cited.length} · Engine v{manifest.engineVersion || '1.x'}
                 </summary>
                 <div style={{padding:'6px 0 0'}}>
-                  {Object.entries(manifest).filter(([k]) => k !== 'engineVersion' && k !== 'manifestUpdated').map(([k, v]) => (
-                    <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:SUB,marginBottom:4,gap:12}}>
-                      <span style={{color:DIM}}>{k}</span><span style={{color:SUB,fontWeight:500}}>{v}</span>
-                    </div>
-                  ))}
+                  {cited.length === 0
+                    ? <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>No published criterion was applied — this assessment recorded observations rather than measurements evaluated against a threshold.</div>
+                    : cited.map((ref) => (
+                      <div key={ref} style={{fontSize:11,color:SUB,marginBottom:4,lineHeight:1.5}}>{ref}</div>
+                    ))}
                   <div style={{fontSize:10,color:DIM,marginTop:6,borderTop:`1px solid ${BORDER}`,paddingTop:6}}>Manifest updated: {manifest.manifestUpdated || 'N/A'}</div>
                 </div>
               </details>
@@ -6255,25 +6257,6 @@ export default function MobileApp() {
           modal was redundant, and the FAB's bottom-right position
           visually overlapped the new Jasper tab. The Jasper tab in
           the nav is now the single launcher across the app. */}
-      {/* Voice command modal — speaks → routes the transcript to
-          Jasper via initialMessage. Lives at the app shell so it's
-          available from every screen via the header pill's mic.
-          TODO(claude): nothing opens this any more. Its last launcher was
-          the ⋯ menu's "Ask AtmosFlow AI" (a mic behind an assistant's
-          name), removed when the menu was cut to screen actions; the
-          assistant's own composer dictates. Remove with its component. */}
-      {profile && (
-        <VoiceCommandModal
-          open={voiceCmdOpen}
-          onCancel={() => setVoiceCmdOpen(false)}
-          onSubmit={(transcript) => {
-            setVoiceCmdOpen(false)
-            setVoicePrefill(transcript)
-            setFaOpen(true)
-          }}
-        />
-      )}
-
       {profile && faOpen && (
         <Suspense fallback={LAZY_FALLBACK}>
         <FieldAssistant
