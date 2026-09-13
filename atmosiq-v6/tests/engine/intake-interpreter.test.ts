@@ -10,9 +10,11 @@
  * Twelve scenarios across the five Phase 1 domains, then the negatives.
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
-  interpretProposals, eligibleQuestions, MAX_FACTS, MAX_QUESTIONS,
+  interpretProposals, eligibleQuestions, ATTESTERS, MAX_FACTS, MAX_QUESTIONS,
 } from '../../src/engines/intake-interpreter.js'
+import { OBSERVABLE_FIELDS } from '../../src/constants/observable-fields.js'
 
 const zoneWith = (over: any = {}) => ({ zn: 'Room 214', ...over })
 const ctxFor = (text: string, zone: any = zoneWith(), bldg: any = {}) => ({
@@ -25,9 +27,9 @@ const ctxFor = (text: string, zone: any = zoneWith(), bldg: any = {}) => ({
 
 describe('1. complaints', () => {
   it('records a stated complaint status and offers the follow-ups the catalog gates on it', () => {
-    const text = 'Three people in this office say they get headaches by mid-afternoon.'
+    const text = 'Two occupants complained of headaches by mid-afternoon.'
     const r = interpretProposals({
-      facts: [{ field: 'cx', value: 'Yes — complaints reported', quote: 'say they get headaches' }],
+      facts: [{ field: 'cx', value: 'Yes — complaints reported', quote: 'occupants complained of headaches' }],
       questions: [{ question_id: 'sy_time', reason: 'Time-of-day pattern is described but not recorded.' }],
     }, ctxFor(text))
     expect(r.facts.map((f) => f.field)).toEqual(['cx'])
@@ -50,15 +52,18 @@ describe('2. moisture / water intrusion', () => {
   it('maps a stated water-damage observation and leaves the weather relationship as a question', () => {
     // The Phase 2 case exactly: "worse after rain" maps to no field. It is
     // not discarded — it is why a moisture question is worth asking.
-    const text = 'Musty odor near the west wall, usually worse after rain. Staining on the drywall.'
+    const text = 'Musty odor near the west wall, usually worse after rain. Active leak under the sill.'
     const r = interpretProposals({
       facts: [
-        { field: 'op', value: 'Moderate persistent', quote: 'Musty odor near the west wall' },
-        { field: 'wd', value: 'Old staining', quote: 'Staining on the drywall' },
+        // The reported attack: a REAL quote attached to a severity the
+        // assessor never gave. "musty odor" states a smell, not its strength.
+        { field: 'op', value: 'Strong / overpowering', quote: 'Musty odor near the west wall' },
+        { field: 'wd', value: 'Active leak', quote: 'Active leak under the sill' },
       ],
-      questions: [{ question_id: 'mi', reason: 'Musty odor with staining; mold indicators not recorded.' }],
+      questions: [{ question_id: 'mi', reason: 'Musty odor with a leak; mold indicators not recorded.' }],
     }, ctxFor(text))
-    expect(r.facts.map((f) => f.field).sort()).toEqual(['op', 'wd'])
+    expect(r.facts.map((f) => f.field)).toEqual(['wd'])
+    expect(r.rejected.find((x) => x.field === 'op')?.reason).toBe('value_not_stated')
     expect(r.questions.map((q) => q.question_id)).toEqual(['mi'])
     // No diagnosis anywhere in the output shape — there is nowhere to put one.
     expect(JSON.stringify(r)).not.toMatch(/mold growth|likely|probably|caused by/i)
@@ -76,9 +81,9 @@ describe('2. moisture / water intrusion', () => {
 
 describe('3. odor / source', () => {
   it('maps an odor and an internal source that were both stated', () => {
-    const text = 'Sweet chemical smell by the elevators after the cleaning crew comes through.'
+    const text = 'Faint chemical smell by the elevators after the cleaning crew comes through.'
     const r = interpretProposals({
-      facts: [{ field: 'op', value: 'Moderate persistent', quote: 'Sweet chemical smell by the elevators' }],
+      facts: [{ field: 'op', value: 'Faint / intermittent', quote: 'Faint chemical smell by the elevators' }],
       questions: [{ question_id: 'src_internal', reason: 'Cleaning activity named as a possible source.' }],
     }, ctxFor(text))
     expect(r.facts.map((f) => f.field)).toEqual(['op'])
@@ -139,9 +144,9 @@ describe('4. ventilation / HVAC', () => {
 
 describe('5. renovation / construction', () => {
   it('maps a stated observation and asks about sources rather than concluding', () => {
-    const text = 'New carpet and millwork went in three weeks ago; there is fine dust on the sills.'
+    const text = 'New carpet and millwork went in three weeks ago; heavy accumulation of dust on the sills.'
     const r = interpretProposals({
-      facts: [{ field: 'vd', value: 'Light surface dust', quote: 'fine dust on the sills' }],
+      facts: [{ field: 'vd', value: 'Heavy accumulation', quote: 'heavy accumulation of dust on the sills' }],
       questions: [{ question_id: 'src_internal', reason: 'Recent materials named; internal sources not recorded.' }],
     }, ctxFor(text))
     expect(r.facts.map((f) => f.field)).toEqual(['vd'])
@@ -238,9 +243,90 @@ describe('negative: attestation', () => {
 
   it('quote matching tolerates case and whitespace, not content', () => {
     const r = interpretProposals({
-      facts: [{ field: 'vd', value: 'Light surface dust', quote: 'A  LITTLE   dust' }],
-    }, ctxFor('There is a little dust on the sills.'))
+      facts: [{ field: 'vd', value: 'Heavy accumulation', quote: 'HEAVY   accumulation' }],
+    }, ctxFor('There is heavy accumulation on the sills.'))
     expect(r.facts.map((f) => f.field)).toEqual(['vd'])
+  })
+})
+
+describe('negative: the VALUE must be attested, not just the quote', () => {
+  it('a decimal point in a proposed number is not a regex wildcard', () => {
+    // The quote is real and the digits look close enough to pass an
+    // unescaped `18.5`, where the dot matches the "x". A serial number is
+    // not a humidity reading.
+    const text = 'Datalogger unit 18x5 was placed on the sill.'
+    const r = interpretProposals({
+      facts: [{ field: 'rh', value: 18.5, quote: 'unit 18x5 was placed' }],
+    }, ctxFor(text))
+    expect(r.facts).toEqual([])
+    expect(r.rejected[0].reason).toBe('number_not_stated')
+  })
+
+  it('still accepts the decimal when the assessor actually wrote it', () => {
+    const r = interpretProposals({
+      facts: [{ field: 'rh', value: 18.5, quote: 'RH read 18.5%' }],
+    }, ctxFor('RH read 18.5% at the desk.'))
+    expect(r.facts.map((f) => f.value)).toEqual(['18.5'])
+  })
+
+  it('every member of a multi-select needs its own words', () => {
+    // "Musty" is stated. "Sewage" is the model filling out a list.
+    const text = 'Musty smell near the sink.'
+    const r = interpretProposals({
+      facts: [{ field: 'ot', value: ['Musty / Earthy', 'Sewage'], quote: 'Musty smell near the sink' }],
+    }, ctxFor(text))
+    expect(r.facts).toEqual([])
+    expect(r.rejected[0]).toMatchObject({ reason: 'value_not_stated', detail: 'Sewage' })
+  })
+
+  it('accepts the multi-select once every member is named', () => {
+    const text = 'Musty smell near the sink, and a sewage odor in the corridor.'
+    const r = interpretProposals({
+      facts: [{ field: 'ot', value: ['Musty / Earthy', 'Sewage'], quote: text }],
+    }, ctxFor(text))
+    expect(r.facts.map((f) => f.value)).toEqual([['Musty / Earthy', 'Sewage']])
+  })
+
+  it('a severity the assessor never graded is refused even from a perfect quote', () => {
+    const text = 'There is a musty odor in here.'
+    const r = interpretProposals({
+      facts: [{ field: 'op', value: 'Strong / overpowering', quote: 'There is a musty odor in here' }],
+    }, ctxFor(text))
+    expect(r.facts).toEqual([])
+    expect(r.rejected[0].reason).toBe('value_not_stated')
+  })
+})
+
+describe('the attestation map is exhaustive over what is writable', () => {
+  it('every writable field kind has an attestation rule', () => {
+    // A kind with no rule is REFUSED at runtime, not waved through — but a
+    // field nobody can propose is a feature that silently does not work, so
+    // the gap should surface here rather than in the field.
+    const kinds = [...new Set(OBSERVABLE_FIELDS.map((f) => f.kind))].sort()
+    for (const k of kinds) {
+      expect(ATTESTERS[k], `no attestation rule for kind "${k}"`).toBeTypeOf('function')
+    }
+    // Free text is absent from BOTH lists on purpose: no writable field is
+    // free text, so an extractive rule would be unreachable code. If this
+    // fails because `text` appeared above, write the rule then — against a
+    // field that exists.
+    expect(kinds).toEqual(['choice', 'multi', 'number'])
+  })
+})
+
+describe('scope: the zone walkthrough, explicitly', () => {
+  it('reads no questionnaire other than Q_ZONE', () => {
+    // The pre-survey and building questionnaires are a different interview,
+    // answered at a desk from records. Widening the catalog is a product
+    // decision; this fails rather than letting it happen in a refactor.
+    const src = readFileSync(new URL('../../src/engines/intake-interpreter.js', import.meta.url), 'utf8')
+    const imported = [...src.matchAll(/^import \{([^}]*)\} from '([^']*questions\.js)'/gm)]
+    expect(imported).toHaveLength(1)
+    expect(imported[0][1].trim()).toBe('Q_ZONE')
+    expect(imported[0][2]).toBe('../constants/questions.js')
+    for (const other of ['Q_PRESURVEY', 'Q_BUILDING', 'Q_DETAILS', 'Q_QUICKSTART', 'Q_MOLD_ZONE', 'Q_MOLD_PRESURVEY']) {
+      expect(src, `${other} is outside this interpreter's scope`).not.toContain(other)
+    }
   })
 })
 
@@ -276,12 +362,12 @@ describe('fail closed', () => {
 
 describe('bounds', () => {
   it('caps facts and questions, rejecting the overflow rather than truncating silently', () => {
-    const text = 'light dust, musty smell, no water damage, comfortable, humid, dry air'
+    const text = 'No visible dust, no unusual odor, no water damage, too cold in here.'
     const facts = [
-      { field: 'vd', value: 'Light surface dust', quote: 'light dust' },
-      { field: 'op', value: 'Moderate persistent', quote: 'musty smell' },
+      { field: 'vd', value: 'None', quote: 'No visible dust' },
+      { field: 'op', value: 'None', quote: 'no unusual odor' },
       { field: 'wd', value: 'None', quote: 'no water damage' },
-      { field: 'tc', value: 'Comfortable', quote: 'comfortable' },
+      { field: 'tc', value: 'Too cold', quote: 'too cold in here' },
     ]
     const r = interpretProposals({ facts }, ctxFor(text))
     expect(r.facts.length).toBeLessThanOrEqual(MAX_FACTS)
@@ -305,9 +391,9 @@ describe('bounds', () => {
 
   it('does not ask for what it is already offering to fill', () => {
     const r = interpretProposals({
-      facts: [{ field: 'vd', value: 'Light surface dust', quote: 'light dust' }],
+      facts: [{ field: 'vd', value: 'None', quote: 'no visible dust' }],
       questions: [{ question_id: 'vd' }],
-    }, ctxFor('there is light dust on the sills'))
+    }, ctxFor('There is no visible dust on the sills.'))
     expect(r.facts.map((f) => f.field)).toEqual(['vd'])
     expect(r.rejected.find((x) => x.question_id === 'vd')?.reason).toBe('superseded_by_fact')
   })

@@ -35,12 +35,14 @@
  *    list comes from `questions.js` and the field must be one an engine
  *    reads. Fields deliberately excluded there stay excluded here.
  *
- * 3. ATTESTATION. Every proposed fact carries a `quote`, and the quote must
- *    appear VERBATIM in the assessor's own text. This is the structural
- *    answer to "never infer a value that was not actually stated": a model
- *    that wants to record a fact has to point at the words, and the words
- *    are checked. For a numeric field the number itself must be present in
- *    that quote, in digits or in words.
+ * 3. ATTESTATION, in two parts, because the first alone is not enough.
+ *    The `quote` must appear VERBATIM in the assessor's own text — and then
+ *    the VALUE must be named in that quote. Quote attestation only proves a
+ *    model cited real text; "there is a musty odor in here" is a real
+ *    sentence, and `op = 'Strong / overpowering'` quoting it is a severity
+ *    nobody gave. A number must be present in digits or in words, an option
+ *    must be named in the vocabulary `option-aliases.js` derives from the
+ *    schema, and every member of a multi-select stands on its own words.
  *
  * 4. NON-OVERWRITE. A field that already holds a value is never proposed.
  *    The assessor's own entry is not something to re-litigate from prose.
@@ -52,9 +54,23 @@
  */
 
 import { validateObservation, getObservableField } from '../constants/observable-fields.js'
+import { variantsFor } from '../constants/option-aliases.js'
 import { evalCondition } from '../utils/conditions.js'
 import { Q_ZONE } from '../constants/questions.js'
 import { zoneGaps } from './zone-gaps.js'
+
+/**
+ * SCOPE — the ZONE WALKTHROUGH only.
+ *
+ * `Q_ZONE` is the catalog, deliberately and explicitly. The pre-survey and
+ * building questionnaires are a different interview: they are answered at a
+ * desk from records rather than standing in a room, their fields are setup
+ * rather than observation, and several are excluded from the writable
+ * catalog for that reason. Widening this constant is a product decision, not
+ * a refactor — `intake-interpreter.test.ts` fails if another questionnaire
+ * appears here.
+ */
+const CATALOG = Q_ZONE
 
 /** Interrupting a walkthrough is expensive; these are deliberately small. */
 export const MAX_FACTS = 3
@@ -91,18 +107,69 @@ const NUMBER_WORDS = {
   seventy: 70, eighty: 80, ninety: 90, hundred: 100,
 }
 
+/** Regex-escape an interpolated literal. A decimal point is not a wildcard. */
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 /** Is this number actually present in the words the assessor wrote? */
 function numberAttested(value, quote) {
   const n = Number(value)
   if (!Number.isFinite(n)) return false
   const q = flatten(quote)
   // Digits, with or without a decimal tail the model may have normalized.
-  if (new RegExp(`(^|[^0-9.])${n}([^0-9]|$)`).test(q)) return true
+  // The value is ESCAPED: unescaped, `18.5` would match "18x5", so a quote
+  // containing a different number entirely would attest the proposal.
+  if (new RegExp(`(^|[^0-9.])${escapeRe(n)}([^0-9]|$)`).test(q)) return true
   for (const [word, num] of Object.entries(NUMBER_WORDS)) {
-    if (num === n && new RegExp(`\\b${word}\\b`).test(q)) return true
+    if (num === n && new RegExp(`\\b${escapeRe(word)}\\b`).test(q)) return true
   }
   return false
 }
+
+/**
+ * Is the chosen OPTION named in the quote?
+ *
+ * The gap this closes: a real quote proves the model cited real text, not
+ * that the value it picked was stated. "There's a musty odor in here" is a
+ * true sentence, and `op = 'Strong / overpowering'` quoting it is a severity
+ * the assessor never gave. The quote passes; the claim is invented.
+ *
+ * The accepted vocabulary comes from `option-aliases.js` — derived from the
+ * option string, plus a thin curated list of true synonyms. A model cannot
+ * add to it, which is the difference between a rule and a request.
+ */
+function optionAttested(fieldId, option, quote) {
+  const q = flatten(quote)
+  return variantsFor(fieldId, option).some((v) => v && q.includes(v))
+}
+
+/**
+ * Value attestation, one rule per field KIND.
+ *
+ * Exhaustive by construction. A kind with no rule here is refused outright
+ * rather than waved through, and `intake-interpreter.test.ts` fails if the
+ * writable catalog grows a kind this map does not cover. Fail-closed is the
+ * right default because the alternative fails silently: an un-gated kind is
+ * indistinguishable from an attested one when you read the output.
+ *
+ * There is deliberately NO free-text rule. Every writable field resolves to
+ * number, choice or multi today (`observable-fields.js`), so a rule for a
+ * free-text field would be unreachable code validated by nothing — the shape
+ * this codebase keeps finding embalmed. Refusing the kind is also STRICTER
+ * than the extractive rule such a field would need: no generated prose can
+ * enter the record at all. When a free-text field becomes writable the guard
+ * test fails, and the rule gets written against a field that exists.
+ */
+export const ATTESTERS = Object.freeze({
+  number: (fieldId, value, quote) => (numberAttested(value, quote) ? null : { reason: 'number_not_stated' }),
+  choice: (fieldId, value, quote) => (optionAttested(fieldId, value, quote) ? null : { reason: 'value_not_stated' }),
+  // Each selected option stands on its own words. One attested member does
+  // not carry the rest of the list in with it.
+  multi: (fieldId, value, quote) => {
+    const unattested = (Array.isArray(value) ? value : [value])
+      .filter((opt) => !optionAttested(fieldId, opt, quote))
+    return unattested.length ? { reason: 'value_not_stated', detail: unattested.join(', ') } : null
+  },
+})
 
 /**
  * The questions the walkthrough would ask in this zone right now.
@@ -121,7 +188,7 @@ export function eligibleQuestions(assessment, zoneIndex) {
   const zone = ((assessment && assessment.zones) || [])[zoneIndex]
   if (!zone) return []
   const gapLabels = new Set(zoneGaps(assessment, zoneIndex).map((g) => g.label))
-  return Q_ZONE
+  return CATALOG
     .filter((q) => SIMPLE_TYPES.has(q.t))
     .filter((q) => evalCondition(q.cond, zone))
     .filter((q) => !hasValue(zone[q.id]))
@@ -189,11 +256,14 @@ export function interpretProposals(raw, ctx = {}) {
     if (!v.ok) {
       reject(rejected, item, v.error, v.message); continue
     }
-    // Gate 3b — a number must be in the words, not inferred from them.
+    // Gate 3b — the VALUE must be in the words, not inferred from them.
+    // Quote attestation alone proves only that the model cited real text.
+    // `validateObservation` has already refused an id with no contract.
     const contract = getObservableField(f.field)
-    if (contract && contract.kind === 'number' && !numberAttested(v.value, f.quote)) {
-      reject(rejected, item, 'number_not_stated'); continue
-    }
+    const attest = ATTESTERS[contract.kind]
+    if (!attest) { reject(rejected, item, 'unattestable_kind', contract.kind); continue }
+    const unsupported = attest(f.field, v.value, f.quote)
+    if (unsupported) { reject(rejected, item, unsupported.reason, unsupported.detail); continue }
     if (facts.length >= MAX_FACTS) { reject(rejected, item, 'over_fact_limit'); continue }
     facts.push({ field: contract.id, label: contract.label, value: v.value, quote: f.quote })
   }
