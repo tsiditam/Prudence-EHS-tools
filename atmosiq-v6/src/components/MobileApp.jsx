@@ -137,6 +137,7 @@ const LAZY_FALLBACK = <LazyPlaceholder />
 import { DEMO_CLEAN_PRESURVEY, DEMO_CLEAN_BUILDING, DEMO_CLEAN_ZONES, DEMO_CLEAN_EQUIPMENT } from '../constants/demoDataClean'
 import { DEMO_FM_PRESURVEY, DEMO_FM_BUILDING, DEMO_FM_ZONES } from '../constants/demoDataFM'
 import { DEMO_FINDINGS_PRESURVEY, DEMO_FINDINGS_BUILDING, DEMO_FINDINGS_ZONES, DEMO_FINDINGS_EQUIPMENT } from '../constants/demoDataFindings'
+import { DEMO_HCHO_PRESURVEY, DEMO_HCHO_BUILDING, DEMO_HCHO_ZONES, DEMO_HCHO_EQUIPMENT, buildDemoHchoSensorData } from '../constants/demoDataHcho'
 import { getMode, setMode as persistMode, isFM, t, homeView } from '../constants/terminology'
 import { evaluateEscalation, hasActiveEscalation } from '../engines/escalation'
 import { getBuildingProfile } from '../engines/buildingProfiles'
@@ -1697,12 +1698,20 @@ export default function MobileApp() {
       clean: { bldg: DEMO_CLEAN_BUILDING, zones: DEMO_CLEAN_ZONES, pre: DEMO_CLEAN_PRESURVEY, equipment: DEMO_CLEAN_EQUIPMENT },
       fm: { bldg: DEMO_FM_BUILDING, zones: DEMO_FM_ZONES, pre: DEMO_FM_PRESURVEY, equipment: [] },
       findings: { bldg: DEMO_FINDINGS_BUILDING, zones: DEMO_FINDINGS_ZONES, pre: DEMO_FINDINGS_PRESURVEY, equipment: DEMO_FINDINGS_EQUIPMENT },
+      // Demo C carries a week of logger data: the Logger tab, the monitoring
+      // statistics and the report figures read it the way they read an
+      // uploaded file (see demoDataHcho.js).
+      hcho: { bldg: DEMO_HCHO_BUILDING, zones: DEMO_HCHO_ZONES, pre: DEMO_HCHO_PRESURVEY, equipment: DEMO_HCHO_EQUIPMENT, sensorData: buildDemoHchoSensorData },
     }
     const pick = type || (userMode === 'fm' ? 'fm' : 'clean')
-    const { bldg: demoBldg, zones: demoZones, pre: demoPre, equipment: demoEq } = demos[pick]
+    const { bldg: demoBldg, zones: demoZones, pre: demoPre, equipment: demoEq, sensorData: demoSd } = demos[pick]
     trackEvent('assessment_mode_selected', { mode: 'demo', demoType: pick, userMode })
     setBldg(demoBldg); setZones(demoZones); setPresurvey(demoPre); setPhotos({}); setEquipment(demoEq || [])
-    const zScores = demoZones.map(z => scoreZone(z, demoBldg))
+    setSensorData(typeof demoSd === 'function' ? demoSd() : null)
+    // The survey date rides on the building for scoring, as finishAssessment
+    // passes it: the demo's comfort band is the demo's own season, not the
+    // month the demo happens to be opened in.
+    const zScores = demoZones.map(z => scoreZone(z, demoPre.ps_survey_date ? { ...demoBldg, assessmentDate: demoPre.ps_survey_date } : demoBldg))
     const composite = summarizeAssessment(zScores)
     const worst = demoZones[worstZoneIndex(zScores)]
     const osha = evalOSHA({...demoBldg, ...worst})
@@ -4431,6 +4440,7 @@ export default function MobileApp() {
       : [
           { label: 'Demo · Well-Run Office',      icon: 'play', onClick: () => runDemo('clean') },
           { label: 'Demo · Building w/ Findings', icon: 'play', onClick: () => runDemo('findings') },
+          { label: 'Demo · Post-Renovation Logger', icon: 'play', onClick: () => runDemo('hcho') },
         ]) },
     { key: 'support', label: 'Support', items: [
       { label: 'Settings',      icon: 'gear', view: 'settings', onClick: () => setView('settings') },
