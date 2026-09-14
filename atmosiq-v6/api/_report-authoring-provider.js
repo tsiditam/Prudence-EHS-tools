@@ -119,7 +119,7 @@ function extractText(data) {
  * @param {string} [opts.subject] how a user-facing upstream message names
  *   this feature — AtmosFlow's wording, not the vendor's
  * @returns {Promise<
- *   {ok: true, sections: object, usage: object, cost: number|null, provider: string, model: string}
+ *   {ok: true, envelope: object, usage: object, cost: number|null, provider: string, model: string}
  *   | {ok: false, failure: 'unreachable', detail: string}
  *   | {ok: false, failure: 'upstream', status: number, httpStatus: number,
  *      error: string, code: string, message: string, retryable: boolean, detail: string}>}
@@ -179,7 +179,10 @@ async function requestReportSections(opts = {}) {
 
   return {
     ok: true,
-    sections: tryParseSections(extractText(data)),
+    // The parsed ENVELOPE, not the sections. What shape AtmosFlow asked
+    // for — a plan beside the sections — is its own schema question, and
+    // the vendor boundary has no opinion about it.
+    envelope: tryParseSections(extractText(data)),
     usage,
     cost: estimateCost(usage.input_tokens, usage.output_tokens),
     provider: PROVIDER,
