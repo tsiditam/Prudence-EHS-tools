@@ -73,7 +73,7 @@ import Exhibit from './ui/Exhibit'
 // never describe one zone in two vocabularies.
 import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports, collectReferences, collectFindings } from '../report/reportModel'
 import { evalCondition, visibleQuestions } from '../utils/conditions.js'
-import { zoneGaps, interruptsZoneCompletion, zoneIntegrityFindings } from '../engines/zone-gaps.js'
+import { zoneGaps, interruptsZoneCompletion, zoneIntegrityFindings, zoneSheetItems } from '../engines/zone-gaps.js'
 import { photosForZone, photoCaption } from '../utils/photoIndex'
 import { spaceUse } from '../utils/samplePoints'
 import Select from './ui/Select'
@@ -5130,12 +5130,11 @@ export default function MobileApp() {
             // and the Readiness panel still lists them at review.
             const stopping = interruptsZoneCompletion(gaps)
             if (!stopping && !findings.length) return null
-            // Three on a phone. This is read standing up, one-handed, at the
-            // end of a zone — a longer list is skimmed rather than acted on.
-            const SHOWN = 3
-            const shown = stopping ? gaps.slice(0, SHOWN) : []
-            const rest = stopping ? gaps.length - shown.length : 0
-            const total = (stopping ? gaps.length : 0) + findings.length
+            // Three on a phone, ACROSS BOTH LISTS. This is read standing up,
+            // one-handed, at the end of a zone, and a cap applied per stream
+            // is not a cap. `zoneSheetItems` owns the merge, the order and
+            // the overflow count; it changes neither stream's contract.
+            const { items, total, rest } = zoneSheetItems({ gaps: stopping ? gaps : [], findings })
             return (
               <div style={{margin:'4px 0 18px',paddingBottom:16,borderBottom:`1px solid ${V3.BORDER_SUBTLE}`}}>
                 <div style={{...V3.T.micro, marginBottom:10}}>Before you leave {zData.zn || 'this zone'}</div>
@@ -5143,21 +5142,12 @@ export default function MobileApp() {
                   {total === 1 ? 'One item would strengthen the investigation:' : `${total} items would strengthen the investigation:`}
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:9}}>
-                  {shown.map(g => (
-                    <div key={g.id} style={{display:'flex',alignItems:'flex-start',gap:9}}>
-                      <span aria-hidden="true" style={{width:5,height:5,borderRadius:'50%',background:g.kind==='required'||g.kind==='warn'?WARN:DIM,flexShrink:0,marginTop:7}} />
+                  {items.map(it => (
+                    <div key={it.id} style={{display:'flex',alignItems:'flex-start',gap:9}}>
+                      <span aria-hidden="true" style={{width:5,height:5,borderRadius:'50%',background:it.tone==='warn'?WARN:DIM,flexShrink:0,marginTop:7}} />
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{...V3.T.body, lineHeight:'19px'}}>{g.label}</div>
-                        <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{g.why}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {findings.slice(0, SHOWN).map(f => (
-                    <div key={f.id} style={{display:'flex',alignItems:'flex-start',gap:9}}>
-                      <span aria-hidden="true" style={{width:5,height:5,borderRadius:'50%',background:DIM,flexShrink:0,marginTop:7}} />
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{...V3.T.body, lineHeight:'19px'}}>{f.label}</div>
-                        <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{f.why}</div>
+                        <div style={{...V3.T.body, lineHeight:'19px'}}>{it.label}</div>
+                        <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{it.why}</div>
                       </div>
                     </div>
                   ))}

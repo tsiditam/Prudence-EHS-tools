@@ -332,11 +332,25 @@ export const Q_ZONE = [
   // blank. Blank means nobody was asked; 'Unknown' means it was asked and
   // is unavailable, which is context the assessor has established. The
   // integrity detector treats only blank as an omission.
-  { id:'sy_occ',    sec:'Complaints', q:'Is the zone normally occupied then?', t:'ch',  sk:1, ic:'👥', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Yes — normally occupied','No — normally unoccupied','Varies','Unknown'] },
+  //
+  // The `in` list is the THREE ANSWERS THAT NAME A PERIOD, and it must stay
+  // equal to `TIME_LINKED_PERIODS` in `engines/integrity/context-gaps.js`.
+  // "Then" has no referent under 'All day', 'No pattern', 'Unknown' or a
+  // blank, so the question would be unanswerable there and the detector
+  // raises nothing for those either. The two are pinned equal by
+  // `integrity-context-gaps.test.ts` rather than shared by import: a
+  // constant catalog must not depend on an engine, and this codebase has
+  // shipped a writer and its gate disagreeing three times, so the
+  // duplication is allowed only with a test holding it.
+  //
+  // `cx` is still required alongside it. `sy_time` keeps its stored value
+  // if complaints are later set back to none, and without the `cx` leaf the
+  // question would reappear on a zone that no longer reports any.
+  { id:'sy_occ',    sec:'Complaints', q:'Is the zone normally occupied then?', t:'ch',  sk:1, ic:'👥', cond:{all:[{f:'cx',eq:'Yes — complaints reported'},{f:'sy_time',in:['Morning','Afternoon','Evening / night']}]}, opts:['Yes — normally occupied','No — normally unoccupied','Varies','Unknown'] },
   // Shown for both answers a count means something under. "Varies, usually
   // 3-5" is more use than "Varies" alone, and asking it of an unoccupied
   // room or an unknown one would be asking for a number nobody has.
-  { id:'sy_occ_n',  sec:'Complaints', q:'About how many people then?',         t:'ch',  sk:1, ic:'🧑‍🤝‍🧑', cond:{any:[{f:'sy_occ',eq:'Yes — normally occupied'},{f:'sy_occ',eq:'Varies'}]}, opts:['1-2','3-5','6-10','More than 10','Unknown'] },
+  { id:'sy_occ_n',  sec:'Complaints', q:'About how many people then?',         t:'ch',  sk:1, ic:'🧑‍🤝‍🧑', cond:{f:'sy_occ',in:['Yes — normally occupied','Varies']}, opts:['1-2','3-5','6-10','More than 10','Unknown'] },
   { id:'sy_where',  sec:'Complaints', q:'Where in the zone are symptoms reported?', t:'text', sk:1, ic:'📍', cond:{f:'cx',eq:'Yes — complaints reported'}, ph:'e.g. desks along the north wall, near the copier' },
   { id:'sy_relief', sec:'Complaints', q:'What relieves the symptoms?',         t:'multi', other:1, sk:1, ic:'🌿', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Leaving the building','Opening a window','Moving within the zone','Nothing identified','Unknown'] },
   { id:'tc', sec:'Environment', q:'Thermal comfort?',                     t:'ch',          ic:'🌡️', opts:['Comfortable','Slightly warm','Slightly cool','Too hot','Too cold','Fluctuating','Drafty'] },

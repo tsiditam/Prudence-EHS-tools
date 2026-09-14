@@ -29,6 +29,7 @@ import { zoneGaps, interruptsZoneCompletion, zoneIntegrityFindings } from '../..
 import { buildForensicBundle } from '../../src/utils/forensicBundle.js'
 import { Q_ZONE } from '../../src/constants/questions.js'
 import { getField, SCOPE_ZONE } from '../../src/constants/field-registry.js'
+import { evalCondition } from '../../src/utils/conditions.js'
 
 const DAY = 86400_000
 const T0 = Date.UTC(2026, 2, 2, 0, 0, 0)
@@ -122,9 +123,16 @@ describe('the finding has a real resolution path', () => {
     const q: any = Q_ZONE.find((x: any) => x.id === RESOLVING_FIELD)
     expect(q, 'the resolving field must exist in Q_ZONE').toBeTruthy()
     expect(q.sec).toBe('Complaints')
-    // It appears only once complaints are reported, so it never nags a zone
-    // the rule could not fire on.
-    expect(q.cond).toEqual({ f: 'cx', eq: COMPLAINTS_REPORTED })
+    // It appears only once complaints are reported AND a period was named,
+    // so it never nags a zone the rule could not fire on. The period list is
+    // duplicated between the catalog and the engine — a constant catalog must
+    // not import an engine — so this is the pin that keeps them equal.
+    expect(q.cond).toEqual({
+      all: [
+        { f: 'cx', eq: COMPLAINTS_REPORTED },
+        { f: 'sy_time', in: [...TIME_LINKED_PERIODS] },
+      ],
+    })
     expect(q.opts).toContain('Unknown')
     // The registry DERIVES from questions.js, so declaring the field there
     // is what makes it a real field. Zone-scoped, which is the record the
@@ -133,6 +141,54 @@ describe('the finding has a real resolution path', () => {
     const contract: any = getField(RESOLVING_FIELD)
     expect(contract, 'the resolving field must resolve in the registry').toBeTruthy()
     expect(contract.scope).toBe(SCOPE_ZONE)
+  })
+
+  it('is ASKED exactly when not answering it would raise the finding', () => {
+    // The defect class this codebase has shipped three times is a writer and
+    // its gate disagreeing. Here the question's visibility condition lives in
+    // `questions.js` and the detector's fire condition lives in an engine, so
+    // they are two statements of one rule and this is what holds them equal.
+    //
+    // Asking a question the detector ignores trains the assessor that the
+    // list is noise. NOT asking one the detector raises is worse: a finding
+    // with nowhere to go.
+    const q: any = Q_ZONE.find((x: any) => x.id === RESOLVING_FIELD)
+    const periods = [...TIME_LINKED_PERIODS, 'All day', 'No pattern', 'Unknown', '']
+    const complaints = [COMPLAINTS_REPORTED, 'No complaints', '']
+    let shown = 0
+    for (const cx of complaints) {
+      for (const sy_time of periods) {
+        const z = { zid: 'z-1', zn: 'Room 214', cx, sy_time }
+        const visible = evalCondition(q.cond, z)
+        const fires = detectComplaintContextGaps({ zones: [z] }).length > 0
+        expect(visible, `cx=${cx || '(blank)'} sy_time=${sy_time || '(blank)'}`).toBe(fires)
+        if (visible) shown += 1
+      }
+    }
+    // Exactly the three time-linked periods, and only with complaints reported.
+    expect(shown).toBe(TIME_LINKED_PERIODS.length)
+  })
+
+  it('is not asked where "then" has no referent', () => {
+    const q: any = Q_ZONE.find((x: any) => x.id === RESOLVING_FIELD)
+    for (const sy_time of ['All day', 'No pattern', 'Unknown', '']) {
+      expect(evalCondition(q.cond, { cx: COMPLAINTS_REPORTED, sy_time }), sy_time).toBe(false)
+    }
+    // And it goes away again if complaints are set back to none, because
+    // `sy_time` keeps its stored value when `cx` changes.
+    expect(evalCondition(q.cond, { cx: COMPLAINTS_REPORTED, sy_time: 'Afternoon' })).toBe(true)
+    expect(evalCondition(q.cond, { cx: 'No complaints', sy_time: 'Afternoon' })).toBe(false)
+  })
+
+  it('asks for a count only where a count means something', () => {
+    const q: any = Q_ZONE.find((x: any) => x.id === 'sy_occ_n')
+    expect(q).toBeTruthy()
+    for (const sy_occ of ['Yes — normally occupied', 'Varies']) {
+      expect(evalCondition(q.cond, { sy_occ }), sy_occ).toBe(true)
+    }
+    for (const sy_occ of ['No — normally unoccupied', 'Unknown', '']) {
+      expect(evalCondition(q.cond, { sy_occ }), sy_occ).toBe(false)
+    }
   })
 
   it('disappears deterministically once the context is recorded', () => {
