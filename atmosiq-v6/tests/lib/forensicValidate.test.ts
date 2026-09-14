@@ -10,8 +10,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   validateForensicOutput, buildForensicInterpretationRecord, supportedFigures,
-  unsupportedFigures, scanInterpretationLanguage, evidenceScopeForPattern,
-  canonicalUnit, interpretationStatus,
+  unsupportedFigures, unsupportedNumbers, scanQuantities,
+  scanInterpretationLanguage, evidenceScopeForPattern,
+  canonicalUnit, interpretationStatus, DESIGNATION_PREFIXES,
   IMPORTANCE_VALUES, MAX_INTERPRETATIONS, MAX_TITLE_CHARS, MAX_INTERPRETATION_CHARS,
   MAX_LIST_ITEMS, MAX_ITEM_CHARS, REJECTION_REASONS, INTERPRETATION_STATUSES,
   FORENSIC_INTERPRETATION_VERSION,
@@ -289,7 +290,10 @@ describe('numbers must come from the deterministic layer', () => {
     expect(supported.length).toBeGreaterThan(10)
   })
 
-  it('leaves unitless counts alone — those are arithmetic over the bundle', () => {
+  it('accepts unitless counts that the record actually contains', () => {
+    // These pass because 4 and 2 ARE in this pattern's evidence — four days
+    // observed, two required — not because a number without a unit is waved
+    // through. The adversarial cases for that are below.
     const r = run(out([good({
       interpretation: 'The shape repeats on 4 of 4 days across 2 datasets, and warrants review.',
     })]))
@@ -561,6 +565,123 @@ describe('empty output and wholly rejected output are different facts', () => {
     const seen = [run(out([])), run(out([good()])), run('nope'), run(out([good({ title: '' })]))]
       .map((r: any) => r.status)
     seen.forEach((x) => expect(INTERPRETATION_STATUSES).toContain(x))
+  })
+})
+
+describe('a number without a unit is still a claim about the evidence', () => {
+  // The hole this closes: the gate checked only numbers carrying a unit, so a
+  // model could introduce a novel 6, a novel 0.93 and a novel 4 with nothing
+  // checking any of them. A fabricated correlation coefficient is exactly as
+  // false as a fabricated concentration; lacking a unit is not a reason to be
+  // trusted.
+  it('rejects an invented unitless count', () => {
+    const r = run(out([good({
+      interpretation: 'The trace is consistent with a repeating swing in which 9 events coincided, and warrants review.',
+    })]))
+    expect(reasons(r)).toEqual(['unsupported_number'])
+    expect(r.rejected[0].detail).toBe('9')
+  })
+
+  it('rejects an invented correlation coefficient', () => {
+    const r = run(out([good({
+      interpretation: 'The paired traces move together; the correlation was 0.93, which warrants review.',
+    })]))
+    expect(reasons(r)).toEqual(['unsupported_number'])
+    expect(r.rejected[0].detail).toBe('0.93')
+  })
+
+  it('rejects an invented day count, written bare or written as a duration', () => {
+    // Bare, so the number gate catches it.
+    expect(reasons(run(out([good({
+      interpretation: 'The shape repeated on 6 of the recorded days and warrants review.',
+    })])))).toEqual(['unsupported_number'])
+    // Carrying `days`, so the unit gate catches it first. Either way it does
+    // not reach an assessor.
+    expect(reasons(run(out([good({
+      interpretation: 'The shape repeated across 7 days and warrants review.',
+    })])))).toEqual(['unsupported_figure'])
+  })
+
+  it('rejects an invented figure the model wrote without its unit', () => {
+    expect(unsupportedNumbers('the level reached 4200', [fig(500, 'ppm')])).toEqual(['4200'])
+    // ... and accepts the real one, since no unit was claimed and so none can
+    // be contradicted. All that is asked is whether the quantity is in the record.
+    expect(unsupportedNumbers('the level reached 500', [fig(500, 'ppm')])).toEqual([])
+  })
+
+  it('accepts a deterministic quantity the pattern actually carries', () => {
+    const cycle = cyclePattern.summary
+    expect(cycle.daysObserved).toBe(4)
+    expect(cycle.peakHour).toBe(14)
+    const r = run(out([good({
+      interpretation: `The swing repeats across 4 days, peaking near 14:00 in each of them, and warrants review. Coverage across the ${bundle.parameters.find((p: any) => p.param === 'co2').stats.n} readings is consistent throughout.`,
+    })]))
+    expect(reasons(r)).toEqual([])
+  })
+
+  it('rejects a peak hour the record does not carry', () => {
+    // The hour in a clock time is checked; the minutes are not, because pattern
+    // analysis buckets by hour and there is no deterministic minute behind them.
+    expect(unsupportedNumbers('peaking near 14:00', [fig(14, null)])).toEqual([])
+    expect(unsupportedNumbers('peaking near 03:00', [fig(14, null)])).toEqual(['03:00'])
+  })
+
+  it('accepts cautious prose that states no number at all', () => {
+    // The form the contract actually asks for: the card renders the figures,
+    // the prose says what they might mean.
+    const r = run(out([good({
+      title: 'Repeating daily swing',
+      interpretation: 'The recurring temporal pattern is consistent with scheduled occupancy or with mechanical-system operation. It cannot distinguish between them and requires confirmation.',
+      alternative_explanations: ['A timed system start may contribute to the same shape.'],
+      recommended_reviews: ['Compare the pattern against the operating schedule; this warrants review.'],
+    })]))
+    expect(reasons(r)).toEqual([])
+  })
+
+  it('leaves quantities written in words alone, which is what the prompt asks for', () => {
+    const r = run(out([good({
+      interpretation: 'The shape repeats on three of the four recorded days, roughly twice the overnight level, and warrants review.',
+    })]))
+    expect(reasons(r)).toEqual([])
+  })
+})
+
+describe('the numeric exemptions are narrow and named', () => {
+  const none: any[] = []
+
+  it('treats a number glued to letters as part of a name', () => {
+    expect(unsupportedNumbers('PM2.5 and CO2 both moved', none)).toEqual([])
+    expect(unsupportedNumbers('the S520 category', none)).toEqual([])
+    // Detached, so it is a claim again.
+    expect(unsupportedNumbers('PM rose to 2.5', none)).toEqual(['2.5'])
+  })
+
+  it('treats a date as an instant, not a quantity', () => {
+    expect(unsupportedNumbers('the step on 2026-03-02', none)).toEqual([])
+  })
+
+  it('treats a numbered designation as a document name', () => {
+    expect(DESIGNATION_PREFIXES).toContain('ASHRAE')
+    expect(unsupportedNumbers('compare against ASHRAE 62.1 ventilation rates', none)).toEqual([])
+    expect(unsupportedNumbers('the ISO 16000 method', none)).toEqual([])
+    // The prefix exempts the number that follows it and nothing else.
+    expect(unsupportedNumbers('ASHRAE 62.1 and a reading of 41', none)).toEqual(['41'])
+  })
+
+  it('treats an ordinal as an ordinal', () => {
+    expect(unsupportedNumbers('on the 2nd and 3rd mornings', none)).toEqual([])
+  })
+
+  it('reports unit figures and bare numbers separately', () => {
+    const r = scanQuantities('a reading of 900 ppm across 6 zones', [fig(900, 'ppm')])
+    expect(r.figures).toEqual([])
+    expect(r.numbers).toEqual(['6'])
+    expect(unsupportedFigures('a reading of 900 ppm across 6 zones', [fig(900, 'ppm')])).toEqual([])
+  })
+
+  it('every reason the arithmetic gate emits is in the declared vocabulary', () => {
+    expect(REJECTION_REASONS).toContain('unsupported_number')
+    expect(REJECTION_REASONS).toContain('unsupported_figure')
   })
 })
 

@@ -28,9 +28,11 @@
  *  3. BOUNDS.     At most five interpretations, one per pattern, with every
  *     string and list capped. A malformed list ITEM is dropped; a malformed
  *     required field rejects that interpretation. Nothing is guessed at.
- *  4. ARITHMETIC. A figure carrying a unit must be one the deterministic layer
- *     actually produced FOR THIS PATTERN, in THAT UNIT, at the precision the
- *     model wrote it. Rounding passes; alteration does not.
+ *  4. ARITHMETIC. Every number must be one the deterministic layer actually
+ *     produced FOR THIS PATTERN, at the precision the model wrote it, and in
+ *     THAT UNIT when it carries one. Rounding passes; alteration does not.
+ *     Numbers without a unit are checked too — a fabricated correlation
+ *     coefficient is exactly as false as a fabricated concentration.
  *  5. LANGUAGE.   The shared banned-language scan, unchanged, plus the
  *     forensics layer. A hit rejects the interpretation.
  *
@@ -81,7 +83,7 @@ export const REJECTION_REASONS = Object.freeze([
   'duplicate_pattern', 'over_interpretation_limit', 'invalid_importance',
   'missing_title', 'missing_interpretation', 'unknown_evidence_id',
   'evidence_not_on_pattern', 'unknown_context_gap_id', 'context_gap_not_on_pattern',
-  'unsupported_figure', 'prohibited_language',
+  'unsupported_figure', 'unsupported_number', 'prohibited_language',
 ])
 
 /**
@@ -128,12 +130,6 @@ const cleanList = (v, cap = MAX_ITEM_CHARS, max = MAX_LIST_ITEMS) =>
 /**
  * Units a forensic figure can carry, and what each spelling means.
  *
- * A number WITHOUT one is not checked, for the reason `narrativeAudit` records:
- * "three of four days" and "roughly twice the overnight level" are arithmetic
- * over the bundle, and the prompt asks for exactly that kind of sentence. A
- * rule that flagged them would be switched off, after which nothing would be
- * checked at all.
- *
  * A number WITH one is checked against a supported value IN THE SAME UNIT.
  * Storing bare magnitudes — which is what the first cut of this gate did — lets
  * a real 35.1 µg/m³ reading support model prose saying "35.1 ppm", "35.1 %" or
@@ -153,6 +149,12 @@ const cleanList = (v, cap = MAX_ITEM_CHARS, max = MAX_LIST_ITEMS) =>
  * made a real error and this gate should catch it. °F↔°C is not even that: the
  * conversion is affine, and performing it here would make the validator the
  * author of a number nobody measured.
+ *
+ * A number WITHOUT a unit is checked too — see `scanQuantities`. It was not, and
+ * that was a hole the size of the gate: "the pattern occurred on 6 of 7 days",
+ * "the correlation was 0.93", "four events coincided" are quantitative claims
+ * about the evidence that carry no unit, so every one of them walked past a
+ * check whose whole purpose was to stop invented numbers.
  */
 const UNIT_SPELLINGS = [
   // Concentration.
@@ -384,54 +386,159 @@ export function evidenceScopeForPattern(bundle, patternId) {
 }
 
 /**
- * Figures in `text` that the supplied evidence cannot account for.
+ * Numbered designations that are a DOCUMENT'S NAME, not a measurement.
+ *
+ * "ASHRAE 62.1" and "ISO 16000" are titles. A number following one of these is
+ * exempt from the arithmetic check because it asserts nothing about the air —
+ * and it cannot launder a measurement either, since "ASHRAE 1450" is a nonsense
+ * document name rather than a smuggled reading.
+ *
+ * Narrow and named on purpose. The alternative considered was exempting any
+ * number adjacent to a capitalized word, which would have exempted most of a
+ * sentence.
+ */
+export const DESIGNATION_PREFIXES = Object.freeze([
+  'ASHRAE', 'ISO', 'EPA', 'OSHA', 'NIOSH', 'ACGIH', 'WHO', 'IICRC', 'ANSI', 'ASTM',
+])
+const DESIGNATION_RE = new RegExp(String.raw`\b(?:${DESIGNATION_PREFIXES.join('|')})[\s-]*$`, 'i')
+
+// One pass over the prose, in priority order, so a number is classified once.
+//   1  an ISO date          — an instant, never a quantity
+//   2,3 a clock time        — the hour is checked, the minutes carry nothing
+//   4,5 a figure and a unit — checked against a supported value in that unit
+//   6  a bare number        — checked against a supported value in any denomination
+const QUANTITY_RE = new RegExp(String.raw`(\d{4}-\d{2}-\d{2})|(\d{1,2}):(\d{2})|([-+]?\d[\d,]*(?:\.\d+)?)\s*(${UNIT_ALT})(?![A-Za-z0-9])|([-+]?\d[\d,]*(?:\.\d+)?)`, 'gi')
+
+/** A number glued to letters is part of a NAME — `PM2.5`, `CO2`, `S520`. */
+const nameLike = (before) => /[A-Za-z]$/.test(before)
+/** `2nd`, `3rd` — an ordinal, not a count of anything measured. */
+const ordinalLike = (after) => /^(?:st|nd|rd|th)\b/i.test(after)
+
+/**
+ * Does a supported figure account for this written number?
+ *
+ * `unit` null means the number was written bare, and is then matched against a
+ * supported value in ANY denomination: no unit was claimed, so no unit can be
+ * contradicted, and all that is being asked is whether the QUANTITY came from
+ * the record. A duration additionally offers its minute, hour and day forms,
+ * because "4" in "repeats across 4 days" is the same fact as 345 600 seconds.
+ */
+function accountedFor(value, decimals, unit, factor, signWritten, pool) {
+  const target = signWritten ? value : Math.abs(value)
+  for (const f of pool) {
+    const e = obj(f)
+    if (!isNum(e.value)) continue
+    if (unit != null && e.unit !== unit) continue
+    const forms = unit == null && e.unit === 'duration'
+      ? [e.value, e.value / 60, e.value / 3600, e.value / 86400]
+      : [e.value / (factor || 1)]
+    for (const candidate of forms) {
+      if (roundTo(signWritten ? candidate : Math.abs(candidate), decimals) === target) return true
+    }
+  }
+  return false
+}
+
+/**
+ * Every quantitative claim in `text` the supplied evidence cannot account for.
+ *
+ * ── Why bare numbers are checked at all ────────────────────────────────
+ * The first cut checked only numbers carrying a unit, on the reasoning
+ * `narrativeAudit` records: "three of four days" and "roughly twice the
+ * overnight level" are arithmetic over the record, the prompt asks for exactly
+ * that kind of sentence, and a rule that flagged them would be switched off.
+ *
+ * That reasoning is right about PROSE and wrong about DIGITS. It let a model
+ * introduce a novel 6, a novel 0.93 and a novel 4 with nothing checking any of
+ * them, purely because none had a physical unit — and a fabricated correlation
+ * coefficient is exactly as false as a fabricated concentration. The words
+ * "three of four days" still pass, because they are words. `0.93` does not,
+ * unless the record contains it.
+ *
+ * The contract absorbs the cost rather than the gate: the writer is told not to
+ * restate quantitative evidence at all, because the card renders the
+ * deterministic figures beside the prose. Numerical truth stays deterministic
+ * and the interpretation stays linguistic, which is the separation this whole
+ * layer exists to keep.
+ *
+ * ── What is exempt, and why each one is not a claim ────────────────────
+ *   PM2.5 / CO2 / S520   a number glued to letters is part of a name
+ *   2026-03-02           a date is an instant; instants are excluded from the
+ *                        supported set on the deterministic side for the same
+ *                        reason, so they cannot be checked against it
+ *   13:00                the HOUR is checked against the record; the minutes
+ *                        are not, because pattern analysis buckets by hour and
+ *                        there is no deterministic minute to check them against
+ *   ASHRAE 62.1          a document's name — see `DESIGNATION_PREFIXES`
+ *   2nd                  an ordinal
+ *
+ * @param {string} text
+ * @param {Iterable<{value:number, unit:string|null}>} supported
+ * @returns {{figures:string[], numbers:string[]}} quoted as the model wrote them
+ */
+export function scanQuantities(text, supported) {
+  const figures = []
+  const numbers = []
+  const s = isStr(text) ? text : ''
+  const pool = supported == null ? [] : [...supported]
+  QUANTITY_RE.lastIndex = 0
+  let m
+  while ((m = QUANTITY_RE.exec(s)) !== null) {
+    const before = s.slice(Math.max(0, m.index - 16), m.index)
+    const after = s.slice(m.index + m[0].length)
+
+    if (m[1]) continue // a date
+
+    if (m[2]) { // a clock time: check the hour, ignore the minutes
+      if (nameLike(before)) continue
+      const hour = Number(m[2])
+      if (!accountedFor(hour, 0, null, 1, false, pool)) numbers.push(m[0].trim())
+      continue
+    }
+
+    const written = m[4] != null ? m[4] : m[6]
+    const raw = written.replace(/,/g, '')
+    const value = Number(raw)
+    if (!isNum(value)) continue
+    // Sign is compared only when the model WROTE one. Prose puts direction in
+    // words far more often than in a sign, and demanding a signed match for "a
+    // drop of 240 ppm" would reject correct writing. A leading dash that
+    // follows a digit is a range ("400-500 ppm"), not a sign.
+    const signWritten = /^[-+]/.test(written) && !/[\d.]$/.test(before)
+    const d = decimalsOf(raw)
+
+    if (m[4] != null) {
+      const spelled = UNIT_BY_SPELLING.get(m[5].replace(/\s+/g, ' ').trim().toLowerCase())
+      // Matched the alternation, so it is always a known spelling; the guard is
+      // for the case where the table and the pattern are edited out of step.
+      if (!spelled) continue
+      // Quote it back exactly as the model wrote it, spacing included, so the
+      // rejection detail can be searched for in the response it came from.
+      if (!accountedFor(value, d, spelled.unit, spelled.factor, signWritten, pool)) figures.push(m[0].trim())
+      continue
+    }
+
+    if (nameLike(before) || ordinalLike(after) || DESIGNATION_RE.test(before)) continue
+    if (!accountedFor(value, d, null, 1, signWritten, pool)) numbers.push(m[0].trim())
+  }
+  return { figures, numbers }
+}
+
+/**
+ * Figures in `text` carrying a unit that the supplied evidence cannot account for.
  *
  * A figure matches when a supported value CARRYING THE SAME UNIT, rounded to
  * the precision the model wrote, equals it. So a 1451.83 ppm reading may be
  * written "1452 ppm" or "1450 ppm" at zero decimals, but not "1500 ppm", and
  * not "1452 µg/m³".
- *
- * Sign is compared only when the model WROTE one. Prose routinely states a
- * magnitude and puts the direction in words — "a drop of 240 ppm" — and
- * demanding a signed match there would reject correct writing. But "-240 ppm"
- * is an explicit claim about direction, and a deterministic +240 does not
- * support it. A leading dash that follows a digit is a range ("400-500 ppm"),
- * not a sign, and is read as one.
  */
 export function unsupportedFigures(text, supported) {
-  const out = []
-  const s = isStr(text) ? text : ''
-  const pool = supported == null ? [] : [...supported]
-  FIGURE_RE.lastIndex = 0
-  let m
-  while ((m = FIGURE_RE.exec(s)) !== null) {
-    const written = m[1]
-    const raw = written.replace(/,/g, '')
-    const value = Number(raw)
-    if (!isNum(value)) continue
-    const spelled = UNIT_BY_SPELLING.get(m[2].replace(/\s+/g, ' ').trim().toLowerCase())
-    // Matched the alternation, so it is always a known spelling; the guard is
-    // for the case where the table and the pattern are edited out of step.
-    if (!spelled) continue
+  return scanQuantities(text, supported).figures
+}
 
-    const prev = m.index > 0 ? s[m.index - 1] : ''
-    const signWritten = /^[-+]/.test(written) && !/[\d.]/.test(prev)
-    const d = decimalsOf(raw)
-    const target = signWritten ? value : Math.abs(value)
-
-    let ok = false
-    for (const f of pool) {
-      const e = obj(f)
-      if (e.unit !== spelled.unit) continue
-      if (!isNum(e.value)) continue
-      const candidate = e.value / spelled.factor
-      if (roundTo(signWritten ? candidate : Math.abs(candidate), d) === target) { ok = true; break }
-    }
-    // Quote it back exactly as the model wrote it, spacing included, so the
-    // rejection detail can be searched for in the response it came from.
-    if (!ok) out.push(m[0].trim())
-  }
-  return out
+/** Bare numbers in `text` the supplied evidence cannot account for. */
+export function unsupportedNumbers(text, supported) {
+  return scanQuantities(text, supported).numbers
 }
 
 // ── Language ───────────────────────────────────────────────────────────
@@ -560,9 +667,14 @@ export function validateForensicOutput(raw, bundle, opts = {}) {
 
     // Gate 4 — arithmetic, over everything the model wrote, against the figures
     // available from THIS pattern's evidence and in the unit it was measured in.
+    // Bare numbers are checked too: a fabricated correlation coefficient is
+    // exactly as false as a fabricated concentration, and lacking a unit is not
+    // a reason to be trusted. The two are reported separately because the fix
+    // differs — one restates a measurement wrongly, the other invents a count.
     const prose = [title, interpretation, ...alternatives, ...reviews].join('\n')
-    const bad = unsupportedFigures(prose, scope.figures)
-    if (bad.length) { reject(rejected, item, 'unsupported_figure', bad.join(', ')); continue }
+    const { figures: badFigures, numbers: badNumbers } = scanQuantities(prose, scope.figures)
+    if (badFigures.length) { reject(rejected, item, 'unsupported_figure', badFigures.join(', ')); continue }
+    if (badNumbers.length) { reject(rejected, item, 'unsupported_number', badNumbers.join(', ')); continue }
 
     // Gate 5 — language.
     const hits = scanInterpretationLanguage(prose)
