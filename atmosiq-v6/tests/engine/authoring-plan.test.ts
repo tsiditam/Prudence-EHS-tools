@@ -25,7 +25,7 @@ import { describe, it, expect } from 'vitest'
 // @ts-ignore js
 import {
   validateAuthoringPlan, planReferenceIndex, emptyPlan,
-  SOURCE_STATUSES, PLAN_KEYS, MAX_PROSE_CHARS, MAX_LIST_ENTRIES,
+  PLAN_KEYS, MAX_PROSE_CHARS, MAX_LIST_ENTRIES,
 // @ts-ignore js
 } from '../../src/report/authoringPlan.js'
 // @ts-ignore js
@@ -77,14 +77,13 @@ describe('it resolves against the exact package the writer received', () => {
       supporting_findings: [FINDING_2],
       important_negative_findings: [PARAM],
       unresolved_questions: ['Whether the loading dock is the source.'],
-      source_status: 'not_identified',
       recommendation_sequence: [REC],
       throughline: 'Two zones share one plausible pathway.',
     }, WIRE)
     expect(rejected).toEqual([])
     expect(usable).toBe(true)
     expect(plan.primary_findings).toEqual([FINDING])
-    expect(plan.source_status).toBe('not_identified')
+    expect(plan.throughline).toBe('Two zones share one plausible pathway.')
   })
 
   it('refuses an id the wire package never carried, and never guesses a near match', () => {
@@ -137,13 +136,34 @@ describe('the schema is closed', () => {
     expect(reasons(rejected)).toContain('unknown_key')
   })
 
-  it('refuses a source status outside the vocabulary', () => {
-    for (const status of SOURCE_STATUSES) {
-      expect(validateAuthoringPlan({ source_status: status }, WIRE).plan.source_status).toBe(status)
-    }
-    const { plan, rejected } = validateAuthoringPlan({ source_status: 'probably the loading dock' }, WIRE)
-    expect(plan.source_status).toBe('')
-    expect(reasons(rejected)).toContain('unknown_source_status')
+  it('has no source_status, and refuses one if a model offers it', () => {
+    // An earlier draft carried `source_status`, validated only against an
+    // enum — which let the MODEL decide a categorical investigative
+    // conclusion while this module's own rule says the plan concludes
+    // nothing. See the note in `authoringPlan.js` for why grounding it in
+    // `pathways[].hypothesis` would have been worse than removing it:
+    // that flag is strength-of-evidence, not a source verdict, and reading
+    // it as one would republish the confidence rating the report retired.
+    expect(PLAN_KEYS).not.toContain('source_status')
+    const { plan, rejected } = validateAuthoringPlan({ source_status: 'identified' }, WIRE)
+    expect(reasons(rejected)).toContain('unknown_key')
+    expect(Object.keys(plan)).not.toContain('source_status')
+  })
+
+  it('and no plan field is validated against a vocabulary instead of the package', () => {
+    // The property that generalizes the fix: every field a plan carries is
+    // either free prose that never renders, or a reference resolved against
+    // something the package handed out. A closed enum the model picks from
+    // is a judgment with no fact behind it — which is what source_status was.
+    const { plan } = validateAuthoringPlan({
+      overall_conclusion: 'x', throughline: 'y',
+      primary_findings: [FINDING], supporting_findings: [], important_negative_findings: [PARAM],
+      unresolved_questions: ['q'], recommendation_sequence: [REC],
+    }, WIRE)
+    const prose = ['overall_conclusion', 'throughline', 'unresolved_questions']
+    const referenced = ['primary_findings', 'supporting_findings', 'important_negative_findings', 'recommendation_sequence']
+    expect([...prose, ...referenced].sort()).toEqual([...PLAN_KEYS].sort())
+    expect(plan.primary_findings).toEqual([FINDING])
   })
 
   it('drops prose past its ceiling rather than truncating it', () => {
@@ -187,7 +207,7 @@ describe('the schema is closed', () => {
 describe('a failed plan costs the plan and nothing else', () => {
   it('an entirely invalid plan is unusable, and says so without erroring', () => {
     const { plan, usable, rejected } = validateAuthoringPlan({
-      primary_findings: ['nope'], recommendation_sequence: ['also-nope'], source_status: 'invented',
+      primary_findings: ['nope'], recommendation_sequence: ['also-nope'],
     }, WIRE)
     expect(usable).toBe(false)
     expect(plan).toEqual(emptyPlan())

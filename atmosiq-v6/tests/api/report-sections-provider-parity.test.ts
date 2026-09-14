@@ -25,8 +25,12 @@
  * The authoring plan changed two of these values ON PURPOSE, and they are
  * recorded here rather than quietly re-baselined:
  *
- *   • `system_chars` 14711 -> 17874, because the prompt gained a planning
- *     contract and an output schema that admits the plan;
+ *   • `system_chars` 14711 -> 17874 -> 17782. The prompt first gained a
+ *     planning contract and an output schema admitting the plan, then lost
+ *     `source_status` from both when review found it let the MODEL decide a
+ *     categorical investigative conclusion (see `authoringPlan.js`). Both
+ *     moves are recorded rather than overwritten, so the number has a
+ *     history instead of just a current value;
  *   • the response body gained exactly one key, `authoring_plan`.
  *
  * Everything else is unchanged and still pinned — the request's field SET,
@@ -114,7 +118,7 @@ const GOLDEN_REQUEST = {
   model: 'claude-sonnet-4-6',
   max_tokens: 4000,
   temperature: 0.7,
-  system_chars: 17874,
+  system_chars: 17782,
   messages: [{
     role: 'user',
     content: 'Based ONLY on this evidence package, write the report sections as the strict JSON schema requires:\n\n{"evidence":{"version":1,"facts":[]}}',

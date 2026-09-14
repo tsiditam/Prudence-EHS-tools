@@ -53,16 +53,39 @@ const str = (v) => (typeof v === 'string' ? v.trim() : '')
 export const PLAN_VERSION = 1
 
 /**
- * What the assessment concluded about a source, as a closed vocabulary.
+ * ── There is deliberately no `source_status` here ──────────────────────
+ * An earlier draft of this plan carried one — identified /
+ * partially_identified / not_identified / not_applicable — validated only
+ * against that enum. That let the MODEL decide a categorical investigative
+ * conclusion, which contradicts this module's own rule that the plan
+ * organizes what the engine decided and concludes nothing. Every other
+ * field names something the package already contains; that one named a
+ * judgment nothing had made.
  *
- * Deliberately not free text. "Was a source identified?" is the single
- * question that most changes how a report reads — it decides whether the
- * recommendations verify or remediate — and a phrase the model invents for
- * it cannot be checked against anything.
+ * The obvious fix was to ground it in a deterministic fact, and the
+ * obvious candidate is `pathways[].hypothesis`. It does not mean what the
+ * field needed. `hypothesis` comes from `weighChain` and says whether a
+ * chain rests on measured evidence or on complaints alone — a
+ * strength-of-evidence flag. AtmosFlow has no fact meaning "a source was
+ * identified", BY DESIGN: the engine never establishes causation, the
+ * package's own `pathway_rule` says a pathway may be described as
+ * consistent with the observations and never as the established cause, and
+ * chain confidence was deliberately unpublished in 2026-09 and kept away
+ * from the writer entirely. Deriving `identified` from `hypothesis: false`
+ * would republish that retired rating under a new name — the exact move
+ * `no-published-confidence.test.ts` exists to prevent.
+ *
+ * So the field is gone rather than grounded, and nothing is lost. What it
+ * was meant to convey the package already states deterministically: every
+ * pathway carries the `verification` that would settle it, under a rule
+ * saying none is established. That is what makes "verify before investing
+ * in a fix" the right framing, and it needs no new judgment to say so.
+ *
+ * If a deterministic source-resolution fact is ever built — an engine
+ * output, not an inference over these flags — this is where its plan field
+ * belongs, validated by exact match against that fact and not against a
+ * vocabulary.
  */
-export const SOURCE_STATUSES = Object.freeze([
-  'identified', 'partially_identified', 'not_identified', 'not_applicable',
-])
 
 /** Every key a plan may carry. Anything else is a rejection. */
 export const PLAN_KEYS = Object.freeze([
@@ -71,7 +94,6 @@ export const PLAN_KEYS = Object.freeze([
   'supporting_findings',
   'important_negative_findings',
   'unresolved_questions',
-  'source_status',
   'recommendation_sequence',
   'throughline',
 ])
@@ -97,7 +119,6 @@ export const PLAN_REJECTIONS = Object.freeze([
   'unknown_finding',      // a finding id the wire package never carried
   'unknown_recommendation',
   'unknown_subject',      // neither a finding nor a measured parameter
-  'unknown_source_status',
   'duplicate_reference',  // the same id twice in one list
   'cross_list_conflict',  // a finding named both primary and supporting
 ])
@@ -213,19 +234,12 @@ export function validateAuthoringPlan(plan, wire) {
     if (s) questions.push(s)
   }
 
-  let sourceStatus = str(raw.source_status)
-  if (sourceStatus && !SOURCE_STATUSES.includes(sourceStatus)) {
-    rejected.push({ reason: 'unknown_source_status', field: 'source_status', detail: sourceStatus })
-    sourceStatus = ''
-  }
-
   const out = {
     overall_conclusion: resolveProse(raw.overall_conclusion, 'overall_conclusion', MAX_PROSE_CHARS, rejected),
     primary_findings: capped(primary, 'primary_findings', rejected),
     supporting_findings: capped(supporting, 'supporting_findings', rejected),
     important_negative_findings: capped(negatives, 'important_negative_findings', rejected),
     unresolved_questions: capped(questions, 'unresolved_questions', rejected),
-    source_status: sourceStatus,
     recommendation_sequence: capped(sequence, 'recommendation_sequence', rejected),
     throughline: resolveProse(raw.throughline, 'throughline', MAX_PROSE_CHARS, rejected),
   }
@@ -233,7 +247,7 @@ export function validateAuthoringPlan(plan, wire) {
   // "Usable" is a low bar on purpose: a plan that organized ANYTHING is
   // better scaffolding than none, and the sections do not depend on it.
   const usable = Boolean(
-    out.overall_conclusion || out.throughline || out.source_status
+    out.overall_conclusion || out.throughline
     || out.primary_findings.length || out.recommendation_sequence.length,
   )
   return { plan: out, rejected, usable }
@@ -253,7 +267,6 @@ export function emptyPlan() {
     supporting_findings: [],
     important_negative_findings: [],
     unresolved_questions: [],
-    source_status: '',
     recommendation_sequence: [],
     throughline: '',
   }

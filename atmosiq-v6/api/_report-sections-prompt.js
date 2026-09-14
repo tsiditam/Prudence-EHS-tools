@@ -115,9 +115,10 @@ The plan is scaffolding. It never appears in the report, no reader ever sees it,
 - \`supporting_findings\` — the \`id\` of each finding that corroborates or qualifies a primary one. A finding may not be in both lists.
 - \`important_negative_findings\` — what was measured and did NOT show a problem, where saying so changes the reading. Either a finding \`id\` or a parameter key from \`parameter_context\`. A clean result on the parameter a client is worried about is worth stating; a list of everything that was fine is not.
 - \`unresolved_questions\` — what this assessment could not settle, in plain words. These are the questions a reader would ask; do not answer them.
-- \`source_status\` — exactly one of \`identified\`, \`partially_identified\`, \`not_identified\`, \`not_applicable\`. Whether the assessment located a source. Say \`not_identified\` when it did not; that is the honest and common answer, and it is what makes verification the right first action.
 - \`recommendation_sequence\` — the \`id\`s from \`recommendation_options\`, in the order the report should present them. Order only. You may not add an action, drop one, or invent a priority the register does not carry.
 - \`throughline\` — one or two sentences naming what connects the findings. Where nothing meaningfully connects them, say what the pattern of results is instead; do not manufacture a link.
+
+Do not state whether a source was identified. This assessment does not establish one: every pathway is a working hypothesis carrying the \`verification\` that would settle it, which is why verification comes before an expensive fix. Say what the evidence is and what would confirm it.
 
 Plan from the evidence, not toward a conclusion. If the record supports no single story, the plan should say so and the discussion should read that way.
 
@@ -182,7 +183,6 @@ Return ONLY a JSON object. No preamble. No markdown. No code fence. Exact schema
     "supporting_findings": ["finding id"],
     "important_negative_findings": ["finding id or parameter key"],
     "unresolved_questions": ["string"],
-    "source_status": "identified | partially_identified | not_identified | not_applicable",
     "recommendation_sequence": ["recommendation id"],
     "throughline": "string"
   },

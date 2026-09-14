@@ -192,9 +192,24 @@ describe('each normative contract agrees with the auditor on its own', () => {
 describe('the planning contract agrees with the plan schema it asks for', () => {
   it('names every field the schema defines, and invents none', async () => {
     // @ts-ignore js
-    const { PLAN_KEYS, SOURCE_STATUSES } = await import('../../src/report/authoringPlan.js')
+    const { PLAN_KEYS } = await import('../../src/report/authoringPlan.js')
     for (const key of PLAN_KEYS) expect(wire.PLANNING_CONTRACT, key).toContain(key)
-    for (const status of SOURCE_STATUSES) expect(wire.PLANNING_CONTRACT, status).toContain(status)
+    // And asks for nothing the schema would reject as an unknown key.
+    for (const token of new Set(wire.PLANNING_CONTRACT.match(/\\`([a-z]+(?:_[a-z]+)+)\\`/g) || [])) {
+      const bare = String(token).replace(/\\`/g, '')
+      const known = [...PLAN_KEYS, 'authoring_plan', 'parameter_context', 'recommendation_options', 'verification']
+      expect(known, `the planning contract names \`${bare}\`, which the schema does not define`).toContain(bare)
+    }
+  })
+
+  it('does not ask the model to decide whether a source was identified', () => {
+    // Removed rather than grounded: AtmosFlow has no deterministic fact
+    // meaning a source was found, and `pathways[].hypothesis` is
+    // strength-of-evidence rather than a verdict. Asking for it anyway
+    // would have the model concluding in a plan that concludes nothing.
+    expect(wire.PLANNING_CONTRACT).not.toContain('source_status')
+    expect(wire.OUTPUT_CONTRACT).not.toContain('source_status')
+    expect(wire.PLANNING_CONTRACT).toMatch(/Do not state whether a source was identified/)
   })
 
   it('the output schema admits the plan, so the two contracts do not contradict', () => {
