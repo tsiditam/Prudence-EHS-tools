@@ -52,9 +52,13 @@
  */
 
 import { REPORT_PARAMETERS, REPORT_RESULT_COLUMNS } from './reportModel'
+import { PARAMETER_BACKGROUND } from './narrativeLibrary.js'
 
 /** Bumped when the package's shape changes in a way a consumer would notice. */
-export const PACKAGE_VERSION = 1
+// Bumped to 2 when `parameter_context` was added: a writer given approved
+// background writes a different paragraph from one recalling it, so a stored
+// record's version says which contract produced it.
+export const PACKAGE_VERSION = 2
 
 /** Rows in `results` that are derived, not measured at a location. */
 const SITE_MEAN = 'Site mean'
@@ -232,6 +236,52 @@ function buildObservationList(model) {
     if (nonEmpty(block.notes)) {
       out.push({ id: `obs-${slug(zone)}-note`, scope: 'assessor_note', zone, text: str(block.notes) })
     }
+  }
+  return out
+}
+
+// ── Parameter background ───────────────────────────────────────────────
+
+/**
+ * The APPROVED explainer for each parameter group this assessment measured.
+ *
+ * ── Why the writer gets this at all ────────────────────────────────────
+ * The package is a closed world and the boundaries say the model may not
+ * originate a threshold, a standard, or a guideline value, and may not
+ * "recall" limits from training data. The parameter-background section then
+ * asked it for exactly that: what the parameter is and why it is measured —
+ * with no approved text to work from. So the one section whose first half is
+ * general technical background was the one section written from model memory,
+ * against the rule every other part of the prompt enforces.
+ *
+ * It was never necessary. The deterministic report has carried CIH-reviewed
+ * prose for each parameter the whole time, and `PARAMETER_BACKGROUND` names
+ * ASHRAE 55 and the EPA moisture-control range in the thermal entry — real
+ * citations, correct, and not something worth re-deriving from a model's
+ * recollection when the reviewed sentence is one import away.
+ *
+ * ── A projection, like everything else here ────────────────────────────
+ * Built from `model.results.parameters` — the entries the report ACTUALLY
+ * renders — rather than from the measurement list. That matters for the same
+ * reason the rest of this module is a projection: the groups the report shows
+ * and the groups the writer is told about cannot drift apart, and temperature
+ * and relative humidity stay ONE entry (`thermal`) without this file holding
+ * a second opinion about that grouping.
+ *
+ * The text is handed over verbatim. A summarized explainer would be a
+ * paraphrase of reviewed copy, which is the thing being avoided.
+ */
+function buildParameterContext(model) {
+  const rows = (model && model.results && model.results.parameters) || []
+  const out = []
+  for (const row of rows) {
+    const key = str(row && row.key)
+    const background = PARAMETER_BACKGROUND[key]
+    // A group with no approved explainer is omitted rather than invented.
+    // Absence here means the writer has no background to state for it, which
+    // is a smaller problem than approved-sounding prose nobody approved.
+    if (!key || !background) continue
+    out.push({ parameter_group: key, title: str(row && row.title), background })
   }
   return out
 }
@@ -679,6 +729,7 @@ export function buildEvidencePackage(model = {}, engine = {}) {
   const { allowed, prohibited } = buildInterpretations(findings, measurements, chains)
   const required_limitations = buildRequiredLimitations(model, findings, measurements)
   const recommendation_options = buildRecommendationOptions(model)
+  const parameter_context = buildParameterContext(model)
   const immutable_values = buildImmutableValues(measurements, findings)
 
   const meta = (model && model.meta) || {}
@@ -707,6 +758,10 @@ export function buildEvidencePackage(model = {}, engine = {}) {
     // restate; see `buildRequiredLimitations`.
     report_limitations: (model.limitations || []).map(str).filter(nonEmpty),
     recommendation_options,
+    // Approved background prose per measured parameter group. The one place
+    // the writer is GIVEN general technical context instead of forbidden from
+    // recalling it — see `buildParameterContext`.
+    parameter_context,
     sections: {
       writable: WRITABLE_SECTIONS.slice(),
       immutable: IMMUTABLE_SECTIONS.slice(),

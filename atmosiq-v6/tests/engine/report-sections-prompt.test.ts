@@ -131,9 +131,14 @@ describe('the report-sections prompt defines all five sections', () => {
     })
   }
 
-  it('tells the writer to combine temperature and relative humidity into one "thermal" entry', () => {
-    expect(P).toMatch(/`thermal` \(covering temperature AND relative humidity together, in ONE paragraph/)
-    expect(P).toMatch(/never write them as two separate entries/)
+  it('keeps temperature and relative humidity as ONE thermal entry — now by supply, not instruction', () => {
+    // This used to pin a sentence listing the five group keys and explaining
+    // that thermal covered both. The grouping is no longer INSTRUCTED: it is
+    // SUPPLIED, as `parameter_context` rows the report itself produced, so
+    // the model reads which groups exist rather than being told. The prompt's
+    // remaining job is to forbid deviating from that list.
+    expect(P).toMatch(/keyed by `parameter_group` from `parameter_context`/)
+    expect(P).toMatch(/Do not add a key for a group it does not list, and do not split `thermal` into two/)
   })
 
   it('says a key may be omitted when there is nothing distinct to add, but never to pad or skip material', () => {

@@ -32,6 +32,31 @@ export const WHAT_IS = {
   tvoc: 'Total volatile organic compounds (TVOC) is a combined measure of the many gas-phase chemicals that off-gas from furnishings, finishes, adhesives, cleaning products, and office equipment. It is a non-specific indicator — it does not identify individual compounds — but elevated readings often accompany odor or irritation complaints and point to a source worth investigating.',
 }
 
+/**
+ * The same explainers, keyed by the PARAMETER GROUP the report renders.
+ *
+ * Two key spaces exist and used to be joined by hand in one place. `WHAT_IS`
+ * is keyed by the library's own names (`tempRh`); the report, the evidence
+ * package and the AI-section record are all keyed by the GROUP
+ * (`thermal`, because temperature and relative humidity are one paragraph).
+ * `reportModel.js` did that join inline, which was fine while it was the only
+ * consumer — and stopped being fine the moment the evidence package needed
+ * the same text, because a second inline join is a second opinion about which
+ * explainer belongs to which group.
+ *
+ * So the join lives here once. This is APPROVED prose: it names ASHRAE 55 and
+ * the EPA moisture-control range, and it is reviewed copy rather than
+ * something a model may restate from memory. It is handed to the writer for
+ * exactly that reason — see `parameter_context` in `evidencePackage.js`.
+ */
+export const PARAMETER_BACKGROUND = Object.freeze({
+  co2: WHAT_IS.co2,
+  co: WHAT_IS.co,
+  thermal: WHAT_IS.tempRh,
+  pm25: WHAT_IS.pm25,
+  tvoc: WHAT_IS.tvoc,
+})
+
 // ── Severity-keyed "observed" templates (filled from Report Model) ──
 // Each returns the "Observed:" sentence(s) for the parameter, using only the
 // supplied statistics. `s` = { range, mean, min, max, unit }.
