@@ -123,7 +123,7 @@ describe('POST /api/report-sections — shape and auth', () => {
     await handler(makeReq(), r)
     expect(r._status).toBe(200)
     expect(r._body.sections.executive_summary).toContain('Carbon dioxide')
-    expect(r._body.model).toBe(handler.__test.ANTHROPIC_MODEL)
+    expect(r._body.model).toBe(handler.__test.MODEL)
     expect(r._body.usage.input_tokens).toBe(400)
     expect(r._body.usage.output_tokens).toBe(300)
     expect(typeof r._body.usage.estimated_cost_usd).toBe('number')
