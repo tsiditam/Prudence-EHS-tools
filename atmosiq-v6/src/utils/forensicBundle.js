@@ -92,12 +92,94 @@ export function forensicHashHex(text) {
   return pass(0x811c9dc5) + pass(0x9dc5811c)
 }
 
-/** Stable id for a logged annotation, since the stored `id` may be null. */
+/**
+ * Stable id for a logged annotation, since the stored `id` may be null.
+ *
+ * The fallback hashes the annotation's SEMANTIC CONTENT — instant, type, label
+ * and note — not just its instant and type. Two annotations logged at the same
+ * minute with the same type ("Other" is the catch-all, so this is not exotic)
+ * would otherwise share one evidence id, and an interpretation accepted against
+ * one would silently attach to the other.
+ */
 export function annotationId(a) {
   const e = obj(a)
   if (str(e.id)) return `ann-${str(e.id)}`
   const t = isNum(e.t) ? Math.round(e.t).toString(36) : 'nt'
-  return `ann-${t}-${str(e.type) || 'other'}`
+  const sig = stableStringify({ t: e.t ?? null, type: str(e.type), label: str(e.label), note: str(e.note) })
+  return `ann-${t}-${forensicHashHex(sig).slice(0, 8)}`
+}
+
+/**
+ * The calibration gas actually in force, resolved ONCE.
+ *
+ * It can arrive on the session's calibration record or as the page's own
+ * `calibrationGas`, and the two were previously resolved differently in two
+ * places: the fingerprint preferred the session's, while the reference
+ * construction only ever saw the page's. A survey whose gas came from the
+ * session therefore fingerprinted one value and built its thresholds from
+ * another. One resolution, used everywhere.
+ */
+export function effectiveCalibrationGas(input = {}) {
+  return str(obj(obj(input.context).calibration).gas) || str(input.calibrationGas)
+}
+
+/**
+ * The canonical deployment-context projection.
+ *
+ * THE ONE PLACE this shape is decided, because the fingerprint and the bundle
+ * must carry exactly the same fields. The bundle previously passed the caller's
+ * whole `context` object through while the signature fingerprinted a chosen
+ * subset, so any extra field a caller attached was visible to the model and
+ * invisible to the fingerprint — a context change that left a stored
+ * interpretation looking fresh. Restricted on purpose: this is what can change
+ * an interpretation, and arbitrary extra fields are not transmitted at all.
+ */
+export function projectDeploymentContext(context, calibrationGas = '') {
+  const c = obj(context)
+  return {
+    objective: str(c.objective),
+    location: {
+      building: str(obj(c.location).building),
+      floor: str(obj(c.location).floor),
+      room: str(obj(c.location).room),
+      zone: str(obj(c.location).zone),
+      sensorPosition: str(obj(c.location).sensorPosition),
+    },
+    instrument: {
+      make: str(obj(c.instrument).make),
+      model: str(obj(c.instrument).model),
+      serial: str(obj(c.instrument).serial),
+    },
+    calibration: {
+      date: obj(c.calibration).date ?? null,
+      gas: str(calibrationGas),
+      status: str(obj(c.calibration).status),
+    },
+  }
+}
+
+/**
+ * The annotations both halves read, normalized and ordered identically.
+ *
+ * Shared for the same reason as the context projection: the fingerprint and the
+ * bundle must be describing the same list. Exact duplicates collapse — an
+ * annotation with the same instant, type, label and note is the same
+ * annotation, and giving indistinguishable entries distinct evidence ids would
+ * be inventing a difference the record does not carry.
+ */
+export function projectAnnotations(annotations) {
+  const seen = new Set()
+  return arr(annotations)
+    .filter((a) => isNum(obj(a).t))
+    .map((a) => ({
+      id: annotationId(a),
+      t: obj(a).t,
+      type: str(obj(a).type) || null,
+      label: str(obj(a).label) || null,
+      note: str(obj(a).note) || null,
+    }))
+    .filter((a) => (seen.has(a.id) ? false : seen.add(a.id)))
+    .sort((a, b) => (a.t || 0) - (b.t || 0) || a.id.localeCompare(b.id))
 }
 
 /** Stable id for one parameter of one dataset. */
@@ -114,7 +196,6 @@ export const parameterId = (datasetId, param) => `par-${datasetId}-${param}`
 export function forensicInputSignature(input = {}) {
   const env = normalizeSensorData(input.sensorData) || {}
   const datasets = arr(env.datasets)
-  const ctx = obj(input.context)
 
   return stableStringify({
     schema: FORENSIC_SCHEMA_VERSION,
@@ -134,33 +215,13 @@ export function forensicInputSignature(input = {}) {
     occupancy: arr(env.occupancyWindows)
       .map((w) => ({ start: obj(w).start ?? null, end: obj(w).end ?? null, kind: str(obj(w).kind), label: str(obj(w).label) }))
       .sort((a, b) => (a.start || 0) - (b.start || 0) || a.kind.localeCompare(b.kind)),
-    annotations: arr(input.annotations)
-      .map((a) => ({ id: annotationId(a), t: obj(a).t ?? null, type: str(obj(a).type), label: str(obj(a).label), note: str(obj(a).note) }))
-      .sort((a, b) => (a.t || 0) - (b.t || 0) || a.id.localeCompare(b.id)),
+    annotations: projectAnnotations(input.annotations),
     // Deployment context, restricted to what can change an interpretation.
     // Location and instrument bound what a reading describes; calibration
     // bounds what it is worth. A corrected client name is not here, by the same
-    // reasoning that keeps it out of the dataset hash.
-    context: {
-      objective: str(ctx.objective),
-      location: {
-        building: str(obj(ctx.location).building),
-        floor: str(obj(ctx.location).floor),
-        room: str(obj(ctx.location).room),
-        zone: str(obj(ctx.location).zone),
-        sensorPosition: str(obj(ctx.location).sensorPosition),
-      },
-      instrument: {
-        make: str(obj(ctx.instrument).make),
-        model: str(obj(ctx.instrument).model),
-        serial: str(obj(ctx.instrument).serial),
-      },
-      calibration: {
-        date: obj(ctx.calibration).date ?? null,
-        gas: str(obj(ctx.calibration).gas) || str(input.calibrationGas),
-        status: str(obj(ctx.calibration).status),
-      },
-    },
+    // reasoning that keeps it out of the dataset hash. Exactly the projection
+    // the bundle transmits, so the two cannot drift.
+    context: projectDeploymentContext(input.context, effectiveCalibrationGas(input)),
     // Pattern analysis buckets by local hour, so the offset is an input.
     utcOffsetMin: isNum(input.utcOffsetMin) ? input.utcOffsetMin : 0,
   })
@@ -224,7 +285,11 @@ export function buildForensicBundle(input = {}) {
   const rawDatasets = {}
   arr(env.datasets).forEach((d) => { if (d && d.id) rawDatasets[d.id] = d })
   const occupancyWindows = arr(env.occupancyWindows)
-  const annotations = arr(input.annotations).filter((a) => isNum(obj(a).t))
+  // The same projections the fingerprint digests, so a model-visible field can
+  // never change without the fingerprint moving with it.
+  const annotations = projectAnnotations(input.annotations)
+  const calibrationGas = effectiveCalibrationGas(input)
+  const deployment = projectDeploymentContext(input.context, calibrationGas)
   const utcOffsetMin = isNum(input.utcOffsetMin) ? input.utcOffsetMin : 0
 
   const detected = arr(env.datasets).map((d) => detectDatasetEvents(d))
@@ -237,7 +302,7 @@ export function buildForensicBundle(input = {}) {
   const periodEnd = primary && obj(primary.summary).end
 
   const parameters = arr(env.datasets).flatMap((d) => parameterBlocks(d, {
-    occupancyWindows, utcOffsetMin, periodStart, calibrationGas: input.calibrationGas,
+    occupancyWindows, utcOffsetMin, periodStart, calibrationGas,
   }))
 
   const events = detected.flatMap((d) => d.events)
@@ -271,8 +336,13 @@ export function buildForensicBundle(input = {}) {
     },
     labels: CONTEXT_INPUTS,
     occupancyWindows: occupancyWindows.map((w) => ({ start: obj(w).start ?? null, end: obj(w).end ?? null, kind: str(obj(w).kind) || null, label: str(obj(w).label) || null })),
-    annotations: annotations.map((a) => ({ id: annotationId(a), t: obj(a).t, type: str(obj(a).type) || null, label: str(obj(a).label) || null })),
-    deployment: obj(input.context),
+    // Carries the note as well as the label: the note is fingerprinted, so
+    // withholding it would leave the model reading an annotation the
+    // fingerprint protects a different version of. Annotation text is assessor
+    // input and is treated as untrusted data by the AI layer, not here.
+    annotations,
+    deployment,
+    calibrationGas: calibrationGas || null,
     utcOffsetMin,
   }
 

@@ -18,7 +18,9 @@ import {
   buildForensicBundle, forensicInputHash, forensicInputSignature, stableStringify,
   forensicHashHex, bundleEvidence, forensicFreshness, isForensicAnalysisFresh,
   annotationId, parameterId, FORENSIC_SCHEMA_VERSION,
+  projectDeploymentContext, projectAnnotations, effectiveCalibrationGas,
 } from '../../src/utils/forensicBundle.js'
+import { paramReference } from '../../src/utils/sensorThresholds.js'
 import { hashDataset, canonicalDatasetText } from '../../src/utils/datasetHash.js'
 
 const DAY = 86400_000
@@ -384,5 +386,168 @@ describe('staleness is never resolved silently', () => {
   it('accepts a bare fingerprint string as the current side', () => {
     expect(isForensicAnalysisFresh({ fingerprint: bundle.fingerprint }, bundle.fingerprint)).toBe(true)
     expect(isForensicAnalysisFresh({ fingerprint: bundle.fingerprint }, 'deadbeefdeadbeef')).toBe(false)
+  })
+})
+
+/** Every leaf path of a nested plain object. */
+const leafPaths = (o: any, prefix: string[] = []): string[][] =>
+  Object.entries(o || {}).flatMap(([k, v]) => (
+    v && typeof v === 'object' && !Array.isArray(v) ? leafPaths(v, [...prefix, k]) : [[...prefix, k]]
+  ))
+
+/** A deep copy with one leaf replaced. */
+const setAt = (o: any, path: string[], val: any) => {
+  const copy = JSON.parse(JSON.stringify(o ?? {}))
+  let cur = copy
+  path.slice(0, -1).forEach((k) => { cur[k] = cur[k] ?? {}; cur = cur[k] })
+  cur[path[path.length - 1]] = val
+  return copy
+}
+
+describe('what the model sees and what the fingerprint protects are the same thing', () => {
+  const bundle = buildForensicBundle(baseInput())
+
+  it('EVERY model-visible deployment field is fingerprint-covered', () => {
+    // The regression this closes: the bundle passed the caller's whole context
+    // through while the signature fingerprinted a chosen subset, so a field
+    // could change under the model with the fingerprint standing still.
+    const paths = leafPaths(bundle.context.deployment)
+    expect(paths.length).toBeGreaterThan(8)
+    const base = forensicInputHash(baseInput())
+    paths.forEach((path) => {
+      const mutated = setAt(baseContext(), path, `changed-${path.join('.')}`)
+      expect(
+        forensicInputHash(baseInput({ context: mutated })),
+        `${path.join('.')} is visible to the model but not fingerprinted`,
+      ).not.toBe(base)
+    })
+  })
+
+  it('the bundle transmits the canonical projection and nothing else', () => {
+    const withExtra = baseContext() as any
+    withExtra.preparedFor = 'Acme Corp'
+    withExtra.internalNotes = 'do not send'
+    const b = buildForensicBundle(baseInput({ context: withExtra }))
+    expect(b.context.deployment).toEqual(projectDeploymentContext(withExtra, 'isobutylene'))
+    expect(JSON.stringify(b.context.deployment)).not.toContain('Acme Corp')
+    expect(JSON.stringify(b.context.deployment)).not.toContain('do not send')
+    // Consistent in the other direction too: what is not transmitted is not
+    // fingerprinted, so an untransmitted field cannot invalidate a reading.
+    expect(forensicInputHash(baseInput({ context: withExtra }))).toBe(forensicInputHash(baseInput()))
+  })
+
+  it('the projection is the same object in both halves', () => {
+    expect(bundle.context.deployment).toEqual(projectDeploymentContext(baseContext(), 'isobutylene'))
+    expect(forensicInputSignature(baseInput()))
+      .toContain(stableStringify(projectDeploymentContext(baseContext(), 'isobutylene')).slice(1, 60))
+  })
+})
+
+describe('annotation content the fingerprint protects reaches the model', () => {
+  it('the note is transmitted, not just the label', () => {
+    const noted = baseInput({
+      annotations: [{ id: 'e1', t: T0 + 50 * Q, type: 'hvac_adjusted', label: 'HVAC adjusted', note: 'Damper reset to 20%' }],
+    })
+    const b = buildForensicBundle(noted)
+    expect(b.context.annotations[0].note).toBe('Damper reset to 20%')
+  })
+
+  it('changing the note changes the fingerprint AND the bundle content', () => {
+    const a = baseInput({ annotations: [{ id: 'e1', t: T0 + 50 * Q, type: 'hvac_adjusted', label: 'HVAC adjusted', note: 'Damper reset to 20%' }] })
+    const b = baseInput({ annotations: [{ id: 'e1', t: T0 + 50 * Q, type: 'hvac_adjusted', label: 'HVAC adjusted', note: 'Damper reset to 40%' }] })
+    expect(forensicInputHash(a)).not.toBe(forensicInputHash(b))
+    expect(buildForensicBundle(a).context.annotations[0].note)
+      .not.toBe(buildForensicBundle(b).context.annotations[0].note)
+  })
+
+  it('the annotation list is the same projection in both halves', () => {
+    const input = baseInput()
+    const b = buildForensicBundle(input)
+    expect(b.context.annotations).toEqual(projectAnnotations(input.annotations))
+  })
+})
+
+describe('fallback annotation ids are semantic, not positional', () => {
+  const at = T0 + 50 * Q
+
+  it('same instant and type but different labels get different ids', () => {
+    const one = annotationId({ t: at, type: 'other', label: 'Door propped open' })
+    const two = annotationId({ t: at, type: 'other', label: 'Printer running' })
+    expect(one).not.toBe(two)
+  })
+
+  it('a different note alone is enough to separate them', () => {
+    expect(annotationId({ t: at, type: 'other', label: 'X', note: 'a' }))
+      .not.toBe(annotationId({ t: at, type: 'other', label: 'X', note: 'b' }))
+  })
+
+  it('the same semantic annotation reproduces the same id across reruns', () => {
+    const a = { t: at, type: 'cleaning', label: 'Cleaning', note: 'Wet mop' }
+    expect(annotationId(a)).toBe(annotationId({ ...a }))
+    expect(annotationId(a)).toBe(annotationId({ note: 'Wet mop', label: 'Cleaning', type: 'cleaning', t: at }))
+  })
+
+  it('a stored id still wins, and unlabeled collisions no longer occur in a bundle', () => {
+    expect(annotationId({ id: 'e9', t: at, type: 'other' })).toBe('ann-e9')
+    const b = buildForensicBundle(baseInput({
+      annotations: [
+        { t: at, type: 'other', label: 'Door propped open' },
+        { t: at, type: 'other', label: 'Printer running' },
+      ],
+    }))
+    expect(b.context.annotations).toHaveLength(2)
+    expect(new Set(b.evidence.annotationIds).size).toBe(2)
+  })
+
+  it('an exact duplicate is one annotation, not two', () => {
+    const dup = { t: at, type: 'other', label: 'Door propped open', note: '' }
+    const b = buildForensicBundle(baseInput({ annotations: [dup, { ...dup }] }))
+    expect(b.context.annotations).toHaveLength(1)
+    expect(b.evidence.annotationIds).toHaveLength(1)
+  })
+})
+
+describe('the calibration gas is resolved once', () => {
+  it('the session record wins over the page value, everywhere', () => {
+    const input = baseInput({ calibrationGas: 'toluene' }) // context says isobutylene
+    expect(effectiveCalibrationGas(input)).toBe('isobutylene')
+    expect(buildForensicBundle(input).context.deployment.calibration.gas).toBe('isobutylene')
+    expect(buildForensicBundle(input).context.calibrationGas).toBe('isobutylene')
+  })
+
+  it('the page value is used when the session record carries none', () => {
+    const ctx = baseContext(); ctx.calibration.gas = ''
+    const input = baseInput({ context: ctx, calibrationGas: 'toluene' })
+    expect(effectiveCalibrationGas(input)).toBe('toluene')
+    expect(buildForensicBundle(input).context.deployment.calibration.gas).toBe('toluene')
+  })
+
+  it('changing it changes the fingerprint and the transmitted value together', () => {
+    const ctxA = baseContext(); ctxA.calibration.gas = 'isobutylene'
+    const ctxB = baseContext(); ctxB.calibration.gas = 'toluene'
+    expect(forensicInputHash(baseInput({ context: ctxA })))
+      .not.toBe(forensicInputHash(baseInput({ context: ctxB })))
+    expect(buildForensicBundle(baseInput({ context: ctxA })).context.deployment.calibration.gas)
+      .not.toBe(buildForensicBundle(baseInput({ context: ctxB })).context.deployment.calibration.gas)
+  })
+
+  it('changing it via the page value alone also moves the fingerprint', () => {
+    const ctx = baseContext(); ctx.calibration.gas = ''
+    expect(forensicInputHash(baseInput({ context: ctx, calibrationGas: 'isobutylene' })))
+      .not.toBe(forensicInputHash(baseInput({ context: ctx, calibrationGas: 'toluene' })))
+  })
+
+  it('no reference varies with the gas today, so nothing downstream can disagree about it', () => {
+    // `paramReference` still accepts and documents `calibrationGas`, but the
+    // only branch that consumed it — the Molhave TVOC tier — was removed in
+    // 2026-08, so every reference is currently gas-independent. Pinned rather
+    // than assumed: if a reference starts varying with the gas, this fails and
+    // whoever makes that change has to confirm the bundle carries it through.
+    const ts = Date.UTC(2026, 6, 1)
+    const params = ['co2', 'pm', 'co', 'tvoc', 'hcho', 'temp', 'rh']
+    params.forEach((param) => {
+      expect(JSON.stringify(paramReference(param, { unit: 'ppb', ts, calibrationGas: 'isobutylene' })))
+        .toBe(JSON.stringify(paramReference(param, { unit: 'ppb', ts, calibrationGas: 'toluene' })))
+    })
   })
 })
