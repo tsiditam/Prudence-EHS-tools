@@ -114,7 +114,7 @@ export function buildSessionFromLogger({ data, form, occupancyWindows = [], even
   })
 }
 
-export default function MonitoringReportSheet({ data, occupancyWindows = [], events = [], onClose, onGenerated }) {
+export default function MonitoringReportSheet({ data, occupancyWindows = [], events = [], patternReview = [], onClose, onGenerated }) {
   const params = useMemo(() => (data && Array.isArray(data.params) ? data.params : []), [data])
 
   const [objective, setObjective] = useState(
@@ -218,6 +218,12 @@ export default function MonitoringReportSheet({ data, occupancyWindows = [], eve
         softwareVersion: APP_VERSION,
         firm: assessor.firm || undefined,
         clientName: client.preparedFor || undefined,
+        // The accepted pattern readings, already gated. Rides in `opts` rather
+        // than in the session because a session is what was MEASURED and a
+        // reading is not part of one — and because `{ session, opts }` is the
+        // pair that re-derives the issued document, so an accepted reading has
+        // to be in one of them or the report cannot be reproduced.
+        patternReview,
       }
 
       const { fileName } = await generateMonitoringReport(session, opts)

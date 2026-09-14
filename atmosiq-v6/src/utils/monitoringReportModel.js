@@ -37,6 +37,7 @@
  */
 
 import { parameterStats, trailingMeans } from './monitoringStats'
+import { proseDigits } from './forensicValidate'
 import {
   parameterStatement,
   monitoringInsights,
@@ -445,6 +446,33 @@ export function figureCaption(entry, opts = {}) {
  * @param {string} [opts.softwareVersion]
  * @returns {object} the report model
  */
+/**
+ * One accepted pattern, normalized for rendering.
+ *
+ * The digit scan runs AGAIN here, at the deliverable boundary. It already ran
+ * when the reading was validated and again when the row was built, and it runs
+ * a third time because this is the last point before a client document: a row
+ * reaching the report with a number in its prose would put a figure nobody
+ * measured into a signed deliverable, and the cost of checking is a regex.
+ */
+function patternReviewRow(row) {
+  const r = obj(row)
+  const title = str(r.title)
+  const reading = str(r.reading)
+  if (!title || !reading) return null
+  const strings = (v) => arr(v).filter((x) => typeof x === 'string').map((x) => x.trim()).filter(Boolean)
+  const alternatives = strings(r.alternatives)
+  const reviews = strings(r.reviews)
+  if (proseDigits([title, reading, ...alternatives, ...reviews].join('\n')).length) return null
+  return {
+    title,
+    evidence: strings(r.evidence),
+    reading,
+    alternatives,
+    reviews,
+  }
+}
+
 export function buildMonitoringReportModel(session, opts = {}) {
   const s = obj(session)
   const edition = EDITIONS.includes(opts.edition) ? opts.edition : 'client'
@@ -744,6 +772,17 @@ export function buildMonitoringReportModel(session, opts = {}) {
       label: str(e.label),
       note: str(e.note),
     })),
+
+    // Optional. The patterns a credentialed assessor ACCEPTED for this
+    // report, built by `forensicReview.monitoringPatternReview` and passed in
+    // rather than derived here: this model takes a session, and a reading is
+    // not part of one. Empty (the default) means the section does not exist in
+    // the document — never an empty heading.
+    //
+    // Every figure on a row was rendered from the analysis bundle by
+    // `forensicPresent.patternEvidence`. Nothing here reads a number out of
+    // model prose, and `patternReviewRow` drops any row that carries one.
+    patternReview: arr(opts.patternReview).map(patternReviewRow).filter(Boolean),
 
     limitations: buildLimitations(params, references),
 

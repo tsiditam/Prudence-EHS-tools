@@ -57,6 +57,14 @@ describe('Logger Studio modes', () => {
     expect(screen.queryByText('Session Averages')).toBeNull()
     expect(screen.queryByText('Export PNG')).toBeNull()
 
+    // Forensics: the detector's view of the session. Three readings of one
+    // CO2 value at five-minute spacing is too short for any pattern, and the
+    // panel says so instead of offering a reading of nothing.
+    await tab('Forensics')
+    expect(screen.getByText('Patterns detected')).toBeTruthy()
+    expect(screen.getByText('No forensic patterns were detected in this session.')).toBeTruthy()
+    expect(screen.queryByText('Charts')).toBeNull()
+
     // Report: the chart listed with caption/export controls.
     await tab(/Report/)
     expect(screen.getByText('CO₂ Over Time')).toBeTruthy()

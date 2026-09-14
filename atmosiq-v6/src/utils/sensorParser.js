@@ -602,13 +602,35 @@ export function normalizeSensorData(sd) {
       // hashDataset covers the readings, so re-issuing with a corrected client
       // name yields the same hash, and storing the session must not change that.
       monitoringReport: sd.monitoringReport || null,
+      // Jasper's reading of this session's detected patterns — the record
+      // `buildForensicInterpretationRecord` produces, carrying the forensic
+      // input fingerprint it was produced from. Named for the same reason
+      // `monitoringReport` is: its lifecycle matters. `forensicFreshness`
+      // compares its fingerprint against the current envelope, so a corrected
+      // reading, a marked occupancy window or an added outdoor file makes it a
+      // reading of a session that no longer exists, and the panel says so
+      // rather than quietly showing yesterday's reading of today's data.
+      //
+      // Null until a reading is generated. Not part of `hashDataset` — that
+      // covers the readings — and not part of the forensic fingerprint either,
+      // which digests INPUTS: storing the reading must not make it stale.
+      forensicInterpretation: sd.forensicInterpretation || null,
+      // The assessor's decision about each reading — accepted, dismissed, or
+      // (by absence) unreviewed. Stored APART from the reading itself because
+      // they answer different questions: one is what a model said, the other
+      // is whether a credentialed professional will put it in a deliverable.
+      // Only this record can admit anything to the monitoring report, and it
+      // never survives a change it was not made about — see
+      // `forensicReview.js`.
+      forensicReview: sd.forensicReview || null,
     }
   }
   // Legacy v1: the object itself is the primary (indoor) dataset, with
   // graphs/thresholds/mapping riding alongside the parsed fields.
-  // `monitoringReport` is destructured out with them so an envelope that
-  // somehow carries one cannot fold it into the dataset's parsed fields.
-  const { graphs, thresholds, version, datasets, occupancyWindows, monitoringReport, ...parsed } = sd
+  // `monitoringReport`, `forensicInterpretation` and `forensicReview` are
+  // destructured out with them so an envelope that somehow carries one cannot
+  // fold it into the dataset's parsed fields.
+  const { graphs, thresholds, version, datasets, occupancyWindows, monitoringReport, forensicInterpretation, forensicReview, ...parsed } = sd
   return {
     version: SENSOR_DATA_VERSION,
     datasets: [{ id: 'primary', role: 'indoor', label: 'Indoor', ...parsed }],
@@ -616,6 +638,8 @@ export function normalizeSensorData(sd) {
     thresholds: thresholds || { co2: true },
     graphs: graphs || {},
     monitoringReport: monitoringReport || null,
+    forensicInterpretation: forensicInterpretation || null,
+    forensicReview: forensicReview || null,
   }
 }
 

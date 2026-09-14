@@ -1285,6 +1285,45 @@ export function buildLimitationsSection(model, num) {
   }
 }
 
+/**
+ * Monitoring Pattern Review — OPTIONAL, and present only when a credentialed
+ * assessor accepted at least one reading for this report.
+ *
+ * The section's structure is the contract it publishes: each entry states the
+ * deterministic evidence FIRST, on its own line, in the figures the analysis
+ * produced — then the accepted reading beneath it, in words. A reader can see
+ * exactly which half is measurement and which is interpretation, and the
+ * interpretation carries no figures of its own to disagree with the line above
+ * it (`patternReviewRow` drops any row that does).
+ *
+ * Nothing here is generated at render time. `model.patternReview` is built
+ * from decisions the assessor made, and a decision that has gone stale or been
+ * superseded never reaches the model at all.
+ */
+export function buildPatternReviewSection(model, num) {
+  const rows = (model && model.patternReview) || []
+  if (!rows.length) return null
+  const title = 'Monitoring Pattern Review'
+  const children = [
+    sectionHeading(num, title),
+    p('Patterns identified in the monitoring record and reviewed by the assessor. Each entry states the measured evidence, then the assessor-accepted interpretation of it. These are observations about the record, not determinations of cause, compliance or health.', {
+      color: MUTED, size: TYPE.small, after: 140,
+    }),
+  ]
+  rows.forEach((row, i) => {
+    const body = [p(row.title, { bold: true, size: TYPE.small, after: row.evidence.length ? 40 : 80 })]
+    if (row.evidence.length) {
+      body.push(p(row.evidence.join('  ·  '), { color: MUTED, size: TYPE.fine, after: 80 }))
+    }
+    body.push(p(row.reading, { size: TYPE.fine, color: BODY, after: row.alternatives.length || row.reviews.length ? 70 : 0 }))
+    row.alternatives.forEach((t) => body.push(tickRow(`Also consistent with: ${t}`)))
+    row.reviews.forEach((t) => body.push(tickRow(`To confirm: ${t}`)))
+    children.push(parameterCard(body))
+    if (i < rows.length - 1) children.push(p('', { after: 0, size: 2 }))
+  })
+  return { title, children }
+}
+
 /** Appendix A — the annotated monitoring events, kept out of the body. */
 export function buildEventsAppendix(model) {
   const rows = (model && model.events) || []
@@ -1382,6 +1421,10 @@ export function buildMonitoringSections(model) {
       buildParameterSection({ ...entry, statementNote: model.statementNote }, n),
     ),
     (n) => buildDataQualitySection(model, n),
+    // Between the dataset's own integrity and the limitations: the reader has
+    // the measurements and knows how complete they are, and has not yet been
+    // told what the report does not claim.
+    (n) => buildPatternReviewSection(model, n),
     (n) => buildLimitationsSection(model, n),
   ]
 

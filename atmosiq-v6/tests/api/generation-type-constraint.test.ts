@@ -16,7 +16,7 @@
  * migration adds it.
  */
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, existsSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const API_DIR = path.resolve('api')
@@ -60,9 +60,20 @@ describe('narrative_generations generation_type CHECK covers every handler', () 
     expect(handlers['api/narrative.js']).toBe('narrative')
   })
 
-  it('the latest constraint definition is 037 and lists seven types', () => {
-    expect(constraint.file).toBe('037_report_sections_generation_type.sql')
-    expect(constraint.types).toHaveLength(7)
+  it('the latest constraint definition covers every earlier one', () => {
+    // Named by discovery, not by number. The first version of this assertion
+    // read `toBe('037_...')` and `toHaveLength(7)`, which is precisely the
+    // mistake the file header describes: it had to be hand-edited the moment
+    // an eighth handler arrived, and until someone did, the failure it
+    // reported was its own staleness rather than a missing migration.
+    expect(constraint.file).toMatch(/^\d{3}_.*\.sql$/)
+    expect(constraint.types.length).toBeGreaterThanOrEqual(7)
+    expect(new Set(constraint.types).size).toBe(constraint.types.length)
+    // The list only ever grows: dropping a type would refuse a ledger row for
+    // a handler that is still deployed, which is the outage 037 records.
+    for (const t of ['narrative', 'field_assistant', 'inline_ai', 'inline_complete', 'pre_review_semantic', 'photo_analysis', 'report_sections']) {
+      expect(constraint.types, t).toContain(t)
+    }
   })
 
   for (const [file, type] of Object.entries(handlers)) {
@@ -71,11 +82,17 @@ describe('narrative_generations generation_type CHECK covers every handler', () 
     })
   }
 
-  it('037 is guarded the same way 033 is, so a re-run is safe', () => {
-    const sql = readFileSync(path.join(MIGRATIONS_DIR, '037_report_sections_generation_type.sql'), 'utf8')
+  it('the latest definition is guarded the same way 033 is, so a re-run is safe', () => {
+    const sql = readFileSync(path.join(MIGRATIONS_DIR, constraint.file), 'utf8')
     const code = sql.replace(/^\s*--.*$/gm, '')
     expect(code).toMatch(/IF to_regclass\('public\.narrative_generations'\) IS NULL THEN\s+RETURN;/)
     expect(code).toMatch(/DROP CONSTRAINT narrative_generations_type_check/)
-    expect(existsSync(path.join(MIGRATIONS_DIR, '036_report_sections_generation_type.sql'))).toBe(false)
+  })
+
+  it('no two migrations claim the same number', () => {
+    const nums = readdirSync(MIGRATIONS_DIR)
+      .filter(f => /^\d{3}_.*\.sql$/.test(f))
+      .map(f => f.slice(0, 3))
+    expect(new Set(nums).size).toBe(nums.length)
   })
 })
