@@ -202,7 +202,21 @@ async function handler(req, res) {
     })
   }
 
-  const parsed = result.sections
+  // The model is asked for `{ authoring_plan, sections }`. A model that
+  // ignores the wrapper and returns the five section keys at the top level
+  // is still accepted: the report it produces is exactly today's report,
+  // and refusing it would make a planning experiment able to cost an
+  // assessor five sections it would otherwise have had.
+  const envelope = result.envelope || {}
+  const parsed = envelope.sections && typeof envelope.sections === 'object' && !Array.isArray(envelope.sections)
+    ? envelope.sections
+    : envelope
+  // Passed through unvalidated, exactly like a semantic candidate: the
+  // client holds the wire package these ids must resolve against, so the
+  // client is the only place the check means anything.
+  const authoringPlan = envelope.authoring_plan && typeof envelope.authoring_plan === 'object' && !Array.isArray(envelope.authoring_plan)
+    ? envelope.authoring_plan
+    : null
   const flat = flattenSections(parsed)
 
   // Lint every section with the same ruleset as the narrative endpoint, per
@@ -241,6 +255,9 @@ async function handler(req, res) {
       estimated_cost_usd: cost,
       plan,
       section_count: flat.length,
+      // Counted, never logged verbatim: the plan is the model's own words
+      // about the assessment and the audit record does not need them.
+      authoring_plan_present: Boolean(authoringPlan),
       language_review: languageReview,
       banned_language_count: Object.values(bannedLanguage).reduce((n, arr) => n + arr.length, 0),
       style_flag_count: Object.values(styleFlags).reduce((n, arr) => n + arr.length, 0),
@@ -257,6 +274,10 @@ async function handler(req, res) {
     banned_language: bannedLanguage,
     style_flags: styleFlags,
     any_banned: anyBanned,
+    // Scaffolding, returned for the client to validate and then use during
+    // generation. It is not a section, it never renders, and nothing
+    // downstream persists it.
+    authoring_plan: authoringPlan,
     usage: { input_tokens: inputTokens, output_tokens: outputTokens, estimated_cost_usd: cost },
   })
 }

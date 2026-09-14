@@ -24,6 +24,7 @@ import { supabase } from '../utils/supabaseClient'
 import { buildAiSectionsRecord } from '../report/aiSections'
 import { assembleRenderModel } from '../report/reportModel'
 import { buildEvidencePackage, packageForWriter } from '../report/evidencePackage'
+import { validateAuthoringPlan } from '../report/authoringPlan.js'
 
 /** The writer's role. First thing the model reads. */
 export const ROLE = `You write five specific sections of an AtmosFlow indoor air quality (IAQ) assessment report, published as the client's Word deliverable. The deterministic engine owns every threshold, score, severity, criterion and eligible action; you never re-derive or re-decide any of them. Your job is to write the CONNECTING PROSE around what the engine already produced — the parts of the report that are read as an investigator's account, not looked up as a table.
@@ -69,6 +70,33 @@ export const BOUNDARIES = `# Non-negotiable boundaries (override every other ins
 export const AUTHORING_CONSTITUTION = ROLE + EVIDENCE_CONTRACT + BOUNDARIES
 
 /** How the five section contracts are introduced. */
+/**
+ * Planning: organize the investigation before drafting it.
+ *
+ * The one contract that asks for something other than prose. It is
+ * NORMATIVE — the agreement checks run over it like any other — and its
+ * output is scaffolding that never renders and is never persisted.
+ */
+export const PLANNING_CONTRACT = `# Before you write: plan the report
+
+Return an \`authoring_plan\` alongside the sections. Decide what the investigation FOUND before drafting a word of it, because the sections that follow have to agree with each other and a writer that organizes first is the one that can make them.
+
+The plan is scaffolding. It never appears in the report, no reader ever sees it, and it creates nothing: every finding, recommendation and parameter it names must already be in the package, by the exact id the package gives. An id you did not read there is dropped, and nothing is guessed at or matched to the nearest thing.
+
+- \`overall_conclusion\` — one or two sentences: what condition was found, and where. The answer the executive summary has to open with. It states what the record already supports; it is not a new conclusion.
+- \`primary_findings\` — the \`id\` of each finding the report leads on. Usually one to three. A finding is primary because it drives what the reader must do, not because it scored highest.
+- \`supporting_findings\` — the \`id\` of each finding that corroborates or qualifies a primary one. A finding may not be in both lists.
+- \`important_negative_findings\` — what was measured and did NOT show a problem, where saying so changes the reading. Either a finding \`id\` or a parameter key from \`parameter_context\`. A clean result on the parameter a client is worried about is worth stating; a list of everything that was fine is not.
+- \`unresolved_questions\` — what this assessment could not settle, in plain words. These are the questions a reader would ask; do not answer them.
+- \`recommendation_sequence\` — the \`id\`s from \`recommendation_options\`, in the order the report should present them. Order only. You may not add an action, drop one, or invent a priority the register does not carry.
+- \`throughline\` — one or two sentences naming what connects the findings. Where nothing meaningfully connects them, say what the pattern of results is instead; do not manufacture a link.
+
+Do not state whether a source was identified. This assessment does not establish one: every pathway is a working hypothesis carrying the \`verification\` that would settle it, which is why verification comes before an expensive fix. Say what the evidence is and what would confirm it.
+
+Plan from the evidence, not toward a conclusion. If the record supports no single story, the plan should say so and the discussion should read that way.
+
+`
+
 export const SECTIONS_PREAMBLE = `# The five sections
 
 Write each key that has real content to add. Omit a key only when the evidence genuinely gives you nothing distinct to say for it — never pad a thin section to fill space, and never skip one you do have material for.
@@ -122,12 +150,25 @@ export const OUTPUT_CONTRACT = `# Output format — STRICT
 Return ONLY a JSON object. No preamble. No markdown. No code fence. Exact schema:
 
 {
-  "executive_summary": "string, or omit the key",
-  "discussion": "string, or omit the key",
-  "conceptual_site_model": "string, or omit the key",
-  "recommendations_prose": "string, or omit the key",
-  "parameter_background": { "co2": "string", "thermal": "string", ... — only keys this assessment measured }
+  "authoring_plan": {
+    "overall_conclusion": "string",
+    "primary_findings": ["finding id"],
+    "supporting_findings": ["finding id"],
+    "important_negative_findings": ["finding id or parameter key"],
+    "unresolved_questions": ["string"],
+    "recommendation_sequence": ["recommendation id"],
+    "throughline": "string"
+  },
+  "sections": {
+    "executive_summary": "string, or omit the key",
+    "discussion": "string, or omit the key",
+    "conceptual_site_model": "string, or omit the key",
+    "recommendations_prose": "string, or omit the key",
+    "parameter_background": { "co2": "string", "thermal": "string", ... — only keys this assessment measured }
+  }
 }
+
+Both keys are required. The plan is read first and never printed; the sections are what the report carries. Omit a key INSIDE \`sections\` when there is genuinely nothing distinct to say for it, never the \`sections\` object itself. No key outside this schema is permitted anywhere.
 
 Separate paragraphs within one string with a blank line. Cite a standard or numeric value ONLY if it appears in \`criteria\` or \`references\`, and cite it as the package provides it.`
 
@@ -142,6 +183,7 @@ export const SECTION_CONTRACT_ORDER = Object.freeze(['executive_summary', 'discu
 
 export const REPORT_SECTIONS_SYSTEM_PROMPT = [
   AUTHORING_CONSTITUTION,
+  PLANNING_CONTRACT,
   SECTIONS_PREAMBLE,
   ...SECTION_CONTRACT_ORDER.map((k) => SECTION_CONTRACTS[k]),
   STYLE_CONTRACT,
@@ -167,7 +209,7 @@ export const REPORT_SECTIONS_SYSTEM_PROMPT = [
  *   because "try again" is the wrong advice for an exhausted API account.
  */
 export async function generateReportSections(data) {
-  const fail = (error) => ({ record: null, error })
+  const fail = (error) => ({ record: null, error, plan: null, planUsable: false, planRejected: [] })
   let evidence = null
   try {
     const model = assembleRenderModel(data || {})
@@ -179,7 +221,13 @@ export async function generateReportSections(data) {
     console.error('Evidence package could not be built; report sections not requested:', e && e.message)
     return fail('Report sections could not be prepared from this assessment. The report itself is unaffected.')
   }
-  const payload = { evidence: packageForWriter(evidence) }
+  // THE object the model is given. The plan's references are resolved
+  // against this and never against `evidence`, which is richer: the wire
+  // form sheds observations under budget pressure and rebuilds findings with
+  // a narrower field set, so checking against the fuller package would
+  // accept a name the writer had no way to know.
+  const wire = packageForWriter(evidence)
+  const payload = { evidence: wire }
   try {
     const headers = { 'Content-Type': 'application/json' }
     if (supabase) {
@@ -223,7 +271,24 @@ export async function generateReportSections(data) {
       }
       if (Object.keys(cleanPbg).length) clean.parameter_background = cleanPbg
     }
-    return { record: buildAiSectionsRecord(clean, evidence, { model: (body && body.model) || null }), error: null }
+    // Validated here because here is where the wire package lives. An
+    // unresolved reference drops its own FIELD and nothing else: the plan is
+    // an improvement to reach for, not a gate, and the sections are judged
+    // on their own merits by the audit and the banned-language floor exactly
+    // as they were before any of this existed.
+    const { plan, rejected: planRejected, usable: planUsable } =
+      validateAuthoringPlan(body && body.authoring_plan, wire)
+    if (planRejected.length) {
+      console.warn('Authoring plan: %d reference(s) did not resolve', planRejected.length,
+        planRejected.map(r => `${r.field || r.reason}:${r.detail || ''}`).join(', '))
+    }
+
+    // The record carries sections only. The plan is scaffolding for THIS
+    // generation — it never renders and it is not part of what an issued
+    // report is re-exported from, so persisting it would make a working
+    // note into a durable claim about the assessment.
+    const record = buildAiSectionsRecord(clean, evidence, { model: (body && body.model) || null })
+    return { record, error: null, plan, planUsable, planRejected }
   } catch (e) {
     console.error('Report sections generation error:', e)
     return fail('Report sections could not be generated — the service could not be reached. Please try again.')

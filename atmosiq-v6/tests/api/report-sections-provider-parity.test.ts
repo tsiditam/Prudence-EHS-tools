@@ -20,6 +20,23 @@
  * `system` is compared by length rather than content: the prompt is pinned
  * byte-for-byte by `report-sections-prompt-parity.test.ts`, and inlining
  * fifteen kilobytes here would only make this file lie about what it checks.
+ *
+ * ── The goldens moved once, deliberately ───────────────────────────────
+ * The authoring plan changed two of these values ON PURPOSE, and they are
+ * recorded here rather than quietly re-baselined:
+ *
+ *   • `system_chars` 14711 -> 17874 -> 17782. The prompt first gained a
+ *     planning contract and an output schema admitting the plan, then lost
+ *     `source_status` from both when review found it let the MODEL decide a
+ *     categorical investigative conclusion (see `authoringPlan.js`). Both
+ *     moves are recorded rather than overwritten, so the number has a
+ *     history instead of just a current value;
+ *   • the response body gained exactly one key, `authoring_plan`.
+ *
+ * Everything else is unchanged and still pinned — the request's field SET,
+ * every section value, the language review, the usage block, and all three
+ * failure shapes. A future change that moves any of those is a regression,
+ * not a re-baseline.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
@@ -101,7 +118,7 @@ const GOLDEN_REQUEST = {
   model: 'claude-sonnet-4-6',
   max_tokens: 4000,
   temperature: 0.7,
-  system_chars: 14711,
+  system_chars: 17782,
   messages: [{
     role: 'user',
     content: 'Based ONLY on this evidence package, write the report sections as the strict JSON schema requires:\n\n{"evidence":{"version":1,"facts":[]}}',
@@ -125,6 +142,9 @@ const GOLDEN_RESPONSE = {
     banned_language: {},
     style_flags: {},
     any_banned: false,
+    // Null here because this fixture replies in the pre-plan shape, which
+    // the handler still accepts — see the tolerance test below.
+    authoring_plan: null,
     usage: { input_tokens: 1234, output_tokens: 567, estimated_cost_usd: 0.0122 },
   },
 }
@@ -235,5 +255,70 @@ describe('the authoring handler no longer knows which vendor wrote the prose', (
     for (const token of ['claude-', 'api.anthropic.com', 'anthropic-version', 'temperature', 'max_tokens']) {
       expect(src, token).toContain(token)
     }
+  })
+})
+
+describe('the plan rides beside the sections without displacing them', () => {
+  it('a model that ignores the wrapper still gets its five sections', async () => {
+    // Tolerance on purpose. A planning experiment must not be able to cost
+    // an assessor the sections they would have had without it, so the
+    // pre-plan response shape is still read as sections.
+    instrument()
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(r._body.sections.executive_summary).toBe('A clean summary sentence.')
+    expect(r._body.authoring_plan).toBeNull()
+  })
+
+  it('a wrapped response yields both, and the plan is passed through unvalidated', async () => {
+    const plan = { overall_conclusion: 'Something was found.', primary_findings: ['find-abc'] }
+    handler.__test.setFetch(async () => ({
+      ok: true, status: 200,
+      json: async () => ({
+        content: [{ type: 'text', text: JSON.stringify({ authoring_plan: plan, sections: { discussion: 'A discussion paragraph.' } }) }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    }))
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(r._body.sections).toEqual({ discussion: 'A discussion paragraph.' })
+    // Verbatim: the client holds the wire package these ids must resolve
+    // against, so the client is the only place a check means anything.
+    expect(r._body.authoring_plan).toEqual(plan)
+  })
+
+  it('a plan that is not an object is dropped rather than passed on', async () => {
+    for (const bad of ['a plan', 42, ['x'], null]) {
+      handler.__test.setFetch(async () => ({
+        ok: true, status: 200,
+        json: async () => ({
+          content: [{ type: 'text', text: JSON.stringify({ authoring_plan: bad, sections: { discussion: 'x' } }) }],
+          usage: {},
+        }),
+      }))
+      const r = makeRes()
+      await handler(makeReq(), r)
+      expect(r._body.authoring_plan, JSON.stringify(bad)).toBeNull()
+      expect(r._body.sections.discussion).toBe('x')
+    }
+  })
+
+  it('the plan is never scanned as a section', async () => {
+    // It never renders, so scanning it could only cost a usable plan for
+    // prose no reader will ever see.
+    handler.__test.setFetch(async () => ({
+      ok: true, status: 200,
+      json: async () => ({
+        content: [{ type: 'text', text: JSON.stringify({
+          authoring_plan: { overall_conclusion: 'The building is unsafe and this is confirmed.' },
+          sections: { discussion: 'A discussion paragraph.' },
+        }) }],
+        usage: {},
+      }),
+    }))
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(Object.keys(r._body.language_review)).toEqual(['discussion'])
+    expect(r._body.any_banned).toBe(false)
   })
 })

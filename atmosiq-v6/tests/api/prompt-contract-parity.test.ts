@@ -10,10 +10,18 @@
  * a pathway in one place and asked for "the leading explanation" forty
  * lines later, and nothing was scoped tightly enough to see both at once.
  *
- * Splitting it changes nothing the model receives, and "nothing" has to be
- * proven rather than claimed — so the first assertion below is against a
- * sha256 CAPTURED FROM THE SINGLE LITERAL BEFORE it was split. If the
- * assembly ever drifts by one character, that hash says so.
+ * Splitting it changed nothing the model received, and "nothing" had to be
+ * proven rather than claimed — so the hash below was CAPTURED FROM THE
+ * SINGLE LITERAL BEFORE it was split.
+ *
+ * ── The hash moved once, deliberately ──────────────────────────────────
+ * The authoring plan then added a fifth contract and changed the output
+ * schema to admit it, so the ASSEMBLY is no longer that literal. Rather
+ * than re-baseline the whole thing and lose what the hash protected, it now
+ * pins the three contracts the plan did NOT touch — constitution, section
+ * contracts, style — which are still byte-for-byte what they were before
+ * the split. A change to any of those is a regression; a change to the
+ * output contract or the assembly is the plan, and is pinned separately.
  *
  * ── What the split buys ────────────────────────────────────────────────
  * The auditor-agreement check now runs against each NORMATIVE contract on
@@ -39,30 +47,42 @@ const wire = require('../../api/_report-sections-prompt.js')
  * before the split. Captured by hashing the old constant, not by hashing
  * the new assembly and writing the answer down.
  */
-const GOLDEN_SHA256 = 'f3ef0ce180b96dece009a257b2d572b4cb6dd9d5c66536df2927122edc944e80'
-const GOLDEN_CHARS = 14711
+/**
+ * Constitution + section contracts + style, hashed from the single literal
+ * BEFORE it was split and unchanged since — captured from the old constant,
+ * not computed from the new assembly and written down afterwards.
+ *
+ * (The whole pre-plan literal was `f3ef0ce1…`, 14711 characters. The
+ * authoring plan rewrote the output contract, so the full assembly no
+ * longer matches it; see the header.)
+ */
+const UNTOUCHED_SHA256 = '34289fd6e41fc9d6037d472ad186a442f86fa0bf7fd4d20bccccd36d7bd664c7'
 
 const sha = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex')
 
 /** Every named part, both copies, so parity is checked piece by piece. */
 const PARTS = [
   'ROLE', 'EVIDENCE_CONTRACT', 'BOUNDARIES', 'AUTHORING_CONSTITUTION',
-  'SECTIONS_PREAMBLE', 'STYLE_CONTRACT', 'OUTPUT_CONTRACT',
+  'PLANNING_CONTRACT', 'SECTIONS_PREAMBLE', 'STYLE_CONTRACT', 'OUTPUT_CONTRACT',
 ]
 
-describe('the assembled prompt is byte-identical to the literal it replaces', () => {
-  it('matches the sha256 captured before the split', () => {
-    expect(wire.REPORT_SECTIONS_SYSTEM_PROMPT.length).toBe(GOLDEN_CHARS)
+describe('the contracts the plan did not touch are byte-for-byte unchanged', () => {
+  it('the three contracts the plan did not touch are byte-for-byte unchanged', () => {
+    const untouched = wire.AUTHORING_CONSTITUTION
+      + wire.SECTIONS_PREAMBLE
+      + wire.SECTION_CONTRACT_ORDER.map((k: string) => wire.SECTION_CONTRACTS[k]).join('')
+      + wire.STYLE_CONTRACT
     expect(
-      sha(wire.REPORT_SECTIONS_SYSTEM_PROMPT),
-      'the assembled prompt drifted from the single literal it replaced',
-    ).toBe(GOLDEN_SHA256)
+      sha(untouched),
+      'a contract the authoring plan was not supposed to touch has drifted',
+    ).toBe(UNTOUCHED_SHA256)
   })
 
   it('assembles by plain concatenation, inserting no separators of its own', () => {
     // Each part carries the blank lines that followed it in the original.
     // A join with '\n\n' would look right and be wrong by ten characters.
     const byHand = wire.AUTHORING_CONSTITUTION
+      + wire.PLANNING_CONTRACT
       + wire.SECTIONS_PREAMBLE
       + wire.SECTION_CONTRACT_ORDER.map((k: string) => wire.SECTION_CONTRACTS[k]).join('')
       + wire.STYLE_CONTRACT
@@ -131,6 +151,7 @@ describe('each normative contract agrees with the auditor on its own', () => {
     ['ROLE', wire.ROLE],
     ['EVIDENCE_CONTRACT', wire.EVIDENCE_CONTRACT],
     ['BOUNDARIES', wire.BOUNDARIES],
+    ['PLANNING_CONTRACT', wire.PLANNING_CONTRACT],
     ['SECTIONS_PREAMBLE', wire.SECTIONS_PREAMBLE],
     ['STYLE_CONTRACT', wire.STYLE_CONTRACT],
     ['OUTPUT_CONTRACT', wire.OUTPUT_CONTRACT],
@@ -165,5 +186,49 @@ describe('each normative contract agrees with the auditor on its own', () => {
     // the whole agreement check rests on.
     expect(ranked(wire.EVIDENCE_CONTRACT).length).toBeGreaterThan(0)
     expect(ranked(normativeText(wire.EVIDENCE_CONTRACT))).toEqual([])
+  })
+})
+
+describe('the planning contract agrees with the plan schema it asks for', () => {
+  it('names every field the schema defines, and invents none', async () => {
+    // @ts-ignore js
+    const { PLAN_KEYS } = await import('../../src/report/authoringPlan.js')
+    for (const key of PLAN_KEYS) expect(wire.PLANNING_CONTRACT, key).toContain(key)
+    // And asks for nothing the schema would reject as an unknown key.
+    for (const token of new Set(wire.PLANNING_CONTRACT.match(/\\`([a-z]+(?:_[a-z]+)+)\\`/g) || [])) {
+      const bare = String(token).replace(/\\`/g, '')
+      const known = [...PLAN_KEYS, 'authoring_plan', 'parameter_context', 'recommendation_options', 'verification']
+      expect(known, `the planning contract names \`${bare}\`, which the schema does not define`).toContain(bare)
+    }
+  })
+
+  it('does not ask the model to decide whether a source was identified', () => {
+    // Removed rather than grounded: AtmosFlow has no deterministic fact
+    // meaning a source was found, and `pathways[].hypothesis` is
+    // strength-of-evidence rather than a verdict. Asking for it anyway
+    // would have the model concluding in a plan that concludes nothing.
+    expect(wire.PLANNING_CONTRACT).not.toContain('source_status')
+    expect(wire.OUTPUT_CONTRACT).not.toContain('source_status')
+    expect(wire.PLANNING_CONTRACT).toMatch(/Do not state whether a source was identified/)
+  })
+
+  it('the output schema admits the plan, so the two contracts do not contradict', () => {
+    // The defect this avoids is the one this whole split exists for: a
+    // planning contract asking for `authoring_plan` while the output
+    // contract declares an exact schema that has no such key would make
+    // every compliant reply violate the schema it was handed.
+    expect(wire.OUTPUT_CONTRACT).toContain('authoring_plan')
+    expect(wire.OUTPUT_CONTRACT).toContain('"sections"')
+    expect(wire.OUTPUT_CONTRACT).toMatch(/Both keys are required/)
+  })
+
+  it('says the plan never prints', () => {
+    expect(wire.PLANNING_CONTRACT).toMatch(/never appears in the report/)
+    expect(wire.OUTPUT_CONTRACT).toMatch(/read first and never printed/)
+  })
+
+  it('forbids the plan creating anything', () => {
+    expect(wire.PLANNING_CONTRACT).toMatch(/it creates nothing/)
+    expect(wire.PLANNING_CONTRACT).toMatch(/An id you did not read there is dropped/)
   })
 })
