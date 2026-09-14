@@ -133,8 +133,9 @@ describe('trimming only ever removes, and says what it removed', () => {
 describe('the generation path gates what comes back', () => {
   const cycle = bundle.patterns.find((p: any) => p.kind === 'recurring_cycle')
   const reply = (interpretations: any[], model = 'claude-sonnet-4-6') => vi.fn(async () => ({
-    ok: true, status: 200, json: async () => ({ output: { interpretations }, model }),
+    ok: true, status: 200, json: async () => ({ output: { interpretations }, parse: { status: 'ok' }, model }),
   }))
+  const replyRaw = (body: any) => vi.fn(async () => ({ ok: true, status: 200, json: async () => body }))
   const good = (over: any = {}) => ({
     pattern_id: cycle.id,
     title: 'Repeating daily swing',
@@ -172,7 +173,44 @@ describe('the generation path gates what comes back', () => {
       fetch: reply([good({ interpretation: 'The correlation was 0.93, which warrants review and requires confirmation.' })]),
       supabase: null,
     })
-    expect(r.validation.rejected[0].reason).toBe('unsupported_number')
+    expect(r.validation.rejected[0].reason).toBe('digits_in_prose')
+  })
+
+  it('persists a valid empty response as empty', async () => {
+    const r: any = await generateForensicInterpretation(input, { fetch: reply([]), supabase: null })
+    expect(r.error).toBe(null)
+    expect(r.validation.status).toBe('empty')
+    expect(r.record.validation.status).toBe('empty')
+    expect(r.record.validation.reasons).toEqual([])
+  })
+
+  it('persists a response the handler could not parse as rejected, never as empty', async () => {
+    // Invalid JSON, a missing list, and the wrong top-level type. The model
+    // tried and what came back was unusable — the opposite of a model that
+    // read the session and validly raised nothing.
+    const cases: Array<[any, string, string]> = [
+      [{ status: 'unparseable', detail: 'invalid_json' }, 'unparseable_output', 'invalid_json'],
+      [{ status: 'malformed', detail: 'missing_interpretations' }, 'malformed_output', 'missing_interpretations'],
+      [{ status: 'malformed', detail: 'not_an_object' }, 'malformed_output', 'not_an_object'],
+    ]
+    for (const [parse, reason, detail] of cases) {
+      const r: any = await generateForensicInterpretation(input, { fetch: replyRaw({ output: null, parse, model: 'm' }), supabase: null })
+      expect(r.error, reason).toBe(null)
+      expect(r.validation.status, reason).toBe('rejected')
+      expect(r.validation.rejected, reason).toEqual([{ reason, detail }])
+      expect(r.record.validation.status, reason).toBe('rejected')
+      expect(r.record.validation.reasons, reason).toEqual([reason])
+      expect(r.record.interpretations, reason).toEqual([])
+      expect(r.record.fingerprint, reason).toBe(bundle.fingerprint)
+    }
+  })
+
+  it('does not trust an output the handler sent alongside a failed parse', async () => {
+    const r: any = await generateForensicInterpretation(input, {
+      fetch: replyRaw({ output: { interpretations: [good()] }, parse: { status: 'malformed', detail: 'not_an_object' }, model: 'm' }),
+      supabase: null,
+    })
+    expect(r.validation.status).toBe('rejected')
   })
 
   it('sends the wire form, not the bundle', async () => {
@@ -189,7 +227,9 @@ describe('the generation path gates what comes back', () => {
     const r: any = await generateForensicInterpretation({ sensorData: { version: 2, datasets: [] } }, { fetch: f, supabase: null })
     expect(f).not.toHaveBeenCalled()
     expect(r.record).toBe(null)
-    expect(r.error).toContain('No repeating patterns')
+    expect(r.error).toContain('No forensic patterns were detected')
+    // Not "repeating": most forensic patterns are not recurrence patterns.
+    expect(r.error).not.toContain('repeating')
   })
 
   it('surfaces the server’s own message rather than a bare try-again', async () => {

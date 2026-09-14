@@ -121,29 +121,50 @@ async function callAnthropic(apiKey, system, payload) {
 }
 
 /**
+ * How the model's text parsed. Exported so the client and the audit log name
+ * the same three outcomes.
+ *
+ *   ok           the agreed shape, possibly with an empty list
+ *   unparseable  not JSON at all, even after stripping a code fence
+ *   malformed    JSON, but not the agreed shape — `detail` says which way
+ */
+const PARSE_STATUSES = Object.freeze(['ok', 'unparseable', 'malformed'])
+
+/**
  * Parse the model's response into `{ interpretations: [...] }`, tolerating a
  * code fence it added despite the strict instruction — the same tolerance
  * api/report-sections.js and api/pre-review-semantic.js already apply for the
- * same reason. Returns an empty list (not an error) on anything unparseable:
- * the deterministic analysis is a complete surface without any reading of it,
- * and the client-side gate would refuse the malformed output anyway.
+ * same reason.
+ *
+ * What it does NOT do is collapse a failure into an empty list. The first cut
+ * returned `{ interpretations: [] }` for anything it could not read, which made
+ * a broken contract indistinguishable from a model that had read the session
+ * and validly found nothing worth raising — the opposite fact, persisted the
+ * same way. A valid `{"interpretations":[]}` is `ok`; everything else is
+ * refused with a status, and the client turns that into a `rejected` record.
+ *
+ * @returns {{status:string, interpretations:Array|null, detail?:string}}
  */
 function tryParseOutput(text) {
-  if (!text) return { interpretations: [] }
-  let s = String(text).trim()
+  if (typeof text !== 'string' || !text.trim()) return { status: 'unparseable', interpretations: null, detail: 'empty_response' }
+  let s = text.trim()
   const fence = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/)
   if (fence) s = fence[1].trim()
   const start = s.indexOf('{')
   const end = s.lastIndexOf('}')
-  if (start < 0 || end < start) return { interpretations: [] }
+  if (start < 0 || end < start) return { status: 'unparseable', interpretations: null, detail: 'no_object' }
+  let parsed
   try {
-    const parsed = JSON.parse(s.slice(start, end + 1))
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { interpretations: [] }
-    if (!Array.isArray(parsed.interpretations)) return { interpretations: [] }
-    return { interpretations: parsed.interpretations }
+    parsed = JSON.parse(s.slice(start, end + 1))
   } catch {
-    return { interpretations: [] }
+    return { status: 'unparseable', interpretations: null, detail: 'invalid_json' }
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { status: 'malformed', interpretations: null, detail: 'not_an_object' }
+  }
+  if (!('interpretations' in parsed)) return { status: 'malformed', interpretations: null, detail: 'missing_interpretations' }
+  if (!Array.isArray(parsed.interpretations)) return { status: 'malformed', interpretations: null, detail: 'interpretations_not_array' }
+  return { status: 'ok', interpretations: parsed.interpretations }
 }
 
 /**
@@ -270,11 +291,12 @@ async function handler(req, res) {
     && data.content.map(b => b && b.type === 'text' ? b.text : '').filter(Boolean).join('\n') || null
 
   const parsed = tryParseOutput(text)
+  const returned = parsed.interpretations || []
   const languageReview = {}
   const bannedLanguage = {}
   const styleFlags = {}
   const kept = []
-  parsed.interpretations.slice(0, MAX_INTERPRETATIONS).forEach((entry, i) => {
+  returned.slice(0, MAX_INTERPRETATIONS).forEach((entry, i) => {
     const label = labelFor(entry, i)
     const prose = proseOf(entry)
     const banned = scanBannedLanguage(prose)
@@ -285,7 +307,7 @@ async function handler(req, res) {
     kept.push(entry)
   })
   const droppedForLanguage = Object.keys(bannedLanguage).length
-  const droppedOverLimit = Math.max(0, parsed.interpretations.length - MAX_INTERPRETATIONS)
+  const droppedOverLimit = Math.max(0, returned.length - MAX_INTERPRETATIONS)
 
   const inputTokens = data.usage && typeof data.usage.input_tokens === 'number' ? data.usage.input_tokens : null
   const outputTokens = data.usage && typeof data.usage.output_tokens === 'number' ? data.usage.output_tokens : null
@@ -310,7 +332,9 @@ async function handler(req, res) {
       // thing that says WHICH monitoring record was interpreted, and the audit
       // row is the one place that survives the assessor discarding the reading.
       fingerprint: (payload && payload.bundle && typeof payload.bundle.fingerprint === 'string') ? payload.bundle.fingerprint : null,
-      returned_count: parsed.interpretations.length,
+      parse_status: parsed.status,
+      parse_detail: parsed.detail || null,
+      returned_count: returned.length,
       kept_count: kept.length,
       dropped_for_language: droppedForLanguage,
       dropped_over_limit: droppedOverLimit,
@@ -322,8 +346,14 @@ async function handler(req, res) {
 
   await Promise.all([recordUsage, recordAudit])
 
+  // A parse failure is still a 200: the upstream call succeeded, the ledger
+  // row is finalized and the credits are spent. What failed is the CONTRACT,
+  // and the client records that as a rejected reading rather than as an
+  // error, so the assessor can see the model tried and what came back was
+  // unusable — which is not the same as the service being down.
   return res.status(200).json({
-    output: { interpretations: kept },
+    output: parsed.status === 'ok' ? { interpretations: kept } : null,
+    parse: { status: parsed.status, ...(parsed.detail ? { detail: parsed.detail } : {}) },
     model: ANTHROPIC_MODEL,
     language_review: languageReview,
     banned_language: bannedLanguage,
@@ -340,6 +370,7 @@ module.exports.__test = {
   checkRateLimits,
   callAnthropic,
   tryParseOutput,
+  PARSE_STATUSES,
   proseOf,
   labelFor,
   PER_MINUTE_LIMIT,

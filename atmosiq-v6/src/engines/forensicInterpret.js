@@ -38,7 +38,7 @@
 import { supabase } from '../utils/supabaseClient'
 import { buildForensicBundle } from '../utils/forensicBundle'
 import { bundleForWriter } from '../utils/forensicWire'
-import { validateForensicOutput, buildForensicInterpretationRecord } from '../utils/forensicValidate'
+import { validateForensicOutput, refuseForensicOutput, buildForensicInterpretationRecord } from '../utils/forensicValidate'
 
 export const FORENSIC_INTERPRET_SYSTEM_PROMPT = `You read a deterministic monitoring analysis and propose what it might mean. You are not measuring anything, and you are not the record of what happened: a deterministic layer has already detected every event and every pattern in this session, and it is the only thing that says what the data contains.
 
@@ -125,6 +125,8 @@ Return ONLY a JSON object. No preamble. No markdown. No code fence. Exact schema
 
 Return {"interpretations": []} when nothing in this session is worth an assessor's attention.`
 
+const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {})
+
 /**
  * Ask for a reading of a monitoring session, and gate what comes back.
  *
@@ -161,7 +163,7 @@ export async function generateForensicInterpretation(input, deps = {}) {
   if (!bundle.patterns.length) {
     // Nothing was detected, so there is nothing to interpret. Spending a
     // generation to be told that is worse than saying it here.
-    return fail('No repeating patterns were detected in this session, so there is nothing to interpret yet.', bundle)
+    return fail('No forensic patterns were detected in this session, so there is nothing to interpret yet.', bundle)
   }
   if (!fetchFn) return fail('Interpretation is unavailable in this environment.', bundle)
 
@@ -194,11 +196,19 @@ export async function generateForensicInterpretation(input, deps = {}) {
   // one flagged reading must not cost the others. What survives still has to
   // clear the deterministic gate, which is the different question: whether
   // THIS session supports THIS sentence.
-  const validation = validateForensicOutput(
-    (body && body.output) || { interpretations: [] },
-    bundle,
-    { expectFingerprint: bundle.fingerprint },
-  )
+  //
+  // A response the handler could not parse is refused HERE, as a `rejected`
+  // record, rather than treated as an empty one. The model tried and what came
+  // back was unusable; that is the opposite of a model that read the session
+  // and validly raised nothing, and the record has to keep them apart.
+  const parse = obj(body && body.parse)
+  const validation = parse.status && parse.status !== 'ok'
+    ? refuseForensicOutput(bundle, parse.status === 'unparseable' ? 'unparseable_output' : 'malformed_output', parse.detail)
+    : validateForensicOutput(
+      (body && body.output) || { interpretations: [] },
+      bundle,
+      { expectFingerprint: bundle.fingerprint },
+    )
   const record = buildForensicInterpretationRecord({
     bundle,
     validation,

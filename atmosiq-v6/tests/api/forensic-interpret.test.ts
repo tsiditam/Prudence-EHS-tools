@@ -138,19 +138,61 @@ describe('POST /api/forensic-interpret — shape and auth', () => {
   })
 })
 
-describe('the response is parsed strictly and tolerantly', () => {
-  const parse = (t: string) => {
-    const mod = handler.__test
-    return mod.tryParseOutput(t)
-  }
+describe('the response is parsed strictly, tolerantly, and with a named outcome', () => {
+  const parse = (t: string) => handler.__test.tryParseOutput(t)
 
-  it('accepts the schema, a code fence, and refuses everything else without throwing', () => {
-    expect(parse(JSON.stringify({ interpretations: [okEntry()] })).interpretations).toHaveLength(1)
-    expect(parse('```json\n{"interpretations":[]}\n```').interpretations).toEqual([])
-    expect(parse('Here you go: {"interpretations":[]}').interpretations).toEqual([])
-    for (const bad of ['', 'not json', '[1,2,3]', '{"sections":{}}', '{"interpretations":"lots"}']) {
-      expect(parse(bad).interpretations, bad).toEqual([])
+  it('names its three outcomes', () => {
+    expect(handler.__test.PARSE_STATUSES).toEqual(['ok', 'unparseable', 'malformed'])
+  })
+
+  it('reads the schema, with or without a code fence or a preamble', () => {
+    expect(parse(JSON.stringify({ interpretations: [okEntry()] }))).toEqual({ status: 'ok', interpretations: [okEntry()] })
+    expect(parse('```json\n{"interpretations":[]}\n```')).toEqual({ status: 'ok', interpretations: [] })
+    expect(parse('Here you go: {"interpretations":[]}')).toEqual({ status: 'ok', interpretations: [] })
+  })
+
+  it('calls a valid empty list ok — that is the model saying nothing is worth raising', () => {
+    expect(parse('{"interpretations":[]}').status).toBe('ok')
+  })
+
+  it('calls invalid JSON unparseable, never an empty list', () => {
+    for (const [bad, detail] of [['', 'empty_response'], ['   ', 'empty_response'], ['not json', 'no_object'], ['{"interpretations": [}', 'invalid_json']]) {
+      const r = parse(bad)
+      expect(r.status, bad).toBe('unparseable')
+      expect(r.detail, bad).toBe(detail)
+      expect(r.interpretations, bad).toBe(null)
     }
+  })
+
+  it('calls valid JSON of the wrong shape malformed, and says which way', () => {
+    expect(parse('{"sections":{}}')).toEqual({ status: 'malformed', interpretations: null, detail: 'missing_interpretations' })
+    expect(parse('{"interpretations":"lots"}')).toEqual({ status: 'malformed', interpretations: null, detail: 'interpretations_not_array' })
+    expect(parse('{"interpretations":{"a":1}}')).toEqual({ status: 'malformed', interpretations: null, detail: 'interpretations_not_array' })
+    // `[1,2,3]` has no `{`, so it never reaches the shape check.
+    expect(parse('[1,2,3]').status).toBe('unparseable')
+    expect(parse('[{"interpretations":[]}]').status).toBe('ok') // the object inside is found
+  })
+
+  it('returns a parse failure as a 200 carrying the status and no output', async () => {
+    // The upstream call succeeded and the credits are spent; what failed is
+    // the contract, and the client records THAT rather than a service error.
+    anthropicText = 'Sure! Here is my analysis of the session.'
+    const r = makeRes(); await handler(makeReq(), r)
+    expect(r._status).toBe(200)
+    expect(r._body.output).toBe(null)
+    expect(r._body.parse).toEqual({ status: 'unparseable', detail: 'no_object' })
+
+    anthropicText = '{"reading":"fine"}'
+    const r2 = makeRes(); await handler(makeReq(), r2)
+    expect(r2._body.output).toBe(null)
+    expect(r2._body.parse).toEqual({ status: 'malformed', detail: 'missing_interpretations' })
+  })
+
+  it('returns a valid empty list as ok with an empty output', async () => {
+    anthropicText = '{"interpretations":[]}'
+    const r = makeRes(); await handler(makeReq(), r)
+    expect(r._body.parse).toEqual({ status: 'ok' })
+    expect(r._body.output).toEqual({ interpretations: [] })
   })
 })
 
