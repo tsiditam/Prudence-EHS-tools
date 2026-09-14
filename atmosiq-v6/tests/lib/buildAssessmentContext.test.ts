@@ -136,6 +136,22 @@ const EXPECTED_META_KEYS = [
   'report_profile', 'report_status',
 ].sort()
 
+/**
+ * The readiness verdict's own key set, pinned for the same reason `meta`
+ * is: it is the block the Readiness panel and the assistant's context
+ * block both read, and a field added inside it reaches two consumers with
+ * nothing firing. Widened here when `integrity_findings` was added, rather
+ * than letting the change slip under a guard that only watches the top
+ * level — CLAUDE.md says to widen the guard when you touch a sub-object,
+ * and this is that.
+ */
+const EXPECTED_READINESS_KEYS = [
+  'status', 'integrity_findings', 'mode', 'ready', 'can_finalize',
+  'finalization_blockers', 'finalization_blocker_details',
+  'finalization_dismissible', 'finalization_warnings',
+  'defensibility_gaps', 'confidence', 'summary',
+].sort()
+
 describe('buildAssessmentContext', () => {
   it('produces a valid skeleton from empty state (no throws, every section present)', () => {
     const ctx = buildAssessmentContext({})
@@ -284,6 +300,12 @@ describe('buildAssessmentContext', () => {
     expect(typeof v.can_finalize).toBe('boolean')
     expect(Array.isArray(v.finalization_blockers)).toBe(true)
     expect(v.confidence).toHaveProperty('qualitative_only')
+    // The verdict's OWN key set, pinned for the same reason `meta` is.
+    expect(Object.keys(v).sort()).toEqual(EXPECTED_READINESS_KEYS)
+    // Present on every verdict, so a consumer never has to test for the key.
+    // Empty here because this fixture reports no complaints; the detector's
+    // own suite covers the populated case.
+    expect(Array.isArray(v.integrity_findings)).toBe(true)
   })
 
   it('omits the readiness verdict when the engine has not run yet', () => {

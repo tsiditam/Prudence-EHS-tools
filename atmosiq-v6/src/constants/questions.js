@@ -320,6 +320,23 @@ export const Q_ZONE = [
   { id:'sy_onset',  sec:'Complaints', q:'When did symptoms begin?',            t:'ch',   sk:1, ic:'📅', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Within the past week','Within the past month','1-6 months ago','Over 6 months ago','Unknown'] },
   { id:'sy_time',   sec:'Complaints', q:'When in the day are symptoms worst?', t:'ch',   sk:1, ic:'🕐', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Morning','Afternoon','Evening / night','All day','No pattern','Unknown'] },
   { id:'sy_days',   sec:'Complaints', q:'Which days?',                         t:'ch',   sk:1, ic:'📆', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Weekdays only','Every day','Specific days','No pattern','Unknown'] },
+  // Occupancy DURING the reported period, which is the one thing that
+  // decides whether a time-of-day symptom pattern can be read at all: the
+  // same trace at 2 PM means something different in a full room and an
+  // empty one. `oc` is a single occupant count for the zone and carries no
+  // time, so it cannot answer this. Deliberately two small choices rather
+  // than a scheduling model — the question is whether the room is in use
+  // then, not what the building's hours are.
+  //
+  // 'Unknown' is a recorded answer and is NOT the same as leaving this
+  // blank. Blank means nobody was asked; 'Unknown' means it was asked and
+  // is unavailable, which is context the assessor has established. The
+  // integrity detector treats only blank as an omission.
+  { id:'sy_occ',    sec:'Complaints', q:'Is the zone normally occupied then?', t:'ch',  sk:1, ic:'👥', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Yes — normally occupied','No — normally unoccupied','Varies','Unknown'] },
+  // Shown for both answers a count means something under. "Varies, usually
+  // 3-5" is more use than "Varies" alone, and asking it of an unoccupied
+  // room or an unknown one would be asking for a number nobody has.
+  { id:'sy_occ_n',  sec:'Complaints', q:'About how many people then?',         t:'ch',  sk:1, ic:'🧑‍🤝‍🧑', cond:{any:[{f:'sy_occ',eq:'Yes — normally occupied'},{f:'sy_occ',eq:'Varies'}]}, opts:['1-2','3-5','6-10','More than 10','Unknown'] },
   { id:'sy_where',  sec:'Complaints', q:'Where in the zone are symptoms reported?', t:'text', sk:1, ic:'📍', cond:{f:'cx',eq:'Yes — complaints reported'}, ph:'e.g. desks along the north wall, near the copier' },
   { id:'sy_relief', sec:'Complaints', q:'What relieves the symptoms?',         t:'multi', other:1, sk:1, ic:'🌿', cond:{f:'cx',eq:'Yes — complaints reported'}, opts:['Leaving the building','Opening a window','Moving within the zone','Nothing identified','Unknown'] },
   { id:'tc', sec:'Environment', q:'Thermal comfort?',                     t:'ch',          ic:'🌡️', opts:['Comfortable','Slightly warm','Slightly cool','Too hot','Too cold','Fluctuating','Drafty'] },

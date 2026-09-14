@@ -238,10 +238,32 @@ describe('it adds no judgement of its own', () => {
     expect(code).not.toMatch(/['"]critical['"]/)
   })
 
-  it('imports only the two engines it composes', () => {
+  it('imports only detectors it composes, and never a rule of its own', () => {
+    // The list grows when this file composes another DETECTOR, which is the
+    // sanctioned way for it to gain an item. What the guard is really for is
+    // the other direction: an import that is not a detector — a threshold
+    // registry, a scoring path, a criteria table — would mean the judgement
+    // moved in here, and then the Zone-complete sheet and the Readiness
+    // panel could give an assessor two different answers about the same zone.
     const src = readFileSync(new URL('../../src/engines/zone-gaps.js', import.meta.url), 'utf8')
     const imports = [...src.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1])
-    expect(imports.sort()).toEqual(['./defensibility-gaps.js', './sufficiency.js'])
+    expect(imports.sort()).toEqual([
+      './defensibility-gaps.js',
+      './integrity/context-gaps.js',
+      './sufficiency.js',
+    ])
+  })
+
+  it('gates zone completion on the gaps alone, never on an integrity finding', () => {
+    // `interruptsZoneCompletion` treats any kind but `optional` as reason to
+    // stop the assessor. An advisory integrity finding folded into `zoneGaps`
+    // would therefore start blocking, which is exactly the behavior change
+    // Phase 1 promised not to make — hence two lists, not one.
+    const src = readFileSync(new URL('../../src/engines/zone-gaps.js', import.meta.url), 'utf8')
+    const gapsFn = src.slice(src.indexOf('export function zoneGaps'), src.indexOf('export function zoneGapCounts'))
+    expect(gapsFn).not.toMatch(/detectComplaintContextGaps|asZoneGapLine/)
+    const interrupt = src.slice(src.indexOf('export function interruptsZoneCompletion'))
+    expect(interrupt.slice(0, 200)).not.toMatch(/integrity/i)
   })
 })
 

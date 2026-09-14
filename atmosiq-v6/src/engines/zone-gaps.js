@@ -39,6 +39,7 @@
 
 import { evaluateCategorySufficiency } from './sufficiency.js'
 import { detectDefensibilityGaps } from './defensibility-gaps.js'
+import { detectComplaintContextGaps, asZoneGapLine } from './integrity/context-gaps.js'
 
 /** The categories `sufficiency.js` declares requirements for. */
 const CATEGORIES = ['Ventilation', 'Contaminants', 'HVAC', 'Complaints', 'Environment']
@@ -198,4 +199,41 @@ function gapLabel(kind) {
 export function zoneGapCounts(assessment) {
   const zones = (assessment && assessment.zones) || []
   return zones.map((_, i) => zoneGaps(assessment, i).length)
+}
+
+/**
+ * Integrity findings for one zone, as lines for the same sheet.
+ *
+ * A SEPARATE list from `zoneGaps`, deliberately, and the separation is the
+ * whole design rather than a tidiness preference.
+ *
+ * `interruptsZoneCompletion` treats every gap whose kind is not `optional`
+ * as reason to stop the assessor, so folding an integrity finding into
+ * `zoneGaps` would make an advisory finding gate zone completion — new
+ * blocking behavior, on a surface that has none today, from a detector
+ * whose whole point is that it is advisory. Returning it beside the gaps
+ * lets the sheet show both while `interruptsZoneCompletion` keeps reading
+ * exactly the list it always read.
+ *
+ * This file still composes rather than judges: the rule lives in
+ * `integrity/context-gaps.js`, the same relationship `zoneGaps` has with
+ * `sufficiency.js` and `defensibility-gaps.js`.
+ *
+ * @param {object} assessment the live draft
+ * @param {number} zoneIndex
+ * @param {object} [opts] forwarded to the detector; `forensics` is an
+ *   optional built bundle, absent on the walkthrough path
+ * @returns {Array<{ id, label, why }>}
+ */
+export function zoneIntegrityFindings(assessment, zoneIndex, opts = {}) {
+  const zones = (assessment && assessment.zones) || []
+  const zone = zones[zoneIndex]
+  if (!zone) return []
+  // The detector reads the whole assessment and tags each finding with the
+  // zone it concerns, the same shape `detectDefensibilityGaps` returns and
+  // the same reason: a rule may need to see the other zones to judge one.
+  const key = (zone.zid && String(zone.zid)) || `zone-${zoneIndex + 1}`
+  return detectComplaintContextGaps(assessment, { onSite: true, ...opts })
+    .filter((f) => (f.zone_ids || []).includes(key))
+    .map(asZoneGapLine)
 }

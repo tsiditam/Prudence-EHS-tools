@@ -31,6 +31,7 @@
 import { validateAssessment } from './validation'
 import { detectDefensibilityGaps } from './defensibility-gaps'
 import { detectInvestigationGaps } from './investigation-gaps'
+import { detectComplaintContextGaps } from './integrity/context-gaps.js'
 
 function confidenceCounts(assessment) {
   const counts = { high: 0, medium: 0, low: 0, qualitative_only: 0 }
@@ -100,6 +101,7 @@ export function buildReadinessVerdict(assessment) {
       finalization_blockers: ['Assessment object missing or malformed.'],
       finalization_warnings: [],
       defensibility_gaps: [],
+      integrity_findings: [],
       confidence: { high: 0, medium: 0, low: 0, qualitative_only: 0 },
       summary: 'No assessment loaded.',
     }
@@ -117,6 +119,23 @@ export function buildReadinessVerdict(assessment) {
     ...detectDefensibilityGaps(assessment),
     ...detectInvestigationGaps(assessment.investigation),
   ]
+  // Integrity findings ride ALONGSIDE the verdict and are deliberately NOT
+  // in `gaps` above.
+  //
+  // `deriveStatus` reads `gaps`, so adding a stream to it would move an
+  // assessment from `ready` to `gaps` on a rule nobody has agreed should
+  // change what "Ready" means. Phase 1 proves the contract, the provenance
+  // and the field surfacing; which finding classes should affect readiness
+  // is a separate decision, and this is the shape that leaves it open.
+  // `can_finalize` was never in question — it comes off `gate.canFinalize`
+  // and no integrity finding touches it.
+  //
+  // Review time, so a finding is resolvable before sign-off rather than on
+  // site: the walkthrough path passes `onSite` itself.
+  const integrityFindings = detectComplaintContextGaps(assessment, {
+    onSite: false,
+    forensics: assessment.forensics || null,
+  })
   const confidence = confidenceCounts(assessment)
   const dismissible = gate.dismissibleBlockers || []
   const status = deriveStatus({ canFinalize: gate.canFinalize, gaps, dismissible })
@@ -136,6 +155,7 @@ export function buildReadinessVerdict(assessment) {
 
   return {
     status,
+    integrity_findings: integrityFindings,
     mode: gate.mode,
     ready,
     can_finalize: gate.canFinalize,

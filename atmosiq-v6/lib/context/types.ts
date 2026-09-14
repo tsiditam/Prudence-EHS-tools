@@ -71,6 +71,34 @@ export interface DefensibilityGap {
  * so consumers don't each re-derive the shape. Mirrors that function's
  * return object field-for-field.
  */
+/**
+ * One integrity finding. The shape several deterministic layers project
+ * into so a finding can carry the evidence that produced it and the period
+ * it applies to. Built only by `src/engines/integrity/finding.js`.
+ */
+export interface IntegrityFinding {
+  readonly id: string
+  readonly issue_type: string
+  readonly severity: 'advisory' | 'warning' | 'blocking'
+  readonly source_layer: string
+  readonly zone_ids: readonly string[]
+  readonly evidence_ids: readonly string[]
+  readonly parameter_ids: readonly string[]
+  readonly time_window: { readonly start: number; readonly end: number; readonly basis: string } | null
+  readonly title: string
+  readonly description: string
+  readonly why_it_matters: string
+  readonly actionability: 'on_site_now' | 'before_signoff' | 'remote' | 'informational'
+  readonly resolution_status: string
+  readonly provenance: {
+    readonly contract_version: number
+    readonly detector: string
+    readonly inputs_fingerprint: string | null
+    /** Never part of identity, equality, or any id. */
+    readonly generated_at: string | null
+  }
+}
+
 export interface ReadinessVerdict {
   readonly status: 'ready' | 'gaps' | 'blocked'
   readonly mode: string
@@ -81,6 +109,15 @@ export interface ReadinessVerdict {
   readonly finalization_dismissible?: readonly ReadinessBlockerDetail[]
   readonly finalization_warnings: readonly string[]
   readonly defensibility_gaps: readonly DefensibilityGap[]
+  /**
+   * Integrity findings, in the shared contract `src/engines/integrity/
+   * finding.js` defines. Carried BESIDE the verdict and deliberately not
+   * inside it: `deriveStatus` reads `defensibility_gaps` and not this, so
+   * a finding here changes neither `status` nor `ready` nor
+   * `can_finalize`. Optional so a caller reading an older verdict object
+   * still typechecks.
+   */
+  readonly integrity_findings?: readonly IntegrityFinding[]
   readonly confidence: {
     readonly high: number
     readonly medium: number

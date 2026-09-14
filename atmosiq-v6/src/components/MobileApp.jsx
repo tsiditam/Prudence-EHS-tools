@@ -73,7 +73,7 @@ import Exhibit from './ui/Exhibit'
 // never describe one zone in two vocabularies.
 import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports, collectReferences, collectFindings } from '../report/reportModel'
 import { evalCondition, visibleQuestions } from '../utils/conditions.js'
-import { zoneGaps, interruptsZoneCompletion } from '../engines/zone-gaps.js'
+import { zoneGaps, interruptsZoneCompletion, zoneIntegrityFindings } from '../engines/zone-gaps.js'
 import { photosForZone, photoCaption } from '../utils/photoIndex'
 import { spaceUse } from '../utils/samplePoints'
 import Select from './ui/Select'
@@ -5116,23 +5116,31 @@ export default function MobileApp() {
               a complete walkthrough should stay as fast as it is today. */}
           {(() => {
             const gaps = zoneGaps({ zones, presurvey, bldg }, curZone)
+            // Integrity findings are a SECOND list and never a third opinion:
+            // they come from a detector `zone-gaps.js` composes, exactly as the
+            // gaps above do. They are advisory, so they can bring the sheet's
+            // list into existence but they are never why it stops anyone —
+            // `interruptsZoneCompletion` reads the gaps and nothing else.
+            const findings = zoneIntegrityFindings({ zones, presurvey, bldg }, curZone)
             // Nothing outstanding, or nothing worth stopping for. A zone whose
             // only remaining gaps are `optional` is a zone that was recorded
             // properly, and greeting that assessor with the same panel as one
             // who skipped a required reading is what makes the panel ignorable.
             // The optional items are not dropped — they are still in `gaps`,
             // and the Readiness panel still lists them at review.
-            if (!interruptsZoneCompletion(gaps)) return null
+            const stopping = interruptsZoneCompletion(gaps)
+            if (!stopping && !findings.length) return null
             // Three on a phone. This is read standing up, one-handed, at the
             // end of a zone — a longer list is skimmed rather than acted on.
             const SHOWN = 3
-            const shown = gaps.slice(0, SHOWN)
-            const rest = gaps.length - shown.length
+            const shown = stopping ? gaps.slice(0, SHOWN) : []
+            const rest = stopping ? gaps.length - shown.length : 0
+            const total = (stopping ? gaps.length : 0) + findings.length
             return (
               <div style={{margin:'4px 0 18px',paddingBottom:16,borderBottom:`1px solid ${V3.BORDER_SUBTLE}`}}>
                 <div style={{...V3.T.micro, marginBottom:10}}>Before you leave {zData.zn || 'this zone'}</div>
                 <div style={{...V3.T.bodyDim, marginBottom:12, lineHeight:1.5}}>
-                  {gaps.length === 1 ? 'One item would strengthen the investigation:' : `${gaps.length} items would strengthen the investigation:`}
+                  {total === 1 ? 'One item would strengthen the investigation:' : `${total} items would strengthen the investigation:`}
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:9}}>
                   {shown.map(g => (
@@ -5141,6 +5149,15 @@ export default function MobileApp() {
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{...V3.T.body, lineHeight:'19px'}}>{g.label}</div>
                         <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{g.why}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {findings.slice(0, SHOWN).map(f => (
+                    <div key={f.id} style={{display:'flex',alignItems:'flex-start',gap:9}}>
+                      <span aria-hidden="true" style={{width:5,height:5,borderRadius:'50%',background:DIM,flexShrink:0,marginTop:7}} />
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{...V3.T.body, lineHeight:'19px'}}>{f.label}</div>
+                        <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{f.why}</div>
                       </div>
                     </div>
                   ))}
