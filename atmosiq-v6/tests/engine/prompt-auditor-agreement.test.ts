@@ -46,6 +46,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { createRequire } from 'node:module'
+import { normativeText } from '../helpers/promptAgreement'
 // @ts-ignore js
 import { REPORT_SECTIONS_SYSTEM_PROMPT } from '../../src/engines/reportSections.js'
 // @ts-ignore js
@@ -69,18 +70,6 @@ const require = createRequire(import.meta.url)
 const { REPORT_SECTIONS_SYSTEM_PROMPT: SERVER_SECTIONS_PROMPT } = require('../../api/_report-sections-prompt.js')
 const { REASONING_SYSTEM_PROMPT: SERVER_NARRATIVE_PROMPT } = require('../../api/_narrative-prompt.js')
 
-/**
- * The prompt with every quoted span blanked — what the prompt says in its
- * OWN voice, as opposed to what it holds up as an example.
- *
- * `[^"\n]*` deliberately refuses to span a line break: an unbalanced quote
- * should blank one phrase, never swallow the rest of the document and
- * report the prompt clean. A guard that goes quiet when the text is
- * malformed is worse than no guard, because the silence reads as proof.
- */
-function normativeText(prompt: string): string {
-  return String(prompt).replace(/"[^"\n]*"/g, '""')
-}
 
 /** A real package off the demo assessment, so the pathway rule is live. */
 function realPackage() {
