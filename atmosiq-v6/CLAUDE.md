@@ -295,6 +295,47 @@ used). Migrating existing consumers onto the builder is staged
 (see the connectivity-layer plan): the builder ships first
 (landed), Jasper / DOCX migrations follow additively.
 
+## Agent architecture
+
+**One user-facing agent per workflow; specialized capabilities run behind
+it.** Full map of every capability to the module that implements it, plus
+the structured-finding contract, in `docs/AGENT_ARCHITECTURE.md`. The
+rules that bind day to day:
+
+- **Three primary surfaces, one per workflow** — the walkthrough assistant
+  during a field assessment, Logger Studio Forensics during logger
+  analysis, the report path during reporting. Everything else is
+  background and feeds one of those three. A capability earns its own
+  user-facing agent only when it is a distinct user WORKFLOW; being
+  intelligent is not a qualification. The failure this prevents is agent
+  clutter: four systems telling the assessor four things at once.
+- **Do NOT build a Field Consistency Agent, a Gap Agent, or a Forensics
+  Agent.** Integrity findings return to the walkthrough assistant as
+  structured data, and IT decides whether a finding is actionable now,
+  deferred, informational, or documented as a limitation. The integrity
+  layer never interrupts the assessor and never owns UI.
+- **The Investigation Integrity Engine already exists** and is called
+  `buildReadinessVerdict` (`src/engines/readiness-verdict.js`), composing
+  `validation.js`, `defensibility-gaps.js` and `investigation-gaps.js`
+  into one shape read by both the Readiness panel and the assistant's
+  context block. Extend it. A second engine beside it is the clutter this
+  section forbids, one layer down.
+- **Structured outputs between components. Prose is never an internal
+  API**, and evidence ids plus deterministic provenance survive the whole
+  workflow. Three fields are missing before a finding can travel properly
+  — `evidence_ids`, `time_window`, `actionability` — and
+  `InvestigationInput` does not accept logger data at all, so Forensics
+  output never reaches integrity re-evaluation. Named in the doc.
+- **Seven categories no agent may collapse**: known fact, deterministic
+  finding, observed relationship, potential hypothesis, missing
+  information, unresolved inconsistency, professional conclusion. When a
+  fact cannot be obtained the assessor documents a limitation; the
+  platform never infers the value to close the gap.
+- **A gap is named only where it changes the reading of one specific
+  finding** — the `CONTEXT_RULES` rule in `forensicPatterns.js`, inherited
+  in full. A session-level completeness checklist trains the assessor to
+  skip the section inside a week, however correct each line is.
+
 ## Engine version conventions
 
 Three concepts, kept distinct:
