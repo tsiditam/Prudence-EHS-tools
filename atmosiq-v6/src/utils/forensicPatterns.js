@@ -513,6 +513,13 @@ export function buildPatterns(input = {}) {
         endTs: e.endTs,
         summary: {
           eventKind: e.kind,
+          // The ids as well as the labels. Which annotations a pattern rests on
+          // is a fact the detector knows and nothing downstream can recover: the
+          // scope projection would otherwise have to re-match annotations by
+          // timestamp, which is a second opinion about the evidence and could
+          // disagree. Same reasoning `bundleEvidence` is written from — make the
+          // set explicit so the check downstream is a lookup, not a rederivation.
+          annotationIds: near.map((a) => a.id).filter(Boolean),
           annotations: near.map((a) => ({ t: a.t, label: a.label || null })),
         },
       })

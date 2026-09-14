@@ -10,9 +10,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   validateForensicOutput, buildForensicInterpretationRecord, supportedFigures,
-  unsupportedFigures, scanInterpretationLanguage,
+  unsupportedFigures, scanInterpretationLanguage, evidenceScopeForPattern,
+  canonicalUnit, interpretationStatus,
   IMPORTANCE_VALUES, MAX_INTERPRETATIONS, MAX_TITLE_CHARS, MAX_INTERPRETATION_CHARS,
-  MAX_LIST_ITEMS, MAX_ITEM_CHARS, REJECTION_REASONS, FORENSIC_INTERPRETATION_VERSION,
+  MAX_LIST_ITEMS, MAX_ITEM_CHARS, REJECTION_REASONS, INTERPRETATION_STATUSES,
+  FORENSIC_INTERPRETATION_VERSION,
 } from '../../src/utils/forensicValidate.js'
 import { buildForensicBundle } from '../../src/utils/forensicBundle.js'
 import { scanForensicLanguage, BOUNDED_PHRASES } from '../../src/constants/forensic-language.js'
@@ -70,6 +72,9 @@ const good = (over: any = {}) => ({
   report_candidate: true,
   ...over,
 })
+/** One supported figure, the shape the gate now stores. */
+const fig = (value: number, unit: string | null) => ({ value, unit, sourceId: 'src' })
+
 const out = (interps: any[]) => ({ interpretations: interps })
 const run = (payload: any, opts?: any) => validateForensicOutput(payload, bundle, opts)
 const reasons = (r: any) => r.rejected.map((x: any) => x.reason)
@@ -146,11 +151,15 @@ describe('the model may not mint evidence', () => {
     })
   })
 
-  it('accepts evidence ids that do resolve', () => {
-    const realEvent = bundle.evidence.eventIds[0]
-    const realParam = bundle.evidence.parameterIds[0]
-    const r = run(out([good({ evidence_ids: [realEvent, realParam, 'primary', 'ann-e1'] })]))
-    expect(r.interpretations[0].evidence_ids).toHaveLength(4)
+  it('accepts evidence ids that resolve to the interpreted pattern', () => {
+    const scope = evidenceScopeForPattern(bundle, cyclePattern.id)
+    const ids = [...scope.ids]
+    expect(ids).toContain(cyclePattern.id)
+    expect(ids).toContain('primary')
+    expect(ids).toContain('par-primary-co2')
+    const r = run(out([good({ evidence_ids: ids })]))
+    expect(r.rejected).toEqual([])
+    expect(r.interpretations[0].evidence_ids).toHaveLength(ids.length)
   })
 
   it('rejects an invented context-gap id', () => {
@@ -273,10 +282,11 @@ describe('numbers must come from the deterministic layer', () => {
 
   it('accepts rounding but not alteration', () => {
     const supported = supportedFigures(bundle)
-    expect(unsupportedFigures('a value of 1451.8 ppm', new Set([1451.83]))).toEqual([])
-    expect(unsupportedFigures('a value of 1452 ppm', new Set([1451.83]))).toEqual([])
-    expect(unsupportedFigures('a value of 1500 ppm', new Set([1451.83]))).toHaveLength(1)
-    expect(supported.size).toBeGreaterThan(10)
+    const s = [fig(1451.83, 'ppm')]
+    expect(unsupportedFigures('a value of 1451.8 ppm', s)).toEqual([])
+    expect(unsupportedFigures('a value of 1452 ppm', s)).toEqual([])
+    expect(unsupportedFigures('a value of 1500 ppm', s)).toHaveLength(1)
+    expect(supported.length).toBeGreaterThan(10)
   })
 
   it('leaves unitless counts alone — those are arithmetic over the bundle', () => {
@@ -287,15 +297,18 @@ describe('numbers must come from the deterministic layer', () => {
   })
 
   it('lets a duration be restated in another time unit', () => {
-    expect(unsupportedFigures('elevated for 2 hours', new Set([7200, 7200 / 60, 7200 / 3600]))).toEqual([])
-    expect(unsupportedFigures('elevated for 5 hours', new Set([7200, 120, 2]))).toHaveLength(1)
+    const s = [fig(7200, 'duration')]
+    expect(unsupportedFigures('elevated for 2 hours', s)).toEqual([])
+    expect(unsupportedFigures('elevated for 120 minutes', s)).toEqual([])
+    expect(unsupportedFigures('elevated for 7200 seconds', s)).toEqual([])
+    expect(unsupportedFigures('elevated for 5 hours', s)).toHaveLength(1)
   })
 
   it('catches units that end in a non-word character — the ones a word boundary cannot', () => {
     // `\b` after `µg/m³` or `%` can never match, so a gate written that way
     // silently ignored every mass concentration and every percentage while
     // appearing to work, because `ppm` and `°F` end in letters and passed.
-    const sup = new Set([12, 30])
+    const sup = [fig(12, 'ug/m3'), fig(30, '%')]
     expect(unsupportedFigures('outdoor sat at 999 µg/m³.', sup)).toHaveLength(1)
     expect(unsupportedFigures('above the reference 88% of the time', sup)).toHaveLength(1)
     expect(unsupportedFigures('outdoor sat at 12 µg/m³.', sup)).toEqual([])
@@ -303,7 +316,7 @@ describe('numbers must come from the deterministic layer', () => {
   })
 
   it('does not mistake a unit for the start of a longer word', () => {
-    const sup = new Set([5])
+    const sup = [fig(5, 'duration')]
     expect(unsupportedFigures('across 5 samples', sup)).toEqual([]) // not "5 s"
     expect(unsupportedFigures('across 9 samples', sup)).toEqual([]) // still not a figure
     expect(unsupportedFigures('lasting 9 s', sup)).toHaveLength(1)
@@ -313,7 +326,241 @@ describe('numbers must come from the deterministic layer', () => {
     // Instants are not quantities; admitting them would let almost any large
     // number through, since a session carries thousands of them.
     const supported = supportedFigures(bundle)
-    expect(supported.has(T0)).toBe(false)
+    expect(supported.some((f: any) => f.value === T0)).toBe(false)
+  })
+})
+
+describe('a figure is only supported by a figure IN THE SAME UNIT', () => {
+  // The first cut of this gate stored bare magnitudes. Every case below passed
+  // it, because 35.1 is 35.1 whatever it is 35.1 OF. They are four different
+  // claims about four different quantities and the record supports one.
+  it('does not let a mass concentration support a gas concentration', () => {
+    expect(unsupportedFigures('the level reached 35.1 ppm', [fig(35.1, 'ug/m3')])).toEqual(['35.1 ppm'])
+  })
+
+  it('does not let a mass concentration support a percentage', () => {
+    expect(unsupportedFigures('above the reference 35.1% of the time', [fig(35.1, 'ug/m3')])).toEqual(['35.1%'])
+  })
+
+  it('does not let a gas concentration support a temperature', () => {
+    expect(unsupportedFigures('the space sat at 700 °F', [fig(700, 'ppm')])).toEqual(['700 °F'])
+  })
+
+  it('does not convert between related units either', () => {
+    // 700 ppm IS 700000 ppb and 35.1 ug/m3 IS 0.0351 mg/m3. Converting here
+    // would make the validator the author of a number nobody measured, and a
+    // model that writes the wrong member of the pair has made a real error.
+    expect(unsupportedFigures('the level reached 700 ppb', [fig(700, 'ppm')])).toHaveLength(1)
+    expect(unsupportedFigures('the level reached 35.1 mg/m³', [fig(35.1, 'ug/m3')])).toHaveLength(1)
+    expect(unsupportedFigures('the space sat at 21 °C', [fig(21, 'degF')])).toHaveLength(1)
+  })
+
+  it('accepts every spelling of one unit', () => {
+    const s = [fig(12.4, 'ug/m3')]
+    for (const w of ['12.4 µg/m³', '12.4 μg/m³', '12.4 ug/m3', '12.4 µg/m3', '12.4 ug/m³']) {
+      expect(unsupportedFigures(`outdoor sat at ${w}.`, s), w).toEqual([])
+    }
+    const t = [fig(71, 'degF')]
+    for (const w of ['71 °F', '71 °f', '71 degF', '71 deg F']) {
+      expect(unsupportedFigures(`the space sat at ${w}.`, t), w).toEqual([])
+    }
+  })
+
+  it('canonicalizes the spellings the instrument exports use', () => {
+    expect(canonicalUnit('µg/m³')).toBe('ug/m3')
+    expect(canonicalUnit('μg/m3')).toBe('ug/m3')
+    expect(canonicalUnit('°F')).toBe('degF')
+    expect(canonicalUnit('PPM')).toBe('ppm')
+    expect(canonicalUnit('hours')).toBe('duration')
+    // Unknown units keep their own identity rather than becoming dimensionless:
+    // they then match themselves and nothing else, which is correct for a
+    // quantity this module has no rule for.
+    expect(canonicalUnit('lux')).toBe('lux')
+    expect(canonicalUnit('  ')).toBe(null)
+    expect(canonicalUnit(null as never)).toBe(null)
+  })
+
+  it('converts a duration across spellings but nothing else across dimensions', () => {
+    const s = [fig(14340, 'duration')] // 3.983 hours
+    expect(unsupportedFigures('elevated for about 4 hours', s)).toEqual([])
+    expect(unsupportedFigures('elevated for 239 minutes', s)).toEqual([])
+    expect(unsupportedFigures('elevated for 14340 s', s)).toEqual([])
+    expect(unsupportedFigures('elevated for 6 hours', s)).toHaveLength(1)
+    // A duration never supports a concentration, however the number lines up.
+    expect(unsupportedFigures('the level reached 4 ppm', s)).toHaveLength(1)
+  })
+
+  it('lets a whole-day count be written in days', () => {
+    expect(unsupportedFigures('the shape repeats on 4 days', [fig(4 * 86400, 'duration')])).toEqual([])
+  })
+})
+
+describe('sign is checked only when the model wrote one', () => {
+  it('accepts an unsigned magnitude for a signed deterministic value', () => {
+    // Prose puts direction in words far more often than in a sign, and a rule
+    // that rejected "a drop of 240 ppm" would be switched off within a week.
+    expect(unsupportedFigures('a drop of 240 ppm followed', [fig(-240, 'ppm')])).toEqual([])
+    expect(unsupportedFigures('a rise of 240 ppm followed', [fig(240, 'ppm')])).toEqual([])
+  })
+
+  it('rejects an explicit sign the deterministic value contradicts', () => {
+    expect(unsupportedFigures('a change of -240 ppm', [fig(240, 'ppm')])).toEqual(['-240 ppm'])
+    expect(unsupportedFigures('a change of +240 ppm', [fig(-240, 'ppm')])).toEqual(['+240 ppm'])
+  })
+
+  it('accepts an explicit sign the deterministic value carries', () => {
+    expect(unsupportedFigures('a change of -240 ppm', [fig(-240, 'ppm')])).toEqual([])
+    expect(unsupportedFigures('a change of +240 ppm', [fig(240, 'ppm')])).toEqual([])
+  })
+
+  it('reads a dash between two numbers as a range, not a sign', () => {
+    const s = [fig(400, 'ppm'), fig(500, 'ppm')]
+    expect(unsupportedFigures('readings ranged 400-500 ppm', s)).toEqual([])
+  })
+})
+
+describe('evidence and arithmetic are scoped to the pattern being interpreted', () => {
+  const pmEvent = bundle.evidence.eventIds.find((id: string) => id.includes('-pm-'))!
+  const pmParam = bundle.parameters.find((p: any) => p.id === 'par-primary-pm')!
+  const pmPattern = bundle.patterns.find((p: any) => p.kind === 'indoor_outdoor_comparison')!
+  const proximity = bundle.patterns.find((p: any) => p.kind === 'event_proximity')!
+
+  it('scopes a pattern to what the detector said it rests on', () => {
+    const scope = evidenceScopeForPattern(bundle, cyclePattern.id)
+    expect(scope.found).toBe(true)
+    expect([...scope.ids].sort()).toEqual([cyclePattern.id, 'par-primary-co2', 'primary'].sort())
+    expect(scope.ids.has(pmEvent)).toBe(false)
+    expect(scope.ids.has('par-primary-pm')).toBe(false)
+    expect([...scope.contextGapIds]).toEqual(cyclePattern.missingContext.map((m: any) => m.id))
+  })
+
+  it('reports an unknown pattern as an empty scope rather than throwing', () => {
+    const scope = evidenceScopeForPattern(bundle, 'pat-not-real')
+    expect(scope.found).toBe(false)
+    expect([...scope.ids]).toEqual([])
+    expect(scope.figures).toEqual([])
+    expect(evidenceScopeForPattern(null as never, null as never).found).toBe(false)
+  })
+
+  it('rejects a real event that belongs to another pattern', () => {
+    // The id resolves against the registry, so the old gate passed it. It is a
+    // genuine particulate event cited by an interpretation about carbon dioxide.
+    expect(bundle.evidence.eventIds).toContain(pmEvent)
+    const r = run(out([good({ evidence_ids: [pmEvent] })]))
+    expect(reasons(r)).toEqual(['evidence_not_on_pattern'])
+    expect(r.rejected[0].detail).toBe(pmEvent)
+  })
+
+  it('still tells a foreign id apart from an invented one', () => {
+    expect(reasons(run(out([good({ evidence_ids: ['ev-made-up'] })])))).toEqual(['unknown_evidence_id'])
+    expect(reasons(run(out([good({ evidence_ids: ['par-primary-pm'] })])))).toEqual(['evidence_not_on_pattern'])
+  })
+
+  it('rejects a real figure that belongs to another parameter', () => {
+    const mean = Math.round(pmParam.stats.mean * 100) / 100
+    const r = run(out([good({
+      interpretation: `The swing is consistent with a daily cycle averaging ${mean} µg/m³, and warrants review.`,
+    })]))
+    expect(reasons(r)).toEqual(['unsupported_figure'])
+    expect(r.rejected[0].detail).toContain(String(mean))
+  })
+
+  it('accepts the same figure when it belongs to the interpreted pattern', () => {
+    const mean = Math.round(pmParam.stats.mean * 100) / 100
+    const r = run(out([good({
+      pattern_id: pmPattern.id,
+      missing_context_ids: [],
+      interpretation: `The paired traces are consistent with an outdoor contribution averaging ${mean} µg/m³, and warrant review.`,
+    })]))
+    expect(reasons(r)).toEqual([])
+    expect(r.interpretations).toHaveLength(1)
+  })
+
+  it('scopes the outdoor parameter into the indoor/outdoor comparison, and nothing more', () => {
+    const scope = evidenceScopeForPattern(bundle, pmPattern.id)
+    expect(scope.ids.has('par-primary-pm')).toBe(true)
+    expect(scope.ids.has('par-ds-out-pm')).toBe(true)
+    expect(scope.ids.has('ds-out')).toBe(true)
+    expect(scope.ids.has('par-primary-co2')).toBe(false)
+  })
+
+  it('scopes an annotation only to the pattern the detector attached it to', () => {
+    const scope = evidenceScopeForPattern(bundle, proximity.id)
+    expect(scope.ids.has('ann-e1')).toBe(true)
+    expect(evidenceScopeForPattern(bundle, cyclePattern.id).ids.has('ann-e1')).toBe(false)
+    expect(reasons(run(out([good({ evidence_ids: ['ann-e1'] })])))).toEqual(['evidence_not_on_pattern'])
+    const r = run(out([good({ pattern_id: proximity.id, missing_context_ids: [], evidence_ids: ['ann-e1'] })]))
+    expect(reasons(r)).toEqual([])
+  })
+
+  it('still accepts a context gap the pattern owns', () => {
+    const r = run(out([good({ missing_context_ids: [gapOnCycle] })]))
+    expect(reasons(r)).toEqual([])
+    expect(r.interpretations[0].missing_context_ids).toEqual([gapOnCycle])
+  })
+})
+
+describe('empty output and wholly rejected output are different facts', () => {
+  it('declares the four outcomes and derives each from the counts', () => {
+    expect(INTERPRETATION_STATUSES).toEqual(['validated', 'partial', 'empty', 'rejected'])
+    expect(interpretationStatus(2, 0)).toBe('validated')
+    expect(interpretationStatus(2, 1)).toBe('partial')
+    expect(interpretationStatus(0, 0)).toBe('empty')
+    expect(interpretationStatus(0, 3)).toBe('rejected')
+  })
+
+  it('calls a model that validly raised nothing empty', () => {
+    const r = run(out([]))
+    expect(r.status).toBe('empty')
+    expect(r.ok).toBe(true)
+    expect(buildForensicInterpretationRecord({ bundle, validation: r }).validation.status).toBe('empty')
+  })
+
+  it('calls a response whose every interpretation died rejected, not empty', () => {
+    const r = run(out([
+      good({ interpretation: 'This proves the copier is the source.' }),
+      good({ pattern_id: 'pat-not-real' }),
+    ]))
+    expect(r.interpretations).toEqual([])
+    expect(r.status).toBe('rejected')
+    // `ok` now means usable as it stands. A caller reading only `ok` must not
+    // mistake a wholly rejected response for a clean, empty analysis.
+    expect(r.ok).toBe(false)
+    expect(buildForensicInterpretationRecord({ bundle, validation: r }).validation.status).toBe('rejected')
+  })
+
+  it('calls a mixed response partial', () => {
+    const r = run(out([good(), good({ pattern_id: 'pat-not-real' })]))
+    expect(r.interpretations).toHaveLength(1)
+    expect(r.status).toBe('partial')
+    expect(r.ok).toBe(true)
+    const rec = buildForensicInterpretationRecord({ bundle, validation: r })
+    expect(rec.validation.status).toBe('partial')
+    expect(rec.validation.accepted).toBe(1)
+    expect(rec.validation.rejected).toBe(1)
+  })
+
+  it('calls a refused envelope rejected', () => {
+    ;['not json', '[1,2,3]'].forEach((raw) => {
+      const r = run(raw)
+      expect(r.status).toBe('rejected')
+      expect(r.ok).toBe(false)
+    })
+    expect(validateForensicOutput(out([good()]), null as never).status).toBe('rejected')
+  })
+
+  it('derives a status for a hand-built validation result that carries none', () => {
+    const rec = buildForensicInterpretationRecord({
+      bundle,
+      validation: { ok: true, interpretations: [{ pattern_id: 'x' }], rejected: [{ reason: 'unsupported_figure' }] },
+    })
+    expect(rec.validation.status).toBe('partial')
+  })
+
+  it('every status it can emit is in the declared vocabulary', () => {
+    const seen = [run(out([])), run(out([good()])), run('nope'), run(out([good({ title: '' })]))]
+      .map((r: any) => r.status)
+    seen.forEach((x) => expect(INTERPRETATION_STATUSES).toContain(x))
   })
 })
 
@@ -393,7 +640,9 @@ describe('the persisted interpretation record', () => {
   it('records rejection reasons but never the prose that failed a gate', () => {
     const validation = run(out([good({ interpretation: 'This proves the indoor source is the copier.' })]))
     const rec = buildForensicInterpretationRecord({ bundle, validation })
-    expect(rec.validation.status).toBe('empty')
+    // Not `empty`. The model tried and the gate threw it away, which is the
+    // opposite fact from a model that correctly raised nothing.
+    expect(rec.validation.status).toBe('rejected')
     expect(rec.validation.reasons).toEqual(['prohibited_language'])
     expect(JSON.stringify(rec)).not.toContain('proves the indoor source')
   })
