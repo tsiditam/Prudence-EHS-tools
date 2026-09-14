@@ -53,6 +53,7 @@
 
 import { REPORT_PARAMETERS, REPORT_RESULT_COLUMNS } from './reportModel'
 import { PARAMETER_BACKGROUND } from './narrativeLibrary.js'
+import { stableStringify, findingIdentity, recommendationIdentity, assignStableIds } from './evidenceIdentity.js'
 
 /** Bumped when the package's shape changes in a way a consumer would notice. */
 // Bumped to 2 when `parameter_context` was added: a writer given approved
@@ -290,12 +291,15 @@ function buildParameterContext(model) {
 
 function buildFindings(model, index) {
   const rows = (model && model.findings && model.findings.rows) || []
-  return rows.map((r, i) => {
+  // Ids are stamped AFTER the rows are built, because the identity tuple
+  // reads fields (`parameter`, `criterion_id`, `basis`) that only exist once
+  // the row is assembled. See `evidenceIdentity.js` for what is in the tuple
+  // and — more to the point — what is deliberately left out of it.
+  return assignStableIds(rows.map((r) => {
     const zone = str(r.z)
     const text = str(r.f)
     const e = index.get(`${zone} ${text}`) || null
     return {
-      id: `find-${slug(zone)}-${i}`,
       zone,
       // Verbatim off the engine. The writer paraphrases this for the reader;
       // the package keeps the original so the audit can tell a paraphrase
@@ -319,7 +323,7 @@ function buildFindings(model, index) {
       // finding — some layer reworded it. Surfaced rather than hidden.
       unjoined: !e,
     }
-  })
+  }), findingIdentity)
 }
 
 /** What each `may_assert` token licenses. Sent once, not per finding. */
@@ -568,8 +572,11 @@ function buildRequiredLimitations(model, findings, measurements) {
 
 function buildRecommendationOptions(model) {
   const register = (model && model.recommendations && model.recommendations.register) || []
-  return register.map((r, i) => ({
-    id: `rec-${i}-${slug(r.action)}`,
+  // Identity is the action and where it applies. Priority and timeframe are
+  // the register bucket, and control / owner / evidence all derive from one
+  // `controlTier` — metadata about how the action is categorized and
+  // scheduled, not about what it is. See `evidenceIdentity.js`.
+  return assignStableIds(register.map((r) => ({
     priority: str(r.priority),
     timeframe: str(r.timeframe),
     action: str(r.action),
@@ -577,7 +584,7 @@ function buildRecommendationOptions(model) {
     control: str(r.control),
     owner: str(r.owner),
     evidence: str(r.evidence),
-  }))
+  })), recommendationIdentity)
 }
 
 // ── The immutable index ────────────────────────────────────────────────
@@ -629,22 +636,6 @@ function buildImmutableValues(measurements, findings) {
  * describe the package's own shape, not the assessment, and the third is a
  * derived index over fields already included.
  */
-/**
- * `JSON.stringify`'s array-form replacer filters keys at EVERY nesting
- * level, not just the top — a well-known trap. With no key here also
- * appearing as a nested field name, that would have stringified every
- * nested object as `{}`. This sorts keys at each level instead, recursively,
- * so the same content always serializes to the same string.
- */
-function stableStringify(value) {
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
-  if (value && typeof value === 'object') {
-    const keys = Object.keys(value).sort()
-    return `{${keys.map(k => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`
-  }
-  return JSON.stringify(value)
-}
-
 export function fingerprintPackage(pkg) {
   if (!pkg) return null
   const { version, sections, immutable_values, ...evidence } = pkg
@@ -854,7 +845,12 @@ export function packageForWriter(pkg, opts = {}) {
     // sentence the engine appends — it is exactly what `may_assert` encodes,
     // and the audit's copy keeps the sentence verbatim. Structured fields
     // that only the audit and the layering diagnostic read are dropped.
+    // `id` rides along now that it is CONTENT identity rather than a
+    // position. A writer cannot name a finding it was never given an id for,
+    // and a positional id would have resolved to a different finding after an
+    // unrelated edit — succeeding, silently, on the wrong row.
     findings: (rest.findings || []).map(f => ({
+      id: f.id,
       zone: f.zone, text: stripEvidentiaryCaveat(f.text), severity: f.severity,
       standard: f.standard, parameter: f.parameter, averaging: f.averaging, may_assert: f.may_assert,
     })),
