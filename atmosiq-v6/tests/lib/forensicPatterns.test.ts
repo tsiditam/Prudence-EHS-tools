@@ -15,7 +15,9 @@ import { describe, it, expect } from 'vitest'
 import { detectDatasetEvents } from '../../src/utils/forensicEvents.js'
 import {
   buildPatterns, detectRecurringCycle, correlation, patternId, missingContextFor,
-  PATTERN_KINDS, CONTEXT_INPUTS, MIN_CYCLE_DAYS,
+  coversWindow, requiredCycleDays, PATTERN_KINDS, CONTEXT_INPUTS, CONTEXT_RULES,
+  MIN_CYCLE_DAYS, MIN_CYCLE_AMPLITUDE_K, MIN_OVERLAP_SAMPLES, MAX_PER_KIND,
+  CYCLE_HOUR_TOLERANCE,
 } from '../../src/utils/forensicPatterns.js'
 
 const DAY = 86400_000
@@ -124,7 +126,7 @@ describe('missing context is pattern-dependent', () => {
   })
 
   it('missingContextFor is a pure lookup over what is absent', () => {
-    expect(missingContextFor('occupancy_relation', {})).toEqual([])
+    expect(missingContextFor('occupancy_comparison', {})).toEqual([])
     expect(missingContextFor('recurring_cycle', { hvac_schedule: true, occupancy: true })).toEqual([])
     expect(missingContextFor('nonexistent_kind', {})).toEqual([])
   })
@@ -143,7 +145,7 @@ describe('occupied vs unoccupied', () => {
         { start: T0 + DAY + 9 * 3600_000, end: T0 + DAY + 17 * 3600_000, kind: 'occupied' },
       ],
     })
-    const rel = ofKind(ps, 'occupancy_relation')[0]
+    const rel = ofKind(ps, 'occupancy_comparison')[0]
     expect(rel).toBeTruthy()
     expect(rel.summary.delta).toBeGreaterThan(500)
     expect(rel.summary.windows).toBe(2)
@@ -154,7 +156,7 @@ describe('occupied vs unoccupied', () => {
       datasets: [ds()],
       rawDatasets: { primary: mkDataset('primary', 'indoor', 'Indoor', pts, ['co2']) },
     })
-    expect(ofKind(ps, 'occupancy_relation')).toEqual([])
+    expect(ofKind(ps, 'occupancy_comparison')).toEqual([])
   })
 })
 
@@ -202,7 +204,7 @@ describe('indoor and outdoor', () => {
         'ds-out': mkDataset('ds-out', 'outdoor', 'Outdoor', outPts, ['pm']),
       },
     })
-    const track = ofKind(ps, 'indoor_outdoor_tracking')[0]
+    const track = ofKind(ps, 'indoor_outdoor_comparison')[0]
     expect(track).toBeTruthy()
     expect(track.summary.r).toBeGreaterThan(0.9)
     expect(track.summary.pairedSamples).toBeGreaterThan(10)
@@ -221,7 +223,7 @@ describe('indoor and outdoor', () => {
         'ds-out': mkDataset('ds-out', 'outdoor', 'Outdoor', outPts, ['pm']),
       },
     })
-    const only = ofKind(ps, 'indoor_only')
+    const only = ofKind(ps, 'no_matching_outdoor_event')
     expect(only.length).toBeGreaterThanOrEqual(1)
     expect(only[0].summary.outdoorEventsInWindow).toBe(0)
     expect(only[0].eventIds).toHaveLength(1)
@@ -232,8 +234,8 @@ describe('indoor and outdoor', () => {
       datasets: [detectDatasetEvents(mkDataset('primary', 'indoor', 'Indoor', inPts, ['pm']))],
       rawDatasets: { primary: mkDataset('primary', 'indoor', 'Indoor', inPts, ['pm']) },
     })
-    expect(ofKind(ps, 'indoor_outdoor_tracking')).toEqual([])
-    expect(ofKind(ps, 'indoor_only')).toEqual([])
+    expect(ofKind(ps, 'indoor_outdoor_comparison')).toEqual([])
+    expect(ofKind(ps, 'no_matching_outdoor_event')).toEqual([])
   })
 })
 
@@ -251,7 +253,7 @@ describe('zone-localized events', () => {
         'ds-z1': mkDataset('ds-z1', 'zone', 'Conference B', spikePts, ['co2']),
       },
     })
-    const loc = ofKind(ps, 'zone_localized')
+    const loc = ofKind(ps, 'no_matching_zone_event')
     expect(loc.length).toBeGreaterThanOrEqual(1)
     expect(loc[0].summary.zone).toBe('Conference B')
     expect(loc[0].datasetIds).toEqual(['ds-z1'])
@@ -311,7 +313,7 @@ describe('pattern identity and shape', () => {
   it('ids are deterministic across reruns and derived from membership', () => {
     expect(build(args()).map((p: any) => p.id)).toEqual(build(args()).map((p: any) => p.id))
     expect(patternId('coincidence', ['b', 'a'])).toBe(patternId('coincidence', ['a', 'b']))
-    expect(patternId('coincidence', ['a'])).not.toBe(patternId('indoor_only', ['a']))
+    expect(patternId('coincidence', ['a'])).not.toBe(patternId('no_matching_outdoor_event', ['a']))
   })
 
   it('every pattern declares a known kind and cites its evidence', () => {
@@ -370,5 +372,219 @@ describe('pattern identity and shape', () => {
     expect(build({})).toEqual([])
     expect(build({ datasets: [] })).toEqual([])
     expect(build({ datasets: [detectDatasetEvents({} as never)] })).toEqual([])
+  })
+})
+
+describe('pattern ids do not collide when there are no member events', () => {
+  /**
+   * The collision that motivated scoping identity. A smooth cycle carries NO
+   * event ids, so hashing membership alone gave every cycle the same id — and
+   * an assessor's acceptance is stored against that id.
+   */
+  const twoParamCycle = multiDay(4, (_d, hour) => ({
+    co2: 500 + 200 * Math.cos(((hour - 14) / 24) * 2 * Math.PI),
+    pm: 30 + 12 * Math.cos(((hour - 14) / 24) * 2 * Math.PI),
+  }))
+
+  it('two smooth cycles on different parameters get different ids', () => {
+    const ds = mkDataset('primary', 'indoor', 'Indoor', twoParamCycle, ['co2', 'pm'])
+    const ps = build({ datasets: [detectDatasetEvents(ds)], rawDatasets: { primary: ds } })
+    const cycles = ofKind(ps, 'recurring_cycle')
+    expect(cycles.length).toBe(2)
+    expect(cycles.every((c: any) => c.eventIds.length === 0)).toBe(true)
+    expect(new Set(cycles.map((c: any) => c.id)).size).toBe(2)
+  })
+
+  it('two indoor/outdoor comparisons on different parameters get different ids', () => {
+    const inPts = multiDay(1, (_d, _h, i) => ({ co2: 500 + (i % 7), pm: 10 + (i % 5) }))
+    const outPts = multiDay(1, (_d, _h, i) => ({ co2: 420 + (i % 7), pm: 9 + (i % 5) }))
+    const ps = build({
+      datasets: [
+        detectDatasetEvents(mkDataset('primary', 'indoor', 'Indoor', inPts, ['co2', 'pm'])),
+        detectDatasetEvents(mkDataset('ds-out', 'outdoor', 'Outdoor', outPts, ['co2', 'pm'])),
+      ],
+      rawDatasets: {
+        primary: mkDataset('primary', 'indoor', 'Indoor', inPts, ['co2', 'pm']),
+        'ds-out': mkDataset('ds-out', 'outdoor', 'Outdoor', outPts, ['co2', 'pm']),
+      },
+    })
+    const cmp = ofKind(ps, 'indoor_outdoor_comparison')
+    expect(cmp.length).toBe(2)
+    expect(new Set(cmp.map((c: any) => c.id)).size).toBe(2)
+  })
+
+  it('every id in one analysis is unique', () => {
+    const ds = mkDataset('primary', 'indoor', 'Indoor', twoParamCycle, ['co2', 'pm'])
+    const ps = build({
+      datasets: [detectDatasetEvents(ds)],
+      rawDatasets: { primary: ds },
+      occupancyWindows: [{ start: T0 + 9 * 3600_000, end: T0 + 17 * 3600_000, kind: 'occupied' }],
+    })
+    expect(ps.length).toBeGreaterThan(2)
+    expect(new Set(ps.map((p: any) => p.id)).size).toBe(ps.length)
+  })
+
+  it('identity separates kind, dataset and parameter', () => {
+    const base = { datasetIds: ['primary'], params: ['co2'], eventIds: [] as string[] }
+    const id = patternId('recurring_cycle', base)
+    expect(patternId('recurring_cycle', base)).toBe(id) // reproducible
+    expect(patternId('recurring_cycle', { ...base, params: ['pm'] })).not.toBe(id)
+    expect(patternId('recurring_cycle', { ...base, datasetIds: ['ds-2'] })).not.toBe(id)
+    expect(patternId('occupancy_comparison', base)).not.toBe(id)
+    expect(patternId('recurring_cycle', { ...base, subject: 'a' }))
+      .not.toBe(patternId('recurring_cycle', { ...base, subject: 'b' }))
+  })
+})
+
+describe('recurring-cycle support scales with the record', () => {
+  const cycleAt = (hour: number, amp: number) => (_d: number, h: number) => ({
+    co2: 500 + amp * Math.cos(((h - hour) / 24) * 2 * Math.PI),
+  })
+
+  it('requiredCycleDays is a majority of eligible days, never below the floor', () => {
+    expect(requiredCycleDays(2)).toBe(MIN_CYCLE_DAYS)
+    expect(requiredCycleDays(4)).toBe(2)
+    expect(requiredCycleDays(7)).toBe(4)
+    expect(requiredCycleDays(0)).toBe(MIN_CYCLE_DAYS)
+  })
+
+  it('a genuine 2-day repeat qualifies', () => {
+    const cycle = detectRecurringCycle(multiDay(2, cycleAt(14, 200)), 'co2')
+    expect(cycle).toBeTruthy()
+    expect(cycle!.daysAgreeing).toBe(2)
+    expect(cycle!.daysRequired).toBe(2)
+  })
+
+  it('strong multi-day recurrence qualifies and reports its support', () => {
+    const cycle = detectRecurringCycle(multiDay(7, cycleAt(14, 200)), 'co2')
+    expect(cycle).toBeTruthy()
+    expect(cycle!.daysObserved).toBe(7)
+    expect(cycle!.daysAgreeing).toBeGreaterThanOrEqual(cycle!.daysRequired)
+    expect(cycle!.daysRequired).toBe(4)
+  })
+
+  it('a 7-day record with only 2 agreeing days does NOT qualify', () => {
+    // Each day peaks at a different hour; only days 0 and 1 happen to align.
+    const peakHours = [14, 14, 3, 8, 19, 22, 11]
+    const pts = multiDay(7, (d, h) => ({
+      co2: 500 + 200 * Math.cos(((h - peakHours[d]) / 24) * 2 * Math.PI),
+    }))
+    // Two coincidental matches out of seven is not recurrence: 4 are required.
+    expect(detectRecurringCycle(pts, 'co2')).toBeNull()
+    // The same two days on their own WOULD qualify, which is the point.
+    const justThose = multiDay(2, (_d, h) => ({ co2: 500 + 200 * Math.cos(((h - 14) / 24) * 2 * Math.PI) }))
+    expect(detectRecurringCycle(justThose, 'co2')).toBeTruthy()
+  })
+
+  it('a noise-only trace does not become a cycle just because each day has a maximum', () => {
+    const noise = multiDay(5, (_d, _h, i) => ({ co2: 500 + (i % 3) - 1 }))
+    expect(detectRecurringCycle(noise, 'co2')).toBeNull()
+  })
+
+  it('a swing indistinguishable from sample-to-sample jitter is rejected', () => {
+    // Real daily shape, but its amplitude sits inside the trace's own noise.
+    const jittery = multiDay(4, (_d, h, i) => ({
+      co2: 500 + 0.5 * Math.cos(((h - 14) / 24) * 2 * Math.PI) + ((i % 2) * 40),
+    }))
+    expect(detectRecurringCycle(jittery, 'co2')).toBeNull()
+  })
+
+  it('reports the noise it was compared against, so the judgement is checkable', () => {
+    const cycle = detectRecurringCycle(multiDay(4, cycleAt(14, 200)), 'co2')
+    expect(typeof cycle!.shortTermNoise).toBe('number')
+    expect(cycle!.meanAmplitude).toBeGreaterThan(MIN_CYCLE_AMPLITUDE_K * cycle!.shortTermNoise!)
+  })
+})
+
+describe('absence of a matching event requires the other dataset to have been there', () => {
+  const spikeIn = multiDay(1, (_d, _h, i) => ({ pm: i >= 50 && i <= 51 ? 220 : 10 + (i % 5) }))
+  const fullOut = multiDay(1, (_d, _h, i) => ({ pm: 9 + (i % 5) }))
+  /** An outdoor logger that stopped before the indoor excursion. */
+  const shortOut = fullOut.slice(0, 30)
+
+  const run = (outPts: any[]) => build({
+    datasets: [
+      detectDatasetEvents(mkDataset('primary', 'indoor', 'Indoor', spikeIn, ['pm'])),
+      detectDatasetEvents(mkDataset('ds-out', 'outdoor', 'Outdoor', outPts, ['pm'])),
+    ],
+    rawDatasets: {
+      primary: mkDataset('primary', 'indoor', 'Indoor', spikeIn, ['pm']),
+      'ds-out': mkDataset('ds-out', 'outdoor', 'Outdoor', outPts, ['pm']),
+    },
+  })
+
+  it('claims nothing-matching only when the outdoor record covered the window', () => {
+    const ps = run(fullOut)
+    const none = ofKind(ps, 'no_matching_outdoor_event')
+    expect(none.length).toBeGreaterThanOrEqual(1)
+    expect(none[0].summary.outdoorCoveredWindow).toBe(true)
+  })
+
+  it('stays silent when the outdoor logger was not recording then', () => {
+    expect(ofKind(run(shortOut), 'no_matching_outdoor_event')).toEqual([])
+  })
+
+  it('coversWindow requires the window to be bracketed and sampled', () => {
+    const pts = multiDay(1, (_d, _h, i) => ({ pm: 10 + i }))
+    const start = T0 + 40 * Q
+    const end = T0 + 44 * Q
+    expect(coversWindow(pts, 'pm', start, end)).toBe(true)
+    expect(coversWindow(pts, 'pm', T0 + 200 * Q, T0 + 204 * Q)).toBe(false) // after the record
+    expect(coversWindow([], 'pm', start, end)).toBe(false)
+    expect(coversWindow(pts, 'co2', start, end)).toBe(false) // parameter absent
+    expect(MIN_OVERLAP_SAMPLES).toBeGreaterThan(1)
+  })
+
+  it('a zone event is only called unmatched against zones that were recording', () => {
+    const quietPts = multiDay(1, (_d, _h, i) => ({ co2: 450 + (i % 4) }))
+    const spikePts = multiDay(1, (_d, _h, i) => ({ co2: i >= 60 && i <= 61 ? 1800 : 450 + (i % 4) }))
+    const stopped = quietPts.slice(0, 20)
+    const ps = build({
+      datasets: [
+        detectDatasetEvents(mkDataset('primary', 'indoor', 'Open office', stopped, ['co2'])),
+        detectDatasetEvents(mkDataset('ds-z1', 'zone', 'Conference B', spikePts, ['co2'])),
+      ],
+      rawDatasets: {
+        primary: mkDataset('primary', 'indoor', 'Open office', stopped, ['co2']),
+        'ds-z1': mkDataset('ds-z1', 'zone', 'Conference B', spikePts, ['co2']),
+      },
+    })
+    // The only comparison zone had stopped logging, so nothing is claimed.
+    expect(ofKind(ps, 'no_matching_zone_event')).toEqual([])
+  })
+})
+
+describe('the deterministic names promise only what is measured', () => {
+  it('no kind asserts tracking, localization or an indoor source', () => {
+    PATTERN_KINDS.forEach((k) => {
+      expect(k).not.toMatch(/tracking|localized|indoor_only|source|cause/)
+    })
+    expect(PATTERN_KINDS).toContain('indoor_outdoor_comparison')
+    expect(PATTERN_KINDS).toContain('occupancy_comparison')
+    expect(PATTERN_KINDS).toContain('no_matching_outdoor_event')
+    expect(PATTERN_KINDS).toContain('no_matching_zone_event')
+  })
+
+  it('every context rule names a known input and says what cannot be distinguished', () => {
+    Object.entries(CONTEXT_RULES).forEach(([kind, rules]: any) => {
+      expect(PATTERN_KINDS).toContain(kind)
+      rules.forEach((r: any) => {
+        expect(Object.keys(CONTEXT_INPUTS)).toContain(r.input)
+        expect(r.why.length).toBeGreaterThan(20)
+      })
+    })
+  })
+
+  it('the tunable constants are all declared, unitless and pinnable', () => {
+    // Documented as design choices rather than hidden in the implementation.
+    const tunables = {
+      MIN_CYCLE_DAYS, CYCLE_HOUR_TOLERANCE, MIN_CYCLE_AMPLITUDE_K,
+      MIN_OVERLAP_SAMPLES, MAX_PER_KIND,
+    }
+    Object.entries(tunables).forEach(([, v]) => {
+      expect(typeof v).toBe('number')
+      expect(v).toBeGreaterThan(0)
+    })
+    expect(MAX_PER_KIND).toBeGreaterThanOrEqual(5)
   })
 })

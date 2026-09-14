@@ -36,10 +36,33 @@ describe('robust statistics used by the detectors', () => {
     const input = [5, 1, 3]
     expect(median(input)).toBe(3)
     expect(input).toEqual([5, 1, 3])
-    const { median: m, mad, sigma } = robustSpread([1, 1, 1, 5])
+    const { median: m, mad } = robustSpread([1, 1, 1, 5])
     expect(m).toBe(1)
     expect(mad).toBe(0)
-    expect(sigma).toBe(0)
+  })
+
+  it('falls back to the non-zero deviations when MAD degenerates to zero', () => {
+    // More than half the sample identical makes MAD exactly 0, which would say
+    // "no dispersion" and silence every detector. Common on a quantized logger.
+    const { mad, sigma } = robustSpread([1, 1, 1, 5])
+    expect(mad).toBe(0)
+    expect(sigma).toBeGreaterThan(0)
+    // A genuinely constant sample still has none.
+    expect(robustSpread([7, 7, 7, 7]).sigma).toBeNull()
+  })
+
+  it('floating-point dust is not mistaken for dispersion', () => {
+    // Deviations of 1e-13 against values in the hundreds are non-zero to the
+    // machine. Treating them as scale would make every ordinary sample an
+    // outlier — the MAD degeneracy arrived at from the other side.
+    const dusty = [500, 500 + 1e-13, 500 - 1e-13, 500, 580, 580 + 1e-13]
+    const { sigma } = robustSpread(dusty)
+    expect(sigma).toBeGreaterThan(1) // the 80-unit split, not the 1e-13 dust
+  })
+
+  it('the fallback scale is never smaller than MAD would give, so it cannot add sensitivity', () => {
+    const spread = robustSpread([10, 10, 10, 10, 40])
+    expect(spread.sigma).toBeGreaterThan((spread.mad as number) * MAD_TO_SIGMA)
   })
 
   it('sigma is MAD scaled to the normal-consistency constant', () => {
@@ -154,6 +177,68 @@ describe('abrupt rises and falls', () => {
     const ups = detectParameterEvents(series('co2', vals), 'co2').filter((e) => e.kind === 'step_up')
     expect(ups).toHaveLength(1)
     expect(ups[0].samples).toBeGreaterThan(2)
+  })
+})
+
+describe('abrupt steps on a trending trace', () => {
+  /**
+   * The case that makes or breaks this detector. A trace climbing steadily has
+   * a large ordinary first difference and a tiny spread around it, so testing
+   * the raw difference against K·sigma labels every ordinary sample an abrupt
+   * rise. The test has to be on the residual from the usual step.
+   */
+  const drift = (n: number, perSample: number, base = 400) =>
+    Array.from({ length: n }, (_, i) => base + i * perSample + ((i % 3) - 1) * 0.01)
+
+  it('a steady upward drift contains no abrupt event', () => {
+    const evs = detectParameterEvents(series('co2', drift(60, 1)), 'co2')
+    expect(kinds(evs)).not.toContain('step_up')
+    expect(kinds(evs)).not.toContain('step_down')
+  })
+
+  it('a steady downward drift contains no abrupt event', () => {
+    const evs = detectParameterEvents(series('co2', drift(60, -1)), 'co2')
+    expect(kinds(evs)).not.toContain('step_up')
+    expect(kinds(evs)).not.toContain('step_down')
+  })
+
+  it('a steady climb with one genuine jump reports exactly that jump', () => {
+    const vals = drift(60, 1)
+    for (let i = 30; i < 60; i++) vals[i] += 500 // one abnormal step at i=30
+    const ups = detectParameterEvents(series('co2', vals), 'co2').filter((e) => e.kind === 'step_up')
+    expect(ups).toHaveLength(1)
+    expect(ups[0].startTs).toBe(T0 + 29 * STEP_MS)
+    // The excess strips the climb the trace was already carrying.
+    expect(ups[0].excess).toBeGreaterThan(400)
+    expect(ups[0].driftPerSample).toBeCloseTo(1, 1)
+  })
+
+  it('a steady climb with one genuine drop reports a fall, not another rise', () => {
+    const vals = drift(60, 1)
+    for (let i = 30; i < 60; i++) vals[i] -= 500
+    const evs = detectParameterEvents(series('co2', vals), 'co2')
+    const downs = evs.filter((e) => e.kind === 'step_down')
+    expect(downs).toHaveLength(1)
+    expect(evs.filter((e) => e.kind === 'step_up')).toEqual([])
+  })
+
+  it('a pause in a steady climb is the anomaly, and reads as a fall relative to it', () => {
+    // Values hold flat for a stretch while the trace was climbing 1 per sample.
+    const vals = drift(60, 1)
+    const held = vals[30]
+    for (let i = 30; i < 40; i++) vals[i] = held
+    for (let i = 40; i < 60; i++) vals[i] -= 10
+    const evs = detectParameterEvents(series('co2', vals), 'co2')
+    // Whatever else it finds, it must not call the pause a rise.
+    const risesInPause = evs.filter((e) => e.kind === 'step_up'
+      && e.startTs >= T0 + 30 * STEP_MS && e.startTs < T0 + 39 * STEP_MS)
+    expect(risesInPause).toEqual([])
+  })
+
+  it('a perfectly linear ramp has no unusual step at all', () => {
+    const exact = Array.from({ length: 60 }, (_, i) => 400 + i * 5)
+    expect(detectParameterEvents(series('co2', exact), 'co2')
+      .filter((e) => e.kind === 'step_up' || e.kind === 'step_down')).toEqual([])
   })
 })
 

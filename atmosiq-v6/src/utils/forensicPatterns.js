@@ -32,16 +32,40 @@
 
 import { readings, nominalIntervalSec, occupancySplit } from './monitoringStats.js'
 import { alignDatasets } from './sensorParser.js'
-import { fnv1aHex, median } from './forensicEvents.js'
+import { fnv1aHex, median, robustSpread } from './forensicEvents.js'
 
 const isNum = (v) => v != null && Number.isFinite(v)
 const round3 = (v) => (isNum(v) ? Number(v.toPrecision(3)) : null)
 
 /** Pattern kinds this module can emit. Frozen so a test can pin the vocabulary. */
 export const PATTERN_KINDS = Object.freeze([
-  'recurring_cycle', 'coincidence', 'occupancy_relation',
-  'indoor_outdoor_tracking', 'indoor_only', 'zone_localized', 'event_proximity',
+  'recurring_cycle', 'coincidence', 'occupancy_comparison',
+  'indoor_outdoor_comparison', 'no_matching_outdoor_event',
+  'no_matching_zone_event', 'event_proximity',
 ])
+
+/**
+ * Why these names and not the obvious ones.
+ *
+ * `indoor_outdoor_comparison` was `indoor_outdoor_tracking`. The detector emits
+ * whenever a correlation is mathematically defined, so an r of 0.02 would have
+ * been published under a name asserting the traces track each other. The honest
+ * fix is the neutral name, not an arbitrary cutoff on r invented to keep the
+ * old one: the deterministic layer states the measured relationship and the
+ * model decides whether it is worth raising.
+ *
+ * `occupancy_comparison` was `occupancy_relation`, for the same reason — any
+ * finite delta produced one, including a negligible one.
+ *
+ * `no_matching_outdoor_event` and `no_matching_zone_event` were `indoor_only`
+ * and `zone_localized`. Those named a CONCLUSION the data does not reach: the
+ * absence of a detected event next door is not the absence of a change. The
+ * other dataset may have thinner coverage, a different logging interval, or a
+ * real change its own dispersion does not mark. So the pattern states exactly
+ * what is known — nothing matching was detected there — and only after
+ * `coversWindow` has established the comparison dataset actually had readings
+ * across that window to be silent about.
+ */
 
 /** Contextual inputs a pattern's reading can depend on. */
 export const CONTEXT_INPUTS = Object.freeze({
@@ -63,17 +87,17 @@ export const CONTEXT_RULES = Object.freeze({
     { input: 'hvac_schedule', why: 'A daily cycle driven by a system timer and one driven by people occupy the same hours. Without the HVAC operating schedule the two cannot be separated.' },
     { input: 'occupancy', why: 'No occupancy periods are marked, so the cycle cannot be compared against when the space was in use.' },
   ],
-  occupancy_relation: [],
+  occupancy_comparison: [],
   coincidence: [
     { input: 'annotations', why: 'Nothing was logged during monitoring, so an activity that would account for both traces moving together cannot be checked.' },
   ],
-  indoor_only: [
+  no_matching_outdoor_event: [
     { input: 'annotations', why: 'Nothing was logged during monitoring, so an indoor activity at this time cannot be confirmed or ruled out.' },
   ],
-  zone_localized: [
+  no_matching_zone_event: [
     { input: 'annotations', why: 'Nothing was logged during monitoring, so an activity confined to this zone cannot be checked.' },
   ],
-  indoor_outdoor_tracking: [],
+  indoor_outdoor_comparison: [],
   event_proximity: [],
 })
 
@@ -93,10 +117,57 @@ export function missingContextFor(kind, present = {}) {
     .map((rule) => ({ id: rule.input, label: CONTEXT_INPUTS[rule.input], why: rule.why }))
 }
 
-/** A deterministic pattern id, derived from what the pattern is about. */
-export function patternId(kind, memberIds) {
-  const sig = [...new Set(memberIds || [])].sort().join('|')
-  return `pat-${kind}-${fnv1aHex(`${kind}::${sig}`)}`
+/**
+ * A deterministic pattern id, derived from everything that makes the pattern
+ * the one it is.
+ *
+ * Membership alone is not enough, and that was a real collision: a smooth
+ * recurring cycle carries NO event ids (there is no abrupt step in a slow
+ * swing), so a CO₂ cycle and a PM2.5 cycle both hashed the empty set and
+ * received the same id. The same held for every indoor/outdoor and occupancy
+ * comparison. Since an accepted interpretation is stored against this id, two
+ * patterns sharing one would let an assessor's acceptance of one silently
+ * apply to the other.
+ *
+ * So identity is the semantic scope: kind, the datasets involved, the
+ * parameters involved, an optional subject discriminator for patterns that can
+ * repeat within one parameter, and the member events where there are any.
+ * Order-insensitive, so the same analysis reproduces the same id.
+ */
+export function patternId(kind, scope = {}) {
+  const list = (xs) => [...new Set(xs || [])].map(String).sort().join(',')
+  const sig = [
+    kind,
+    list(scope.datasetIds),
+    list(scope.params),
+    scope.subject == null ? '' : String(scope.subject),
+    list(scope.eventIds),
+  ].join('::')
+  return `pat-${kind}-${fnv1aHex(sig)}`
+}
+
+/**
+ * Does `points` actually carry readings ACROSS this window for `param`?
+ *
+ * Required before any "nothing matching was detected over there" pattern. A
+ * dataset that stopped logging, started late, or samples far more coarsely is
+ * silent for reasons that have nothing to do with the air, and inferring
+ * localization from that silence is the defect this guards.
+ *
+ * The window must be bracketed — a reading at or before it and a reading at or
+ * after it — and carry at least `MIN_OVERLAP_SAMPLES` readings inside.
+ */
+export const MIN_OVERLAP_SAMPLES = 2
+
+export function coversWindow(points, param, startTs, endTs, slackMs = 0) {
+  if (!isNum(startTs)) return false
+  const end = isNum(endTs) ? endTs : startTs
+  const ts = readings(points, param).map((r) => r.t).filter(isNum)
+  if (!ts.length) return false
+  const before = ts.some((t) => t <= startTs + slackMs)
+  const after = ts.some((t) => t >= end - slackMs)
+  const inside = ts.filter((t) => t >= startTs - slackMs && t <= end + slackMs).length
+  return before && after && inside >= MIN_OVERLAP_SAMPLES
 }
 
 /** Pearson correlation of paired samples, or null when undefined. */
@@ -134,6 +205,32 @@ const localParts = (t, offsetMin) => {
 export const MIN_CYCLE_DAYS = 2
 export const CYCLE_HOUR_TOLERANCE = 1
 
+/**
+ * How many of the adequately sampled days must agree before a cycle is claimed.
+ *
+ * A fixed floor of two was wrong on a long deployment: in a seven-day record,
+ * two days happening to peak in the same hour while the other five disagree is
+ * coincidence, not recurrence. Support therefore scales with how many days were
+ * actually available — a simple majority — while never dropping below the floor
+ * that makes "recurring" mean anything at all.
+ */
+export function requiredCycleDays(eligibleDays) {
+  return Math.max(MIN_CYCLE_DAYS, Math.ceil((eligibleDays || 0) / 2))
+}
+
+/**
+ * How far the day-to-day swing must stand above the trace's own short-term
+ * noise before the cycle is worth reporting.
+ *
+ * Every day has a mathematical maximum, so without this a dead-flat trace
+ * carrying nothing but sampling jitter produces a "recurring daily cycle" with
+ * a peak hour. The comparison is against the robust spread of the FIRST
+ * DIFFERENCES — sample-to-sample noise — rather than the spread of the values,
+ * which would be circular: on a real cycle the swing IS most of the value
+ * spread. Data-relative, unit-free, and no concentration anywhere.
+ */
+export const MIN_CYCLE_AMPLITUDE_K = 3
+
 export function detectRecurringCycle(points, param, opts = {}) {
   const offsetMin = isNum(opts.utcOffsetMin) ? opts.utcOffsetMin : 0
   const rs = readings(points, param).filter((r) => isNum(r.t))
@@ -148,6 +245,11 @@ export function detectRecurringCycle(points, param, opts = {}) {
     hours.get(hour).push(r.v)
   })
 
+  // Short-term noise: how much this trace moves between adjacent samples.
+  const diffs = []
+  for (let i = 1; i < rs.length; i++) diffs.push(rs[i].v - rs[i - 1].v)
+  const noise = robustSpread(diffs).sigma
+
   const perDay = []
   byDay.forEach((hours, day) => {
     // A day represented by only a couple of hours cannot show a daily shape.
@@ -160,6 +262,7 @@ export function detectRecurringCycle(points, param, opts = {}) {
     })
     if (peak && trough) perDay.push({ day, peakHour: peak.hour, amplitude: peak.mean - trough.mean })
   })
+  const required = requiredCycleDays(perDay.length)
   if (perDay.length < MIN_CYCLE_DAYS) return null
 
   // The modal peak hour, and the days that agree with it within tolerance.
@@ -169,14 +272,21 @@ export function detectRecurringCycle(points, param, opts = {}) {
     const agree = perDay.filter((d) => hourDist(d.peakHour, candidate.peakHour) <= CYCLE_HOUR_TOLERANCE)
     if (!best || agree.length > best.agree.length) best = { hour: candidate.peakHour, agree }
   })
-  if (!best || best.agree.length < MIN_CYCLE_DAYS) return null
+  if (!best || best.agree.length < required) return null
+
+  // A swing indistinguishable from the trace's own jitter is not a cycle.
+  const amplitude = median(best.agree.map((d) => d.amplitude))
+  if (!isNum(amplitude)) return null
+  if (isNum(noise) && noise > 0 && amplitude < MIN_CYCLE_AMPLITUDE_K * noise) return null
 
   return {
     param,
     peakHour: best.hour,
     daysObserved: perDay.length,
     daysAgreeing: best.agree.length,
-    meanAmplitude: round3(median(best.agree.map((d) => d.amplitude))),
+    daysRequired: required,
+    meanAmplitude: round3(amplitude),
+    shortTermNoise: round3(noise),
     utcOffsetMin: offsetMin,
     // The per-day figures the cycle was concluded from. A smooth cycle
     // produces no EVENTS — there is no abrupt step or outlying peak in a slow
@@ -229,12 +339,20 @@ export function buildPatterns(input = {}) {
     annotations: notes.length > 0,
   }
   const out = []
+  // `body` carries datasetIds and params, which are part of identity — a smooth
+  // cycle has no member events, so without them every cycle would share an id.
   const add = (kind, memberIds, body) => {
     if (out.filter((p) => p.kind === kind).length >= MAX_PER_KIND) return
+    const eventIds = [...new Set(memberIds)].sort()
     out.push({
-      id: patternId(kind, memberIds),
+      id: patternId(kind, {
+        datasetIds: body.datasetIds,
+        params: body.params,
+        subject: body.subject,
+        eventIds,
+      }),
       kind,
-      eventIds: [...new Set(memberIds)].sort(),
+      eventIds,
       missingContext: missingContextFor(kind, present),
       ...body,
     })
@@ -282,7 +400,7 @@ export function buildPatterns(input = {}) {
     indoor.params.forEach((param) => {
       const split = occupancySplit(indoorPoints, param, occ)
       if (!isNum(split.delta)) return
-      add('occupancy_relation', indoor.events.filter((e) => e.param === param).map((e) => e.id), {
+      add('occupancy_comparison', indoor.events.filter((e) => e.param === param).map((e) => e.id), {
         params: [param],
         datasetIds: [indoor.datasetId],
         startTs: null,
@@ -309,7 +427,7 @@ export function buildPatterns(input = {}) {
       const pairs = (aligned.points || []).filter((p) => isNum(p.in) && isNum(p.out))
       const r = correlation(pairs.map((p) => p.in), pairs.map((p) => p.out))
       if (r == null) return
-      add('indoor_outdoor_tracking', [], {
+      add('indoor_outdoor_comparison', [], {
         params: [param],
         datasetIds: [indoor.datasetId, outdoor.datasetId],
         startTs: null,
@@ -322,21 +440,31 @@ export function buildPatterns(input = {}) {
         },
       })
 
-      // An indoor excursion with nothing moving outdoors at the same time.
+      // An indoor excursion with nothing matching detected outdoors.
+      //
+      // Only claimable when the outdoor dataset actually covered that window.
+      // Silence from a logger that had stopped, started late, or samples far
+      // more coarsely says nothing about the air, and reading localization into
+      // it is exactly the inference this guard exists to prevent.
       indoor.events
         .filter((e) => e.param === param && (e.kind === 'peak' || e.kind === 'sustained'))
         .forEach((e) => {
           const concurrent = outdoor.events.some((o) => o.param === param && windowsMeet(e, o, slackMs))
           if (concurrent) return
-          add('indoor_only', [e.id], {
+          if (!coversWindow(outPoints, param, e.startTs, e.endTs, slackMs)) return
+          add('no_matching_outdoor_event', [e.id], {
             params: [param],
             datasetIds: [indoor.datasetId, outdoor.datasetId],
             startTs: e.startTs,
             endTs: e.endTs,
-            summary: { eventKind: e.kind, magnitude: e.magnitude, outdoorEventsInWindow: 0 },
+            summary: {
+              eventKind: e.kind,
+              magnitude: e.magnitude,
+              outdoorEventsInWindow: 0,
+              outdoorCoveredWindow: true,
+            },
           })
         })
-      void outPoints
     })
   }
 
@@ -351,12 +479,23 @@ export function buildPatterns(input = {}) {
           if (!elsewhere.length) return
           const alsoThere = elsewhere.some((d) => d.events.some((o) => o.param === e.param && windowsMeet(e, o, slackMs)))
           if (alsoThere) return
-          add('zone_localized', [e.id], {
+          // Only the zones that actually covered this window can be silent
+          // about it. A zone whose logger was down says nothing either way.
+          const covering = elsewhere.filter((d) => coversWindow(
+            (raw[d.datasetId] && raw[d.datasetId].points) || [], e.param, e.startTs, e.endTs, slackMs,
+          ))
+          if (!covering.length) return
+          add('no_matching_zone_event', [e.id], {
             params: [e.param],
             datasetIds: [self.datasetId],
             startTs: e.startTs,
             endTs: e.endTs,
-            summary: { zone: self.label, eventKind: e.kind, zonesCompared: elsewhere.length },
+            summary: {
+              zone: self.label,
+              eventKind: e.kind,
+              zonesCompared: covering.length,
+              zonesWithoutCoverage: elsewhere.length - covering.length,
+            },
           })
         })
     })

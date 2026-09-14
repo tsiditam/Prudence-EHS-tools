@@ -41,9 +41,22 @@
  * purpose: IAQ traces are skewed and the excursions are exactly what we are
  * looking for, so an estimator those excursions can inflate would hide them.
  *
- * `K_OUTLIER` and the sample minimums below are the only tunable numbers in
- * this file, they are named and exported so a test can state them, and none of
- * them is expressed in any measurement unit.
+ * ── The tunable constants, in full ─────────────────────────────────────
+ * There are more than the outlier multiplier, and pretending otherwise would
+ * hide design choices someone will eventually need to revisit. Every one is
+ * exported so a test can state it, and NONE is expressed in a measurement
+ * unit — they are all about sampling geometry or how much evidence is enough:
+ *
+ *   K_OUTLIER          3   Hampel multiplier: how far from usual is unusual.
+ *   MAD_TO_SIGMA  1.4826   Fixed by the estimator, not a choice.
+ *   MIN_SERIES_SAMPLES 12  Below this, a distribution is not worth describing.
+ *   MIN_RUN_SAMPLES     5  Consecutive readings before a run is sustained,
+ *                          or before an unmoving stretch is a flatline.
+ *   MAX_PEAK_SAMPLES    4  Above this an excursion is not "isolated"; it is
+ *                          reported as a sustained elevation instead.
+ *
+ * `forensicPatterns.js` carries its own set (cycle support, hour tolerance,
+ * overlap minimums, per-kind caps) and documents them the same way.
  *
  * ── Failing toward silence ─────────────────────────────────────────────
  * Every guard here returns "no event" rather than a guess. A trace with no
@@ -94,8 +107,34 @@ export function median(values) {
 export function robustSpread(values) {
   const med = median(values)
   if (med == null) return { median: null, mad: null, sigma: null }
-  const mad = median((values || []).filter(isNum).map((v) => Math.abs(v - med)))
-  return { median: med, mad, sigma: isNum(mad) ? mad * MAD_TO_SIGMA : null }
+  const devs = (values || []).filter(isNum).map((v) => Math.abs(v - med))
+  const mad = median(devs)
+
+  // MAD DEGENERACY. The median absolute deviation is exactly zero whenever more
+  // than half the sample takes one value — which is the normal case for a
+  // quantized logger, and for the first differences of a steadily trending
+  // trace where two thirds of the steps are identical. Taken literally that
+  // says "no dispersion", and every detector downstream then goes silent,
+  // including on a genuine excursion sitting right there in the data.
+  //
+  // So when MAD is zero but the sample is not constant, the scale is taken from
+  // the non-zero deviations instead. This is the same problem Rousseeuw and
+  // Croux (1993) introduced Sn and Qn to solve; this is the cheap form of the
+  // same idea, and it fails in the safe direction — the scale it returns is
+  // larger than MAD would give, so the detector becomes less sensitive, never
+  // more. A genuinely constant sample still has no dispersion and no events.
+  // "Non-zero" has to mean non-zero IN SCALE, not merely unequal to zero.
+  // Deviations that are really floating-point dust — 1e-13 against values in
+  // the hundreds — are non-zero to the machine, and taking their median hands
+  // back a scale of 1e-13, which makes every ordinary sample an outlier. That
+  // is the same failure the MAD degeneracy causes, arrived at from the other
+  // side. The tolerance is relative to the largest deviation, so it carries no
+  // unit and no assumption about magnitude.
+  const maxDev = devs.reduce((m, d) => (d > m ? d : m), 0)
+  const tol = maxDev * 1e-9
+  const nonZero = devs.filter((d) => d > tol)
+  const scale = isNum(mad) && mad > tol ? mad : median(nonZero)
+  return { median: med, mad, sigma: isNum(scale) ? scale * MAD_TO_SIGMA : null }
 }
 
 /**
@@ -165,11 +204,20 @@ const round3 = (v) => (isNum(v) ? Number(v.toPrecision(3)) : null)
 function detectSteps(rs, ctx) {
   const diffs = []
   for (let i = 1; i < rs.length; i++) diffs.push(rs[i].v - rs[i - 1].v)
-  const { sigma } = robustSpread(diffs)
+  const { median: medianDiff, sigma } = robustSpread(diffs)
   // Zero dispersion means every step is identical; there is no such thing as an
   // unusual one, and dividing by it would call all of them unusual.
-  if (!isNum(sigma) || sigma <= 0) return []
+  if (!isNum(sigma) || sigma <= 0 || !isNum(medianDiff)) return []
   const limit = K_OUTLIER * sigma
+
+  // The test is on the RESIDUAL — how far a step sits from the step this trace
+  // usually takes — not on the step itself. On a steadily rising trace the
+  // ordinary difference is large and its deviation is near zero, so testing the
+  // raw difference would label every ordinary sample an abrupt rise: a trace
+  // climbing 1 unit per sample has a tiny MAD, so K·σ̂ is tiny, and |1| clears
+  // it every time. Direction comes from the residual too, so a pause in a
+  // steady climb reads as the anomaly it is rather than as another rise.
+  const residual = (d) => d - medianDiff
 
   const out = []
   let run = null
@@ -189,6 +237,11 @@ function detectSteps(rs, ctx) {
       samples: run.endIdx - run.startIdx + 1,
       magnitude: round3(to.v - from.v),
       baseline: round3(from.v),
+      // What made it anomalous: the part of the change that is not the drift
+      // this trace was already carrying. On a flat trace it equals magnitude;
+      // on a climbing one it is the excess over the ordinary climb.
+      excess: round3((to.v - from.v) - medianDiff * (run.endIdx - run.startIdx)),
+      driftPerSample: round3(medianDiff),
       unit: ctx.unit,
       basis: 'robust_dispersion',
     })
@@ -196,9 +249,9 @@ function detectSteps(rs, ctx) {
   }
 
   for (let i = 0; i < diffs.length; i++) {
-    const d = diffs[i]
-    const sign = d > 0 ? 1 : -1
-    if (Math.abs(d) < limit) { flush(); continue }
+    const r = residual(diffs[i])
+    const sign = r > 0 ? 1 : -1
+    if (Math.abs(r) < limit) { flush(); continue }
     if (run && run.sign === sign && run.endIdx === i) run.endIdx = i + 1
     else { flush(); run = { sign, startIdx: i, endIdx: i + 1 } }
   }
