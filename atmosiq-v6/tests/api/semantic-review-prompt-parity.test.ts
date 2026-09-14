@@ -33,6 +33,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { createRequire } from 'node:module'
+import { normativeText } from '../helpers/promptAgreement'
 // @ts-ignore js
 import { SEMANTIC_REVIEW_SYSTEM_PROMPT as CLIENT_PROMPT, SEMANTIC_PROMPT_VERSION } from '../../src/engines/integrity/semantic-prompt.js'
 // @ts-ignore js
@@ -44,15 +45,6 @@ import { scanProseForBannedLanguage } from '../../src/engine/report/cih-validati
 const require = createRequire(import.meta.url)
 const { SEMANTIC_REVIEW_SYSTEM_PROMPT: SERVER_PROMPT, SEMANTIC_PROMPT_VERSION: SERVER_VERSION } =
   require('../../api/_semantic-review-prompt.js')
-
-/**
- * The prompt in its own instructing voice: quoted spans and backticked
- * identifiers blanked, since both are things the prompt EXHIBITS rather
- * than says. Neither pattern spans a line break — an unbalanced delimiter
- * must blank one phrase, never swallow the document and report it clean.
- */
-const normativeText = (p: string) =>
-  String(p).replace(/"[^"\n]*"/g, '""').replace(/`[^`\n]*`/g, '``')
 
 describe('parity', () => {
   it('the wire copy and the SPA copy are byte-identical', () => {
