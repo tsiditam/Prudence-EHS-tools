@@ -16,7 +16,7 @@ import { resolveFinalizeTarget } from '../utils/finalizeTarget'
 import { ensureAssessmentUid } from '../billing/assessmentUid'
 import { hasDraftContent } from '../utils/draftContent'
 import { resolveDraftResumeView } from '../utils/resumePhase'
-import { appendZoneNote, blankZoneIndices, ensureZoneIds, hasZoneId, newZoneId, removeZoneAt, removeZonesAt, resolveProposalZone, zoneIndexById, zoneLabel } from '../utils/zoneContent'
+import { appendZone, appendZoneNote, blankZoneIndices, ensureZoneIds, hasZoneId, newZoneId, removeZoneAt, removeZonesAt, resolveProposalZone, zoneIndexById, zoneLabel } from '../utils/zoneContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -1785,11 +1785,17 @@ export default function MobileApp() {
     if (!existing && !isCurrent) return { ok: false }
     const baseDraft = existing || {}
     const srcZones = isCurrent ? zones : (baseDraft.zones || [])
-    const nextZones = srcZones.map(z => ({ ...(z || {}) }))
+    let nextZones = srcZones.map(z => ({ ...(z || {}) }))
     let zi
     if (zoneIndex === 'new') {
-      nextZones.push({ zn: (newZoneName || '').trim() || `Zone ${nextZones.length + 1}` })
-      zi = nextZones.length - 1
+      // Through `appendZone`, so the zone is written with its `zid` already
+      // on it. Logger Studio offers the zone it just created in the
+      // dataset-to-zone selector immediately, which keys on that id — a zone
+      // that only gets one on the next reopen is one the assessor can see
+      // and cannot link to.
+      const added = appendZone(nextZones, newZoneName)
+      nextZones = added.zones
+      zi = added.index
     } else {
       zi = zoneIndex
       if (zi == null || zi < 0 || zi >= nextZones.length) return { ok: false }

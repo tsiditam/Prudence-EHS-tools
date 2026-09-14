@@ -128,6 +128,31 @@ export function ensureZoneIds(zones) {
   })
 }
 
+/**
+ * Append a zone, already carrying its id, and say where it landed.
+ *
+ * The id is minted HERE rather than on the next mount. `ensureZoneIds` runs
+ * on load and on the add-zone button, so a zone created anywhere else used
+ * to have no id until the draft was reopened — and a caller that creates a
+ * zone and hands it straight to another surface in the same breath would
+ * offer one that cannot be referenced yet. Logger Studio's dataset-to-zone
+ * association is exactly that caller: it keys on `zid`, so a zone without
+ * one is a zone the assessor can see and cannot link to.
+ *
+ * `ensureZoneIds` does the minting, so there is one convention and one
+ * collision rule; every zone already carrying an id keeps it untouched.
+ *
+ * @param {Array} zones
+ * @param {string} [name] the zone name; falls back to the positional label
+ * @returns {{zones: Array, index: number}}
+ */
+export function appendZone(zones, name) {
+  const list = Array.isArray(zones) ? zones : []
+  const zn = (typeof name === 'string' ? name : '').trim()
+  const next = ensureZoneIds([...list, { zn: zn || `Zone ${list.length + 1}` }])
+  return { zones: next, index: next.length - 1 }
+}
+
 /** Position of the zone carrying `zid`, or -1. An empty id matches nothing. */
 export function zoneIndexById(zones, zid) {
   if (typeof zid !== 'string' || zid.trim() === '') return -1
