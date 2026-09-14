@@ -59,8 +59,9 @@ import { buildForensicBundle, forensicFreshness } from '../../utils/forensicBund
 import { generateForensicInterpretation } from '../../engines/forensicInterpret'
 import {
   patternTitle, patternEvidence, patternWhen, patternOccurrences, occurrenceNavigation,
-  IMPORTANCE_LABELS, REJECTION_LABELS,
+  patternAgreement, IMPORTANCE_LABELS, REJECTION_LABELS,
 } from '../../utils/forensicPresent'
+import { detectTemporalRelationships, relationshipsByPattern } from '../../engines/integrity/temporal-relationship.js'
 import {
   reviewedPatterns, acceptInterpretation, dismissInterpretation, reopenInterpretation,
 } from '../../utils/forensicReview'
@@ -168,6 +169,29 @@ function WhenLine({ when, expanded, onToggle, onView }) {
   )
 }
 
+/**
+ * Where a reported complaint period and this pattern's occurrences agree.
+ *
+ * One line, and only when the comparison reached an answer — see
+ * `patternAgreement`, which returns null for everything else so that a
+ * session whose zone-to-logger association is unknown, which is most of
+ * them, shows nothing here rather than a row of caveats.
+ */
+function AgreementLine({ agreement }) {
+  if (!agreement) return null
+  return (
+    <div style={{ ...V3.T.caption, marginTop: 4, lineHeight: '18px', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline' }} data-testid="forensic-agreement">
+      <span style={{ ...V3.T.micro, marginRight: 8, lineHeight: '18px' }}>{agreement.label}</span>
+      {agreement.parts.map((part, i) => (
+        <span key={i} style={{ color: TEXT, fontVariantNumeric: 'tabular-nums' }}>
+          {part}
+          {i < agreement.parts.length - 1 && <span style={{ color: SUB, margin: '0 6px' }} aria-hidden="true">·</span>}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 const DECISION_TONE = { accepted: V3.STATUS.ready, dismissed: V3.STATUS.draft }
 const DECISION_LABEL = { accepted: 'Accepted for report', dismissed: 'Dismissed' }
 const INELIGIBLE_NOTE = {
@@ -251,12 +275,17 @@ function Reading({ item, pattern, row, onAccept, onDismiss, onReopen }) {
  * @param {string} [props.calibrationGas] the PID span gas the page already holds
  * @param {(record: object) => void} props.onPersist store the record on the envelope
  * @param {(review: object) => void} [props.onReview] store the review on the envelope
+ * @param {object[]} [props.zones] the walkthrough zones, for reconciling a
+ *   reported complaint period against when a pattern occurred. Absent, no
+ *   reconciliation is attempted and no agreement line renders.
+ * @param {object|null} [props.investigation] the derived investigation state,
+ *   read only to decide whether a parameter is linked to a live differential
  * @param {(request: object) => void} [props.onNavigate] take the assessor to a
  *   chart window: `{ patternId, occurrenceId, datasetIds, params, start, end,
  *   eventIds, windows, title, label }`. Absent, no chart actions are offered.
  * @param {Function} [props.generate] injection seam; defaults to the real generation path
  */
-export default function ForensicsPanel({ env, calibrationGas = '', onPersist, onReview, onNavigate, generate = generateForensicInterpretation }) {
+export default function ForensicsPanel({ env, calibrationGas = '', zones = [], investigation = null, onPersist, onReview, onNavigate, generate = generateForensicInterpretation }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   // Which patterns have their occurrence list open. Keyed by pattern id so a
@@ -270,6 +299,13 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, on
   const bundle = useMemo(() => {
     try { return buildForensicBundle(input) } catch { return null }
   }, [input])
+  // Cross-evidence reconciliation, derived like everything else on this
+  // screen and stored nowhere. Read-only over the bundle: it adds no
+  // pattern, changes no window, and cannot make one exist.
+  const relationships = useMemo(() => {
+    if (!bundle) return new Map()
+    try { return relationshipsByPattern(detectTemporalRelationships({ zones, forensics: bundle, investigation })) } catch { return new Map() }
+  }, [bundle, zones, investigation])
   const stored = (env && env.forensicInterpretation) || null
   const review = (env && env.forensicReview) || null
   const freshness = useMemo(() => (stored && bundle ? forensicFreshness(stored, bundle) : null), [stored, bundle])
@@ -357,6 +393,7 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, on
                   onToggle={() => setExpanded((e) => ({ ...e, [row.patternId]: !e[row.patternId] }))}
                   onView={typeof onNavigate === 'function' ? view(p) : null}
                 />
+                <AgreementLine agreement={patternAgreement(relationships.get(row.patternId))} />
                 {stale ? <div style={{ opacity: 0.6 }}>{reading}</div> : reading}
               </div>
             )

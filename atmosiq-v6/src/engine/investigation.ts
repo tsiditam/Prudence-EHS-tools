@@ -84,6 +84,20 @@ export type HypothesisEvidenceStatus =
   | 'untested'
   | 'not_supported_by_measurement'
 
+/**
+ * The statuses that keep a differential IN PLAY.
+ *
+ * Declared beside the vocabulary it selects from rather than copied by each
+ * consumer. `investigation-gaps.js` held the only copy and described it as
+ * mirroring this file; a second consumer would have made that a drift risk,
+ * so the definition moved here and the mirror now reads it.
+ */
+export const LIVE_HYPOTHESIS_STATUSES: ReadonlyArray<HypothesisEvidenceStatus> = [
+  'supported_by_measurement',
+  'mixed_measurement_support',
+  'untested',
+]
+
 export type EvidenceDirection = 'supports' | 'opposes'
 export type EvidenceSource = 'measurement' | 'observation' | 'causal_chain'
 
@@ -237,7 +251,7 @@ const MAX_NAMED_ZONES_IN_QUESTION = 3
  * deliberately absent: it is a comfort parameter, and no §3 differential
  * turns on it.
  */
-const RULE_PARAMETERS: Record<HypothesisRuleKey, ReadonlyArray<ParameterKey>> = {
+export const RULE_PARAMETERS: Record<HypothesisRuleKey, ReadonlyArray<ParameterKey>> = {
   hyp_ventilation: ['co2'],
   hyp_bioaerosol: ['rh'],
   hyp_voc: ['tvoc', 'hcho'],

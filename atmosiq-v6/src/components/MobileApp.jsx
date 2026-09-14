@@ -6208,7 +6208,7 @@ export default function MobileApp() {
         {/* A tool carries the project it was opened from as its params
             (see ProjectDetail's onOpenLogger) — nothing in the shell
             remembers it. */}
-        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} onAskAI={(q)=>askAI(q, 'logger_studio')} /></Suspense>}
+        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} currentInvestigation={readinessInvestigation} onApplyAverages={applyAveragesToReport} onBack={nav.back} onAskAI={(q)=>askAI(q, 'logger_studio')} /></Suspense>}
         {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} onTryDemo={()=>runDemo(userMode === 'fm' ? undefined : 'findings')} />}
         {/* Desktop landing — the state of the work. A phone that restores a
             'home' entry (window resized below 1024) gets Projects above. */}

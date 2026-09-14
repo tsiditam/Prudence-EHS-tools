@@ -263,7 +263,7 @@ function AnalyzingCard({ fileName, phase }) {
   )
 }
 
-export default function SensorDataPage({ value, onChange, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], onApplyAverages, onAskAI }) {
+export default function SensorDataPage({ value, onChange, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], currentInvestigation = null, onApplyAverages, onAskAI }) {
   // The PID span gas, read off the assessor's saved profile — the same place
   // the report sheet seeds its own field from, so the reference tick on these
   // cards and the reference line in the generated report are derived from one
@@ -881,6 +881,8 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
             <ForensicsPanel
               env={env}
               calibrationGas={calGas}
+              zones={currentZones}
+              investigation={currentInvestigation}
               onPersist={(record) => onChange({ ...env, forensicInterpretation: record })}
               onReview={(review) => onChange({ ...env, forensicReview: review })}
               onNavigate={navigateToWindow}
