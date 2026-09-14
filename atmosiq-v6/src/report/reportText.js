@@ -312,8 +312,8 @@ export function nonEmptySections(sections) {
  * sections changes the fingerprint. It is a different document when it does.
  */
 export function reportTextFingerprint(sections) {
-  const parts = arr(sections).map((s) => `${obj(s).section_id} ${obj(s).text || ''}`)
-  return fnv1aHex(`${REPORT_TEXT_VERSION}${parts.join('')}`)
+  const parts = arr(sections).map((s) => `${obj(s).section_id}\u0000${obj(s).text || ''}`)
+  return fnv1aHex(`${REPORT_TEXT_VERSION}\u0001${parts.join('\u0001')}`)
 }
 
 export const __test = { COLLECTORS, block, toParas }
