@@ -46,3 +46,33 @@ export function chartForNavigation(req, ctx = {}) {
   const own = tabs.find((t) => t.kind === 'graph' && t.def && typeof t.def.needs === 'function' && params.some((p) => t.def.needs([p])))
   return { key: own ? own.key : tabs[0].key }
 }
+
+/**
+ * Dataset roles that may be associated with a walkthrough zone.
+ *
+ * Duplicated from the integrity layer's `LINKABLE_ROLES` on purpose, and
+ * pinned to it by test. Logger Studio runs standalone — no assessment, no
+ * zones, no investigation — so the page that offers the association must not
+ * import the engine that consumes it, or a logger-only session would carry
+ * the investigation engine for a control it never shows.
+ *
+ * An outdoor baseline is absent because it is not a room in the building.
+ */
+export const ZONE_LINKABLE_ROLES = Object.freeze(['indoor', 'zone'])
+
+/** The zone's display name, matching how every other Logger Studio surface names one. */
+export const zoneTitleAt = (z, i) => (z && String(z.zn || '').trim()) || `Zone ${i + 1}`
+
+/**
+ * The zones a dataset may be associated with: those carrying a stable id.
+ *
+ * The id is the join key — a display name is not, because renaming a zone
+ * must not move a logger to a different room. A zone without one cannot be
+ * linked to safely, so it is not offered. An empty result is the standalone
+ * case, and the caller renders no association control at all.
+ */
+export function linkableZones(zones) {
+  return (Array.isArray(zones) ? zones : [])
+    .map((z, i) => ({ zid: z && typeof z.zid === 'string' ? z.zid.trim() : '', name: zoneTitleAt(z, i) }))
+    .filter((z) => z.zid)
+}

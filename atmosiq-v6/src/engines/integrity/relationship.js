@@ -57,9 +57,20 @@ export const TEMPORAL_RELATIONSHIPS = Object.freeze([
  * fact if the reason is thrown away.
  */
 export const INSUFFICIENT_REASONS = Object.freeze([
-  // Which room the logger describes is not in the record. Resolved later by
-  // an explicit dataset-to-zone link, never by matching names.
+  // Which room the logger describes is not in the record: no dataset
+  // carries an explicit link and the legacy one-zone rule cannot apply.
+  // Resolved by linking the dataset, never by matching names.
   'no_unambiguous_zone_dataset_association',
+  // The dataset names a zone that no longer exists. An explicit statement
+  // whose target was deleted must not quietly become a different one, so
+  // this suppresses the legacy fallback rather than reattaching the
+  // dataset to whichever zone happens to survive.
+  'associated_zone_no_longer_exists',
+  // The pattern rests on datasets linked to DIFFERENT zones, so it
+  // describes more than one room and no single complaint period applies.
+  // Per-pattern rather than per-session: the other patterns in the same
+  // run are unaffected.
+  'conflicting_zone_associations',
   // Complaints are reported, but not against a part of the day, so there is
   // no period to compare anything to.
   'complaint_has_no_specific_period',

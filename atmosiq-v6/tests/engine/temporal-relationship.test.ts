@@ -5,9 +5,12 @@
  * Five properties, in descending order of how badly getting them wrong
  * would matter:
  *
- *   1. IT NEVER GUESSES WHICH ROOM. Nothing in the record joins a zone to a
- *      dataset. A silent wrong join reads as evidence, so anything but one
- *      zone and one indoor dataset stops with a machine-readable reason.
+ *   1. IT NEVER GUESSES WHICH ROOM. A silent wrong join reads as evidence,
+ *      so the association is either stated by the assessor on the dataset —
+ *      resolved PER DATASET, so three linked loggers are three answers — or,
+ *      for a record that states none, inferred only where one zone and one
+ *      indoor dataset leave nothing to get wrong. Anything else stops with a
+ *      machine-readable reason. Never a name, a label or a similarity.
  *   2. IT NEVER ASSERTS CAUSATION, structurally. The type carries no free
  *      text at all, so there is no sentence in which a cause could be
  *      claimed, and the presenter's wording is scanned as well.
@@ -32,6 +35,7 @@ import {
 } from '../../src/engines/integrity/relationship.js'
 import { patternAgreement } from '../../src/utils/forensicPresent.js'
 import { buildForensicBundle } from '../../src/utils/forensicBundle.js'
+import { canonicalDatasetText } from '../../src/utils/datasetHash.js'
 import { buildMonitoringReportModel } from '../../src/utils/monitoringReportModel.js'
 import { RULE_PARAMETERS } from '../../src/engine/investigation.js'
 
@@ -45,7 +49,7 @@ const zone = (over: any = {}) => ({ zid: 'z-1', zn: 'Room 214', cx: COMPLAINTS_R
  * `days` days of readings whose CO2 peaks at `peakHour`, so the recurring
  * cycle's occurrence windows land in a known part of the day.
  */
-const bundleWithCycle = (days: number, peakHour = 14, extraDatasets: any[] = []) => {
+const bundleWithCycle = (days: number, peakHour = 14, extraDatasets: any[] = [], primaryOver: any = {}) => {
   const pts: any[] = []
   for (let d = 0; d < days; d++) {
     for (let i = 0; i < 96; i++) {
@@ -60,6 +64,7 @@ const bundleWithCycle = (days: number, peakHour = 14, extraDatasets: any[] = [])
         id: 'primary', role: 'indoor', label: 'Indoor', points: pts, params: ['co2'],
         units: { co2: 'ppm' }, hasTimestamps: true,
         summary: { start: pts[0].t, end: pts[pts.length - 1].t, intervalSec: 900, count: pts.length },
+        ...primaryOver,
       }, ...extraDatasets],
       occupancyWindows: [], graphs: {}, thresholds: {},
     },
@@ -86,7 +91,7 @@ const cycleOf = (rels: any[], bundle: any) => {
 }
 
 describe('it never guesses which room the logger was in', () => {
-  it('associates exactly one zone with exactly one indoor dataset, and nothing else', () => {
+  it('infers a zone, for a record naming none, only from one zone and one indoor dataset', () => {
     const b: any = bundleWithCycle(4)
     expect(resolveAssociation([zone()], b)!.datasetId).toBe('primary')
     // Two zones: which one the logger sat in is not in the record.
@@ -120,6 +125,185 @@ describe('it never guesses which room the logger was in', () => {
     expect(detectTemporalRelationships({ zones: [], forensics: bundleWithCycle(4) })).toEqual([])
     expect(detectTemporalRelationships({ zones: [zone()], forensics: null })).toEqual([])
     expect(detectTemporalRelationships({})).toEqual([])
+  })
+})
+
+/**
+ * A second logger, in the role that may carry a zone link. Same readings as
+ * the outdoor baseline; only the role and the link differ, which is the
+ * point — nothing about the DATA decides which room it describes.
+ */
+const zoneSet = (over: any = {}) => ({ ...outdoorSet(), id: 'ds-b', role: 'zone', label: 'Room B', ...over })
+
+/** Three consecutive afternoons, as this dataset's occurrence windows. */
+const afternoons = (ds: string, n = 3) => Array.from({ length: n }, (_, d) => ({
+  id: `occ-${ds}-${d}`, start: T0 + d * DAY + 14 * 3600_000, end: T0 + d * DAY + 15 * 3600_000,
+  eventIds: [], datasetIds: [ds],
+}))
+
+/**
+ * A bundle carrying exactly the patterns named, each over the datasets given.
+ *
+ * Forged because no detector today produces a pattern spanning two ROOMS —
+ * `indoor_outdoor_comparison` spans the only two datasets it can, and the
+ * outdoor one is not a room. The conflict case has to be constructed to be
+ * pinned, and pinning it is what keeps the rule true when a detector that
+ * does span two zone loggers is written.
+ */
+const withPatterns = (b: any, spec: Array<{ id: string, datasetIds: string[] }>) => ({
+  ...b,
+  patterns: spec.map((p) => ({
+    ...b.patterns.find((q: any) => q.kind === 'recurring_cycle'),
+    id: p.id,
+    datasetIds: p.datasetIds,
+    occurrenceWindows: afternoons(p.datasetIds[0]),
+  })),
+})
+
+const byId = (rels: any[]) => new Map(rels.map((r) => [r.subject, r]))
+
+describe('association is resolved per dataset, and never inferred from a name', () => {
+  const afternoonZone = zone({ zid: 'z-1', zn: 'Room 214', sy_time: 'Afternoon' })
+  const morningZone = zone({ zid: 'z-2', zn: 'Room B', sy_time: 'Morning' })
+
+  it('reconciles each pattern against the zone ITS OWN datasets name', () => {
+    // Two rooms, two loggers, two different reported periods. Under the
+    // legacy rule this whole session was one ambiguity; each dataset now
+    // states its own answer, so the session has two.
+    const b: any = bundleWithCycle(4, 14, [zoneSet({ zoneId: 'z-2' })], { zoneId: 'z-1' })
+    const rels = byId(detectTemporalRelationships({
+      zones: [afternoonZone, morningZone],
+      forensics: withPatterns(b, [{ id: 'pat-a', datasetIds: ['primary'] }, { id: 'pat-b', datasetIds: ['ds-b'] }]),
+    }))
+    expect(rels.get('pat-a')).toMatchObject({ relationship: 'temporal_overlap', reported_period: 'Afternoon', zone_ids: ['z-1'] })
+    // The same afternoon windows, read against the room that reported
+    // mornings. Nothing about the pattern changed; the question did.
+    expect(rels.get('pat-b')).toMatchObject({ relationship: 'temporal_mismatch', reported_period: 'Morning', zone_ids: ['z-2'] })
+  })
+
+  it('takes an explicit link where the legacy inference would have refused', () => {
+    const b: any = bundleWithCycle(4, 14, [], { zoneId: 'z-2' })
+    const zones = [afternoonZone, morningZone, zone({ zid: 'z-3', zn: 'Room C' })]
+    expect(resolveAssociation(zones, b)).toBeNull()
+    const r: any = detectTemporalRelationships({ zones, forensics: withPatterns(b, [{ id: 'pat-a', datasetIds: ['primary'] }]) })[0]
+    expect(r.zone_ids).toEqual(['z-2'])
+    expect(r.reported_period).toBe('Morning')
+  })
+
+  it('makes ONE pattern ambiguous when its datasets name different rooms, and leaves the rest alone', () => {
+    const b: any = bundleWithCycle(4, 14, [zoneSet({ zoneId: 'z-2' })], { zoneId: 'z-1' })
+    const rels = byId(detectTemporalRelationships({
+      zones: [afternoonZone, morningZone],
+      forensics: withPatterns(b, [
+        { id: 'pat-span', datasetIds: ['primary', 'ds-b'] },
+        { id: 'pat-a', datasetIds: ['primary'] },
+      ]),
+    }))
+    expect(rels.get('pat-span')).toMatchObject({
+      relationship: 'insufficient_temporal_evidence',
+      reason: 'conflicting_zone_associations',
+      // Neither room is named: quoting one of two would be the guess this
+      // whole layer exists to refuse.
+      zone_ids: [], reported_period: null,
+    })
+    // Per pattern, not per session. The unambiguous one still gets its answer.
+    expect(rels.get('pat-a')!.relationship).toBe('temporal_overlap')
+  })
+
+  it('does not treat an outdoor baseline as a second room', () => {
+    // The live shape of a multi-dataset pattern. The outdoor file holds no
+    // link and contributes no zone, so an indoor/outdoor comparison is
+    // reconciled against the indoor logger's room rather than refused.
+    const b: any = bundleWithCycle(4, 14, [outdoorSet()], { zoneId: 'z-1' })
+    const r: any = detectTemporalRelationships({
+      zones: [afternoonZone],
+      forensics: withPatterns(b, [{ id: 'pat-io', datasetIds: ['primary', 'ds-out'] }]),
+    })[0]
+    expect(r.relationship).toBe('temporal_overlap')
+    expect(r.zone_ids).toEqual(['z-1'])
+    // And the parameter ids come only from the dataset that carries the
+    // association: the outdoor CO2 series is not the room's reading.
+    expect(r.parameter_ids).toEqual(['par-primary-co2'])
+  })
+
+  it('refuses to reattach a dataset whose zone was deleted', () => {
+    // One zone and one indoor dataset — precisely the shape the legacy rule
+    // would resolve. It must not, because the record does not say "this
+    // room", it says "the room that is gone".
+    const b: any = bundleWithCycle(4, 14, [], { zoneId: 'z-gone' })
+    const r: any = detectTemporalRelationships({
+      zones: [afternoonZone], forensics: withPatterns(b, [{ id: 'pat-a', datasetIds: ['primary'] }]),
+    })[0]
+    expect(r.reason).toBe('associated_zone_no_longer_exists')
+    expect(r.zone_ids).toEqual([])
+  })
+
+  it('switches the legacy inference off for the whole record once any dataset names a zone', () => {
+    // `primary` names nothing and `ds-b` names z-1. The legacy rule would
+    // have given `primary` z-1 (one zone, one indoor dataset). It does not:
+    // a record that has started stating associations is not one we should
+    // still be inferring them for.
+    const b: any = bundleWithCycle(4, 14, [zoneSet({ zoneId: 'z-1' })])
+    expect(resolveAssociation([afternoonZone], b)).not.toBeNull()
+    const rels = byId(detectTemporalRelationships({
+      zones: [afternoonZone],
+      forensics: withPatterns(b, [{ id: 'pat-a', datasetIds: ['primary'] }, { id: 'pat-b', datasetIds: ['ds-b'] }]),
+    }))
+    expect(rels.get('pat-a')!.reason).toBe('no_unambiguous_zone_dataset_association')
+    expect(rels.get('pat-b')!.relationship).toBe('temporal_overlap')
+  })
+
+  it('survives a rename, because the key is the id and never the name', () => {
+    const b: any = withPatterns(bundleWithCycle(4, 14, [], { zoneId: 'z-1' }), [{ id: 'pat-a', datasetIds: ['primary'] }])
+    const before = detectTemporalRelationships({ zones: [afternoonZone], forensics: b })
+    const after = detectTemporalRelationships({ zones: [{ ...afternoonZone, zn: 'Suite 900 — East' }], forensics: b })
+    expect(after.map(relationshipIdentity)).toEqual(before.map(relationshipIdentity))
+  })
+
+  it('ignores a zoneId on an outdoor dataset entirely, rather than letting it flip the mode', () => {
+    // An outdoor baseline is not a room, so a link written onto one is not a
+    // statement about association and must not switch the legacy rule off.
+    const b: any = bundleWithCycle(4, 14, [outdoorSet()])
+    const withStray: any = bundleWithCycle(4, 14, [{ ...outdoorSet(), zoneId: 'z-2' }])
+    const rels = (bundle: any) => detectTemporalRelationships({
+      zones: [afternoonZone], forensics: withPatterns(bundle, [{ id: 'pat-a', datasetIds: ['primary'] }]),
+    })
+    expect(rels(withStray).map(relationshipIdentity)).toEqual(rels(b).map(relationshipIdentity))
+    expect(rels(withStray)[0].zone_ids).toEqual(['z-1'])
+  })
+
+  it('leaves a legacy record reading exactly as it did before links existed', () => {
+    // Stating the association the legacy rule would have inferred changes
+    // nothing at all — which is the proof that the new path is the old
+    // answer made explicit rather than a second opinion beside it.
+    const spec = [{ id: 'pat-a', datasetIds: ['primary'] }]
+    const legacy: any = withPatterns(bundleWithCycle(4, 14), spec)
+    const stated: any = withPatterns(bundleWithCycle(4, 14, [], { zoneId: 'z-1' }), spec)
+    const rels = (f: any) => detectTemporalRelationships({ zones: [afternoonZone], forensics: f }).map(relationshipIdentity)
+    expect(rels(stated)).toEqual(rels(legacy))
+  })
+
+  it('skips a pattern whose room reports nothing, rather than answering about it', () => {
+    const quiet = zone({ zid: 'z-2', zn: 'Room B', cx: 'No complaints' })
+    const b: any = bundleWithCycle(4, 14, [zoneSet({ zoneId: 'z-2' })], { zoneId: 'z-1' })
+    const rels = detectTemporalRelationships({
+      zones: [afternoonZone, quiet],
+      forensics: withPatterns(b, [{ id: 'pat-a', datasetIds: ['primary'] }, { id: 'pat-b', datasetIds: ['ds-b'] }]),
+    })
+    // One answer, not two and not an insufficiency: there is no question
+    // about the quiet room, so there is nothing to answer.
+    expect(rels.map((r: any) => r.subject)).toEqual(['pat-a'])
+  })
+
+  it('stays out of the fingerprint and the dataset hash, so linking never stales an interpretation', () => {
+    const plain: any = bundleWithCycle(4, 14, [outdoorSet()])
+    const linked: any = bundleWithCycle(4, 14, [outdoorSet()], { zoneId: 'z-1' })
+    expect(linked.fingerprint).toBe(plain.fingerprint)
+    const ds = (b: any) => b.datasets.find((d: any) => d.id === 'primary')
+    expect(canonicalDatasetText(ds(linked))).toBe(canonicalDatasetText(ds(plain)))
+    // It IS carried on the bundle, or the association layer could not read it.
+    expect(ds(linked).zoneId).toBe('z-1')
+    expect(ds(plain).zoneId).toBeNull()
   })
 })
 

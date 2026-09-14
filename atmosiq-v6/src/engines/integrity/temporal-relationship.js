@@ -12,19 +12,34 @@
  * That is the whole claim, and this module makes no other.
  *
  * ── It does not guess which room the logger was in ─────────────────────
- * A complaint lives on a walkthrough zone; a pattern lives on a logger
- * dataset; and NOTHING IN THE RECORD JOINS THEM. Datasets carry an id, a
- * role and a label, zones carry their own id and name, and the one action
- * that connects them — sending logger averages into a zone — copies values
- * and keeps no reference.
+ * A complaint lives on a walkthrough zone and a pattern lives on a logger
+ * dataset. Matching them on labels would close that gap and must not: a
+ * silent wrong join attributes another room's pattern to this complaint
+ * and reads as evidence rather than as the guess it is.
  *
- * Matching on labels would close that gap and must not. A silent wrong
- * join attributes another room's pattern to this complaint and reads as
- * evidence rather than as the guess it is. So exactly one zone and exactly
- * one indoor dataset is treated as unambiguous, and everything else says
- * `no_unambiguous_zone_dataset_association` and stops. That reason exists
- * to be answered later by an explicit dataset-to-zone link, not by
- * inference.
+ * A dataset may now carry an explicit `zoneId`, and association is resolved
+ * PER DATASET rather than once for the run. Three datasets each linked to
+ * their own zone is not ambiguous, it is three answers, and a session that
+ * says so should get all three.
+ *
+ * The order is explicit, then legacy, and the two never mix:
+ *
+ *   • ANY dataset carrying a link puts the record in explicit mode, and the
+ *     legacy rule is off. A record that has started naming associations is
+ *     not a record we should still be inferring them for.
+ *   • A pattern is reconciled against the zone its datasets are linked to.
+ *     Datasets carrying no link contribute no zone, which is why an
+ *     indoor/outdoor comparison is not a conflict: the outdoor baseline is
+ *     not a room and never carries one.
+ *   • Datasets linked to DIFFERENT zones make that ONE PATTERN
+ *     `conflicting_zone_associations`. The rest of the run is unaffected.
+ *   • A link naming a zone that no longer exists is dangling, and it
+ *     SUPPRESSES the legacy fallback rather than falling through to it.
+ *     Reattaching the dataset to whichever zone happens to survive would
+ *     turn an explicit statement into a different one behind the
+ *     assessor's back.
+ *   • No link anywhere is a legacy record, where exactly one zone and
+ *     exactly one indoor dataset is still treated as unambiguous.
  *
  * ── Eligibility is a property of the occurrences, not the kind ─────────
  * What makes a pattern comparable is whether its windows can discriminate
@@ -109,17 +124,86 @@ function inRange(hour, range) {
 }
 
 /**
- * The zone a logger dataset describes, or null.
+ * The LEGACY association, for a record that names none of its own.
  *
- * The ONLY association this module will make. One zone and one indoor
- * dataset leaves nothing to get wrong; anything else is a guess, and a
- * guess here is indistinguishable from evidence once it is rendered.
+ * One zone and one indoor dataset leaves nothing to get wrong. Anything
+ * else was a guess, and a guess here is indistinguishable from evidence
+ * once it is rendered. Unchanged from the rule that shipped before
+ * datasets could carry a link, and reached only when none of them does.
  */
 export function resolveAssociation(zones, bundle) {
   const zs = arr(zones)
   const indoor = arr(obj(bundle).datasets).filter((d) => obj(d).role === 'indoor')
   if (zs.length !== 1 || indoor.length !== 1) return null
   return { zone: zs[0], zoneIndex: 0, datasetId: obj(indoor[0]).id || null }
+}
+
+/**
+ * Roles that may name a zone. An outdoor baseline is not a room in the
+ * building, so it never carries one and never contributes to a conflict.
+ */
+export const LINKABLE_ROLES = Object.freeze(['indoor', 'zone'])
+
+/**
+ * Every dataset's explicit link, resolved against the zones that exist.
+ *
+ * `explicit` is the mode switch: once ANY dataset names a zone, the record
+ * is describing its own associations and the legacy inference is off for
+ * all of it, including datasets that have not been linked yet. Mixing the
+ * two would mean a half-linked record silently inferred the other half.
+ *
+ * @returns {{explicit:boolean, byDataset:Map<string,{zone:object|null, dangling:boolean}>}}
+ */
+export function datasetZoneLinks(zones, bundle) {
+  const byId = new Map(arr(zones).filter((z) => str(obj(z).zid)).map((z) => [str(z.zid), z]))
+  const byDataset = new Map()
+  let explicit = false
+  arr(obj(bundle).datasets).forEach((d) => {
+    const ds = obj(d)
+    const id = str(ds.id)
+    const linked = str(ds.zoneId)
+    if (!id || !linked || !LINKABLE_ROLES.includes(ds.role)) return
+    explicit = true
+    const zone = byId.get(linked) || null
+    byDataset.set(id, { zone, dangling: !zone })
+  })
+  return { explicit, byDataset }
+}
+
+/**
+ * The zone ONE pattern is about, or the reason it cannot be settled.
+ *
+ * Only the pattern's own datasets are consulted, which is what makes three
+ * separately linked datasets three answers rather than one ambiguity.
+ *
+ * @returns {{zone:object}|{reason:string}}
+ */
+export function zoneForPattern(pattern, links, legacy) {
+  const datasetIds = arr(obj(pattern).datasetIds).map(str).filter(Boolean)
+  if (!links || !links.explicit) {
+    return legacy
+      ? { zone: legacy.zone, datasetIds: [legacy.datasetId].filter(Boolean) }
+      : { reason: 'no_unambiguous_zone_dataset_association' }
+  }
+
+  const resolved = datasetIds
+    .map((id) => ({ id, link: links.byDataset.get(id) }))
+    .filter((r) => r.link)
+  // A link pointing at a deleted zone is the assessor's statement with its
+  // subject removed. It is never silently replaced by another zone.
+  if (resolved.some((r) => r.link.dangling)) return { reason: 'associated_zone_no_longer_exists' }
+
+  const zones = [...new Set(resolved.map((r) => r.link.zone).filter(Boolean))]
+  if (zones.length === 1) {
+    // The datasets that CARRIED the association, which is what a parameter id
+    // may be drawn from. An outdoor baseline holds no link and so is absent
+    // here, exactly as it was under the legacy rule.
+    return { zone: zones[0], datasetIds: resolved.filter((r) => r.link.zone === zones[0]).map((r) => r.id) }
+  }
+  // More than one room, so no single reported period applies to it.
+  if (zones.length > 1) return { reason: 'conflicting_zone_associations' }
+  // Explicit mode, but nothing this pattern rests on has been linked yet.
+  return { reason: 'no_unambiguous_zone_dataset_association' }
 }
 
 /**
@@ -160,19 +244,26 @@ function monitoredDays(bundle, offsetMin) {
 }
 
 /**
- * Reconcile every eligible pattern against the zone's reported complaint
- * period.
+ * Reconcile every eligible pattern against the complaint period of the zone
+ * that PATTERN's own datasets are associated with.
  *
- * Pure and synchronous. Returns [] when there is no complaint to reconcile
- * — a session with no occupant reports has no question to answer, and
- * emitting "insufficient" for it would be noise rather than information.
+ * Pure and synchronous. Returns [] when no zone reports complaints — a
+ * session with no occupant reports has no question to answer, and emitting
+ * "insufficient" for it would be noise rather than information.
+ *
+ * A pattern resolving to a zone that reports NOTHING is skipped for the same
+ * reason, which is a consequence of per-dataset association rather than a new
+ * rule: once three loggers name three rooms, a pattern in a quiet room is
+ * simply not part of this question. A pattern whose zone cannot be settled
+ * still gets a row, because the session does carry complaints and the
+ * unresolved link is the thing worth knowing about it.
  *
  * @param {object} input
  * @param {Array} input.zones the walkthrough zones
  * @param {object|null} input.forensics a BUILT forensic bundle, read-only
  * @param {object|null} [input.investigation] the derived investigation state
  * @param {string} [input.generatedAt] ISO. Provenance only, never identity.
- * @returns {object[]} one relationship per pattern, or []
+ * @returns {object[]} at most one relationship per pattern
  */
 export function detectTemporalRelationships(input = {}) {
   const zones = arr(input.zones)
@@ -182,72 +273,85 @@ export function detectTemporalRelationships(input = {}) {
 
   // Nothing to reconcile without a complaint. Not an insufficiency: there
   // is no question here, rather than a question we cannot answer.
-  const complaintZones = zones.filter((z) => str(obj(z).cx) === COMPLAINTS_REPORTED)
-  if (!complaintZones.length) return []
+  const hasComplaint = (z) => str(obj(z).cx) === COMPLAINTS_REPORTED
+  if (!zones.some(hasComplaint)) return []
 
   const offsetMin = isNum(obj(bundle.context).utcOffsetMin) ? obj(bundle.context).utcOffsetMin : 0
   const livingParams = liveDifferentialParameters(input.investigation)
   const fingerprint = str(bundle.fingerprint) || null
+  const monitored = monitoredDays(bundle, offsetMin)
 
   const relevanceFor = (param) => {
     if (livingParams === null) return 'unknown'
     return livingParams.has(param) ? 'linked_to_live_differential' : 'not_linked_to_live_differential'
   }
 
-  /** Every pattern gets an answer, so a consumer never has to infer silence. */
-  const forEveryPattern = (build) => patterns.map((p) => {
+  // Explicit links decide the whole record once any dataset carries one. The
+  // legacy inference is BUILT only when none does, so it cannot be reached by
+  // accident from a half-linked session.
+  const links = datasetZoneLinks(zones, bundle)
+  const legacy = links.explicit ? null : resolveAssociation(zones, bundle)
+
+  const out = []
+  patterns.forEach((p) => {
     const param = arr(obj(p).params)[0] || null
-    return build(p, param)
-  })
+    const association = zoneForPattern(p, links, legacy)
 
-  const association = resolveAssociation(zones, bundle)
-  if (!association) {
-    return forEveryPattern((p, param) => evidenceRelationship({
-      detector: DETECTOR,
-      subject: obj(p).id,
-      relationship: 'insufficient_temporal_evidence',
-      reason: 'no_unambiguous_zone_dataset_association',
-      relevance: relevanceFor(param),
-      param,
-      // No period is quoted: without knowing which zone the logger
-      // describes, naming one zone's reported period beside another zone's
-      // pattern is the association guess by other means.
-      reported_period: null,
-      zone_ids: [],
-      evidence_ids: [obj(p).id],
-      inputs_fingerprint: fingerprint,
-      generated_at: input.generatedAt,
-    }))
-  }
+    if (!association.zone) {
+      out.push(evidenceRelationship({
+        detector: DETECTOR,
+        subject: obj(p).id,
+        relationship: 'insufficient_temporal_evidence',
+        reason: association.reason,
+        relevance: relevanceFor(param),
+        param,
+        // No period is quoted: without knowing which zone the logger
+        // describes, naming one zone's reported period beside another zone's
+        // pattern is the association guess by other means.
+        reported_period: null,
+        zone_ids: [],
+        evidence_ids: [obj(p).id],
+        inputs_fingerprint: fingerprint,
+        generated_at: input.generatedAt,
+      }))
+      return
+    }
 
-  const zone = obj(association.zone)
-  const zoneId = str(zone.zid) || 'zone-1'
-  const period = str(zone.sy_time)
-  const complaintEvidence = [`fld-${zoneId}-cx`, `fld-${zoneId}-sy_time`]
+    const zone = obj(association.zone)
+    // This pattern's room reports nothing. There is no question about it, so
+    // it gets no answer rather than an insufficiency about a question that
+    // was never asked.
+    if (!hasComplaint(zone)) return
 
-  if (!TIME_LINKED_PERIODS.includes(period)) {
-    return forEveryPattern((p, param) => evidenceRelationship({
-      detector: DETECTOR,
-      subject: obj(p).id,
-      relationship: 'insufficient_temporal_evidence',
-      reason: 'complaint_has_no_specific_period',
-      relevance: relevanceFor(param),
-      param,
-      reported_period: null,
-      zone_ids: [zoneId],
-      evidence_ids: [...complaintEvidence, obj(p).id],
-      inputs_fingerprint: fingerprint,
-      generated_at: input.generatedAt,
-    }))
-  }
+    const zoneId = str(zone.zid) || 'zone-1'
+    const period = str(zone.sy_time)
+    const complaintEvidence = [`fld-${zoneId}-cx`, `fld-${zoneId}-sy_time`]
 
-  const range = COMPLAINT_PERIOD_HOURS[period]
-  const monitored = monitoredDays(bundle, offsetMin)
+    if (!TIME_LINKED_PERIODS.includes(period)) {
+      out.push(evidenceRelationship({
+        detector: DETECTOR,
+        subject: obj(p).id,
+        relationship: 'insufficient_temporal_evidence',
+        reason: 'complaint_has_no_specific_period',
+        relevance: relevanceFor(param),
+        param,
+        reported_period: null,
+        zone_ids: [zoneId],
+        evidence_ids: [...complaintEvidence, obj(p).id],
+        inputs_fingerprint: fingerprint,
+        generated_at: input.generatedAt,
+      }))
+      return
+    }
 
-  return forEveryPattern((p, param) => {
+    const range = COMPLAINT_PERIOD_HOURS[period]
     const windows = discriminatingWindows(p)
+    // Drawn only from the datasets that carry the association, so an
+    // indoor/outdoor comparison never files the outdoor baseline's parameter
+    // under the room's complaint.
+    const zoneDatasetIds = arr(association.datasetIds)
     const parameterIds = arr(bundle.parameters)
-      .filter((q) => obj(q).param === param && obj(q).datasetId === association.datasetId)
+      .filter((q) => obj(q).param === param && zoneDatasetIds.includes(obj(q).datasetId))
       .map((q) => obj(q).id)
       .filter(Boolean)
 
@@ -265,12 +369,13 @@ export function detectTemporalRelationships(input = {}) {
     }
 
     if (!windows.length) {
-      return evidenceRelationship({
+      out.push(evidenceRelationship({
         ...base,
         relationship: 'insufficient_temporal_evidence',
         reason: 'no_eligible_occurrences',
         observed_days: { monitored, withOccurrence: 0, inPeriod: 0 },
-      })
+      }))
+      return
     }
 
     // Distinct DAYS, not windows: two occurrences on one afternoon are one
@@ -295,25 +400,25 @@ export function detectTemporalRelationships(input = {}) {
     }
 
     if (monitored < MIN_MONITORED_DAYS) {
-      return evidenceRelationship({ ...base, relationship: 'insufficient_temporal_evidence', reason: 'insufficient_monitored_days', observed_days })
+      out.push(evidenceRelationship({ ...base, relationship: 'insufficient_temporal_evidence', reason: 'insufficient_monitored_days', observed_days }))
+    } else if (occurrenceDays.size < MIN_OCCURRENCE_DAYS) {
+      out.push(evidenceRelationship({ ...base, relationship: 'insufficient_temporal_evidence', reason: 'insufficient_occurrence_days', observed_days }))
+    } else if (inPeriodDays.size === 0) {
+      // None of the days it occurred fell in the reported period. Mismatch is
+      // a strong word, so it takes none rather than few.
+      out.push(evidenceRelationship({ ...base, relationship: 'temporal_mismatch', observed_days }))
+    } else if (inPeriodDays.size * 2 > occurrenceDays.size) {
+      // A strict majority, the same shape `requiredCycleDays` already uses for
+      // deciding that a cycle recurs at all.
+      out.push(evidenceRelationship({ ...base, relationship: 'temporal_overlap', observed_days }))
+    } else {
+      // Some days yes, some no, in no majority either way. Saying overlap
+      // here would be rounding toward whichever answer is closer.
+      out.push(evidenceRelationship({ ...base, relationship: 'insufficient_temporal_evidence', reason: 'indeterminate_period_distribution', observed_days }))
     }
-    if (occurrenceDays.size < MIN_OCCURRENCE_DAYS) {
-      return evidenceRelationship({ ...base, relationship: 'insufficient_temporal_evidence', reason: 'insufficient_occurrence_days', observed_days })
-    }
-    // None of the days it occurred fell in the reported period. Mismatch is
-    // a strong word, so it takes none rather than few.
-    if (inPeriodDays.size === 0) {
-      return evidenceRelationship({ ...base, relationship: 'temporal_mismatch', observed_days })
-    }
-    // A strict majority, the same shape `requiredCycleDays` already uses for
-    // deciding that a cycle recurs at all.
-    if (inPeriodDays.size * 2 > occurrenceDays.size) {
-      return evidenceRelationship({ ...base, relationship: 'temporal_overlap', observed_days })
-    }
-    // Some days yes, some no, in no majority either way. Saying overlap
-    // here would be rounding toward whichever answer is closer.
-    return evidenceRelationship({ ...base, relationship: 'insufficient_temporal_evidence', reason: 'indeterminate_period_distribution', observed_days })
   })
+
+  return out
 }
 
 /** The relationships of a session, keyed by the pattern each is about. */

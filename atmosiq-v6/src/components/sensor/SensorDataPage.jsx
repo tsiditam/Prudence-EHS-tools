@@ -42,7 +42,7 @@ import { xlsxToRows } from '../../utils/sensorXlsx'
 import { dataUrlToText, dataUrlToFile } from '../../utils/dataUrl'
 import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, currentPalette } from './SensorCharts'
 import StatusPill from '../ui/StatusPill'
-import { fmtRange, paramLabel, chartForNavigation } from './sensorHelpers'
+import { fmtRange, paramLabel, chartForNavigation, ZONE_LINKABLE_ROLES, linkableZones } from './sensorHelpers'
 import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
 import { chartStats, chartPrimaryParam } from '../../utils/sensorAnalytics'
 import Sparkline from '../ui/Sparkline'
@@ -263,6 +263,15 @@ function AnalyzingCard({ fileName, phase }) {
   )
 }
 
+/**
+ * A dataset's zone association, as a spreadable fragment.
+ *
+ * `{}` when there is none, so the key stays ABSENT rather than becoming
+ * `zoneId: undefined` — a rebuilt dataset must be indistinguishable from one
+ * that never carried an association, including to `JSON.stringify`.
+ */
+const zoneIdOf = (d) => (d && typeof d.zoneId === 'string' && d.zoneId.trim() ? { zoneId: d.zoneId.trim() } : {})
+
 export default function SensorDataPage({ value, onChange, reports = [], currentReportId = null, currentProjectId = null, currentZones = [], currentInvestigation = null, onApplyAverages, onAskAI }) {
   // The PID span gas, read off the assessor's saved profile — the same place
   // the report sheet seeds its own field from, so the reference tick on these
@@ -410,7 +419,10 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
     } else if (role === 'indoor') {
       // Replacing / setting the primary indoor dataset. The reveal animation +
       // re-mapping source rows apply to the primary only.
-      const ds = { id: primary?.id || 'primary', role: 'indoor', label: 'Indoor', ...parsed }
+      // `zoneId` is carried forward explicitly: `parsed` is a fresh parse and
+      // knows nothing about the association, so a re-import of corrected data
+      // must not silently unlink the logger from the room it was in.
+      const ds = { id: primary?.id || 'primary', role: 'indoor', label: 'Indoor', ...parsed, ...zoneIdOf(primary) }
       const nextDatasets = env.datasets.length ? env.datasets.map((d) => (d.id === ds.id ? ds : d)) : [ds]
       setSourceRows(rows)
       onChange({ ...env, datasets: nextDatasets })
@@ -467,12 +479,33 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
     if (!sourceRows || !env) return
     const parsed = parseSensorRows(sourceRows, { fileName: primary?.fileName, mapping })
     if (!parsed) return
-    const ds = { id: primary?.id || 'primary', role: primary?.role || 'indoor', label: primary?.label || 'Indoor', ...parsed, mapping }
+    const ds = { id: primary?.id || 'primary', role: primary?.role || 'indoor', label: primary?.label || 'Indoor', ...parsed, mapping, ...zoneIdOf(primary) }
     onChange({ ...env, datasets: env.datasets.map((d) => (d.id === ds.id ? ds : d)) })
   }
 
   const setGraph = (id, patch) => {
     onChange({ ...env, graphs: { ...graphsState, [id]: { ...(graphsState[id] || {}), ...patch } } })
+  }
+
+  // Associate a dataset with a walkthrough zone, or clear the association
+  // (`''`). Explicit only — nothing here reads a label, a file name or a
+  // similarity score, because a wrong join reads as evidence rather than as
+  // the guess it is. The key is the zone's stable `zid`, so renaming the zone
+  // leaves the association intact.
+  const setDatasetZone = (id, zoneId) => {
+    if (!env) return
+    onChange({
+      ...env,
+      datasets: env.datasets.map((d) => {
+        if (d.id !== id) return d
+        const next = { ...d }
+        // Absent rather than null when cleared: a dataset that names no zone
+        // should look exactly like one that never did.
+        if (zoneId) next.zoneId = zoneId
+        else delete next.zoneId
+        return next
+      }),
+    })
   }
 
   const removeDataset = (id) => {
@@ -836,7 +869,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                 )}
                 {/* Compare datasets — add an outdoor baseline or named zones. */}
                 <div style={{ borderTop: (availableRefs.length > 0 || occRange) ? `1px solid ${BORDER}` : 'none' }}>
-                  <DatasetManager datasets={datasets} onPickFor={pickFor} onPickProjectFor={pickProjectFor} onRemove={removeDataset} busy={busy} />
+                  <DatasetManager datasets={datasets} onPickFor={pickFor} onPickProjectFor={pickProjectFor} onRemove={removeDataset} onSetZone={setDatasetZone} zones={currentZones} busy={busy} />
                 </div>
               </div>
 
@@ -1247,29 +1280,58 @@ function OccupancyEditor({ windows, range, onChange }) {
 }
 
 // Manage the additional datasets (outdoor baseline + named zones) compared
-// against the primary indoor logger. The primary itself is shown above in
-// the file-summary card; this lists only the extras + the add control.
-function DatasetManager({ datasets, onPickFor, onPickProjectFor, onRemove, busy }) {
+// against the primary indoor logger, and — only when an assessment supplies
+// zones — which walkthrough zone each indoor/zone logger was deployed in.
+//
+// The association lives HERE rather than on a screen of its own because this
+// is already the dataset-configuration surface, and because it must be
+// possible to never see it: a standalone Logger Studio session has no zones,
+// `linkable` is empty, and every control below is exactly what it was before
+// associations existed — including the primary, which is listed only when
+// there is something to link it to.
+function DatasetManager({ datasets, onPickFor, onPickProjectFor, onRemove, onSetZone, zones = [], busy }) {
   const extras = datasets.filter((d) => d.role !== 'indoor')
   const hasOutdoor = datasets.some((d) => d.role === 'outdoor')
+  const linkable = linkableZones(zones)
+  const canLink = linkable.length > 0 && typeof onSetZone === 'function'
+  // The primary joins the list only to be linked. Nothing else about it
+  // belongs here, and it carries no Remove — it is replaced from the
+  // file-summary card above, never removed from under the session.
+  const rows = canLink ? [...datasets.filter((d) => d.role === 'indoor'), ...extras] : extras
   const [role, setRole] = useState('zone')
   const [label, setLabel] = useState('')
   const targetFor = () => ({ role, label: role === 'outdoor' ? 'Outdoor' : (label.trim() || 'Zone') })
   const add = () => { onPickFor(targetFor()); setLabel('') }
   const addFromProject = () => { onPickProjectFor && onPickProjectFor(targetFor()); setLabel('') }
-  const summary = extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only'
+  const linked = canLink ? rows.filter((d) => linkable.some((z) => z.zid === d.zoneId)).length : 0
+  const summary = [
+    extras.length ? `${extras.length} added · ${extras.map((d) => d.label).join(', ')}` : 'Indoor only',
+    canLink ? (linked ? `${linked} linked to zones` : 'No zones linked') : null,
+  ].filter(Boolean).join(' · ')
   return (
     <CollapsibleCard flat title="Compare datasets" summary={summary} defaultOpen={extras.length > 0}>
-      {extras.length > 0 && (
+      {rows.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-          {extras.map((d) => (
-            <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
-              <RoleBadge role={d.role}>{d.role === 'outdoor' ? 'Outdoor' : 'Zone'}</RoleBadge>
-              <div style={{ minWidth: 0, flex: 1 }}>
+          {rows.map((d) => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, padding: '8px 10px', background: 'var(--surface)', border: `1px solid ${BORDER}`, borderRadius: 10 }}>
+              <RoleBadge role={d.role}>{d.role === 'outdoor' ? 'Outdoor' : d.role === 'indoor' ? 'Indoor' : 'Zone'}</RoleBadge>
+              <div style={{ minWidth: 0, flex: '1 1 160px' }}>
                 <div style={{ ...V3.T.caption, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}{d.fileName && d.fileName !== d.label ? ` · ${d.fileName}` : ''}</div>
                 <div style={V3.T.captionDim}>{(d.summary?.count ?? 0).toLocaleString()} readings · {(d.params || []).map((p) => SENSOR_PARAMS.find((s) => s.key === p)?.label || p).join(', ')}</div>
               </div>
-              <GhostButton onClick={() => onRemove(d.id)} aria-label={`Remove ${d.label}`} style={{ padding: '6px 10px', minHeight: 32 }}>Remove</GhostButton>
+              {canLink && ZONE_LINKABLE_ROLES.includes(d.role) && (
+                <Select
+                  value={linkable.some((z) => z.zid === d.zoneId) ? d.zoneId : ''}
+                  onChange={(e) => onSetZone(d.id, e.target.value)}
+                  aria-label={`Assessment zone for ${d.label}`}
+                >
+                  <option value="">No zone</option>
+                  {linkable.map((z) => <option key={z.zid} value={z.zid}>{z.name}</option>)}
+                </Select>
+              )}
+              {d.role !== 'indoor' && (
+                <GhostButton onClick={() => onRemove(d.id)} aria-label={`Remove ${d.label}`} style={{ padding: '6px 10px', minHeight: 32 }}>Remove</GhostButton>
+              )}
             </div>
           ))}
         </div>
@@ -1294,6 +1356,7 @@ function DatasetManager({ datasets, onPickFor, onPickProjectFor, onRemove, busy 
       </div>
       <div style={{ ...V3.T.captionDim, marginTop: 8, lineHeight: 1.5 }}>
         Add an outdoor CO₂ baseline to estimate ventilation, or upload zone files to compare the same parameter across locations.
+        {canLink && ' Naming the assessment zone a logger sat in lets its patterns be read alongside what was reported there; leave it unset and the analysis is unchanged.'}
       </div>
     </CollapsibleCard>
   )
