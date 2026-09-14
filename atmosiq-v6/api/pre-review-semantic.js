@@ -1,6 +1,41 @@
 /**
  * Vercel Serverless Function — /api/pre-review-semantic
  *
+ * ── STATUS: DISCONNECTED ON PURPOSE. Phase 2 of Report Consistency. ────
+ *
+ * No component fetches this endpoint and none should yet. It is kept,
+ * rather than deleted, because the deterministic half of the pre-review
+ * agent has now been rebuilt as the Report Consistency layer
+ * (`src/engines/integrity/report-consistency.js`) and this is the half that
+ * layer cannot do: deciding whether a cited standard actually SUPPORTS the
+ * claim beside it, whether a severity matches the observation it sits next
+ * to, whether one section's account of a zone matches another's. Those are
+ * comparisons of meaning, and no amount of structural joining reaches them.
+ *
+ * ONE THING MUST BE BUILT BEFORE IT IS WIRED: quote-resolution validation.
+ *
+ * Every issue the model returns must quote the report verbatim, and a
+ * deterministic validator must resolve that quotation against the text it
+ * claims to cite, dropping any issue whose quote is not found. That is the
+ * same discipline `forensicValidate.js` already applies to the forensic
+ * interpreter — every id the model returns is resolved against
+ * `bundleEvidence()` rather than trusted — and it is what keeps a semantic
+ * reviewer from inventing a defect in a report that does not contain one.
+ * The prompt below asks for `anchor` rather than `quote`; the reviewer
+ * prompt in `field-assistant-tools.js` already asks for `quote` and already
+ * states the two absolutes ("QUOTE, ALWAYS", "ABSENCE PROVES NOTHING"),
+ * which is the shape to converge on.
+ *
+ * Three further conditions, each cheap and none optional:
+ *   • it runs LAST, over what the deterministic rules could not resolve,
+ *     and may never suppress a deterministic finding;
+ *   • its own prose passes `scanProseForBannedLanguage` before display, so
+ *     a reviewer checking a document for over-claiming cannot over-claim;
+ *   • nothing it returns may enter the render model. It produces issues
+ *     ABOUT text and never text.
+ *
+ * ── What it is ────────────────────────────────────────────────────────
+ *
  * Layer 2 of the pre-review agent. Where Layer 1 (deterministic,
  * in src/utils/preReviewValidator.js) catches things that can be
  * checked with regex + token similarity, this endpoint sends the

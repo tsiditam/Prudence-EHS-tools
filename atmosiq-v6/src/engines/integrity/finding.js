@@ -44,8 +44,8 @@
 
 import { fnv1aHex } from '../../utils/forensicEvents.js'
 
-/** Bumped when the finding shape changes. */
-export const INTEGRITY_CONTRACT_VERSION = 1
+/** Bumped when the finding shape changes. Version 2 added `anchor`. */
+export const INTEGRITY_CONTRACT_VERSION = 2
 
 /**
  * How much of the reviewer's attention, in one vocabulary that both
@@ -74,12 +74,25 @@ export const INTEGRITY_ACTIONABILITY = Object.freeze([
   'informational',    // nothing to do; stated so the reader knows it was considered
 ])
 
-/** What kind of problem this is. Frozen so a test can pin the vocabulary. */
+/**
+ * What kind of problem this is. Frozen so a test can pin the vocabulary.
+ *
+ * The first four came with the contract and describe a record. The last five
+ * arrived with the report-package layer and describe a DOCUMENT assembled
+ * from one, which is a different set of ways to be wrong: a record cannot
+ * carry an action that answers no finding, or print a photograph of a room
+ * that is no longer in it.
+ */
 export const INTEGRITY_ISSUE_TYPES = Object.freeze([
   'missing_context',        // an input that changes how existing evidence reads
   'contradiction',          // two sources of evidence disagree
   'unsupported_conclusion', // a statement the record does not carry
   'untested_alternative',   // a live explanation nothing measured against
+  'coverage_mismatch',      // a finding and its actions do not line up
+  'stale_content',          // stored content written against an earlier record
+  'orphaned_evidence',      // a pointer resolving to nothing, or the reverse
+  'redundancy',             // the same thing stated twice in one place
+  'check_failed',           // a check could not be completed, so nothing is known
 ])
 
 /** Which layer produced it. The `source` idea `zone-gaps.js` already uses. */
@@ -122,10 +135,49 @@ export const INTEGRITY_RESOLUTION = Object.freeze([
  */
 export const fieldEvidenceId = (zoneId, fieldId) => `fld-${zoneId}-${fieldId}`
 
+/**
+ * What an anchor points AT, so a surface can route a finding without parsing
+ * a sentence.
+ *
+ * Distinct from `evidence_ids`, which are minted identifiers resolving against
+ * a registry. An anchor is a structural address inside the assembled
+ * DOCUMENT — a section heading, a register row, a photograph — and the report
+ * package has no id registry to mint against. Where a finding has both, it
+ * carries both; where it has only an address, the address is what makes it
+ * checkable and dropping it would leave the finding unpointable.
+ */
+export const INTEGRITY_ANCHOR_KINDS = Object.freeze([
+  'section', 'finding', 'recommendation', 'reference',
+  'photo', 'zone', 'labRow', 'narrative', 'check',
+])
+
 const isNum = (v) => v != null && Number.isFinite(v)
 const arr = (v) => (Array.isArray(v) ? v : [])
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
 const ids = (v) => [...new Set(arr(v).filter((x) => typeof x === 'string' && x))].sort()
+
+/**
+ * Normalize an anchor, or null when there is nothing to point at.
+ *
+ * `rule` is the id of the rule that raised it, kept because several rules
+ * project into one issue type and a reader needs to know which one spoke —
+ * the same reason `provenance.detector` exists one level up.
+ */
+const anchorOf = (v) => {
+  const a = v && typeof v === 'object' && !Array.isArray(v) ? v : null
+  if (!a) return null
+  const section = str(a.section)
+  const rule = str(a.rule)
+  const kind = str(a.kind)
+  const ref = str(a.ref)
+  if (!section && !rule && !kind && !ref) return null
+  return Object.freeze({
+    section: section || null,
+    rule: rule || null,
+    kind: kind || null,
+    ref: ref || null,
+  })
+}
 
 /**
  * A deterministic finding id.
@@ -181,6 +233,10 @@ export function integrityFindingId(detector, scope = {}) {
  *   evidence this rests on, when it rests on fingerprinted evidence. Written
  *   for a later phase to stale a PERSISTED resolution against; read by
  *   nothing today, because a derived finding cannot go stale.
+ * @param {{section?:string, rule?:string, kind?:string, ref?:string}} [input.anchor]
+ *   where in the assembled document this sits. Outside the id by
+ *   construction — `integrityFindingId` never reads it — so re-titling a
+ *   section does not mint a new finding about the same disagreement.
  * @param {string|null} [input.generated_at] ISO. Never part of identity.
  * @param {object} [input.identity] explicit id scope, when the default is
  *   wrong. THE DEFAULT INCLUDES SUPPORTING EVIDENCE, which is right for a
@@ -221,6 +277,7 @@ export function integrityFinding(input = {}) {
     evidence_ids: Object.freeze(ids(input.evidence_ids)),
     parameter_ids: Object.freeze(ids(input.parameter_ids)),
     time_window,
+    anchor: anchorOf(input.anchor),
     title: str(input.title),
     description: str(input.description),
     why_it_matters: str(input.why_it_matters),
@@ -250,6 +307,7 @@ export function integrityIdentity(finding) {
     f.id, f.issue_type, f.severity, f.source_layer,
     arr(f.zone_ids), arr(f.evidence_ids), arr(f.parameter_ids),
     f.time_window || null,
+    f.anchor || null,
     f.title, f.description, f.why_it_matters,
     f.actionability, f.resolution_status,
   ])

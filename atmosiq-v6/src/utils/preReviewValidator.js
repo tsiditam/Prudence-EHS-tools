@@ -5,6 +5,31 @@
  *
  * Pre-Review Validator — Layer 1 (deterministic).
  *
+ * ── SUPERSEDED, AND RETAINED UNTIL THE PARITY COMMIT ───────────────────
+ * Nothing imports `runPreReviewChecks` but its own test, and that has been
+ * true since it was written: the panel it was built for was never built.
+ * Its surviving checks now live in `src/engines/integrity/
+ * report-consistency.js`, in the shared integrity contract, reaching the
+ * Report tab's Report-consistency section.
+ *
+ * This module stays in the tree on purpose, for one commit: the port is a
+ * REIMPLEMENTATION, not a re-export, so `tests/engine/report-consistency
+ * .test.ts` runs both over the same input and asserts each retained rule has
+ * an equivalent. Deleting it would delete the thing the replacement is
+ * compared against. It is retired in a later cleanup commit, once that
+ * parity has stood.
+ *
+ * Do not add a rule here. Add it to the report-consistency detector.
+ *
+ * `checkPlaceholderText` was deliberately NOT ported: `validation.js`
+ * already raises the assessor-name placeholder as a dismissible
+ * finalization item, and two surfaces answering one question about the
+ * assessor's own name is worse than one.
+ *
+ * `checkCitationAntiPatterns` has a second importer —
+ * `tests/engine/no-molhave.test.ts` — which must be repointed at the
+ * detector's `ANTI_PATTERNS` before this file goes.
+ *
  * Runs a battery of fast, no-AI consistency checks across an
  * assembled assessment context BEFORE the report is sent to the
  * CIH for review. Each check is an independent function that
