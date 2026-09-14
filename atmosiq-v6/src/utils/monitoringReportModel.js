@@ -467,6 +467,10 @@ function patternReviewRow(row) {
   return {
     title,
     evidence: strings(r.evidence),
+    // Deterministic, from `forensicPresent.patternTiming`. Carried like the
+    // evidence line — never scanned against the prose rule, because it is
+    // not prose: it is the analysis stating when the pattern occurred.
+    timing: str(r.timing) || null,
     reading,
     alternatives,
     reviews,

@@ -28,6 +28,37 @@
  * isolated solvent spike, where it would settle nothing. `CONTEXT_RULES` below
  * is that mapping, and it is deliberately small: every entry has to justify why
  * the absent input changes what this pattern can support.
+ *
+ * ── Temporal provenance is deterministic, and pattern-specific ─────────
+ * Every pattern carries `occurrenceWindows`: the interval(s) of the record
+ * that actually produced it, so an assessor reading a long run can navigate
+ * back to the stretch of chart behind a card. The windows are derived HERE,
+ * from the same inputs the fingerprint digests, and never from prose — the
+ * model interprets a pattern; it does not say when it happened.
+ *
+ * One rule per kind rather than one generic timestamp, because the kinds are
+ * temporally different things:
+ *
+ *   • an event-backed pattern (a no-matching-outdoor/zone event, an excursion
+ *     near a logged activity) occurs when its member event does, so the window
+ *     is copied from that event rather than recomputed from readings;
+ *   • a coincidence occurs over the PAIRED window — the span covering both
+ *     member events — not over one event's window chosen arbitrarily;
+ *   • a recurring cycle is not one event. It carries one window per agreeing
+ *     day (that day's peak hour, bounded by the readings inside it) and a
+ *     deterministic representative day (`representativeCycleDay`), so a card
+ *     can say "usually 1–3 PM, Sep 9 representative, five more" and never
+ *     collapse six days to one timestamp;
+ *   • an occupancy comparison is an aggregate over the occupied windows that
+ *     contributed readings, so it carries each of those and NO representative
+ *     — implying one specific occurrence would misdescribe the statistic;
+ *   • an indoor/outdoor comparison is computed over aligned pairs, so its one
+ *     window is the aligned interval actually used — the whole run when the
+ *     pairing spans it — rather than an invented representative event.
+ *
+ * Window ids are derived from the pattern's id and the window's bounds and
+ * member events (`occurrenceId`), never from array position, so the same
+ * session reproduces the same ids and a navigation target survives a re-run.
  */
 
 import { readings, nominalIntervalSec, occupancySplit } from './monitoringStats.js'
@@ -147,6 +178,67 @@ export function patternId(kind, scope = {}) {
 }
 
 /**
+ * A deterministic occurrence-window id.
+ *
+ * Derived from the pattern it belongs to, the window's bounds, and the member
+ * events inside it — everything that makes the window the one it is — and
+ * never from its position in the list. A navigation request stored against
+ * this id (a "view occurrence" link) resolves to the same stretch of chart on
+ * every re-run of the same session, and to nothing at all once the data has
+ * changed underneath it, which is the correct answer.
+ */
+export function occurrenceId(patternId, start, end, eventIds = []) {
+  const t = (v) => (isNum(v) ? Math.round(v).toString(36) : 'nt')
+  const members = [...new Set(eventIds || [])].map(String).sort().join(',')
+  return `occ-${fnv1aHex([String(patternId == null ? '' : patternId), t(start), t(end), members].join('::'))}`
+}
+
+/** One occurrence window in the compact, deterministic shape every pattern carries. */
+function occurrence(patternId, w) {
+  const start = isNum(w.start) ? w.start : null
+  const end = isNum(w.end) ? w.end : start
+  const eventIds = [...new Set(w.eventIds || [])].sort()
+  const out = {
+    id: occurrenceId(patternId, start, end, eventIds),
+    start,
+    end,
+    eventIds,
+    datasetIds: [...new Set(w.datasetIds || [])].sort(),
+  }
+  // Present only when true: a comparison or an aggregate carries no
+  // representative, and an absent key says so without a second vocabulary.
+  if (w.representative) out.representative = true
+  return out
+}
+
+/**
+ * The day a recurring cycle is best shown by — deterministic, and chosen to
+ * MATCH the summary rather than to impress.
+ *
+ * Among the agreeing days, prefer those whose peak fell in the modal hour
+ * itself (not merely within tolerance); among those, the day whose amplitude
+ * sits closest to the cycle's median amplitude; and on a tie, the earliest.
+ * The representative is the day the summary figures already describe, so a
+ * reader who clicks through sees the pattern the card stated, not its
+ * largest or its latest instance.
+ *
+ * @param {object} cycle a `detectRecurringCycle` result
+ * @returns {object|null} the chosen `days[]` entry
+ */
+export function representativeCycleDay(cycle) {
+  const days = Array.isArray(cycle && cycle.days) ? cycle.days.filter((d) => d && isNum(d.dayStartTs)) : []
+  if (!days.length) return null
+  const exact = days.filter((d) => d.peakHour === cycle.peakHour)
+  const pool = exact.length ? exact : days
+  const target = isNum(cycle.meanAmplitude) ? cycle.meanAmplitude : null
+  return pool.slice().sort((a, b) => {
+    const da = target == null ? 0 : Math.abs((a.amplitude || 0) - target)
+    const db = target == null ? 0 : Math.abs((b.amplitude || 0) - target)
+    return da - db || a.dayStartTs - b.dayStartTs
+  })[0]
+}
+
+/**
  * Does `points` actually carry readings ACROSS this window for `param`?
  *
  * Required before any "nothing matching was detected over there" pattern. A
@@ -242,7 +334,7 @@ export function detectRecurringCycle(points, param, opts = {}) {
     if (!byDay.has(day)) byDay.set(day, new Map())
     const hours = byDay.get(day)
     if (!hours.has(hour)) hours.set(hour, [])
-    hours.get(hour).push(r.v)
+    hours.get(hour).push(r)
   })
 
   // Short-term noise: how much this trace moves between adjacent samples.
@@ -255,12 +347,20 @@ export function detectRecurringCycle(points, param, opts = {}) {
     // A day represented by only a couple of hours cannot show a daily shape.
     if (hours.size < 6) return
     let peak = null; let trough = null
-    hours.forEach((vals, hour) => {
-      const m = vals.reduce((a, b) => a + b, 0) / vals.length
-      if (!peak || m > peak.mean) peak = { hour, mean: m }
+    hours.forEach((rsInHour, hour) => {
+      const m = rsInHour.reduce((a, r) => a + r.v, 0) / rsInHour.length
+      if (!peak || m > peak.mean) peak = { hour, mean: m, rs: rsInHour }
       if (!trough || m < trough.mean) trough = { hour, mean: m }
     })
-    if (peak && trough) perDay.push({ day, peakHour: peak.hour, amplitude: peak.mean - trough.mean })
+    if (peak && trough) {
+      // The peak hour's window, bounded by the readings that were actually
+      // averaged to find it: the narrowest interval this day's figure rests on.
+      const ts = peak.rs.map((r) => r.t)
+      perDay.push({
+        day, peakHour: peak.hour, amplitude: peak.mean - trough.mean,
+        peakStartTs: Math.min(...ts), peakEndTs: Math.max(...ts),
+      })
+    }
   })
   const required = requiredCycleDays(perDay.length)
   if (perDay.length < MIN_CYCLE_DAYS) return null
@@ -295,7 +395,15 @@ export function detectRecurringCycle(points, param, opts = {}) {
     days: best.agree
       .slice()
       .sort((a, b) => a.day - b.day)
-      .map((d) => ({ dayStartTs: d.day * 86400000 - offsetMin * 60000, peakHour: d.peakHour, amplitude: round3(d.amplitude) })),
+      .map((d) => ({
+        dayStartTs: d.day * 86400000 - offsetMin * 60000,
+        peakHour: d.peakHour,
+        amplitude: round3(d.amplitude),
+        // Where on that day the peak hour's readings sit — the occurrence
+        // window a card can navigate to. Source timestamps, unrounded.
+        peakStartTs: d.peakStartTs,
+        peakEndTs: d.peakEndTs,
+      })),
   }
 }
 
@@ -341,22 +449,32 @@ export function buildPatterns(input = {}) {
   const out = []
   // `body` carries datasetIds and params, which are part of identity — a smooth
   // cycle has no member events, so without them every cycle would share an id.
-  const add = (kind, memberIds, body) => {
+  // `windows` is called with the minted pattern id, because occurrence ids are
+  // derived from it; it returns the raw windows this pattern occurred over.
+  const add = (kind, memberIds, body, windows) => {
     if (out.filter((p) => p.kind === kind).length >= MAX_PER_KIND) return
     const eventIds = [...new Set(memberIds)].sort()
+    const id = patternId(kind, {
+      datasetIds: body.datasetIds,
+      params: body.params,
+      subject: body.subject,
+      eventIds,
+    })
+    const raw = typeof windows === 'function' ? windows(id) : []
     out.push({
-      id: patternId(kind, {
-        datasetIds: body.datasetIds,
-        params: body.params,
-        subject: body.subject,
-        eventIds,
-      }),
+      id,
       kind,
       eventIds,
       missingContext: missingContextFor(kind, present),
       ...body,
+      occurrenceWindows: (Array.isArray(raw) ? raw : [])
+        .filter((w) => w && isNum(w.start))
+        .map((w) => occurrence(id, w))
+        .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id)),
     })
   }
+  /** An event-backed window: the event's own bounds, copied, never recomputed. */
+  const eventWindow = (e, datasetIds) => ({ start: e.startTs, end: e.endTs, eventIds: [e.id], datasetIds })
 
   if (!indoor) return out
   const indoorPoints = (raw[indoor.datasetId] && raw[indoor.datasetId].points) || []
@@ -367,13 +485,21 @@ export function buildPatterns(input = {}) {
     const cycle = detectRecurringCycle(indoorPoints, param, { utcOffsetMin: offsetMin })
     if (!cycle) return
     const members = indoor.events.filter((e) => e.param === param).map((e) => e.id)
+    const rep = representativeCycleDay(cycle)
     add('recurring_cycle', members, {
       params: [param],
       datasetIds: [indoor.datasetId],
       startTs: null,
       endTs: null,
       summary: cycle,
-    })
+    }, () => cycle.days.map((d) => ({
+      // One window per agreeing day: that day's peak hour, bounded by the
+      // readings averaged inside it. A cycle is never one timestamp.
+      start: d.peakStartTs,
+      end: d.peakEndTs,
+      datasetIds: [indoor.datasetId],
+      representative: !!rep && d.dayStartTs === rep.dayStartTs,
+    })))
   })
 
   // ── Cross-parameter coincidence ──────────────────────────────────────
@@ -389,7 +515,16 @@ export function buildPatterns(input = {}) {
         startTs: Math.min(a.startTs, b.startTs),
         endTs: Math.max(isNum(a.endTs) ? a.endTs : a.startTs, isNum(b.endTs) ? b.endTs : b.startTs),
         summary: { overlapSlackSec: slackMs / 1000, kinds: [a.kind, b.kind] },
-      })
+      }, () => [{
+        // The PAIRED window — the span covering both events — not either
+        // event's own window. The two may only meet within one sampling
+        // interval of slack, so their intersection can be empty; the span
+        // that contains both is what the coincidence rests on.
+        start: Math.min(a.startTs, b.startTs),
+        end: Math.max(isNum(a.endTs) ? a.endTs : a.startTs, isNum(b.endTs) ? b.endTs : b.startTs),
+        eventIds: [a.id, b.id],
+        datasetIds: [indoor.datasetId],
+      }])
     }
   }
 
@@ -400,6 +535,13 @@ export function buildPatterns(input = {}) {
     indoor.params.forEach((param) => {
       const split = occupancySplit(indoorPoints, param, occ)
       if (!isNum(split.delta)) return
+      // The windows that actually contributed: those with at least one reading
+      // of this parameter inside them. A window the logger never sampled took
+      // no part in the mean and is not an occurrence of the comparison.
+      // TODO(claude): `occupancySplit` treats every window as occupied
+      // regardless of `kind`; the report sheet filters to `occupied` first.
+      const ts = readings(indoorPoints, param).map((r) => r.t).filter(isNum)
+      const contributing = occ.filter((w) => isNum(w.start) && isNum(w.end) && ts.some((t) => t >= w.start && t <= w.end))
       add('occupancy_comparison', indoor.events.filter((e) => e.param === param).map((e) => e.id), {
         params: [param],
         datasetIds: [indoor.datasetId],
@@ -411,7 +553,7 @@ export function buildPatterns(input = {}) {
           delta: round3(split.delta),
           windows: occ.length,
         },
-      })
+      }, () => contributing.map((w) => ({ start: w.start, end: w.end, datasetIds: [indoor.datasetId] })))
     })
   }
 
@@ -438,7 +580,14 @@ export function buildPatterns(input = {}) {
           meanIndoor: round3(pairs.reduce((s, p) => s + p.in, 0) / pairs.length),
           meanOutdoor: round3(pairs.reduce((s, p) => s + p.out, 0) / pairs.length),
         },
-      })
+      }, () => [{
+        // The aligned interval the correlation was computed over — first to
+        // last paired reading. When the pairing spans the run, this IS the
+        // run; no representative event is invented for a statistic.
+        start: pairs[0].t,
+        end: pairs[pairs.length - 1].t,
+        datasetIds: [indoor.datasetId, outdoor.datasetId],
+      }])
 
       // An indoor excursion with nothing matching detected outdoors.
       //
@@ -463,7 +612,7 @@ export function buildPatterns(input = {}) {
               outdoorEventsInWindow: 0,
               outdoorCoveredWindow: true,
             },
-          })
+          }, () => [eventWindow(e, [indoor.datasetId, outdoor.datasetId])])
         })
     })
   }
@@ -496,7 +645,7 @@ export function buildPatterns(input = {}) {
               zonesCompared: covering.length,
               zonesWithoutCoverage: elsewhere.length - covering.length,
             },
-          })
+          }, () => [eventWindow(e, [self.datasetId])])
         })
     })
   }
@@ -522,7 +671,7 @@ export function buildPatterns(input = {}) {
           annotationIds: near.map((a) => a.id).filter(Boolean),
           annotations: near.map((a) => ({ t: a.t, label: a.label || null })),
         },
-      })
+      }, () => [eventWindow(e, [indoor.datasetId])])
     })
   }
 

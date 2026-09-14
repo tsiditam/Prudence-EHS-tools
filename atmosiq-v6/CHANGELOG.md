@@ -1,5 +1,63 @@
 # AtmosFlow Changelog
 
+## Logger Forensics says when, and takes you there (September 2026)
+
+A forensic pattern on a long run stated what was found and left the
+assessor to hunt the chart for it. Every pattern now carries deterministic
+temporal provenance — the interval(s) of the record that produced it — and
+the Forensics view can navigate to that stretch of the Analysis chart.
+
+- **`occurrenceWindows` on every pattern** (`forensicPatterns.js`): `{ id,
+  start, end, eventIds, datasetIds, representative? }`, minted by the
+  detector from the same inputs the fingerprint digests. Ids derive from the
+  pattern, the bounds and the member events (`occurrenceId`), never from
+  position, so the same session reproduces them and a changed session does
+  not. No raw rows, and nothing recomputed: an event-backed pattern copies
+  its member event's window; a coincidence occurs over the paired span
+  covering both events; a recurring cycle carries one window per agreeing
+  day (that day's peak hour, bounded by the readings averaged inside it)
+  and one deterministic representative day (`representativeCycleDay`: the
+  modal hour, nearest the median amplitude, earliest on a tie); an
+  occupancy comparison carries the occupied windows that contributed
+  readings and no representative; an indoor/outdoor comparison carries the
+  aligned interval it was computed over, which is the run when the pairing
+  spans it. Windows are not part of the pattern id or the fingerprint,
+  because they are derived from what the fingerprint already covers — they
+  stale with the data, and no new persistence record exists for them.
+- **One formatting layer** (`forensicPresent.js`): `patternWhen`,
+  `patternOccurrences`, `patternTiming`, `occurrenceNavigation`. Time is
+  formatted through `localTimeParts`, now exported from
+  `monitoringInsights.js` and the same site-offset convention the monitoring
+  report prints in, not a second timezone implementation. None of it reads
+  model prose; Jasper interprets a pattern and never says when it happened.
+- **A When line under Evidence** in the Forensics view: `Usually 2–3 PM ·
+  Mar 2 representative` with `+ 5 more occurrences` behind a toggle for a
+  cycle, the exact window for an event, a count and span for an aggregate.
+  The card stays one line; the occurrence list is opt-in, so a thirty-day
+  run never puts thirty timestamps on it.
+- **View on chart.** The panel emits a navigation request — pattern,
+  occurrence, datasets, parameters, start, end, every window — resolved
+  against the CURRENT bundle, so a stale reading cannot send anyone to a
+  window the data no longer contains. `SensorDataPage` owns the rest:
+  switch to Analysis, pick the most relevant chart (`chartForNavigation`:
+  zone overlay for a zone pattern, the differential for indoor/outdoor CO₂,
+  the multi-parameter chart with both parameters for a coincidence, else the
+  parameter's own timeline), mark the window and zoom to it. Recharts has no
+  programmatic zoom, so the charts draw the focus as reference bands (all of
+  a pattern's windows quiet, the selected one emphasized) and narrow the
+  time axis to the window plus context, with "Show full run" to widen. The
+  focus is dropped when the readings, occupancy or events are replaced; the
+  report image never carries it.
+- **The report gets one clause, not a list.** An accepted pattern's row now
+  carries `timing` ("Typically 2–3 PM across 4 observed days." / "Sep 11,
+  10:14–10:31 AM.") from `patternTiming`, printed as a Timing line under the
+  evidence in Monitoring Pattern Review. Deterministic, so it is not subject
+  to the prose digit rule, and the section does not grow.
+
+Tests: `tests/lib/forensicOccurrences.test.ts` (new),
+`tests/components/logger-studio-navigation.test.jsx` (new), and the
+extended `forensicPresent`, `forensicReview` and `forensics-panel` suites.
+
 ## The ⋯ menu is what you can do here (September 2026)
 
 The header overflow held the one action the app exists to produce, and

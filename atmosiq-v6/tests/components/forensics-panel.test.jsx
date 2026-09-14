@@ -256,3 +256,109 @@ describe('nothing reaches the report until the assessor says so', () => {
     expect(screen.queryByTestId('forensic-decision')).toBeNull()
   })
 })
+
+// ── When, and where on the chart ───────────────────────────────────────
+import { representativeOccurrence, patternOccurrences } from '../../src/utils/forensicPresent'
+
+describe('the When line and chart navigation', () => {
+  const envOf = (days, from = T0) => normalizeSensorData({
+    version: SENSOR_DATA_VERSION,
+    datasets: [mk('primary', 'indoor', 'Indoor', (() => {
+      const pts = []
+      for (let d = 0; d < days; d++) for (let i = 0; i < 96; i++) pts.push({ t: from + d * DAY + i * Q, co2: 500 + 200 * Math.cos(((Math.floor((i * 15) / 60) - 14) / 24) * 2 * Math.PI) })
+      return pts
+    })(), ['co2'], { co2: 'ppm' })],
+    occupancyWindows: [], graphs: {}, thresholds: {},
+  })
+  const cycleRow = () => screen.getAllByTestId('forensic-pattern').find((r) => within(r).queryByText(/Recurring daily cycle/))
+
+  it('states when a recurring cycle occurs beneath the evidence, compactly', () => {
+    const env = envelope()
+    render(<ForensicsPanel env={env} onPersist={() => {}} generate={vi.fn()} />)
+    const when = within(cycleRow()).getByTestId('forensic-when')
+    expect(when.textContent).toMatch(/When/)
+    expect(when.textContent).toMatch(/Usually 2–3 PM · Mar \d representative/)
+    expect(within(when).getByRole('button', { name: '+ 3 more occurrences' })).toBeTruthy()
+    // The card carries ONE day; the list is not on it.
+    expect(within(when).queryByTestId('forensic-occurrences')).toBeNull()
+    // Read-only: no chart action without a navigator.
+    expect(within(when).queryByRole('button', { name: 'View on chart' })).toBeNull()
+  })
+
+  it('a long run stays compact until the assessor asks for the occurrences', async () => {
+    const env = envOf(30)
+    render(<ForensicsPanel env={env} onPersist={() => {}} onNavigate={vi.fn()} generate={vi.fn()} />)
+    const when = within(cycleRow()).getByTestId('forensic-when')
+    expect(within(when).getByRole('button', { name: '+ 29 more occurrences' })).toBeTruthy()
+    expect((when.textContent.match(/Mar \d+/g) || []).length).toBe(1)
+    await act(async () => { fireEvent.click(within(when).getByRole('button', { name: '+ 29 more occurrences' })) })
+    const list = within(when).getByTestId('forensic-occurrences')
+    expect(within(list).getAllByRole('listitem')).toHaveLength(30)
+    expect(within(list).getAllByRole('button', { name: 'View' })).toHaveLength(30)
+    expect(within(when).getByRole('button', { name: 'Hide occurrences' })).toBeTruthy()
+  })
+
+  it('View on chart emits a navigation request for the representative window, from the live bundle', async () => {
+    const env = envelope()
+    const cycle = cycleOf(env)
+    const bundle = bundleOf(env)
+    const onNavigate = vi.fn()
+    render(<ForensicsPanel env={env} onPersist={() => {}} onNavigate={onNavigate} generate={vi.fn()} />)
+    await act(async () => { fireEvent.click(within(cycleRow()).getByRole('button', { name: 'View on chart' })) })
+    const rep = representativeOccurrence(cycle)
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+    const req = onNavigate.mock.calls[0][0]
+    expect(req).toMatchObject({
+      patternId: cycle.id, occurrenceId: rep.id, start: rep.start, end: rep.end,
+      params: ['co2'], datasetIds: ['primary'], title: 'Recurring daily cycle — CO₂',
+    })
+    expect(req.label).toBe(patternOccurrences(cycle, bundle).find((w) => w.id === rep.id).label)
+    expect(req.windows).toHaveLength(cycle.occurrenceWindows.length)
+  })
+
+  it('a listed occurrence navigates to its own window', async () => {
+    const env = envelope()
+    const cycle = cycleOf(env)
+    const onNavigate = vi.fn()
+    render(<ForensicsPanel env={env} onPersist={() => {}} onNavigate={onNavigate} generate={vi.fn()} />)
+    const when = within(cycleRow()).getByTestId('forensic-when')
+    await act(async () => { fireEvent.click(within(when).getByRole('button', { name: '+ 3 more occurrences' })) })
+    const items = within(within(when).getByTestId('forensic-occurrences')).getAllByRole('listitem')
+    const last = cycle.occurrenceWindows[cycle.occurrenceWindows.length - 1]
+    await act(async () => { fireEvent.click(within(items[items.length - 1]).getByRole('button', { name: 'View' })) })
+    expect(onNavigate.mock.calls[0][0]).toMatchObject({ occurrenceId: last.id, start: last.start, end: last.end })
+  })
+
+  it('a stale reading cannot navigate to a window the current data no longer has', async () => {
+    // A reading produced against one run …
+    const earlier = withReading(envelope())
+    const earlierWindows = new Set(cycleOf(earlier).occurrenceWindows.map((w) => w.id))
+    const earlierStarts = new Set(cycleOf(earlier).occurrenceWindows.map((w) => w.start))
+    // … shown over a run a week later, so every window is a different one.
+    const later = { ...envOf(4, T0 + 7 * DAY), forensicInterpretation: earlier.forensicInterpretation }
+    const current = cycleOf(later)
+    const onNavigate = vi.fn()
+    render(<ForensicsPanel env={later} onPersist={() => {}} onNavigate={onNavigate} generate={vi.fn()} />)
+    expect(screen.getByRole('status').textContent).toMatch(/earlier version of this session/)
+    await act(async () => { fireEvent.click(within(cycleRow()).getByRole('button', { name: 'View on chart' })) })
+    const req = onNavigate.mock.calls[0][0]
+    expect(current.occurrenceWindows.map((w) => w.id)).toContain(req.occurrenceId)
+    expect(earlierWindows.has(req.occurrenceId)).toBe(false)
+    expect(earlierStarts.has(req.start)).toBe(false)
+  })
+
+  it('never reads a time out of the reading', () => {
+    // A validated reading that describes a time in words. The When line is
+    // the detector's, and does not change.
+    const env = envelope()
+    const reading = { ...goodReading(env), interpretation: 'The swing recurs each December afternoon around teatime and is consistent with scheduled occupancy; it requires confirmation.' }
+    const bundle = bundleOf(env)
+    const validation = validateForensicOutput({ interpretations: [reading] }, bundle)
+    expect(validation.status).toBe('validated')
+    const stored = { ...env, forensicInterpretation: buildForensicInterpretationRecord({ bundle, validation }) }
+    render(<ForensicsPanel env={stored} onPersist={() => {}} generate={vi.fn()} />)
+    const when = within(cycleRow()).getByTestId('forensic-when')
+    expect(when.textContent).not.toMatch(/December|teatime/)
+    expect(when.textContent).toMatch(/Usually 2–3 PM · Mar \d representative/)
+  })
+})

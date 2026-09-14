@@ -61,7 +61,7 @@
  */
 
 import { proseDigits } from './forensicValidate'
-import { patternTitle, patternEvidence } from './forensicPresent'
+import { patternTitle, patternEvidence, patternTiming } from './forensicPresent'
 
 /** Bumped when the review record's shape changes. */
 export const FORENSIC_REVIEW_VERSION = 1
@@ -323,6 +323,10 @@ export function monitoringPatternReview(input = {}) {
       title: patternTitle(row.pattern),
       // Deterministic. Read off the bundle, never off the prose.
       evidence: patternEvidence(row.pattern, bundle),
+      // The pattern's timing, one clause, from its occurrence windows — the
+      // same deterministic layer as the evidence line. Never an occurrence
+      // list, and never a time the model wrote.
+      timing: patternTiming(row.pattern, bundle),
       reading: obj(row.decision.accepted).interpretation,
       alternatives: arr(obj(row.decision.accepted).alternative_explanations),
       reviews: arr(obj(row.decision.accepted).recommended_reviews),
