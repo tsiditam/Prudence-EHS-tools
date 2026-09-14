@@ -14,6 +14,7 @@ import { patternEvidence } from '../../src/utils/forensicPresent.js'
 import {
   emptyForensicReview, acceptInterpretation, dismissInterpretation, reopenInterpretation,
   reviewStatusFor, reviewDecision, reviewedPatterns, monitoringPatternReview,
+  acceptedContent, acceptedSignature,
   REVIEW_STATUSES, INELIGIBLE_REASONS, FORENSIC_REVIEW_VERSION,
 } from '../../src/utils/forensicReview.js'
 import { buildMonitoringReportModel } from '../../src/utils/monitoringReportModel.js'
@@ -191,6 +192,128 @@ describe('only an accepted, fresh, current reading reaches the report', () => {
 
   it('names every way an acceptance can stop counting', () => {
     expect(INELIGIBLE_REASONS).toEqual(['stale', 'superseded', 'digits_in_prose'])
+  })
+})
+
+describe('supersession covers every field a decision can publish', () => {
+  // The first cut compared the main interpretation string alone, which is the
+  // surfaces-disagreeing defect one level down: a regeneration could keep that
+  // sentence and rewrite an alternative or a recommended review, and the panel
+  // would show the new wording while the report carried the old accepted one
+  // with `superseded` still false. One projection now governs both halves.
+  const supersededBy = (over: any) => {
+    const rewritten = recordFor(bundle, [reading(over)])
+    const row = reviewedPatterns({ bundle, record: rewritten, review: accepted() }).find((r) => r.patternId === cycle.id)!
+    return { superseded: row.superseded, stale: row.stale, eligible: row.eligible, rows: rows(accepted(), rewritten) }
+  }
+
+  it('identical regenerated content stays eligible', () => {
+    // A re-read that produces exactly the same reading is not a change, and
+    // must not quietly revoke a decision the assessor already made.
+    const r = supersededBy({})
+    expect(r.superseded).toBe(false)
+    expect(r.stale).toBe(false)
+    expect(r.eligible).toBe(true)
+    expect(r.rows).toHaveLength(1)
+  })
+
+  it('a changed main interpretation supersedes', () => {
+    const r = supersededBy({ interpretation: 'The recurring shape is consistent with a timed system start, and requires confirmation.' })
+    expect(r.superseded).toBe(true)
+    expect(r.rows).toEqual([])
+  })
+
+  it('a changed ALTERNATIVE EXPLANATION supersedes', () => {
+    const r = supersededBy({ alternative_explanations: ['A cleaning round may contribute to the same shape.'] })
+    expect(r.superseded).toBe(true)
+    expect(r.rows).toEqual([])
+  })
+
+  it('a changed RECOMMENDED REVIEW supersedes', () => {
+    const r = supersededBy({ recommended_reviews: ['Confirm the schedule with the facilities team; this warrants review.'] })
+    expect(r.superseded).toBe(true)
+    expect(r.rows).toEqual([])
+  })
+
+  it('a changed IMPORTANCE supersedes — it is part of what was presented', () => {
+    const r = supersededBy({ importance: 'priority_review' })
+    expect(r.superseded).toBe(true)
+    expect(r.rows).toEqual([])
+  })
+
+  it('a changed TITLE supersedes — the report prints it', () => {
+    const r = supersededBy({ title: 'Daily swing in carbon dioxide' })
+    expect(r.superseded).toBe(true)
+    expect(r.rows).toEqual([])
+  })
+
+  it('an ADDED or DROPPED list entry supersedes', () => {
+    expect(supersededBy({ alternative_explanations: [...reading().alternative_explanations, 'And a cleaning round may too.'] }).superseded).toBe(true)
+    expect(supersededBy({ alternative_explanations: [] }).superseded).toBe(true)
+    expect(supersededBy({ recommended_reviews: [] }).superseded).toBe(true)
+  })
+
+  it('a REORDERED list supersedes, because order is what the assessor read', () => {
+    const two = ['A timed system start may contribute.', 'A cleaning round may contribute.']
+    const base = acceptInterpretation(emptyForensicReview(), {
+      patternId: cycle.id, fingerprint: bundle.fingerprint,
+      interpretation: reading({ recommended_reviews: two }),
+    })
+    const same = recordFor(bundle, [reading({ recommended_reviews: two })])
+    const flipped = recordFor(bundle, [reading({ recommended_reviews: [...two].reverse() })])
+    const rowFor = (rec: any) => reviewedPatterns({ bundle, record: rec, review: base }).find((r) => r.patternId === cycle.id)!
+    expect(rowFor(same).superseded).toBe(false)
+    expect(rowFor(flipped).superseded).toBe(true)
+  })
+
+  it('does not disturb the stale rule either way', () => {
+    // Content unchanged but the session changed: stale, not superseded.
+    const reanalyzed: any = bundleFor({ occupancyWindows: [{ id: 'occ-1', start: T0 + 9 * 3600_000, end: T0 + 17 * 3600_000, kind: 'occupied' }] })
+    const rec = recordFor(reanalyzed, [reading({ pattern_id: reanalyzed.patterns.find((p: any) => p.kind === 'recurring_cycle').id })])
+    const row = reviewedPatterns({ bundle: reanalyzed, record: rec, review: accepted() }).find((r) => r.patternId === cycle.id)!
+    expect(row.stale).toBe(true)
+    expect(row.superseded).toBe(false)
+    expect(row.ineligible).toEqual(['stale'])
+  })
+})
+
+describe('one projection, used by both halves', () => {
+  it('carries every model-authored field that can be published, and no pointers', () => {
+    expect(Object.keys(acceptedContent(reading())).sort()).toEqual([
+      'alternative_explanations', 'importance', 'interpretation', 'recommended_reviews', 'title',
+    ])
+    // Bundle pointers would outlive the session they point into.
+    expect(acceptedContent(reading())).not.toHaveProperty('evidence_ids')
+    expect(acceptedContent(reading())).not.toHaveProperty('missing_context_ids')
+    expect(acceptedContent(reading())).not.toHaveProperty('report_candidate')
+  })
+
+  it('is what a decision freezes — so stored and compared cannot describe different things', () => {
+    const d: any = reviewDecision(accepted(), cycle.id)
+    expect(d.accepted).toEqual(acceptedContent(reading()))
+    expect(acceptedSignature(d.accepted)).toBe(acceptedSignature(reading()))
+  })
+
+  it('is idempotent, so a raw reading and a stored decision normalize alike', () => {
+    const once = acceptedContent(reading())
+    expect(acceptedContent(once)).toEqual(once)
+    expect(acceptedSignature(once)).toBe(acceptedSignature(reading()))
+    // Whitespace is not a change.
+    expect(acceptedSignature(reading({ title: `  ${reading().title}  ` }))).toBe(acceptedSignature(reading()))
+    expect(acceptedSignature(reading({ alternative_explanations: [' A timed system start may contribute to the same shape. '] })))
+      .toBe(acceptedSignature(reading({ alternative_explanations: ['A timed system start may contribute to the same shape.'] })))
+  })
+
+  it('separates fields, so moving text between them is not the same content', () => {
+    const a = acceptedSignature(reading({ alternative_explanations: ['one', 'two'], recommended_reviews: [] }))
+    const b = acceptedSignature(reading({ alternative_explanations: ['one'], recommended_reviews: ['two'] }))
+    expect(a).not.toBe(b)
+  })
+
+  it('survives an absent or malformed interpretation without throwing', () => {
+    expect(acceptedContent(null).title).toBe('')
+    expect(acceptedContent(undefined).alternative_explanations).toEqual([])
+    expect(acceptedSignature({ alternative_explanations: [42, null, 'kept'] } as never)).toContain('kept')
   })
 })
 

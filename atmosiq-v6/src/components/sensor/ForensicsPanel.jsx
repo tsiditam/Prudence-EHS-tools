@@ -84,19 +84,24 @@ export function forensicInputFromEnvelope(env, { calibrationGas = '' } = {}) {
   }
 }
 
-const Fragment = ({ children }) => <span style={{ whiteSpace: 'nowrap' }}>{children}</span>
-
-/** The deterministic line under a pattern heading. */
+/**
+ * The deterministic line under a pattern heading.
+ *
+ * Each fragment is one unbreakable unit and the separator TRAILS the fragment
+ * before it, never leads the next one — at phone width the line wraps, and a
+ * continuation line beginning with a lone middle dot reads as a bullet list
+ * that lost its first item.
+ */
 function EvidenceLine({ parts }) {
   if (!parts.length) return null
   return (
     <div style={{ ...V3.T.caption, marginTop: 4, lineHeight: '18px', display: 'flex', flexWrap: 'wrap', columnGap: 0 }}>
       <span style={{ ...V3.T.micro, marginRight: 8, lineHeight: '18px' }}>Evidence</span>
       {parts.map((part, i) => (
-        <Fragment key={i}>
-          {i > 0 && <span style={{ color: SUB, margin: '0 6px' }} aria-hidden="true">·</span>}
-          <span style={{ color: TEXT, fontVariantNumeric: 'tabular-nums' }}>{part}</span>
-        </Fragment>
+        <span key={i} style={{ whiteSpace: 'nowrap', color: TEXT, fontVariantNumeric: 'tabular-nums' }}>
+          {part}
+          {i < parts.length - 1 && <span style={{ color: SUB, margin: '0 6px' }} aria-hidden="true">·</span>}
+        </span>
       ))}
     </div>
   )
@@ -311,8 +316,10 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, on
             </div>
           )}
 
+          {/* The caption and the action stack on a phone rather than squeezing
+              the sentence into a six-line column beside a two-word button. */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ ...V3.T.captionDim, lineHeight: 1.5, minWidth: 0, flex: 1 }}>
+            <div style={{ ...V3.T.captionDim, lineHeight: 1.5, minWidth: 220, flex: 1 }}>
               {stored && !stale
                 ? `AI-assisted reading — verify before use. The figures above come from the analysis; the reading is an interpretation of them. ${acceptedCount ? `${acceptedCount} accepted for the monitoring report.` : 'Nothing enters the monitoring report until you accept it.'}`
                 : 'Jasper reads the patterns above and says what each is consistent with, what it cannot separate, and what would settle it. It states no figures; those stay on the evidence lines.'}

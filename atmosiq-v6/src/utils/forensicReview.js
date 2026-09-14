@@ -36,11 +36,20 @@
  *               fingerprint no longer matches. The reading describes a
  *               session that no longer exists.
  *   superseded  the stored interpretation for that pattern is no longer the
- *               text that was accepted — the model was asked again and said
+ *               content that was accepted — the model was asked again and said
  *               something else, or no longer raises the pattern at all.
  *               Without this the panel would show one wording and the report
  *               would carry another, which is the surfaces-disagreeing defect
  *               this codebase has shipped three times.
+ *
+ *               The first cut compared the main interpretation string ALONE,
+ *               which is the same defect one level down: a regeneration could
+ *               keep that sentence and rewrite an alternative explanation or a
+ *               recommended review, and supersession stayed false while the
+ *               panel and the report disagreed about the very fields the
+ *               report renders. `freeze` and `acceptedSignature` are now one
+ *               projection used by both halves — what is stored and what is
+ *               compared cannot describe different things.
  *   digits      the frozen prose carries a number. The validator refuses
  *               those at generation, so this can only be a hand-built record —
  *               and the check runs again at the deliverable boundary because
@@ -87,14 +96,21 @@ const normalize = (review) => {
 }
 
 /**
- * The interpretation's own language, frozen onto a decision.
+ * THE projection of a model's content — the one thing a decision is about.
  *
- * Only the fields a report or a panel renders. `evidence_ids` and
- * `missing_context_ids` are not frozen: they are pointers into a bundle, and a
- * pointer frozen against a session that has since changed is worse than no
- * pointer — the evidence line is rebuilt from the live bundle instead.
+ * Every model-authored field that can reach the panel or the report is here,
+ * and nothing that cannot. `evidence_ids` and `missing_context_ids` are
+ * deliberately absent: they are pointers into a bundle, and a pointer frozen
+ * against a session that has since changed is worse than no pointer — the
+ * evidence line is rebuilt from the live bundle instead.
+ *
+ * Idempotent, so it normalizes a raw interpretation and a stored decision
+ * identically. That is what lets one function both FREEZE what was accepted
+ * and decide whether the current reading still matches it; two projections
+ * would eventually disagree about which fields matter, and the half that
+ * mattered less would silently win.
  */
-const freeze = (interpretation) => {
+export function acceptedContent(interpretation) {
   const i = obj(interpretation)
   return {
     title: text(i.title),
@@ -104,12 +120,34 @@ const freeze = (interpretation) => {
     recommended_reviews: list(i.recommended_reviews),
   }
 }
+const freeze = acceptedContent
 
-/** Every string a decision would publish, as one block. */
+/**
+ * A comparable signature over that projection.
+ *
+ * ARRAY ORDER IS SIGNIFICANT, deliberately. The order the alternatives and the
+ * recommended reviews are written in is the order the assessor read them and
+ * the order the report prints them, so a reordering is a different document
+ * even when the set is identical — and "we only reordered it" is exactly the
+ * change nobody would think to re-read.
+ */
+export function acceptedSignature(interpretation) {
+  const a = acceptedContent(interpretation)
+  return JSON.stringify([
+    a.title, a.importance, a.interpretation,
+    a.alternative_explanations, a.recommended_reviews,
+  ])
+}
+
+/**
+ * Every string a decision would publish, as one block.
+ *
+ * Read off the same projection, so the digit scan covers exactly the set that
+ * can be published — no more, and no less.
+ */
 const decisionProse = (d) => {
-  const x = obj(d)
-  return [x.title, x.interpretation, ...arr(x.alternative_explanations), ...arr(x.recommended_reviews)]
-    .filter(isStr).join('\n')
+  const x = acceptedContent(d)
+  return [x.title, x.interpretation, ...x.alternative_explanations, ...x.recommended_reviews].join('\n')
 }
 
 /**
@@ -234,11 +272,12 @@ export function reviewedPatterns(input = {}) {
     const status = decision ? decision.status : 'unreviewed'
 
     const stale = !!decision && (!fingerprint || decision.fingerprint !== fingerprint)
-    // The accepted wording is still the wording on offer. A record that no
-    // longer carries this pattern supersedes the decision too: the assessor
-    // approved a reading the current analysis does not make.
+    // Is the accepted CONTENT — every field the panel or the report renders —
+    // still the content on offer? A record that no longer carries this pattern
+    // supersedes the decision too: the assessor approved a reading the current
+    // analysis does not make.
     const superseded = !!decision && (
-      !interpretation || text(obj(interpretation).interpretation) !== text(obj(decision.accepted).interpretation)
+      !interpretation || acceptedSignature(interpretation) !== acceptedSignature(decision.accepted)
     )
     const digits = !!decision && proseDigits(decisionProse(decision.accepted)).length > 0
 
