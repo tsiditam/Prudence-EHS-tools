@@ -80,10 +80,36 @@ fabricate evidence.
 `src/report/modelConsistency.js`, `src/engine/report/cih-validation.ts`.
 Flags problems; never silently rewrites a technical conclusion.
 
+## Where an on-site finding can already surface
+
+Three hosts exist. A new integrity finding needs none of its own.
+
+- **The Zone-complete sheet.** `src/engines/zone-gaps.js` builds the
+  "before you leave" list, and `interruptsZoneCompletion(gaps)` already
+  decides whether it blocks. This is the natural host for a finding whose
+  actionability is on-site: the assessor is still in the room.
+- **`JasperWatchPanel`.** Live advisories during the walkthrough, from
+  `src/engines/liveAdvisor.js` (`evaluateLive`). **It contains no AI** —
+  worth knowing, because it carries the assistant's name, so an assessor
+  may reasonably believe the agent is speaking. Do not add a second
+  panel beside it.
+- **The assistant, on request.** `propose_action` with
+  `action_type: 'ask_zone_question'` opens an unanswered walkthrough
+  question as an Accept or Reject card. This is a pull path: the assessor
+  has to be in the chat. Use the Zone-complete sheet for anything that
+  must be seen without asking.
+
 ## Do not build a Field Consistency Agent
 
 Or a Gap Agent, or a Forensics Agent, or anything else that speaks to the
 assessor in its own voice while the walkthrough assistant is speaking.
+
+The count that makes this concrete: a September 2026 sweep found roughly
+**twenty-five distinct advisory surfaces** already reachable by a user,
+of which the Report tab alone carries nine or ten. Agent clutter is not a
+hypothetical risk here; it is the current state one layer below agents. A
+new integrity capability composes into a surface that exists, or it does
+not ship.
 
 Integrity findings return **to the walkthrough assistant as structured
 data**. The assistant decides whether a finding is actionable now, worth
@@ -100,6 +126,27 @@ line, from the assistant they were already talking to:
 
 > Before leaving this area, afternoon occupancy has not been documented.
 > Add it now or mark it unavailable.
+
+## One consistency agent was already built, and nobody can reach it
+
+`api/pre-review-semantic.js` plus `src/utils/preReviewValidator.js` are a
+complete two-layer pre-review agent: deterministic checks in layer one,
+a semantic pass in layer two, streaming structured issues shaped
+`{ id, severity, category, title, detail, anchor }`. It is rate-limited
+and covered by tests.
+
+**No component imports it and nothing fetches the endpoint.** Its prompt
+was copied into the assistant's `review_attached_document` tool, which is
+the path that actually ships. So the reachable feature lives in the
+assistant, exactly as this document prescribes, and the standalone agent
+became the dead half.
+
+This is the `aiProvenanceBanner` shape again, and the same rule applies:
+a module whose tests are its only consumer is not covered, it is
+embalmed. Before any consistency or integrity work starts, decide
+explicitly whether to revive it as a background pass, fold what is useful
+into the integrity layer, or delete it. Leaving it is the one option that
+guarantees the next person builds a third copy.
 
 ## The seven categories an agent may not collapse
 

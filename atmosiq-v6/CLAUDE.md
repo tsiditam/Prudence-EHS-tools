@@ -335,6 +335,20 @@ rules that bind day to day:
   finding** — the `CONTEXT_RULES` rule in `forensicPatterns.js`, inherited
   in full. A session-level completeness checklist trains the assessor to
   skip the section inside a week, however correct each line is.
+- **Compose into a surface that exists.** A September 2026 sweep counted
+  roughly twenty-five advisory surfaces already reachable by a user, nine
+  or ten of them in the Report tab. An on-site finding has three hosts
+  already: the Zone-complete sheet (`zone-gaps.js`, which owns
+  `interruptsZoneCompletion`), `JasperWatchPanel` (`liveAdvisor.js`, and
+  note it carries the assistant's name while containing no AI), and the
+  assistant's own `ask_zone_question` proposal.
+- **A consistency agent was already built and is unreachable.**
+  `api/pre-review-semantic.js` + `src/utils/preReviewValidator.js`: two
+  layers, tested, rate-limited, imported by no component. Its prompt was
+  copied into the assistant's `review_attached_document` tool, which is
+  the path that ships. Decide its fate before starting integrity work —
+  reviving, folding in, or deleting are all fine; leaving it guarantees a
+  third copy.
 
 ## Engine version conventions
 
