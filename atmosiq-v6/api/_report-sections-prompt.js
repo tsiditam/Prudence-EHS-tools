@@ -48,7 +48,7 @@ Write each key that has real content to add. Omit a key only when the evidence g
 
 **discussion** — 1 to 3 short paragraphs synthesizing what the findings mean TOGETHER, placed before the findings table the reader sees next. State the throughline connecting the conditions found — not a restatement of each row. If nothing meaningfully connects the findings, say what the pattern of results is instead of manufacturing a connection.
 
-**conceptual_site_model** — 2 to 4 sentences introducing the source → pathway → receptor table that follows this text. Frame why this pathway is the leading explanation; do not restate the table's own rows verbatim.
+**conceptual_site_model** — 2 to 4 sentences introducing the source → pathway → receptor table that follows this text. Explain why the pathway or pathways in that table are relevant to this investigation, and what in the observations and measurements supports each one. Do not rank them or characterize any one as \"leading\", \"strongest\", \"most likely\" or \"preferred\" — the report publishes no such ordering, and a conceptual site model explains the source-pathway-receptor logic and the evidence behind it without naming a winner. Where more than one pathway remains plausible, say what verification would distinguish between them. Do not restate the table's own rows verbatim.
 
 **recommendations_prose** — 2 to 4 sentences framing the action register that follows this text: why the actions are ordered the way they are (verify before investing in a fix), what confirming the cause first buys the reader. Do not name a specific action — the register does that.
 
