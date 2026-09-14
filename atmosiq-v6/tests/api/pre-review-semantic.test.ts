@@ -1,15 +1,24 @@
 /**
- * Tests for /api/pre-review-semantic validation + helpers.
+ * /api/pre-review-semantic — the generation boundary.
  *
- * Focused on the contract the front-end depends on:
- *   • GET → 405
- *   • POST without Authorization → 401
- *   • POST without assessment body → 400 missing_assessment
- *   • Assessment payload > MAX_INPUT_BYTES → 400 assessment_too_large
- *   • slimAssessment() drops photos / presurvey blobs, keeps audit-
- *     relevant fields, truncates strings + caps list lengths
- *   • tryParseIssues handles raw JSON, code-fenced JSON, JSON with
- *     preamble, and malformed input
+ * The endpoint asks a provider for CANDIDATE JSON and returns it. It never
+ * returns an IntegrityFinding, and the point of that is not tidiness: the
+ * model-output schema and the internal trusted representation are different
+ * types BECAUSE the difference is the trust boundary. A candidate becomes a
+ * finding in one place only — the client validator, against the same package
+ * the reviewer was given — and only by having every quote and identifier
+ * resolved rather than believed.
+ *
+ * So this suite pins three things about the boundary:
+ *   • what it returns is the provider's object verbatim, unpromoted;
+ *   • provider failure of EVERY kind is a technical status and never a
+ *     statement about the report;
+ *   • the run is released rather than charged when nothing was produced.
+ *
+ * It replaces a suite that tested the opposite contract — SSE frames of
+ * unvalidated issues, a three-tier severity with `blocking` at the top,
+ * and a `slimAssessment` that built its own payload shape. All three were
+ * removed deliberately; see the handler header.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
@@ -120,9 +129,10 @@ interface SemanticTestHooks {
   setSupabase(s: ReturnType<typeof makeSupabaseMock>): void
   setFetch(f: typeof fetch): void
   reset(): void
-  slimAssessment(input: unknown): Record<string, unknown>
-  tryParseIssues(text: string): Array<Record<string, unknown>>
   MAX_INPUT_BYTES: number
+  GENERATION_TYPE: string
+  PROVIDER: string
+  MODEL: string
 }
 interface SemanticModule {
   (req: unknown, res: ReturnType<typeof makeRes>): Promise<void>
@@ -140,233 +150,229 @@ async function loadHandler(): Promise<SemanticModule> {
   return fn
 }
 
-describe('/api/pre-review-semantic — validation gate', () => {
-  beforeEach(() => {
-    resetState()
-    process.env.ANTHROPIC_API_KEY = 'test-key'
-  })
+const PKG = () => ({
+  package_version: 1,
+  report_fingerprint: 'fp-abc123',
+  sections: [{ section_id: 'discussion', section_name: 'Discussion', text: 'The reading was 1385 ppm.' }],
+  structured_facts: { zones: [], findings: [], recommendations: [], limitations: [], instruments: [], references: [] },
+  reference_context: [],
+  deterministic_findings: [],
+})
 
-  it('GET → 405', async () => {
-    const handler = await loadHandler()
-    handler.__test.setSupabase(makeSupabaseMock())
+const post = (pkg: unknown = PKG()) => ({
+  method: 'POST',
+  headers: { authorization: 'Bearer t' },
+  body: { package: pkg },
+})
+
+/** A provider reply carrying `text` as its content. */
+const replyWith = (text: string, usage = { input_tokens: 10, output_tokens: 5 }) => async () => ({
+  ok: true,
+  status: 200,
+  json: async () => ({ content: [{ type: 'text', text }], usage }),
+})
+
+const CANDIDATE = {
+  issues: [{
+    semantic_rule: 'cross_section_contradiction',
+    issue_type: 'contradiction',
+    severity: 'warning',
+    primary: { section_id: 'discussion', quote: 'The reading was 1385 ppm.' },
+    comparison: { section_id: 'executive_summary', quote: 'something else' },
+    explanation: 'The two passages give different values.',
+  }],
+}
+
+async function ready() {
+  const handler = await loadHandler()
+  handler.__test.setSupabase(makeSupabaseMock())
+  return handler
+}
+
+describe('the request contract', () => {
+  beforeEach(() => { resetState(); process.env.ANTHROPIC_API_KEY = 'test-key' })
+
+  it('GET is refused', async () => {
+    const handler = await ready()
     const res = makeRes()
     await handler({ method: 'GET', headers: {} }, res)
     expect(res.statusCode).toBe(405)
   })
 
-  it('POST without Authorization → 401', async () => {
-    const handler = await loadHandler()
-    handler.__test.setSupabase(makeSupabaseMock())
+  it('an unauthenticated POST is refused before anything is sent anywhere', async () => {
+    const handler = await ready()
     const res = makeRes()
-    await handler({ method: 'POST', headers: {}, body: { assessment: {} } }, res)
+    let called = false
+    handler.__test.setFetch((async () => { called = true }) as unknown as typeof fetch)
+    await handler({ method: 'POST', headers: {}, body: { package: PKG() } }, res)
     expect(res.statusCode).toBe(401)
+    expect(called).toBe(false)
   })
 
-  it('POST with missing assessment → 400 missing_assessment', async () => {
-    const handler = await loadHandler()
-    handler.__test.setSupabase(makeSupabaseMock())
+  it('refuses a missing or empty package rather than reviewing nothing', async () => {
+    const handler = await ready()
+    for (const [body, err] of [
+      [{}, 'missing_package'],
+      [{ package: [] }, 'missing_package'],
+      [{ package: { sections: [] } }, 'empty_package'],
+    ] as Array<[Record<string, unknown>, string]>) {
+      const res = makeRes()
+      await handler({ method: 'POST', headers: { authorization: 'Bearer t' }, body }, res)
+      expect(res.statusCode, err).toBe(400)
+      expect((res.jsonBody as { error: string }).error).toBe(err)
+    }
+  })
+
+  it('refuses an oversized package', async () => {
+    const handler = await ready()
     const res = makeRes()
-    await handler({ method: 'POST', headers: { authorization: 'Bearer ok' }, body: {} }, res)
+    const big = PKG()
+    big.sections = [{ section_id: 'd', section_name: 'D', text: 'x'.repeat(handler.__test.MAX_INPUT_BYTES + 1) }]
+    await handler(post(big), res)
     expect(res.statusCode).toBe(400)
-    expect((res.jsonBody as { error?: string })?.error).toBe('missing_assessment')
-  })
-
-  it('POST with oversized assessment → 400 assessment_too_large', async () => {
-    const handler = await loadHandler()
-    handler.__test.setSupabase(makeSupabaseMock())
-    // Build a payload whose narrative alone exceeds MAX_INPUT_BYTES
-    // before slimming. slim() truncates to 20K but the slim'd shape
-    // is what gets size-checked; we use many zones + many findings
-    // to force the slim'd shape above the cap.
-    const zoneScores = Array.from({ length: 30 }, (_, i) => ({
-      zoneName: `Zone ${i}`,
-      cats: [{
-        l: 'Cat',
-        r: Array.from({ length: 60 }, () => ({
-          t: 'x'.repeat(600), sev: 'high',
-        })),
-      }],
-    }))
-    const res = makeRes()
-    await handler(
-      { method: 'POST', headers: { authorization: 'Bearer ok' }, body: { assessment: { zoneScores } } },
-      res,
-    )
-    expect(res.statusCode).toBe(400)
-    expect((res.jsonBody as { error?: string })?.error).toBe('assessment_too_large')
+    expect((res.jsonBody as { error: string }).error).toBe('package_too_large')
   })
 })
 
-describe('slimAssessment helper', () => {
-  it('keeps narrative + recs + zones + lab rows; drops photos and presurvey blob', async () => {
-    const handler = await loadHandler()
-    const slim = handler.__test.slimAssessment({
-      narrative: 'Field assessment narrative.',
-      recs: {
-        imm: [{ text: 'arrest water intrusion' }, 'inspect HVAC'],
-        eng: ['rebalance dampers'],
-      },
-      zoneScores: [{
-        zoneName: 'Zone A',
-        tot: 64,
-        cats: [{ l: 'Vent', r: [{ t: 'CO2 elevated', sev: 'high', std: 'ASHRAE 62.1' }] }],
-      }],
-      labResults: {
-        laboratory: 'EMSL',
-        rows: [{ sampleId: 'AF-001', analyte: 'penicillium', result: '150', units: 'ct/m3', collectedAt: '2026-04-15', receivedAt: '2026-04-17' }],
-      },
-      photos: { '1': { dataUrl: 'data:image/jpeg;base64,...20KB...' } }, // should be dropped
-      presurvey: { ps_reason: 'occupant complaints', ps_inst_iaq: 'TSI Q-Trak', _huge: 'x'.repeat(10000) }, // should be dropped
-      facilityName: 'Acme HQ',
-      assessor: 'J. Smith, CIH',
-    })
-    expect(slim.narrative).toBe('Field assessment narrative.')
-    expect(slim.recs).toEqual({
-      imm: ['arrest water intrusion', 'inspect HVAC'],
-      eng: ['rebalance dampers'],
-      adm: [],
-      mon: [],
-    })
-    expect(slim.zones).toEqual([{
-      name: 'Zone A',
-      composite: 64,
-      findings: [{ category: 'Vent', severity: 'high', text: 'CO2 elevated', citation: 'ASHRAE 62.1' }],
-    }])
-    expect(slim.labResults).toHaveLength(1)
-    expect(slim.laboratory).toBe('EMSL')
-    expect(slim.facilityName).toBe('Acme HQ')
-    expect(slim.assessor).toBe('J. Smith, CIH')
-    // Photos + presurvey not present
-    expect(slim).not.toHaveProperty('photos')
-    expect(slim).not.toHaveProperty('presurvey')
+describe('what it returns is a candidate, not a finding', () => {
+  beforeEach(() => { resetState(); process.env.ANTHROPIC_API_KEY = 'test-key' })
+
+  it('returns the provider object verbatim under `candidates`', async () => {
+    const handler = await ready()
+    handler.__test.setFetch(replyWith(JSON.stringify(CANDIDATE)) as unknown as typeof fetch)
+    const res = makeRes()
+    await handler(post(), res)
+    const body = res.jsonBody as { status: string; candidates: unknown }
+    expect(res.statusCode).toBe(200)
+    expect(body.status).toBe('completed')
+    // Verbatim: not reshaped, filtered, sorted or repaired. The validator is
+    // written to reject what is malformed; a handler that tidied first would
+    // be deciding what the validator gets to see.
+    expect(body.candidates).toEqual(CANDIDATE)
   })
 
-  it('caps narrative at 20K chars', async () => {
-    const handler = await loadHandler()
-    const slim = handler.__test.slimAssessment({ narrative: 'x'.repeat(30000) })
-    expect((slim.narrative as string).length).toBe(20000)
+  it('never emits an IntegrityFinding shape', async () => {
+    const handler = await ready()
+    handler.__test.setFetch(replyWith(JSON.stringify(CANDIDATE)) as unknown as typeof fetch)
+    const res = makeRes()
+    await handler(post(), res)
+    const json = JSON.stringify(res.jsonBody)
+    // The contract's own field names. Their presence would mean the endpoint
+    // had promoted a candidate on the side of the wire that cannot check it.
+    for (const key of ['"detector"', '"source_layer"', '"actionability"', '"why_it_matters"', '"identity"']) {
+      expect(json, key).not.toContain(key)
+    }
   })
 
-  it('caps recs at 50 entries per tier, finding text at 600 chars', async () => {
-    const handler = await loadHandler()
-    const slim = handler.__test.slimAssessment({
-      recs: { imm: Array.from({ length: 200 }, (_, i) => `rec ${i}`) },
-      zoneScores: [{
-        zoneName: 'Z',
-        cats: [{ l: 'C', r: [{ t: 'y'.repeat(2000), sev: 'high' }] }],
-      }],
-    })
-    expect((slim.recs as { imm: string[] }).imm).toHaveLength(50)
-    expect(((slim.zones as Array<{ findings: Array<{ text: string }> }>)[0].findings[0].text).length).toBe(600)
+  it('carries provider and model as provenance, and the prompt version with them', async () => {
+    const handler = await ready()
+    handler.__test.setFetch(replyWith(JSON.stringify(CANDIDATE)) as unknown as typeof fetch)
+    const res = makeRes()
+    await handler(post(), res)
+    const p = (res.jsonBody as { provenance: Record<string, unknown> }).provenance
+    expect(p.provider).toBe(handler.__test.PROVIDER)
+    expect(p.model).toBe(handler.__test.MODEL)
+    expect(p.prompt_version).toBe(1)
+    expect(p.report_fingerprint).toBe('fp-abc123')
+  })
+
+  it('passes the package through to the provider and nothing else about the user', async () => {
+    const handler = await ready()
+    let sent: Record<string, unknown> = {}
+    handler.__test.setFetch((async (_u: string, init: { body: string }) => {
+      sent = JSON.parse(init.body)
+      return { ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: '{"issues":[]}' }], usage: {} }) }
+    }) as unknown as typeof fetch)
+    await handler(post(), makeRes())
+    const content = String((sent.messages as Array<{ content: string }>)[0].content)
+    expect(content).toContain('fp-abc123')
+    expect(content).not.toContain('tester@example.com')
+    expect(content).not.toContain('user-1')
+  })
+
+  it('an empty review is a completed review, not a failure', async () => {
+    const handler = await ready()
+    handler.__test.setFetch(replyWith('{"issues":[]}') as unknown as typeof fetch)
+    const res = makeRes()
+    await handler(post(), res)
+    const body = res.jsonBody as { status: string; candidates: { issues: unknown[] } }
+    expect(body.status).toBe('completed')
+    expect(body.candidates.issues).toEqual([])
   })
 })
 
-describe('tryParseIssues helper', () => {
-  it('parses a raw JSON array', async () => {
-    const handler = await loadHandler()
-    const out = handler.__test.tryParseIssues(JSON.stringify([
-      { severity: 'warning', category: 'x', title: 'Mismatch', detail: 'Foo says bar', anchor: { type: 'finding' } },
-    ]))
-    expect(out).toHaveLength(1)
-    expect(out[0]).toMatchObject({ severity: 'warning', category: 'x', title: 'Mismatch', source: 'semantic' })
-    expect(out[0].id).toMatch(/^sem-/)
+describe('provider failure is technical, and never a mark against the report', () => {
+  beforeEach(() => { resetState(); process.env.ANTHROPIC_API_KEY = 'test-key' })
+
+  const FAILURES: Array<[string, () => unknown]> = [
+    ['unreachable', () => { throw new Error('ECONNRESET') }],
+    ['timed_out', () => { const e = new Error('aborted'); e.name = 'AbortError'; throw e }],
+    ['upstream_error', () => ({ ok: false, status: 503, text: async () => 'overloaded' })],
+    ['unreadable', () => ({ ok: true, status: 200, json: async () => { throw new Error('not json') } })],
+    ['unparseable', () => ({ ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: 'I am sorry, I cannot.' }], usage: {} }) })],
+  ]
+
+  for (const [reason, impl] of FAILURES) {
+    it(`${reason} → 200 unavailable, no candidates, no finding`, async () => {
+      const handler = await ready()
+      handler.__test.setFetch((async () => impl()) as unknown as typeof fetch)
+      const res = makeRes()
+      await handler(post(), res)
+      const body = res.jsonBody as Record<string, unknown>
+      // 200: the REQUEST was handled correctly. The review simply did not
+      // happen, and that is not something the report did.
+      expect(res.statusCode).toBe(200)
+      expect(body.status).toBe('unavailable')
+      expect(body.reason).toBe(reason)
+      expect(body.candidates).toBeUndefined()
+      // Nothing resembling a defect in the document.
+      expect(JSON.stringify(body)).not.toMatch(/severity|advisory|warning|issue/i)
+    })
+  }
+
+  it('a missing API key reports unavailable rather than a server error', async () => {
+    delete process.env.ANTHROPIC_API_KEY
+    const handler = await ready()
+    const res = makeRes()
+    await handler(post(), res)
+    expect(res.statusCode).toBe(200)
+    expect((res.jsonBody as { reason: string }).reason).toBe('not_configured')
   })
 
-  it('parses JSON wrapped in a markdown code fence', async () => {
-    const handler = await loadHandler()
-    const out = handler.__test.tryParseIssues('```json\n[{"severity":"blocking","category":"x","title":"T","detail":"D","anchor":{"type":"finding"}}]\n```')
-    expect(out).toHaveLength(1)
-    expect(out[0].severity).toBe('blocking')
+  it('never relays the upstream body, which can carry provider detail', async () => {
+    const handler = await ready()
+    handler.__test.setFetch((async () => ({ ok: false, status: 500, text: async () => 'org_id=acct_secret internal trace' })) as unknown as typeof fetch)
+    const res = makeRes()
+    await handler(post(), res)
+    expect(JSON.stringify(res.jsonBody)).not.toContain('acct_secret')
   })
 
-  it('parses JSON preceded by preamble (model adds a sentence)', async () => {
-    const handler = await loadHandler()
-    const out = handler.__test.tryParseIssues('Here are the issues:\n[{"severity":"suggestion","category":"x","title":"T","detail":"D","anchor":{}}]')
-    expect(out).toHaveLength(1)
-    expect(out[0].severity).toBe('suggestion')
-  })
+  it('releases the reserved run when nothing was produced, and keeps it when something was', async () => {
+    const handler = await ready()
+    handler.__test.setFetch((async () => ({ ok: false, status: 503, text: async () => '' })) as unknown as typeof fetch)
+    await handler(post(), makeRes())
+    // A review that did not happen does not spend the assessor's budget.
+    expect(generations.filter((g) => g.generation_type === 'pre_review_semantic')).toHaveLength(0)
 
-  it('returns [] on malformed input', async () => {
-    const handler = await loadHandler()
-    expect(handler.__test.tryParseIssues('not json at all')).toEqual([])
-    expect(handler.__test.tryParseIssues('')).toEqual([])
-    expect(handler.__test.tryParseIssues(null as unknown as string)).toEqual([])
-  })
-
-  it('coerces unknown severity to "suggestion"', async () => {
-    const handler = await loadHandler()
-    const out = handler.__test.tryParseIssues('[{"severity":"catastrophic","title":"X","detail":""}]')
-    expect(out[0].severity).toBe('suggestion')
-  })
-
-  it('drops entries missing required fields', async () => {
-    const handler = await loadHandler()
-    const out = handler.__test.tryParseIssues('[{"title":"only title"},{"severity":"warning","title":"valid"}]')
-    expect(out).toHaveLength(1)
-    expect(out[0].title).toBe('valid')
-  })
-
-  it('truncates oversized title + detail strings', async () => {
-    const handler = await loadHandler()
-    const out = handler.__test.tryParseIssues(JSON.stringify([
-      { severity: 'warning', title: 'x'.repeat(500), detail: 'y'.repeat(5000) },
-    ]))
-    expect((out[0].title as string).length).toBeLessThanOrEqual(200)
-    expect((out[0].detail as string).length).toBeLessThanOrEqual(2000)
+    handler.__test.setFetch(replyWith('{"issues":[]}') as unknown as typeof fetch)
+    await handler(post(), makeRes())
+    expect(generations.filter((g) => g.generation_type === 'pre_review_semantic')).toHaveLength(1)
   })
 })
 
-describe('handler streams issue events on success', () => {
-  beforeEach(() => {
-    resetState()
-    process.env.ANTHROPIC_API_KEY = 'test-key'
-  })
+describe('the rate limit still holds', () => {
+  beforeEach(() => { resetState(); process.env.ANTHROPIC_API_KEY = 'test-key' })
 
-  it('emits one issue SSE frame per parsed issue + a done frame', async () => {
-    const handler = await loadHandler()
-    handler.__test.setSupabase(makeSupabaseMock())
-    handler.__test.setFetch(vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      // body must be truthy — handler gates on `!upstream.body`
-      // before calling .json(). The placeholder is never read.
-      body: {},
-      json: async () => ({
-        content: [{
-          type: 'text',
-          text: '[{"severity":"warning","category":"citation_mismatch","title":"ASHRAE 62.1 doesn\'t support this claim","detail":"Foo bar","anchor":{"type":"finding","zone":"Zone A"}}]',
-        }],
-        usage: { input_tokens: 1000, output_tokens: 50 },
-      }),
-    })) as unknown as typeof fetch)
-
+  it('429s past the per-minute budget without calling the provider', async () => {
+    const handler = await ready()
+    handler.__test.setFetch(replyWith('{"issues":[]}') as unknown as typeof fetch)
+    for (let i = 0; i < 10; i++) await handler(post(), makeRes())
+    let called = false
+    handler.__test.setFetch((async () => { called = true; return { ok: true, status: 200, json: async () => ({}) } }) as unknown as typeof fetch)
     const res = makeRes()
-    await handler(
-      { method: 'POST', headers: { authorization: 'Bearer ok' }, body: { assessment: { narrative: 'Test' } } },
-      res,
-    )
-    expect(res.written).toContain('event: issue')
-    expect(res.written).toContain('event: done')
-    expect(res.written).toContain('citation_mismatch')
-    // The reserved ledger row was finalized with the real token counts.
-    expect(generations).toHaveLength(1)
-    expect(generations[0].generation_type).toBe('pre_review_semantic')
-    expect(generations[0].input_tokens).toBe(1000)
-    expect(generations[0].output_tokens).toBe(50)
-  })
-
-  it('releases the reservation and never relays the upstream body on failure', async () => {
-    const handler = await loadHandler()
-    handler.__test.setSupabase(makeSupabaseMock())
-    handler.__test.setFetch(vi.fn(async () => ({ ok: false, status: 500, body: null, text: async () => 'anthropic internals' })) as unknown as typeof fetch)
-    const res = makeRes()
-    await handler(
-      { method: 'POST', headers: { authorization: 'Bearer ok' }, body: { assessment: { narrative: 'Test' } } },
-      res,
-    )
-    expect(res.written).toContain('event: error')
-    expect(res.written).toContain('upstream_500')
-    expect(res.written).not.toContain('anthropic internals')
-    expect(generations).toHaveLength(0)
+    await handler(post(), res)
+    expect(res.statusCode).toBe(429)
+    expect(called).toBe(false)
+    expect(res.headers['retry-after']).toBeTruthy()
   })
 })

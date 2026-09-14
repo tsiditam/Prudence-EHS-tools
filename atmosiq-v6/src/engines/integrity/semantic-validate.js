@@ -289,6 +289,41 @@ function buildFinding(candidate, resolved, pkg, opts) {
 }
 
 /**
+ * One string that totally orders a candidate by its own content.
+ *
+ * Built from the raw fields, before anything is resolved, and trusting none
+ * of them — it decides sequence and nothing else. `\u0001` separates parts
+ * so a quote containing the separator cannot forge a different ordering.
+ */
+const candidateKey = (c) => [
+  str(c.semantic_rule), str(c.issue_type), str(c.severity),
+  str(obj(c.primary).section_id), str(obj(c.primary).quote),
+  str(obj(c.comparison).section_id), str(obj(c.comparison).quote), str(obj(c.comparison).evidence_id),
+  str(c.explanation),
+].join('\u0001')
+
+/**
+ * Candidates in a canonical order, so nothing downstream depends on the
+ * order the provider happened to answer in.
+ *
+ * This is not cosmetic. Two candidates can resolve to the SAME identity and
+ * carry DIFFERENT explanations — one contradiction described twice in
+ * different words. Exactly one becomes a finding, and without this the
+ * provider's ordering decides which, so the same unchanged report reviewed
+ * twice shows the reader different prose for the same issue. Sorting first
+ * makes that choice a property of the content.
+ *
+ * The index tiebreak only ever separates byte-identical candidates, which
+ * are interchangeable by construction.
+ */
+function canonicalOrder(candidates) {
+  return candidates
+    .map((c, i) => ({ c, i, k: candidateKey(c) }))
+    .sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : a.i - b.i))
+    .map((e) => e.c)
+}
+
+/**
  * Turn a candidate response into findings, trusting none of its references.
  *
  * Pure and synchronous. Never throws: a malformed response is an empty result
@@ -299,9 +334,16 @@ function buildFinding(candidate, resolved, pkg, opts) {
  * @param {*} input.response the parsed provider response, or anything at all
  * @param {object} input.pkg `buildSemanticPackage` output — the SAME package
  *   the reviewer was given, or resolution is meaningless
- * @param {Array} [input.deterministic] `detectReportConsistency` output, for
- *   one-directional deduplication
  * @param {object} [input.meta] `{ provider, model, promptVersion, generatedAt }`
+ *
+ * One-directional deduplication reads `pkg.deterministic_findings` and has
+ * no parameter of its own. That is deliberate: the deterministic findings
+ * are part of the CLOSED package — the reviewer is shown them, and the
+ * validator checks against the same list — so a second way to supply them
+ * would be a second opinion about what was already reported. This used to
+ * be a documented `input.deterministic` argument that nothing read, which
+ * is worse than either: a caller passing it would believe deduplication was
+ * configured while every semantic duplicate went straight through.
  * @returns {{findings: object[], rejected: Array<{reason:string, detail?:string}>}}
  */
 export function validateSemanticResponse(input = {}) {
@@ -320,10 +362,14 @@ export function validateSemanticResponse(input = {}) {
   const { candidates, rejected: shapeRejects } = checkCandidates(input.response)
   shapeRejects.forEach((r) => rejected.push({ reason: 'schema', detail: r.detail ? `${r.reason}:${r.detail}` : r.reason }))
 
-  const findings = []
+  // Document order, for the presentation sort at the end. `sections` is the
+  // package's own Map, so its key order IS the order the report reads in.
+  const sectionRank = new Map([...sections.keys()].map((id, i) => [id, i]))
+
+  const placed = []
   const seen = new Set()
 
-  for (const candidate of candidates) {
+  for (const candidate of canonicalOrder(candidates)) {
     const spec = RULE_SPEC[candidate.semantic_rule]
 
     // 1. The report's own words, or nothing.
@@ -373,13 +419,31 @@ export function validateSemanticResponse(input = {}) {
     const finding = buildFinding(candidate, { primary, comparison }, { ...pkg, sectionName }, meta)
     if (seen.has(finding.id)) { rejected.push({ reason: 'duplicate_candidate', detail: finding.id }); continue }
     seen.add(finding.id)
-    findings.push(finding)
+    placed.push({ finding, rank: sectionRank.get(primary.section_id) ?? Number.MAX_SAFE_INTEGER, offset: primary.offset })
   }
+
+  // Reading order: down the report, then down each section. The id is the
+  // final tiebreak so the comparison is TOTAL — two findings quoting the
+  // same offset would otherwise order by whichever arrived first, which is
+  // the provider nondeterminism this whole sort exists to keep out.
+  placed.sort((a, b) =>
+    a.rank - b.rank
+    || a.offset - b.offset
+    || (a.finding.id < b.finding.id ? -1 : a.finding.id > b.finding.id ? 1 : 0))
 
   // No blocking severity can exist by here, but the layer asserts it rather
   // than assuming the schema held: this is the last point before an assessor
   // sees anything, and the product rule is permanent.
-  const safe = findings.filter((f) => INTEGRITY_SEVERITIES.includes(f.severity) && f.severity !== 'blocking')
+  const safe = placed.map((p) => p.finding)
+    .filter((f) => INTEGRITY_SEVERITIES.includes(f.severity) && f.severity !== 'blocking')
+  // Rejections are diagnostics rather than output, but they are counted in
+  // tests and logged, so they get the same treatment: a stable order that
+  // does not vary with how the provider sequenced its answer.
+  rejected.sort((a, b) => {
+    const ka = `${a.reason}\u0001${a.detail || ''}`
+    const kb = `${b.reason}\u0001${b.detail || ''}`
+    return ka < kb ? -1 : ka > kb ? 1 : 0
+  })
   return { findings: safe, rejected }
 }
 
