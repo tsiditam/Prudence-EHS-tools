@@ -151,18 +151,46 @@ export function formatDuration(sec) {
 }
 
 /**
- * "Jul 18, 2:14 PM" in site-local time.
+ * The calendar and clock parts of an instant in site-local time — THE
+ * offset convention every monitoring surface formats through.
  *
  * The offset is applied to the epoch and read back with UTC getters, so the
  * result depends only on (timestamp, offset) — never on the host timezone.
+ * `formatTimestamp` below is this plus punctuation; the forensic presenter
+ * composes windows and ranges from the same parts rather than carrying a
+ * second timezone implementation that could disagree with the report.
+ *
+ * @returns {{month:string, day:number, year:number, hour24:number, minute:number,
+ *   dayKey:number, date:string, clock:string, period:'AM'|'PM'}|null}
  */
-export function formatTimestamp(ms, opts = {}) {
+export function localTimeParts(ms, opts = {}) {
   if (!isNum(ms)) return null
-  const d = new Date(ms + (isNum(opts.utcOffsetMin) ? opts.utcOffsetMin : 0) * 60000)
+  const shifted = ms + (isNum(opts.utcOffsetMin) ? opts.utcOffsetMin : 0) * 60000
+  const d = new Date(shifted)
   const hour24 = d.getUTCHours()
   const h = hour24 % 12 || 12
-  const min = String(d.getUTCMinutes()).padStart(2, '0')
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${h}:${min} ${hour24 >= 12 ? 'PM' : 'AM'}`
+  const minute = d.getUTCMinutes()
+  return {
+    month: MONTHS[d.getUTCMonth()],
+    day: d.getUTCDate(),
+    year: d.getUTCFullYear(),
+    hour24,
+    minute,
+    // Site-local calendar day as an integer, so two instants can be compared
+    // for "same day" without re-deriving the offset.
+    dayKey: Math.floor(shifted / 86400000),
+    date: `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`,
+    clock: `${h}:${String(minute).padStart(2, '0')}`,
+    period: hour24 >= 12 ? 'PM' : 'AM',
+  }
+}
+
+/**
+ * "Jul 18, 2:14 PM" in site-local time. See `localTimeParts`.
+ */
+export function formatTimestamp(ms, opts = {}) {
+  const p = localTimeParts(ms, opts)
+  return p ? `${p.date}, ${p.clock} ${p.period}` : null
 }
 
 /** "Jul 31, 2026" — a calendar date with no time of day, same offset rules. */

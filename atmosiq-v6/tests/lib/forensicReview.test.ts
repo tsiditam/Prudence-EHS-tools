@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildForensicBundle } from '../../src/utils/forensicBundle.js'
 import { validateForensicOutput, buildForensicInterpretationRecord } from '../../src/utils/forensicValidate.js'
-import { patternEvidence } from '../../src/utils/forensicPresent.js'
+import { patternEvidence, patternTiming } from '../../src/utils/forensicPresent.js'
 import {
   emptyForensicReview, acceptInterpretation, dismissInterpretation, reopenInterpretation,
   reviewStatusFor, reviewDecision, reviewedPatterns, monitoringPatternReview,
@@ -351,6 +351,29 @@ describe('the report carries deterministic figures and no model numbers', () => 
       ] },
     )
     expect(model.patternReview.map((r: any) => r.title)).toEqual(['Clean'])
+  })
+
+  it('a row carries the deterministic timing phrase, and the report prints it once', () => {
+    const out = rows(accepted())
+    expect(out[0].timing).toBe(patternTiming(cycle, bundle))
+    expect(out[0].timing).toMatch(/^Typically \d{1,2}(–\d{1,2})? [AP]M across \d+ observed days\.$/)
+    const model: any = buildMonitoringReportModel(
+      { datasets: [{ ...sensorData().datasets[0], summary: { start: T0, end: T0 + DAY } }], utcOffsetMin: 0 },
+      { patternReview: out },
+    )
+    expect(model.patternReview[0].timing).toBe(out[0].timing)
+    const section = JSON.stringify(buildPatternReviewSection(model, 7))
+    expect(section).toContain(`Timing: ${out[0].timing}`)
+    // One clause — the section does not grow an occurrence list.
+    expect(section).not.toMatch(/Mar 3, 2:00/)
+    expect(section).not.toMatch(/Mar 2 · /)
+    // A row built without one prints no timing line at all.
+    const bare: any = buildMonitoringReportModel(
+      { datasets: [{ ...sensorData().datasets[0], summary: { start: T0, end: T0 + DAY } }], utcOffsetMin: 0 },
+      { patternReview: [{ title: 'Clean', evidence: ['peak hour 14:00'], reading: 'Consistent with scheduled occupancy.', alternatives: [], reviews: [] }] },
+    )
+    expect(bare.patternReview[0].timing).toBeNull()
+    expect(JSON.stringify(buildPatternReviewSection(bare, 7))).not.toContain('Timing:')
   })
 
   it('the evidence line survives into the model verbatim', () => {

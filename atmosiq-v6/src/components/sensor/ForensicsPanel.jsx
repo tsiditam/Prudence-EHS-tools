@@ -30,6 +30,22 @@
  * only accepted decisions that are still about this session and still describe
  * the reading on offer.
  *
+ * ── When, and where on the chart ───────────────────────────────────────
+ * Beneath the evidence line sits a When line: the pattern's occurrence
+ * window(s), rendered by `forensicPresent.patternWhen` from the detector's
+ * own `occurrenceWindows` — never from the reading, which may describe a
+ * time but is not the source of one. A recurring cycle shows its usual hours
+ * and a representative day with the rest behind "+ N more occurrences"; an
+ * aggregate shows a count and a span with "View occurrences"; an event shows
+ * its window. The card stays one line; the list is opt-in.
+ *
+ * "View on chart" hands the page a navigation REQUEST — pattern, occurrence,
+ * datasets, parameters, start, end — built by `occurrenceNavigation` from the
+ * CURRENT bundle. The panel does not know how charts work and the detector
+ * does not know React; `SensorDataPage` owns what happens next. Because the
+ * request is resolved against the live bundle, a stale reading cannot send
+ * anyone to a window the current data no longer contains.
+ *
  * What this panel does not do: enter annotations (no producer exists yet), or
  * touch the per-chart "Explain this pattern" action.
  */
@@ -42,7 +58,8 @@ import StatusPill from '../ui/StatusPill'
 import { buildForensicBundle, forensicFreshness } from '../../utils/forensicBundle'
 import { generateForensicInterpretation } from '../../engines/forensicInterpret'
 import {
-  patternTitle, patternEvidence, IMPORTANCE_LABELS, REJECTION_LABELS,
+  patternTitle, patternEvidence, patternWhen, patternOccurrences, occurrenceNavigation,
+  IMPORTANCE_LABELS, REJECTION_LABELS,
 } from '../../utils/forensicPresent'
 import {
   reviewedPatterns, acceptInterpretation, dismissInterpretation, reopenInterpretation,
@@ -103,6 +120,50 @@ function EvidenceLine({ parts }) {
           {i < parts.length - 1 && <span style={{ color: SUB, margin: '0 6px' }} aria-hidden="true">·</span>}
         </span>
       ))}
+    </div>
+  )
+}
+
+/**
+ * The When line: one deterministic sentence, and the affordances beside it.
+ *
+ * `when` is `patternWhen`'s result. `onView(occurrenceId?)` navigates; absent
+ * (a read-only panel) the line still states the timing and offers nothing.
+ * The occurrence list is opt-in and sits BELOW the line, so a thirty-day cycle
+ * never puts thirty timestamps on the card.
+ */
+function WhenLine({ when, expanded, onToggle, onView }) {
+  if (!when) return null
+  const many = when.count > 1
+  const link = { background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12, fontWeight: 600, color: ACCENT, cursor: 'pointer', whiteSpace: 'nowrap' }
+  return (
+    <div data-testid="forensic-when">
+      <div style={{ ...V3.T.caption, marginTop: 4, lineHeight: '18px', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 12 }}>
+        <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline' }}>
+          <span style={{ ...V3.T.micro, marginRight: 8, lineHeight: '18px' }}>When</span>
+          <span style={{ color: TEXT, fontVariantNumeric: 'tabular-nums' }}>{when.primary}</span>
+        </span>
+        {onView && when.representative && (
+          <button type="button" style={link} onClick={() => onView(when.representative.id)}>View on chart</button>
+        )}
+        {many && (
+          <button type="button" style={link} onClick={onToggle} aria-expanded={expanded}>
+            {expanded ? 'Hide occurrences' : (when.secondary || 'View occurrences')}
+          </button>
+        )}
+      </div>
+      {expanded && many && (
+        <ul data-testid="forensic-occurrences" style={{ margin: '6px 0 0', paddingLeft: 0, listStyle: 'none' }}>
+          {when.occurrences.map((w) => (
+            <li key={w.id} style={{ ...V3.T.caption, display: 'flex', alignItems: 'baseline', gap: 12, lineHeight: '22px' }}>
+              <span style={{ color: TEXT, fontVariantNumeric: 'tabular-nums' }}>
+                {w.label}{w.representative ? <span style={{ color: SUB }}> · representative</span> : null}
+              </span>
+              {onView && <button type="button" style={link} onClick={() => onView(w.id)}>View</button>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -190,11 +251,17 @@ function Reading({ item, pattern, row, onAccept, onDismiss, onReopen }) {
  * @param {string} [props.calibrationGas] the PID span gas the page already holds
  * @param {(record: object) => void} props.onPersist store the record on the envelope
  * @param {(review: object) => void} [props.onReview] store the review on the envelope
+ * @param {(request: object) => void} [props.onNavigate] take the assessor to a
+ *   chart window: `{ patternId, occurrenceId, datasetIds, params, start, end,
+ *   eventIds, windows, title, label }`. Absent, no chart actions are offered.
  * @param {Function} [props.generate] injection seam; defaults to the real generation path
  */
-export default function ForensicsPanel({ env, calibrationGas = '', onPersist, onReview, generate = generateForensicInterpretation }) {
+export default function ForensicsPanel({ env, calibrationGas = '', onPersist, onReview, onNavigate, generate = generateForensicInterpretation }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  // Which patterns have their occurrence list open. Keyed by pattern id so a
+  // re-analysis that keeps a pattern keeps its list open too.
+  const [expanded, setExpanded] = useState({})
 
   const input = useMemo(() => forensicInputFromEnvelope(env, { calibrationGas }), [env, calibrationGas])
   // The bundle is deterministic and pure, so it is rebuilt from the envelope
@@ -241,6 +308,16 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, on
   const accept = decide(acceptInterpretation)
   const dismiss = decide(dismissInterpretation)
   const reopen = (row) => { if (typeof onReview === 'function') onReview(reopenInterpretation(review, row.patternId)) }
+  // A navigation request, resolved against the CURRENT pattern. An occurrence
+  // that is not one of this pattern's windows resolves to nothing, so a link
+  // built against earlier data cannot land on a time it no longer describes.
+  const view = (pattern) => (occurrenceId) => {
+    if (typeof onNavigate !== 'function') return
+    const req = occurrenceNavigation(pattern, occurrenceId)
+    if (!req) return
+    const occ = patternOccurrences(pattern, bundle).find((w) => w.id === req.occurrenceId)
+    onNavigate({ ...req, title: patternTitle(pattern), label: occ ? occ.label : null })
+  }
 
   return (
     <div>
@@ -274,6 +351,12 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, on
               <div key={row.patternId} style={{ paddingTop: 14, paddingBottom: 14, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }} data-testid="forensic-pattern">
                 <div style={V3.T.bodyStrong}>{patternTitle(p)}</div>
                 <EvidenceLine parts={patternEvidence(p, bundle)} />
+                <WhenLine
+                  when={patternWhen(p, bundle)}
+                  expanded={!!expanded[row.patternId]}
+                  onToggle={() => setExpanded((e) => ({ ...e, [row.patternId]: !e[row.patternId] }))}
+                  onView={typeof onNavigate === 'function' ? view(p) : null}
+                />
                 {stale ? <div style={{ opacity: 0.6 }}>{reading}</div> : reading}
               </div>
             )

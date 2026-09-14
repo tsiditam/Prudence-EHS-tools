@@ -1311,9 +1311,14 @@ export function buildPatternReviewSection(model, num) {
     }),
   ]
   rows.forEach((row, i) => {
-    const body = [p(row.title, { bold: true, size: TYPE.small, after: row.evidence.length ? 40 : 80 })]
+    const body = [p(row.title, { bold: true, size: TYPE.small, after: row.evidence.length || row.timing ? 40 : 80 })]
     if (row.evidence.length) {
-      body.push(p(row.evidence.join('  ·  '), { color: MUTED, size: TYPE.fine, after: 80 }))
+      body.push(p(row.evidence.join('  ·  '), { color: MUTED, size: TYPE.fine, after: row.timing ? 40 : 80 }))
+    }
+    // When it occurred — one deterministic clause from the analysis, not an
+    // occurrence list. The report stays the length it is.
+    if (row.timing) {
+      body.push(p(`Timing: ${row.timing}`, { color: MUTED, size: TYPE.fine, after: 80 }))
     }
     body.push(p(row.reading, { size: TYPE.fine, color: BODY, after: row.alternatives.length || row.reviews.length ? 70 : 0 }))
     row.alternatives.forEach((t) => body.push(tickRow(`Also consistent with: ${t}`)))

@@ -23,9 +23,22 @@
  * Nothing here interprets. A label says what KIND of pattern was found; the
  * evidence line says what was measured. Whether either matters is the reading
  * beside them, and the assessor's call after that.
+ *
+ * ── The When line is the same discipline, one row down ─────────────────
+ * `patternWhen` / `patternOccurrences` / `patternTiming` are the ONLY
+ * formatting layer for temporal provenance. They read a pattern's
+ * `occurrenceWindows` — deterministic, minted by the detector from the same
+ * inputs the fingerprint digests — and never a word of model prose. A model
+ * that wrote "the spike on the morning of the 11th" would be describing the
+ * evidence; this layer states it, from the record, in the site's own clock.
+ *
+ * Time is formatted through `localTimeParts` in `monitoringInsights.js`, the
+ * one site-offset convention the monitoring report already prints in, rather
+ * than a second timezone implementation that could disagree with it.
  */
 
 import { SENSOR_PARAMS } from './sensorParser'
+import { localTimeParts, formatDateRange } from './monitoringInsights'
 
 const isNum = (v) => v != null && Number.isFinite(v)
 const arr = (v) => (Array.isArray(v) ? v : [])
@@ -201,6 +214,260 @@ export function patternEvidence(pattern, bundle) {
       break
   }
   return out
+}
+
+// ── Temporal provenance ────────────────────────────────────────────────
+
+/** The offset the caller asked for, else the bundle's, else zero. Never the host's. */
+const offsetFor = (bundle, options) => {
+  const o = obj(options)
+  if (isNum(o.utcOffsetMin)) return o.utcOffsetMin
+  const ctx = obj(obj(bundle).context)
+  return isNum(ctx.utcOffsetMin) ? ctx.utcOffsetMin : 0
+}
+
+const clockOf = (p) => `${p.clock} ${p.period}`
+
+/**
+ * A window as a reader says it — "Sep 11 · 10:14–10:31 AM", "Sep 11 ·
+ * 11:50 AM–1:10 PM", or across midnight "Sep 11, 11:50 PM – Sep 12, 12:20
+ * AM". An instant (start equals end, or no end) is "Sep 11 · 10:14 AM".
+ *
+ * `options.sep` replaces the middle dot between date and clock — the report
+ * uses ", " so the phrase reads as a sentence rather than as a card line.
+ */
+export function formatWindow(start, end, options = {}) {
+  const o = obj(options)
+  const a = localTimeParts(start, o)
+  if (!a) return null
+  const sep = typeof o.sep === 'string' ? o.sep : ' · '
+  const b = isNum(end) && end !== start ? localTimeParts(end, o) : null
+  if (!b) return `${a.date}${sep}${clockOf(a)}`
+  if (a.dayKey !== b.dayKey) return `${a.date}, ${clockOf(a)} – ${b.date}, ${clockOf(b)}`
+  if (a.period === b.period) return `${a.date}${sep}${a.clock}–${b.clock} ${a.period}`
+  return `${a.date}${sep}${clockOf(a)}–${clockOf(b)}`
+}
+
+/**
+ * A range of clock hours — "1–3 PM", "11 AM–1 PM", "10–11 PM". Hours are
+ * bucket boundaries, so 13 to 15 reads "1–3 PM": from the start of the one
+ * o'clock hour to the start of the three o'clock hour.
+ */
+export function formatHourRange(fromHour, toHour) {
+  if (!isNum(fromHour) || !isNum(toHour)) return null
+  const norm = (h) => ((Math.round(h) % 24) + 24) % 24
+  const a = norm(fromHour); const b = norm(toHour)
+  const h12 = (h) => h % 12 || 12
+  const per = (h) => (h >= 12 ? 'PM' : 'AM')
+  if (a === b) return `${h12(a)} ${per(a)}`
+  if (per(a) === per(b) && b > a) return `${h12(a)}–${h12(b)} ${per(a)}`
+  return `${h12(a)} ${per(a)}–${h12(b)} ${per(b)}`
+}
+
+/**
+ * The hour-of-day range a recurring cycle's peaks actually fell in — the
+ * agreeing days' peak-hour buckets, from the earliest to the end of the
+ * latest — read off the summary the detector already published. "Usually
+ * 1–3 PM" when the peaks sat in the 13:00 and 14:00 buckets; "2–3 PM" when
+ * every day peaked in the same hour.
+ */
+export function typicalHours(pattern) {
+  const s = obj(obj(pattern).summary)
+  if (!isNum(s.peakHour)) return null
+  const days = arr(s.days).filter((d) => isNum(obj(d).peakHour))
+  // Signed offset from the modal hour, so a cycle straddling midnight
+  // (23:00 and 00:00) is a two-hour range and not a twenty-three-hour one.
+  const offsets = days.length ? days.map((d) => { const raw = (((d.peakHour - s.peakHour) % 24) + 24) % 24; return raw > 12 ? raw - 24 : raw }) : [0]
+  const lo = s.peakHour + Math.min(...offsets)
+  const hi = s.peakHour + Math.max(...offsets) + 1
+  return { from: ((lo % 24) + 24) % 24, to: ((hi % 24) + 24) % 24, label: formatHourRange(lo, hi) }
+}
+
+/**
+ * Every occurrence window of a pattern, in order, each with its label in the
+ * site's clock. Source timestamps ride along untouched so a caller that
+ * navigates uses the instant, never the text.
+ *
+ * @param {object} pattern one of `bundle.patterns`
+ * @param {object} bundle
+ * @param {{utcOffsetMin?:number}} [options]
+ * @returns {Array<{id,start,end,eventIds,datasetIds,representative,label,dayLabel}>}
+ */
+export function patternOccurrences(pattern, bundle, options = {}) {
+  const off = { utcOffsetMin: offsetFor(bundle, options) }
+  return arr(obj(pattern).occurrenceWindows)
+    .filter((w) => w && isNum(obj(w).start))
+    .slice()
+    .sort((a, b) => a.start - b.start || String(a.id).localeCompare(String(b.id)))
+    .map((w) => {
+      const p = localTimeParts(w.start, off)
+      return {
+        id: w.id,
+        start: w.start,
+        end: isNum(w.end) ? w.end : w.start,
+        eventIds: arr(w.eventIds),
+        datasetIds: arr(w.datasetIds),
+        representative: !!w.representative,
+        label: formatWindow(w.start, w.end, off),
+        dayLabel: p ? p.date : null,
+      }
+    })
+}
+
+/**
+ * The one occurrence a "view on chart" action goes to without asking: the
+ * window the detector flagged representative, or the pattern's only window.
+ * An aggregate with several unflagged windows (an occupancy comparison) has
+ * none — sending the reader to one of them would imply an occurrence the
+ * statistic does not have.
+ */
+export function representativeOccurrence(pattern) {
+  const windows = arr(obj(pattern).occurrenceWindows).filter((w) => w && isNum(obj(w).start))
+  return windows.find((w) => w.representative) || (windows.length === 1 ? windows[0] : null)
+}
+
+/**
+ * The compact When line for a card — one sentence, never a list.
+ *
+ * Shape by kind, because the kinds are temporally different things:
+ *   recurring   "Usually 1–3 PM · Sep 9 representative" + "+ 5 more occurrences"
+ *   single      "Sep 11 · 10:14–10:31 AM"
+ *   aggregate   "Across 3 occupied windows · Mar 2 – 4, 2026" (occupancy)
+ *   interval    "Aligned readings · Mar 2, 12:00 AM – Mar 5, 11:45 PM"
+ *
+ * @returns {{mode:string, primary:string, secondary:string|null, count:number,
+ *   representative:object|null, occurrences:object[]}|null}
+ */
+export function patternWhen(pattern, bundle, options = {}) {
+  const p = obj(pattern)
+  const occ = patternOccurrences(p, bundle, options)
+  if (!occ.length) return null
+  const off = { utcOffsetMin: offsetFor(bundle, options) }
+  const rep = occ.find((w) => w.representative) || null
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+  switch (p.kind) {
+    case 'recurring_cycle': {
+      const hours = typicalHours(p)
+      const shown = rep || (occ.length === 1 ? occ[0] : null)
+      const parts = []
+      if (hours && hours.label) parts.push(`Usually ${hours.label}`)
+      if (shown) parts.push(`${shown.dayLabel} representative`)
+      const more = occ.length - (shown ? 1 : 0)
+      return {
+        mode: 'recurring',
+        primary: parts.join(' · ') || formatWindow(occ[0].start, occ[0].end, off),
+        secondary: more > 0 ? `+ ${plural(more, 'more occurrence')}` : null,
+        count: occ.length,
+        representative: shown,
+        occurrences: occ,
+      }
+    }
+    case 'occupancy_comparison': {
+      const span = formatDateRange(occ[0].start, occ[occ.length - 1].end, off)
+      return {
+        mode: 'aggregate',
+        primary: `Across ${plural(occ.length, 'occupied window')}${span ? ` · ${span}` : ''}`,
+        secondary: null,
+        count: occ.length,
+        // One contributing window IS the comparison's occupied side, and can
+        // be shown; several are an aggregate, and none is singled out.
+        representative: occ.length === 1 ? occ[0] : null,
+        occurrences: occ,
+      }
+    }
+    case 'indoor_outdoor_comparison': {
+      const w = occ[0]
+      return {
+        mode: 'interval',
+        primary: `Aligned readings · ${formatWindow(w.start, w.end, off)}`,
+        secondary: occ.length > 1 ? `+ ${plural(occ.length - 1, 'more interval')}` : null,
+        count: occ.length,
+        representative: rep || (occ.length === 1 ? w : null),
+        occurrences: occ,
+      }
+    }
+    default: {
+      const w = rep || occ[0]
+      const more = occ.length - 1
+      return {
+        mode: 'single',
+        primary: formatWindow(w.start, w.end, off),
+        secondary: more > 0 ? `+ ${plural(more, 'more occurrence')}` : null,
+        count: occ.length,
+        representative: rep || (occ.length === 1 ? w : null),
+        occurrences: occ,
+      }
+    }
+  }
+}
+
+/**
+ * The report's timing phrase — one clause, deterministic, or null.
+ *
+ *   "Typically 1–3 PM across 6 observed days."
+ *   "Sep 11, 10:14–10:31 AM."
+ *   "Across 3 occupied windows, Mar 2 – 4, 2026."
+ *   "Aligned readings, Mar 2, 12:00 AM – Mar 5, 11:45 PM."
+ *
+ * Never an occurrence list: the report stays the length it is. Built from
+ * the same windows as the card, so the two cannot disagree.
+ */
+export function patternTiming(pattern, bundle, options = {}) {
+  const p = obj(pattern)
+  const occ = patternOccurrences(p, bundle, options)
+  if (!occ.length) return null
+  const off = { utcOffsetMin: offsetFor(bundle, options), sep: ', ' }
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+  switch (p.kind) {
+    case 'recurring_cycle': {
+      const hours = typicalHours(p)
+      if (hours && hours.label) return `Typically ${hours.label} across ${plural(occ.length, 'observed day')}.`
+      return `${formatWindow(occ[0].start, occ[0].end, off)}${occ.length > 1 ? ` and ${plural(occ.length - 1, 'further day')}` : ''}.`
+    }
+    case 'occupancy_comparison': {
+      const span = formatDateRange(occ[0].start, occ[occ.length - 1].end, off)
+      return `Across ${plural(occ.length, 'occupied window')}${span ? `, ${span}` : ''}.`
+    }
+    case 'indoor_outdoor_comparison':
+      return `Aligned readings, ${formatWindow(occ[0].start, occ[0].end, off)}.`
+    default: {
+      const w = occ.find((x) => x.representative) || occ[0]
+      return `${formatWindow(w.start, w.end, off)}.`
+    }
+  }
+}
+
+/**
+ * A chart-navigation request for one occurrence of a pattern, or null.
+ *
+ * Resolved against the pattern's CURRENT windows and nothing else: an
+ * occurrence id that belongs to no window of this pattern — a stale link, a
+ * window that stopped existing when the data changed — yields null rather
+ * than a guessed interval. With no id, the representative occurrence. The
+ * request carries every window too, so a chart can mark all of them and
+ * emphasize the one asked for.
+ *
+ * @returns {{patternId, occurrenceId, datasetIds, params, start, end, eventIds,
+ *   windows:Array<{id,start,end,representative}>}|null}
+ */
+export function occurrenceNavigation(pattern, occurrenceId) {
+  const p = obj(pattern)
+  const windows = arr(p.occurrenceWindows).filter((w) => w && isNum(obj(w).start))
+  const target = occurrenceId == null
+    ? representativeOccurrence(p)
+    : windows.find((w) => w.id === occurrenceId) || null
+  if (!target || !p.id) return null
+  return {
+    patternId: p.id,
+    occurrenceId: target.id,
+    datasetIds: arr(target.datasetIds).length ? arr(target.datasetIds) : arr(p.datasetIds),
+    params: arr(p.params),
+    start: target.start,
+    end: isNum(target.end) ? target.end : target.start,
+    eventIds: arr(target.eventIds),
+    windows: windows.map((w) => ({ id: w.id, start: w.start, end: isNum(w.end) ? w.end : w.start, representative: !!w.representative })),
+  }
 }
 
 /** The pattern's heading: its kind, and the parameter(s) it concerns. */

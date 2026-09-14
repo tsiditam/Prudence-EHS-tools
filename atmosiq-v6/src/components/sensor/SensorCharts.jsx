@@ -123,11 +123,109 @@ const legendProps = (pal) => ({
 // `preserveStartEnd` pins the first and last timestamps so the axis always
 // states its full range.
 export const X_AXIS_MIN_TICK_GAP = 64
-export const timeAxis = (pal, hasTs) => ({
-  dataKey: 't', type: 'number', domain: ['dataMin', 'dataMax'], scale: 'time',
+// `domain` is an optional [lo, hi] override — a focused window (see
+// `focusDomain`). With one set the axis clips to it (`allowDataOverflow`), so
+// the trace is drawn only inside the window and the reader sees a zoom rather
+// than a whole run with a band on it.
+export const timeAxis = (pal, hasTs, domain = null) => ({
+  dataKey: 't', type: 'number', domain: domain || ['dataMin', 'dataMax'], scale: 'time',
+  // A zoomed axis states its OWN ticks. Left to Recharts, `preserveStartEnd`
+  // pins the run's first and last readings — both outside the window — at
+  // the plot edges, where they collide with the window's ticks.
+  ...(domain ? { allowDataOverflow: true, ticks: focusTicks(domain) } : {}),
   tickFormatter: fmtTime(hasTs), minTickGap: X_AXIS_MIN_TICK_GAP, interval: 'preserveStartEnd',
   ...axis(pal),
 })
+
+/** Candidate tick spacings for a zoomed window, five minutes to two days. */
+const TICK_STEPS_MS = [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440, 2880].map((m) => m * 60000)
+
+/**
+ * Evenly spaced ticks inside a zoomed domain — the coarsest spacing that
+ * yields at most `target` ticks, aligned to multiples of that spacing.
+ */
+export function focusTicks(domain, target = 6) {
+  if (!Array.isArray(domain) || !Number.isFinite(domain[0]) || !Number.isFinite(domain[1])) return undefined
+  const [lo, hi] = domain
+  const span = hi - lo
+  if (!(span > 0)) return undefined
+  const step = TICK_STEPS_MS.find((s) => span / s <= target) || TICK_STEPS_MS[TICK_STEPS_MS.length - 1]
+  const ticks = []
+  for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) ticks.push(t)
+  return ticks
+}
+
+// ── Focused window ──────────────────────────────────────────────────────
+// A forensic pattern's occurrence, navigated to from the Forensics view.
+// Two marks and one axis rule, all deterministic from the request:
+//   • every window the pattern occurred over gets a quiet band, so a
+//     recurring cycle's other days stay visible when the run is shown whole;
+//   • the window asked for gets a stronger band and an outline;
+//   • when `zoom` is on, the time axis narrows to that window plus context.
+// Nothing here is a verdict — it says WHERE to look, in the same amber the
+// app uses for "look at this".
+const FOCUS_TONE = '#F59E0B'
+/** Context shown either side of a zoomed window: 1.5× its length, at least 45 min. */
+export const FOCUS_PAD_MIN_MS = 45 * 60000
+
+/**
+ * The zoomed time domain for a focus, or null when there is none or zoom is
+ * off. Clamped to the data's own range when the window sits inside it, so a
+ * short run does not gain an empty margin; left unclamped when the window
+ * lies outside this chart's data, so the band is still shown where it is.
+ */
+export function focusDomain(focus, data = []) {
+  if (!focus || !Number.isFinite(focus.start) || focus.zoom === false) return null
+  const start = focus.start
+  const end = Number.isFinite(focus.end) ? Math.max(focus.end, start) : start
+  const pad = Math.max((end - start) * 1.5, FOCUS_PAD_MIN_MS)
+  let lo = start - pad
+  let hi = end + pad
+  const ts = (Array.isArray(data) ? data : []).map((p) => p && p.t).filter((t) => Number.isFinite(t))
+  if (ts.length) {
+    const dMin = Math.min(...ts)
+    const dMax = Math.max(...ts)
+    const cLo = Math.max(lo, dMin)
+    const cHi = Math.min(hi, dMax)
+    if (cLo < cHi) { lo = cLo; hi = cHi }
+  }
+  return [lo, hi]
+}
+
+function focusAreas(focus, yAxisId) {
+  if (!focus || !Number.isFinite(focus.start)) return null
+  const axisProp = yAxisId ? { yAxisId } : {}
+  const selectedId = focus.occurrenceId || null
+  const windows = Array.isArray(focus.windows) && focus.windows.length
+    ? focus.windows
+    : [{ id: selectedId || 'focus', start: focus.start, end: focus.end }]
+  return windows
+    .filter((w) => w && Number.isFinite(w.start))
+    .map((w) => {
+      const end = Number.isFinite(w.end) ? w.end : w.start
+      const selected = selectedId ? w.id === selectedId : (w.start === focus.start && end === focus.end)
+      const cls = selected ? 'sd-focus sd-focus-selected' : 'sd-focus'
+      // An instant has no width to shade; a line marks it.
+      if (end - w.start < 1) {
+        return <ReferenceLine key={`fx-${w.id}`} {...axisProp} x={w.start} className={cls} stroke={FOCUS_TONE} strokeWidth={selected ? 2 : 1} strokeOpacity={selected ? 0.9 : 0.45} ifOverflow="hidden" />
+      }
+      return (
+        <ReferenceArea
+          key={`fx-${w.id}`}
+          {...axisProp}
+          className={cls}
+          x1={w.start}
+          x2={end}
+          ifOverflow="hidden"
+          fill={FOCUS_TONE}
+          fillOpacity={selected ? 0.18 : 0.08}
+          stroke={selected ? FOCUS_TONE : 'none'}
+          strokeOpacity={0.9}
+          strokeWidth={1.5}
+        />
+      )
+    })
+}
 
 // Y-axis title — unit only (the chart card already names the parameter), set
 // in the app font so chart type matches the rest of the UI. `right` flips it
@@ -180,13 +278,15 @@ function occupancyAreas(windows, yAxisId) {
 // Formaldehyde timeline. No fixed reference line — loggers report HCHO in
 // ppb / µg/m³ / mg/m³ / ppm, so a hardcoded guideline line would be
 // unit-ambiguous and misleading. The Y-axis label carries the detected unit.
-export function HCHOTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, occupancy = [] }) {
+export function HCHOTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, data)
   const inner = (w, h) => (
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.hcho || 'ppb')} />
       <Tooltip cursor={cursorLine(pal)} content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Line {...trace(pal)} dataKey="hcho" name="Formaldehyde" stroke={pal.series.hcho} isAnimationActive={!width} />
@@ -195,13 +295,15 @@ export function HCHOTimelineChart({ data, hasTs = true, units = {}, palette = DA
   return <Shell width={width} height={height}>{inner}</Shell>
 }
 
-export function CO2TimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
+export function CO2TimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, data)
   const inner = (w, h) => (
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis {...axis(pal)} width={52} label={yLabel(pal, 'ppm')} />
       {showRefs && refLine(pal, { key: 'co2adv', y: STD.v.co2.con, label: `${STD.v.co2.con} ppm · ${STD.v.ref} advisory` })}
       <Tooltip cursor={cursorLine(pal)} content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
@@ -233,18 +335,20 @@ function Stacked({ width, height = STACK_H, panels }) {
   )
 }
 // Time axis for a non-final panel: same scale and width, no printed ticks.
-const quietTimeAxis = (pal, hasTs) => ({ ...timeAxis(pal, hasTs), tick: false, height: 4 })
+const quietTimeAxis = (pal, hasTs, domain = null) => ({ ...timeAxis(pal, hasTs, domain), tick: false, height: 4 })
 const panelLegend = (pal) => ({ ...legendProps(pal), verticalAlign: 'top', align: 'left', height: 18, wrapperStyle: { ...legendProps(pal).wrapperStyle, paddingTop: 0, paddingLeft: 48 } })
 const Y_W = 48
 
-export function TempHumidityChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
+export function TempHumidityChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, data)
   const size = (w, h) => (width ? { width: w, height: h } : {})
   const temp = (w, h) => (
     <LineChart data={data} {...size(w, h)} margin={{ top: 4, right: 16, bottom: 0, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...quietTimeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...quietTimeAxis(pal, hasTs, dom)} />
       {/* Temperature reads on its own range — anchored at zero the trace
           is a flat line pinned to the top of the panel. */}
       <YAxis domain={['auto', 'auto']} {...axis(pal)} width={Y_W} label={yLabel(pal, units.temp || '°F')} />
@@ -257,7 +361,8 @@ export function TempHumidityChart({ data, hasTs = true, units = {}, palette = DA
     <LineChart data={data} {...size(w, h)} margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis domain={[0, 100]} {...axis(pal)} width={Y_W} label={yLabel(pal, '%')} />
       {showRefs && (
         <ReferenceArea y1={STD.t.rh.min} y2={STD.t.rh.max} fill={pal.series.rh} fillOpacity={0.08} stroke="none"
@@ -271,13 +376,15 @@ export function TempHumidityChart({ data, hasTs = true, units = {}, palette = DA
   return <Stacked width={width} height={height} panels={[temp, rh]} />
 }
 
-export function PMTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
+export function PMTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, data)
   const inner = (w, h) => (
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.pm25 || 'µg/m³')} />
       {showRefs && [
         refLine(pal, { key: 'pmepa', y: STD.c.pm25.epa, label: `EPA 24-h ${STD.c.pm25.epa} µg/m³` }),
@@ -292,13 +399,15 @@ export function PMTimelineChart({ data, hasTs = true, units = {}, palette = DARK
   return <Shell width={width} height={height}>{inner}</Shell>
 }
 
-export function COTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
+export function COTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, data)
   const inner = (w, h) => (
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis {...axis(pal)} width={52} label={yLabel(pal, units.co || 'ppm')} />
       {showRefs && [
         refLine(pal, { key: 'coosha', y: STD.c.co.osha, label: `OSHA PEL ${STD.c.co.osha} (8-h TWA)` }),
@@ -322,14 +431,16 @@ export function COTimelineChart({ data, hasTs = true, units = {}, palette = DARK
 //
 // The `showRefs` prop is still accepted so the call site needs no change and
 // every other chart keeps its lines; on this one it has nothing to turn on.
-export function TVOCTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
+export function TVOCTimelineChart({ data, hasTs = true, units = {}, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, data)
   void showRefs
   const inner = (w, h) => (
     <LineChart data={data} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, units.tvoc || 'ppb')} />
       <Tooltip cursor={cursorLine(pal)} content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Line {...trace(pal)} dataKey="tvoc" name="TVOC" stroke={pal.series.tvoc} isAnimationActive={!width} />
@@ -357,15 +468,17 @@ function MultiTooltip({ active, payload, label, hasTs, units, pal }) {
   )
 }
 
-export function MultiParameterChart({ data, params = [], hasTs = true, units = {}, palette = DARK_PALETTE, width, height, occupancy = [] }) {
+export function MultiParameterChart({ data, params = [], hasTs = true, units = {}, palette = DARK_PALETTE, width, height, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, data)
   const sel = (params || []).slice(0, 3)
   const { data: nd } = normalizeForCompare(data, sel)
   const inner = (w, h) => (
     <LineChart data={nd} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} {...axis(pal)} width={52} label={yLabel(pal, '% of range')} />
       <Tooltip content={<MultiTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Legend {...legendProps(pal)} />
@@ -379,8 +492,9 @@ export function MultiParameterChart({ data, params = [], hasTs = true, units = {
 // indoor−outdoor differential on the right axis. The advisory reference is
 // the ASHRAE 62.1 differential (STD.v.co2.diff) and belongs to the Δ axis.
 // `points` are pre-aligned rows { t, indoor, outdoor, diff } (alignDatasets).
-export function Co2DifferentialChart({ points = [], hasTs = true, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
+export function Co2DifferentialChart({ points = [], hasTs = true, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, points)
   const units = { indoor: 'ppm', outdoor: 'ppm', diff: 'ppm' }
   const size = (w, h) => (width ? { width: w, height: h } : {})
   // Absolute traces on top, the indoor−outdoor differential beneath on its
@@ -389,7 +503,8 @@ export function Co2DifferentialChart({ points = [], hasTs = true, palette = DARK
     <LineChart data={points} {...size(w, h)} margin={{ top: 4, right: 16, bottom: 0, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...quietTimeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...quietTimeAxis(pal, hasTs, dom)} />
       <YAxis {...axis(pal)} width={Y_W} label={yLabel(pal, 'ppm')} />
       <Tooltip cursor={cursorLine(pal)} content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
       <Legend {...panelLegend(pal)} />
@@ -401,7 +516,8 @@ export function Co2DifferentialChart({ points = [], hasTs = true, palette = DARK
     <LineChart data={points} {...size(w, h)} margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis {...axis(pal)} width={Y_W} label={yLabel(pal, 'Δ ppm')} />
       {showRefs && refLine(pal, { key: 'co2diff', y: STD.v.co2.diff, label: `${STD.v.co2.diff} ppm above outdoor · ${STD.v.ref}` })}
       <Tooltip cursor={cursorLine(pal)} content={<ChartTooltip hasTs={hasTs} units={units} pal={pal} />} />
@@ -415,15 +531,17 @@ export function Co2DifferentialChart({ points = [], hasTs = true, palette = DARK
 // Overlay one parameter (default CO₂) across several zone datasets on a
 // shared time axis. `points` are pre-aligned rows keyed by dataset id;
 // `zones` is [{ id, label }]. The CO₂ advisory line shows when enabled.
-export function MultiZoneChart({ points = [], zones = [], param = 'co2', units = {}, hasTs = true, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [] }) {
+export function MultiZoneChart({ points = [], zones = [], param = 'co2', units = {}, hasTs = true, palette = DARK_PALETTE, width, height, showRefs = false, occupancy = [], focus = null }) {
   const pal = palette
+  const dom = focusDomain(focus, points)
   const unit = units[param] || SENSOR_PARAMS.find((s) => s.key === param)?.unit || ''
   const tipUnits = Object.fromEntries(zones.map((z) => [z.id, unit]))
   const inner = (w, h) => (
     <LineChart data={points} {...(width ? { width: w, height: h } : {})} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
       <CartesianGrid stroke={pal.grid} vertical={false} />
       {occupancyAreas(occupancy)}
-      <XAxis {...timeAxis(pal, hasTs)} />
+      {focusAreas(focus)}
+      <XAxis {...timeAxis(pal, hasTs, dom)} />
       <YAxis {...axis(pal)} width={54} label={yLabel(pal, unit || paramLabel(param))} />
       {showRefs && param === 'co2' && refLine(pal, { key: 'co2adv', y: STD.v.co2.con, color: pal.axis, opacity: 0.45, label: `${STD.v.co2.con} ppm · ${STD.v.ref} advisory` })}
       <Tooltip content={<ChartTooltip hasTs={hasTs} units={tipUnits} pal={pal} />} />

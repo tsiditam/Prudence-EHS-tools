@@ -42,7 +42,7 @@ import { xlsxToRows } from '../../utils/sensorXlsx'
 import { dataUrlToText, dataUrlToFile } from '../../utils/dataUrl'
 import { GRAPH_DEFS, REF_LINE_DEFS, MultiParameterChart, Co2DifferentialChart, MultiZoneChart, LIGHT_PALETTE, currentPalette } from './SensorCharts'
 import StatusPill from '../ui/StatusPill'
-import { fmtRange, paramLabel } from './sensorHelpers'
+import { fmtRange, paramLabel, chartForNavigation } from './sensorHelpers'
 import { paramReference, exceedance, categoryOf, CATEGORY } from '../../utils/sensorThresholds'
 import { chartStats, chartPrimaryParam } from '../../utils/sensorAnalytics'
 import Sparkline from '../ui/Sparkline'
@@ -292,6 +292,11 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
   // selected chart in the parameter tab strip.
   const [mode, setMode] = useState('overview')
   const [activeChartKey, setActiveChartKey] = useState(null)
+  // A forensic occurrence the assessor navigated to: the window to mark on
+  // the Analysis chart, and whether the time axis is zoomed to it. Owned here
+  // — the Forensics panel only emits the request — and cleared below the
+  // moment the data it was resolved against changes.
+  const [focus, setFocus] = useState(null)
   // Where the next picked file lands: the primary indoor dataset, an outdoor
   // baseline, or a named zone. Set just before opening the file picker.
   const [pendingTarget, setPendingTarget] = useState({ role: 'indoor', label: 'Indoor' })
@@ -531,6 +536,37 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
   if (diff) chartTabs.push({ key: 'co2-diff', kind: 'diff', label: 'Indoor vs Outdoor' })
   if (zoneOverlay) chartTabs.push({ key: 'zones', kind: 'zone', label: 'Zone Comparison' })
   const activeChart = chartTabs.find((t) => t.key === activeChartKey) || chartTabs[0] || null
+
+  // A focused window belongs to the data it was resolved against. When the
+  // readings, the occupancy windows or the logged events are replaced, the
+  // pattern that produced it may no longer exist, so the focus goes with
+  // them. (Toggling a reference line or a caption keeps these references and
+  // keeps the focus — see `normalizeSensorData`.)
+  const envDatasets = env ? env.datasets : null
+  const envOccupancy = env ? env.occupancyWindows : null
+  const envEvents = env ? env.events : null
+  useEffect(() => { setFocus(null) }, [envDatasets, envOccupancy, envEvents])
+
+  // From the Forensics view: land on the most relevant chart, mark the
+  // window, zoom to it. The request was resolved against the current bundle
+  // by the panel; this only decides where to show it.
+  const navigateToWindow = (req) => {
+    if (!req || !Number.isFinite(req.start)) return
+    const pick = chartForNavigation(req, { chartTabs, datasets })
+    if (pick) {
+      setActiveChartKey(pick.key)
+      if (pick.zoneParam) setZoneParam(pick.zoneParam)
+      if (pick.multiParams) {
+        const current = (graphsState.multi && graphsState.multi.params) || []
+        const same = current.length === pick.multiParams.length && current.every((p, i) => p === pick.multiParams[i])
+        // Same rule as the chip row: a changed selection invalidates the
+        // captured figure, because the report image must match what is shown.
+        if (!same) setGraph('multi', { params: pick.multiParams, include: false, imageDataUrl: null })
+      }
+    }
+    setFocus({ ...req, zoom: true })
+    setMode('analysis')
+  }
   // Count every graph flagged for the report (standard + overlays).
   const includedReportCount = Object.values(graphsState).filter((s) => s && s.include).length
 
@@ -538,11 +574,12 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
   // (listed, with caption + export). blockMode is forwarded to GraphCard.
   const renderChartBlock = (tab, blockMode) => {
     if (!tab) return null
+    const fx = blockMode === 'analysis' ? focus : null
     if (tab.kind === 'graph') {
-      return <GraphCard def={tab.def} data={data} state={graphsState[tab.def.id] || {}} onState={(patch) => setGraph(tab.def.id, patch)} chartProps={{ showRefs: !!refs[tab.def.refKey], occupancy: occWindows }} mode={blockMode} calibrationGas={calGas} onAskAI={onAskAI} />
+      return <GraphCard def={tab.def} data={data} state={graphsState[tab.def.id] || {}} onState={(patch) => setGraph(tab.def.id, patch)} chartProps={{ showRefs: !!refs[tab.def.refKey], occupancy: occWindows, focus: fx }} mode={blockMode} calibrationGas={calGas} onAskAI={onAskAI} />
     }
     if (tab.kind === 'multi') {
-      return <MultiParamSection data={data} state={graphsState.multi || {}} onState={(patch) => setGraph('multi', patch)} occupancy={occWindows} mode={blockMode} calibrationGas={calGas} />
+      return <MultiParamSection data={data} state={graphsState.multi || {}} onState={(patch) => setGraph('multi', patch)} occupancy={occWindows} focus={fx} mode={blockMode} calibrationGas={calGas} />
     }
     if (tab.kind === 'diff' && diff) {
       return (
@@ -553,7 +590,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
             data={data}
             state={graphsState['co2-diff'] || {}}
             onState={(patch) => setGraph('co2-diff', patch)}
-            chartProps={{ points: diff.rows, hasTs: true, showRefs: !!refs.co2, occupancy: occWindows }}
+            chartProps={{ points: diff.rows, hasTs: true, showRefs: !!refs.co2, occupancy: occWindows, focus: fx }}
             mode={blockMode}
             calibrationGas={calGas}
           />
@@ -594,7 +631,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
             data={data}
             state={graphsState[`zones-${activeZoneParam}`] || {}}
             onState={(patch) => setGraph(`zones-${activeZoneParam}`, patch)}
-            chartProps={{ points: zoneOverlay.points, zones: zoneOverlay.zones, param: activeZoneParam, units: zoneOverlay.units, hasTs: true, showRefs: !!refs[activeZoneParam], occupancy: occWindows }}
+            chartProps={{ points: zoneOverlay.points, zones: zoneOverlay.zones, param: activeZoneParam, units: zoneOverlay.units, hasTs: true, showRefs: !!refs[activeZoneParam], occupancy: occWindows, focus: fx }}
             mode={blockMode}
             calibrationGas={calGas}
           />
@@ -803,6 +840,26 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                 </div>
               </div>
 
+              {focus && (
+                /* Where the reader was sent from Forensics, and the two ways
+                   out: widen back to the whole run, or drop the focus. The
+                   window's text is the panel's own deterministic label. */
+                <div role="status" data-testid="chart-focus" data-focus-start={focus.start} data-focus-end={focus.end} data-focus-pattern={focus.patternId || ''}
+                  style={{ marginTop: 14, padding: '10px 12px', border: `1px solid ${V3.BORDER_ACCENT}`, borderRadius: 10, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={V3.T.micro}>Showing</div>
+                    <div style={{ ...V3.T.caption, color: TEXT, marginTop: 2, lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+                      {focus.label || fmtRange(focus.start, focus.end)}{focus.title ? <span style={{ color: SUB }}> · {focus.title}</span> : null}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    <button type="button" style={TEXT_ACTION} onClick={() => setFocus({ ...focus, zoom: !focus.zoom })}>{focus.zoom ? 'Show full run' : 'Zoom to window'}</button>
+                    <button type="button" style={TEXT_ACTION} onClick={() => setMode('forensics')}>Back to Forensics</button>
+                    <button type="button" style={{ ...TEXT_ACTION, color: SUB }} onClick={() => setFocus(null)}>Clear</button>
+                  </div>
+                </div>
+              )}
+
               {chartTabs.length === 0 ? emptyCharts : (
                 <>
                   {/* Which chart — a section heading over the same text-tab
@@ -826,6 +883,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
               calibrationGas={calGas}
               onPersist={(record) => onChange({ ...env, forensicInterpretation: record })}
               onReview={(review) => onChange({ ...env, forensicReview: review })}
+              onNavigate={navigateToWindow}
             />
           )}
 
@@ -918,7 +976,7 @@ const CAP_W = 680, CAP_H = 300
 // Compare up to 3 detected parameters on one normalized timeline. Changing
 // the selection invalidates any captured image (so the report figure always
 // matches the shown selection).
-function MultiParamSection({ data, state, onState, occupancy = [], mode = 'report', calibrationGas }) {
+function MultiParamSection({ data, state, onState, occupancy = [], focus = null, mode = 'report', calibrationGas }) {
   const selected = (state.params && state.params.length) ? state.params : data.params.slice(0, Math.min(3, data.params.length))
   const labelOf = (k) => SENSOR_PARAMS.find((s) => s.key === k)?.label || k
   const toggleParam = (k) => {
@@ -939,7 +997,7 @@ function MultiParamSection({ data, state, onState, occupancy = [], mode = 'repor
           </Chip>
         ))}
       </div>
-      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected, occupancy }} mode={mode} calibrationGas={calibrationGas} />
+      <GraphCard def={def} data={data} state={state} onState={onState} chartProps={{ params: selected, occupancy, focus }} mode={mode} calibrationGas={calibrationGas} />
     </div>
   )
 }
@@ -1069,7 +1127,9 @@ function GraphCard({ def, data, state, onState, chartProps = {}, mode = 'report'
       )}
       {capture && (
         <div aria-hidden="true" ref={hiddenRef} style={{ position: 'fixed', left: -10000, top: 0, width: CAP_W, height: CAP_H, background: '#FFFFFF', padding: 8, boxSizing: 'border-box', pointerEvents: 'none' }}>
-          <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} {...chartProps} />
+          {/* The report image is the whole run: a navigated focus never
+              narrows or marks the figure a client receives. */}
+          <Chart data={data.points} hasTs={data.hasTimestamps} units={data.units} palette={LIGHT_PALETTE} width={CAP_W - 16} height={CAP_H - 16} {...chartProps} focus={null} />
         </div>
       )}
     </div>
