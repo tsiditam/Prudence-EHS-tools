@@ -3,8 +3,15 @@
  *
  * Proxies AI generation of the five AI-eligible sections of the AtmosFlow
  * DOCX (executive summary, discussion, conceptual site model, recommendations
- * prose, parameter background) to the Anthropic API. The API key stays
- * server-side; the browser never sees it.
+ * prose, parameter background). The API key stays server-side; the browser
+ * never sees it.
+ *
+ * WHICH provider writes them is not this file's business: model, request
+ * shape, sampling controls, response extraction, upstream classification
+ * and pricing all live behind `api/_report-authoring-provider.js`. This
+ * handler owns auth, budget, the banned-language floor, the audit record
+ * and the response contract — the parts that would be identical whoever
+ * generated the prose.
  *
  * Sibling of api/narrative.js — same shape, same rate-limit machinery, same
  * server-owned-prompt discipline — for a structured multi-section response
@@ -38,26 +45,20 @@ const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const { scan: scanBannedLanguage, scanStyle } = require('./_banned-language.js')
 const { REPORT_SECTIONS_SYSTEM_PROMPT } = require('./_report-sections-prompt.js')
 const rateLimit = require('./_rate-limit.js')
-const { classifyUpstream, statusForUpstream } = require('./_upstream-error.js')
 const { withSentry } = require('./_with-sentry-cjs.js')
+// The only module on this path that knows which vendor writes the prose.
+// Model, request shape, sampling controls, response extraction, upstream
+// classification and pricing all live behind it.
+const provider = require('./_report-authoring-provider.js')
 
 const PER_MINUTE_LIMIT = 10
 const PER_DAY_LIMIT = 100
 const FREE_TIER_DAILY_CAP = 5
 const GENERATION_TYPE = 'report_sections'
-const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
-// $/M tokens — keep in sync with Anthropic pricing.
-const COST_INPUT_PER_M = 3
-const COST_OUTPUT_PER_M = 15
 // Five sections plus the criteria/parameters/pathways dictionaries the
 // evidence package carries — a larger closed universe than one narrative
 // payload, but still a bounded assessment record, not an open document.
 const MAX_PAYLOAD_CHARS = 60_000
-// Five short-to-medium sections. 900 words total is generous headroom; a
-// draft that hits this ceiling mid-sentence is worse than a short one, so
-// this is slack, not a target — the prompt's own per-section word guidance
-// is what governs length.
-const MAX_OUTPUT_TOKENS = 4000
 
 const TOP_LEVEL_KEYS = ['executive_summary', 'discussion', 'conceptual_site_model', 'recommendations_prose']
 
@@ -75,64 +76,12 @@ function getFetch() {
   return _fetch || global.fetch
 }
 
-function estimateCost(inputTokens, outputTokens) {
-  if (inputTokens == null || outputTokens == null) return null
-  const usd = (inputTokens * COST_INPUT_PER_M + outputTokens * COST_OUTPUT_PER_M) / 1_000_000
-  return Math.round(usd * 10000) / 10000
-}
-
 async function checkRateLimits(supabase, userId, plan, now = Date.now()) {
   return rateLimit.checkRateLimits(
     supabase, userId, plan,
     { perMinute: PER_MINUTE_LIMIT, perDay: PER_DAY_LIMIT, freeTierDaily: FREE_TIER_DAILY_CAP },
     GENERATION_TYPE, now,
   )
-}
-
-async function callAnthropic(apiKey, system, payload) {
-  const fetchFn = getFetch()
-  return fetchFn('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      temperature: 0.7,
-      system,
-      messages: [{
-        role: 'user',
-        content: `Based ONLY on this evidence package, write the report sections as the strict JSON schema requires:\n\n${JSON.stringify(payload)}`,
-      }],
-    }),
-  })
-}
-
-/**
- * Parse the model's response into a plain sections object, tolerating a code
- * fence the model added despite the strict "no markdown fence" instruction —
- * the same tolerance api/pre-review-semantic.js already applies for the same
- * reason. Returns `{}` (not an error) on anything unparseable; the deterministic
- * report is a complete document without any of these sections.
- */
-function tryParseSections(text) {
-  if (!text) return {}
-  let s = text.trim()
-  const fence = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/)
-  if (fence) s = fence[1].trim()
-  const start = s.indexOf('{')
-  const end = s.lastIndexOf('}')
-  if (start < 0 || end < start) return {}
-  try {
-    const parsed = JSON.parse(s.slice(start, end + 1))
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
-    return parsed
-  } catch {
-    return {}
-  }
 }
 
 /**
@@ -230,33 +179,30 @@ async function handler(req, res) {
     return res.status(500).json({ error: 'ledger_reserve_failed' })
   }
 
-  let response
-  try {
-    response = await callAnthropic(apiKey, system, payload)
-  } catch (e) {
-    console.error('[report-sections] anthropic call threw:', e && e.message)
-    await rateLimit.releaseGeneration(supabase, reservation.id, 'report_sections')
-    return res.status(502).json({ error: 'upstream_unreachable' })
-  }
+  // Everything vendor-shaped happens inside this one call. What comes back
+  // is either five sections or a transport fact; the handler below is the
+  // same code whichever provider produced them.
+  const result = await provider.requestReportSections({
+    apiKey, system, payload, fetchFn: getFetch(), subject: 'Report sections are',
+  })
 
-  if (!response.ok) {
-    const errText = typeof response.text === 'function' ? await response.text() : ''
-    console.error('[report-sections] anthropic non-2xx:', response.status, String(errText).slice(0, 300))
+  if (!result.ok) {
+    // Released rather than finalized: nothing was produced, so the
+    // assessor's budget is not spent on a call that wrote nothing.
     await rateLimit.releaseGeneration(supabase, reservation.id, 'report_sections')
-    // `message` is what the assessor is shown. An exhausted API account
-    // arrives as a 400, so "try again" is the wrong advice for it —
-    // see api/_upstream-error.js.
-    const { code, message, retryable } = classifyUpstream(response.status, errText, 'Report sections are')
-    return res.status(statusForUpstream(response.status, code)).json({
-      error: `upstream_${response.status}`, code, message, retryable,
+    if (result.failure === 'unreachable') {
+      console.error('[report-sections] provider call threw:', result.detail)
+      return res.status(502).json({ error: 'upstream_unreachable' })
+    }
+    console.error('[report-sections] provider non-2xx:', result.status, result.detail)
+    // `message` is what the assessor is shown, and the provider's own words
+    // are never in it — see api/_upstream-error.js.
+    return res.status(result.httpStatus).json({
+      error: result.error, code: result.code, message: result.message, retryable: result.retryable,
     })
   }
 
-  const data = await response.json()
-  const text = data.content
-    && data.content.map(b => b && b.type === 'text' ? b.text : '').filter(Boolean).join('\n') || null
-
-  const parsed = tryParseSections(text)
+  const parsed = result.sections
   const flat = flattenSections(parsed)
 
   // Lint every section with the same ruleset as the narrative endpoint, per
@@ -276,9 +222,8 @@ async function handler(req, res) {
     if (style.length) styleFlags[key] = style
   }
 
-  const inputTokens = data.usage && typeof data.usage.input_tokens === 'number' ? data.usage.input_tokens : null
-  const outputTokens = data.usage && typeof data.usage.output_tokens === 'number' ? data.usage.output_tokens : null
-  const cost = estimateCost(inputTokens, outputTokens)
+  const { input_tokens: inputTokens, output_tokens: outputTokens } = result.usage
+  const cost = result.cost
 
   const recordUsage = rateLimit.finalizeGeneration(
     supabase, reservation.id, { inputTokens, outputTokens, cost }, 'report_sections',
@@ -290,7 +235,7 @@ async function handler(req, res) {
     actor_email: user.email,
     target_type: 'report_sections',
     details: {
-      model: ANTHROPIC_MODEL,
+      model: result.model,
       input_tokens: inputTokens,
       output_tokens: outputTokens,
       estimated_cost_usd: cost,
@@ -307,7 +252,7 @@ async function handler(req, res) {
 
   return res.status(200).json({
     sections: parsed,
-    model: ANTHROPIC_MODEL,
+    model: result.model,
     language_review: languageReview,
     banned_language: bannedLanguage,
     style_flags: styleFlags,
@@ -318,18 +263,23 @@ async function handler(req, res) {
 
 module.exports = withSentry(handler, { route: 'report-sections' })
 module.exports.__test = {
-  estimateCost,
+  // Re-exported from the adapter so the existing endpoint suite keeps
+  // exercising the same symbols it always did — its passing unchanged is
+  // part of the evidence that this extraction changed no behavior.
+  estimateCost: provider.estimateCost,
+  tryParseSections: provider.tryParseSections,
   checkRateLimits,
-  callAnthropic,
-  tryParseSections,
   flattenSections,
   PER_MINUTE_LIMIT,
   PER_DAY_LIMIT,
   FREE_TIER_DAILY_CAP,
   GENERATION_TYPE,
-  ANTHROPIC_MODEL,
   MAX_PAYLOAD_CHARS,
-  MAX_OUTPUT_TOKENS,
+  // Vendor facts, read THROUGH the adapter rather than owned here — so a
+  // test asserting the model is asking the adapter, not this file.
+  MODEL: provider.MODEL,
+  PROVIDER: provider.PROVIDER,
+  MAX_OUTPUT_TOKENS: provider.MAX_OUTPUT_TOKENS,
   REPORT_SECTIONS_SYSTEM_PROMPT,
   setSupabase(mock) { _supabaseClient = mock },
   setFetch(mock) { _fetch = mock },
