@@ -73,7 +73,7 @@ import Exhibit from './ui/Exhibit'
 // never describe one zone in two vocabularies.
 import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports, collectReferences, collectFindings } from '../report/reportModel'
 import { evalCondition, visibleQuestions } from '../utils/conditions.js'
-import { zoneGaps } from '../engines/zone-gaps.js'
+import { zoneGaps, interruptsZoneCompletion } from '../engines/zone-gaps.js'
 import { photosForZone, photoCaption } from '../utils/photoIndex'
 import { spaceUse } from '../utils/samplePoints'
 import Select from './ui/Select'
@@ -5116,7 +5116,13 @@ export default function MobileApp() {
               a complete walkthrough should stay as fast as it is today. */}
           {(() => {
             const gaps = zoneGaps({ zones, presurvey, bldg }, curZone)
-            if (!gaps.length) return null
+            // Nothing outstanding, or nothing worth stopping for. A zone whose
+            // only remaining gaps are `optional` is a zone that was recorded
+            // properly, and greeting that assessor with the same panel as one
+            // who skipped a required reading is what makes the panel ignorable.
+            // The optional items are not dropped — they are still in `gaps`,
+            // and the Readiness panel still lists them at review.
+            if (!interruptsZoneCompletion(gaps)) return null
             // Three on a phone. This is read standing up, one-handed, at the
             // end of a zone — a longer list is skimmed rather than acted on.
             const SHOWN = 3

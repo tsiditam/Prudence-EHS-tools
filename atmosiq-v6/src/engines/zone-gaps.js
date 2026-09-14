@@ -51,6 +51,31 @@ const CATEGORIES = ['Ventilation', 'Contaminants', 'HVAC', 'Complaints', 'Enviro
  */
 const RANK = { required: 0, warn: 1, info: 2, optional: 3 }
 
+/**
+ * Should the zone-complete sheet interrupt with the gap list at all?
+ *
+ * A workflow question, not a gap question. `zoneGaps` is unchanged and still
+ * returns every gap it found, `optional` ones included; the review surfaces
+ * that read the record at the end — the Readiness panel, by its own
+ * `buildReadinessVerdict` path — are untouched and still list them. This only
+ * decides whether the list is worth stopping a walkthrough for.
+ *
+ * It is not, when the only thing left is `optional`. Those are the extras
+ * that would strengthen an already-adequate record (an air-change rate, a
+ * formaldehyde reading), and a thoroughly recorded zone still produces a
+ * couple of them — so without this gate the sheet greets the assessor who
+ * did everything right exactly as it greets the one who missed a required
+ * reading, and stops meaning anything.
+ *
+ * Only `optional` is silent, rather than listing the kinds that speak. A kind
+ * added later should interrupt until someone decides it shouldn't, the same
+ * way `gapLabel` shows an unmapped rule rather than dropping it: the failure
+ * that costs an assessor a reading is the one nobody saw.
+ */
+export function interruptsZoneCompletion(gaps) {
+  return (gaps || []).some((g) => g && g.kind !== 'optional')
+}
+
 // By name or position, never by `zid`: the id is an opaque handle every
 // zone carries, not a label.
 const zoneName = (z, i) => (z && z.zn) || `Zone ${i + 1}`

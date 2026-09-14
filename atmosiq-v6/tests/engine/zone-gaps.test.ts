@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { zoneGaps, zoneGapCounts } from '../../src/engines/zone-gaps.js'
+import { zoneGaps, zoneGapCounts, interruptsZoneCompletion } from '../../src/engines/zone-gaps.js'
 import { evaluateCategorySufficiency } from '../../src/engines/sufficiency.js'
 
 /** A zone with every required input captured across all five categories. */
@@ -242,5 +242,99 @@ describe('it adds no judgement of its own', () => {
     const src = readFileSync(new URL('../../src/engines/zone-gaps.js', import.meta.url), 'utf8')
     const imports = [...src.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1])
     expect(imports.sort()).toEqual(['./defensibility-gaps.js', './sufficiency.js'])
+  })
+})
+
+/**
+ * Whether the zone-complete sheet interrupts at all.
+ *
+ * A workflow decision layered ON TOP of the gap list, never inside it:
+ * `zoneGaps` still returns the optional items and the Readiness panel still
+ * lists them at review. The only question here is whether what is left is
+ * worth stopping a walkthrough for.
+ */
+describe('interruptsZoneCompletion', () => {
+  const gap = (kind: string, id = kind) => ({ id, kind, label: id, why: '', rank: 0, source: 'sufficiency' })
+
+  it('shows the panel when a required gap remains, even alongside optional ones', () => {
+    expect(interruptsZoneCompletion([gap('required'), gap('optional')])).toBe(true)
+  })
+
+  it('shows the panel for an evidentiary gap — warn or info — alongside optional ones', () => {
+    expect(interruptsZoneCompletion([gap('warn'), gap('optional')])).toBe(true)
+    expect(interruptsZoneCompletion([gap('info'), gap('optional')])).toBe(true)
+  })
+
+  it('does not interrupt when every remaining gap is optional', () => {
+    expect(interruptsZoneCompletion([gap('optional', 'a'), gap('optional', 'b')])).toBe(false)
+  })
+
+  it('does not interrupt when there are no gaps at all', () => {
+    expect(interruptsZoneCompletion([])).toBe(false)
+    expect(interruptsZoneCompletion(undefined as never)).toBe(false)
+  })
+
+  it('an unrecognized kind still interrupts, so a new gap type is seen rather than silenced', () => {
+    expect(interruptsZoneCompletion([gap('some_future_kind')])).toBe(true)
+  })
+
+  /**
+   * Everything a thorough assessor records: the required inputs, the outdoor
+   * baselines, and the measurement conditions the defensibility rules ask for.
+   * `completeZone()` is deliberately NOT enough here — it satisfies sufficiency
+   * but still draws two `warn` gaps (outdoor CO₂ baseline, HVAC operating
+   * status), so the panel rightly still interrupts for it.
+   */
+  const thoroughZone = () => ({
+    ...completeZone(),
+    co2o: '420', tfo: '80', rho: '50', pmo: '9',
+    meas_conditions: 'Occupied, HVAC running', meas_duration: '15 min', meas_occ: '12',
+  })
+  const thoroughDraft = () => draft(thoroughZone(), {
+    presurvey: { ht: 'Packaged rooftop units (RTU)' }, bldg: { ht: 'Packaged rooftop units (RTU)' },
+  })
+
+  it('holds on real gaps: a thoroughly recorded zone is left alone, a bare one is not', () => {
+    // The case this exists for. A zone with everything captured still yields a
+    // handful of `optional` extras, and greeting that assessor with the same
+    // panel as one who skipped a required reading is what makes it ignorable.
+    const thorough = zoneGaps(thoroughDraft(), 0)
+    expect(thorough.length).toBeGreaterThan(0)
+    expect(thorough.every((g) => g.kind === 'optional')).toBe(true)
+    expect(interruptsZoneCompletion(thorough)).toBe(false)
+
+    const bare = zoneGaps(draft({ zn: 'Room 101' }), 0)
+    expect(bare.some((g) => g.kind === 'required')).toBe(true)
+    expect(interruptsZoneCompletion(bare)).toBe(true)
+  })
+
+  it('still interrupts for an evidentiary gap a merely sufficient zone leaves open', () => {
+    // completeZone() satisfies every required input and is still missing the
+    // outdoor baseline and the HVAC operating status. Those are warns, so the
+    // assessor is still stopped — the gate narrows the panel, it does not
+    // silence the defensibility rules.
+    const gaps = zoneGaps(draft(completeZone()), 0)
+    expect(gaps.filter((g) => g.kind === 'warn').length).toBeGreaterThan(0)
+    expect(interruptsZoneCompletion(gaps)).toBe(true)
+  })
+
+  it('the optional gaps are not dropped or reclassified — only the interrupt is suppressed', () => {
+    const thorough = zoneGaps(thoroughDraft(), 0)
+    // Still returned, still marked optional, still carrying their labels for
+    // the review surfaces that list them.
+    expect(thorough.length).toBeGreaterThan(0)
+    expect([...new Set(thorough.map((g) => g.kind))]).toEqual(['optional'])
+    expect(thorough.every((g) => typeof g.label === 'string' && g.label.length > 0)).toBe(true)
+    expect(thorough.map((g) => g.label)).toContain('Formaldehyde reading')
+  })
+
+  it('the zone-complete sheet is gated on this helper, not on gaps.length', () => {
+    // A source pin: the gate is one line in a 6,700-line component and is
+    // trivially lost in a merge. If it goes, this fails rather than the
+    // regression reaching an assessor.
+    const src = readFileSync(new URL('../../src/components/MobileApp.jsx', import.meta.url), 'utf8')
+    expect(src).toContain('interruptsZoneCompletion(gaps)')
+    // The old unconditional gate must not come back alongside it.
+    expect(src).not.toContain('if (!gaps.length) return null')
   })
 })
