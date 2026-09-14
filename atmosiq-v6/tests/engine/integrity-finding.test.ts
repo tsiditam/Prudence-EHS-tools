@@ -19,6 +19,7 @@ import {
   severityFromGap, severityFromPreReview,
   INTEGRITY_SEVERITIES, INTEGRITY_ACTIONABILITY, INTEGRITY_ISSUE_TYPES,
   INTEGRITY_SOURCE_LAYERS, INTEGRITY_RESOLUTION, INTEGRITY_CONTRACT_VERSION,
+  REVIEW_PROVENANCE_FIELDS,
 } from '../../src/engines/integrity/finding.js'
 
 const base = {
@@ -131,5 +132,76 @@ describe('the vocabularies', () => {
   it('names the two evidence namespaces apart', () => {
     expect(fieldEvidenceId('z-1', 'sy_time')).toBe('fld-z-1-sy_time')
     expect(fieldEvidenceId('z-1', 'sy_time').startsWith('fld-')).toBe(true)
+  })
+})
+
+/**
+ * Review provenance — recorded about a finding, never part of one.
+ *
+ * The property that makes the semantic layer portable. If which model
+ * answered could reach an id, then switching providers would re-mint every
+ * finding in the system and two providers noticing one contradiction would
+ * show a reader two rows. Both failures are silent, and both are prevented
+ * here rather than by remembering.
+ */
+describe('review provenance is recorded and never identifying', () => {
+  const review = {
+    package_version: 1,
+    report_fingerprint: 'abc12345',
+    prompt_version: 'semantic-2026-09',
+    validator_version: 1,
+    provider: 'anthropic',
+    model: 'a-model-name',
+  }
+
+  it('is null for a deterministic finding, which is all of them today', () => {
+    expect(integrityFinding(base).provenance.review).toBeNull()
+    // An empty or malformed block is an absence, not a shell of nulls: a
+    // consumer must not read `review.model` on a finding that met no model.
+    for (const bad of [{}, null, 'x', 42, [], { provider: '' }]) {
+      expect(integrityFinding({ ...base, review: bad } as never).provenance.review).toBeNull()
+    }
+  })
+
+  it('records every declared field when a review pass produced the finding', () => {
+    const f: any = integrityFinding({ ...base, review })
+    expect(Object.keys(f.provenance.review).sort()).toEqual([...REVIEW_PROVENANCE_FIELDS].sort())
+    expect(f.provenance.review).toEqual(review)
+    expect(Object.isFrozen(f.provenance.review)).toBe(true)
+    // A partial block keeps its shape, so a consumer never has to test for a key.
+    const partial: any = integrityFinding({ ...base, review: { provider: 'openai' } })
+    expect(Object.keys(partial.provenance.review).sort()).toEqual([...REVIEW_PROVENANCE_FIELDS].sort())
+    expect(partial.provenance.review.provider).toBe('openai')
+    expect(partial.provenance.review.model).toBeNull()
+  })
+
+  it('keeps one identity across providers, models and prompt revisions', () => {
+    const a: any = integrityFinding({ ...base, review })
+    const b: any = integrityFinding({
+      ...base,
+      review: { ...review, provider: 'openai', model: 'another-model', prompt_version: 'semantic-2027-01' },
+    })
+    // Two providers noticing one defect have noticed one defect.
+    expect(a.id).toBe(b.id)
+    expect(integrityIdentity(a)).toBe(integrityIdentity(b))
+    // And a reviewed finding is the same finding as the unreviewed one.
+    expect(a.id).toBe(integrityFinding(base).id)
+    expect(integrityIdentity(a)).toBe(integrityIdentity(integrityFinding(base)))
+    // The record survives, which is the point of carrying it at all.
+    expect(a.provenance.review.provider).toBe('anthropic')
+    expect(b.provenance.review.provider).toBe('openai')
+  })
+
+  it('declares its fields frozen, so a new one cannot arrive unnoticed', () => {
+    expect(Object.isFrozen(REVIEW_PROVENANCE_FIELDS)).toBe(true)
+    expect(REVIEW_PROVENANCE_FIELDS).toEqual([
+      'package_version', 'report_fingerprint', 'prompt_version',
+      'validator_version', 'provider', 'model',
+    ])
+  })
+
+  it('moves the contract version, because the shape changed', () => {
+    expect(INTEGRITY_CONTRACT_VERSION).toBe(3)
+    expect(integrityFinding(base).provenance.contract_version).toBe(3)
   })
 })

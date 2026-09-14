@@ -109,6 +109,20 @@ export interface IntegrityFinding {
     readonly inputs_fingerprint: string | null
     /** Never part of identity, equality, or any id. */
     readonly generated_at: string | null
+    /**
+     * How a REVIEW PASS produced this finding, when one did. Null for every
+     * deterministic detector. Provenance only: no field here reaches the id
+     * or equality, so a finding keeps one identity across providers, models
+     * and prompt revisions, and the layer stays portable between them.
+     */
+    readonly review: {
+      readonly package_version: string | number | null
+      readonly report_fingerprint: string | null
+      readonly prompt_version: string | null
+      readonly validator_version: string | number | null
+      readonly provider: string | null
+      readonly model: string | null
+    } | null
   }
 }
 
