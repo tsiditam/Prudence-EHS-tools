@@ -33,6 +33,7 @@ import { parseSensorRows, SENSOR_PARAMS, convertTvoc, tvocBasis, parseCalibratio
 import SendToReportSheet from './SendToReportSheet'
 import Profiles from '../../utils/profiles'
 import MonitoringReportSheet from './MonitoringReportSheet'
+import ForensicsPanel from './ForensicsPanel'
 import ProjectSpreadsheetPicker from './ProjectSpreadsheetPicker'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
@@ -638,7 +639,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
           {/* The view switcher is the same text-tab row the results screen
               and Projects use — words with a rule under the active one. */}
           <AssessmentSegmentedPillNav ariaLabel="Logger Studio view" active={mode} onChange={setMode} style={{ marginTop: 10, marginBottom: 0 }}
-            tabs={[{ id: 'overview', label: 'Overview' }, { id: 'analysis', label: 'Analysis' }, { id: 'report', label: 'Report', badge: includedReportCount || undefined }]} />
+            tabs={[{ id: 'overview', label: 'Overview' }, { id: 'analysis', label: 'Analysis' }, { id: 'forensics', label: 'Forensics' }, { id: 'report', label: 'Report', badge: includedReportCount || undefined }]} />
 
           {mode === 'overview' && (
             <>
@@ -796,6 +797,18 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
                 </>
               )}
             </>
+          )}
+
+          {mode === 'forensics' && (
+            /* What the detector found in this session and, once asked for,
+               Jasper's reading of it. The reading is stored on the envelope
+               beside `monitoringReport`, so it survives closing the page and
+               is never regenerated as the price of reopening. */
+            <ForensicsPanel
+              env={env}
+              calibrationGas={calGas}
+              onPersist={(record) => onChange({ ...env, forensicInterpretation: record })}
+            />
           )}
 
           {mode === 'report' && (
