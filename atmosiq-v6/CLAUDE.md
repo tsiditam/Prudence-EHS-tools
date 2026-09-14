@@ -1437,7 +1437,7 @@ report's record is the only evidence of what it said.
   (`tsc --noEmit -p tsconfig.check.json`: api/, lib/, scripts/,
   components/, pages/, the typed tests, and `src/**/*.ts(x)`; `strict`
   is still off and `src/**/*.js(x)` is not type-checked)
-- `npm run lint` — three parts, all must pass:
+- `npm run lint` — five parts, all must pass:
   - `lint:eslint` — infra paths (scripts/, server/, lib/, api/*.ts,
     components/, pages/, tests/{api,scripts,lib,components,pages}) with
     real rules at `--max-warnings=0`
@@ -1453,6 +1453,23 @@ report's record is the only evidence of what it said.
   - `lint:spelling` — `scripts/check-spelling.mjs`: American English in
     every source file, test, acceptance config, doc and this file (see
     "Anti-patterns")
+  - `lint:text` — `scripts/check-text-files.mjs`: no C0 control byte or DEL
+    in source, minus tab / newline / carriage return. A raw control byte
+    makes the file BINARY to git — it commits as `Bin 0 -> N bytes`, diffs
+    as nothing and is invisible in review — while running perfectly,
+    because the escape sequence and the literal byte produce the same
+    value. That is why no other gate sees it: vitest, tsc, eslint, the
+    spelling check and the acceptance runner all read such a file happily,
+    and the only symptom is one line of `git show --stat`. It had happened
+    four times, including once in production under a `TODO(claude)` that
+    named the problem and left it (`resultsGrouping.js`), and once inside
+    the guard's own first draft. **Write the escape, never the byte**, and
+    in a test construct it (`String.fromCharCode`) rather than writing an
+    escape a tool might materialize. Zero-width characters are NOT in
+    scope and must not be added to it: a ZERO WIDTH JOINER builds the
+    emoji in `questions.js` and a ZERO WIDTH SPACE holds a ghost overlay's
+    last line in `TextareaWithGhost.jsx`, both correct, both multi-byte
+    UTF-8 rather than control bytes.
 - `npm run build` — Vite SPA production build (vendor chunks split by
   `build.rollupOptions.output.manualChunks` in `vite.config.js`)
 - `npm run accept:api-boot` — bundle + import every `api/**` entry under
