@@ -158,21 +158,66 @@ export function recommendationIdentity(rec) {
 }
 
 /**
- * Stamp ids onto a list, keeping them unique without reintroducing position.
+ * The whole row reduced to canonical content, for disambiguation only.
  *
- * Two entries can only collide by being identical in every identity field,
- * which means they are the same thing listed twice. The suffix counts prior
- * identical entries — and that is still order-independent, because swapping
- * two entries with the same identity tuple is not an observable change.
- * (Measured on the demo registers: 19/19 and 11/11 unique, so this is a
- * safety net rather than a routine path.)
+ * Keys sorted by `stableStringify`, string values put through
+ * `canonicalText`, and `id` excluded so the function never depends on a
+ * value it is helping to compute.
+ */
+function canonicalRow(row) {
+  const out = {}
+  for (const key of Object.keys(row || {})) {
+    if (key === 'id') continue
+    const v = row[key]
+    out[key] = typeof v === 'string' ? canonicalText(v) : v
+  }
+  return out
+}
+
+/**
+ * Stamp ids onto a list, without letting position back in anywhere.
+ *
+ * ── The trap this avoids, which the first version walked into ──────────
+ * An earlier draft suffixed collisions with an occurrence count — `-2`,
+ * `-3` — on the reasoning that two rows sharing an identity tuple must be
+ * the same thing, so their order could not matter. That reasoning is
+ * wrong, and the case is real rather than theoretical: two rows can match
+ * on identity while differing in the fields identity deliberately EXCLUDES.
+ * "Clean the condensate pan @ AHU-4, Immediate" and the same action at
+ * "Ongoing" are a normal pattern — remediate now, keep watching — and they
+ * are plainly distinguishable rows. Under an occurrence count, reordering
+ * the register swapped their two ids.
+ *
+ * ── The rule ───────────────────────────────────────────────────────────
+ * Rows that collide on identity are either collapsed deliberately as the
+ * same thing, or told apart by additional canonical CONTENT. Never by
+ * array position and never by how many like it came before.
+ *
+ * So a collision is broken by hashing the row's full canonical content.
+ * That is a pure function of the row, so the pair above gets two fixed ids
+ * whichever order they arrive in.
+ *
+ * ── When content is identical too ──────────────────────────────────────
+ * Then the rows are the same row listed twice, they receive the SAME id,
+ * and that is the deliberate collapse rather than an oversight: there is no
+ * way to tell two identical things apart except by position, which is the
+ * thing being removed. If it ever happens the fix belongs upstream — a
+ * register should not propose one action twice — so the package asserts by
+ * test that no such pair exists rather than papering over it here.
+ *
+ * (Measured: 19/19 and 11/11 distinct identities on the two demo
+ * registers, so collision handling is a safety net, not a routine path.)
  */
 export function assignStableIds(rows, identityFor) {
-  const seen = new Map()
-  return rows.map((row) => {
-    const base = identityFor(row)
-    const n = (seen.get(base) || 0) + 1
-    seen.set(base, n)
-    return { ...row, id: n === 1 ? base : `${base}-${n}` }
+  const list = Array.isArray(rows) ? rows : []
+  const bases = list.map((row) => identityFor(row))
+  // Counted over the WHOLE list before anything is stamped, so whether a
+  // row is "in a collision" does not depend on where it sits.
+  const shared = new Map()
+  for (const b of bases) shared.set(b, (shared.get(b) || 0) + 1)
+  return list.map((row, i) => {
+    const base = bases[i]
+    if (shared.get(base) === 1) return { ...row, id: base }
+    return { ...row, id: `${base}-${fnv1aHex(stableStringify(canonicalRow(row)))}` }
   })
 }

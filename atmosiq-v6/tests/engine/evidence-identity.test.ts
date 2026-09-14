@@ -205,8 +205,10 @@ describe('position cannot reach an id', () => {
 
   it('no id in a real package carries an index', () => {
     const { pkg } = build()
-    for (const f of pkg.findings) expect(f.id, f.id).toMatch(/^find-[0-9a-f]{8}$/)
-    for (const r of pkg.recommendation_options) expect(r.id, r.id).toMatch(/^rec-[0-9a-f]{8}$/)
+    // Either the plain identity hash, or identity plus a CONTENT
+    // discriminator. No decimal ordinal in either form.
+    for (const f of pkg.findings) expect(f.id, f.id).toMatch(/^find-[0-9a-f]{8}(-[0-9a-f]{8})?$/)
+    for (const r of pkg.recommendation_options) expect(r.id, r.id).toMatch(/^rec-[0-9a-f]{8}(-[0-9a-f]{8})?$/)
   })
 
   it('ids are unique across a real assessment', () => {
@@ -217,15 +219,56 @@ describe('position cannot reach an id', () => {
     }
   })
 
-  it('a genuine duplicate gets a suffix, and which one gets it does not depend on order', () => {
-    // Two entries can only collide by being identical in every identity
-    // field, so swapping them is not an observable change — the suffix is
-    // order-independent for exactly that reason.
-    const dup = { action: 'Same action', location: 'Same place' }
-    const forward = assignStableIds([dup, { ...dup }], recommendationIdentity).map((r: any) => r.id)
-    const backward = assignStableIds([{ ...dup }, dup], recommendationIdentity).map((r: any) => r.id)
-    expect(forward).toEqual(backward)
-    expect(new Set(forward).size).toBe(2)
+  it('a collision is broken by CONTENT, so reordering cannot swap the two ids', () => {
+    // The case an occurrence-count suffix gets wrong, and it is a normal
+    // pattern rather than a contrived one: remediate the same asset now,
+    // and keep watching it. Both rows share {action, location} — which is
+    // the whole identity tuple — and differ only in fields identity
+    // deliberately excludes, so they are plainly distinguishable rows.
+    const now = { action: 'Clean the condensate pan', location: 'AHU-4', priority: 'Immediate', timeframe: '0-7 days' }
+    const keep = { action: 'Clean the condensate pan', location: 'AHU-4', priority: 'Ongoing', timeframe: 'Continuous' }
+    const idFor = (list: any[], priority: string) =>
+      assignStableIds(list, recommendationIdentity).find((r: any) => r.priority === priority).id
+
+    expect(idFor([now, keep], 'Immediate')).toBe(idFor([keep, now], 'Immediate'))
+    expect(idFor([now, keep], 'Ongoing')).toBe(idFor([keep, now], 'Ongoing'))
+    // And they stay two things, not one.
+    expect(idFor([now, keep], 'Immediate')).not.toBe(idFor([now, keep], 'Ongoing'))
+  })
+
+  it('the discriminator is a function of the row, not of how many came before', () => {
+    // Padding the list with unrelated rows must not move an id. An
+    // occurrence count would shift with every insertion ahead of it.
+    const a = { action: 'X', location: 'Y', priority: 'Immediate' }
+    const b = { action: 'X', location: 'Y', priority: 'Ongoing' }
+    const noise = [{ action: 'Q', location: 'Z' }, { action: 'R', location: 'Z' }]
+    const bare = assignStableIds([a, b], recommendationIdentity)
+    const padded = assignStableIds([...noise, a, ...noise, b], recommendationIdentity)
+    for (const p of ['Immediate', 'Ongoing']) {
+      const one = bare.find((r: any) => r.priority === p).id
+      const two = padded.find((r: any) => r.priority === p).id
+      expect(two, p).toBe(one)
+    }
+  })
+
+  it('rows identical in content collapse to one id, deliberately', () => {
+    // There is no way to tell two identical things apart except by
+    // position, which is the thing being removed. Sharing an id is the
+    // honest answer; the fix for a real occurrence belongs upstream.
+    const dup = { action: 'Same action', location: 'Same place', priority: 'Immediate' }
+    const ids = assignStableIds([dup, { ...dup }], recommendationIdentity).map((r: any) => r.id)
+    expect(ids[0]).toBe(ids[1])
+  })
+
+  it('and no real assessment contains such a pair', () => {
+    // The assertion that keeps the collapse above honest: if a register
+    // ever did list one action twice, this fails and points upstream
+    // instead of letting duplicate ids reach a consumer quietly.
+    const { pkg } = build()
+    for (const list of [pkg.findings, pkg.recommendation_options]) {
+      const ids = list.map((x: any) => x.id)
+      expect(new Set(ids).size, JSON.stringify(ids)).toBe(ids.length)
+    }
   })
 })
 
