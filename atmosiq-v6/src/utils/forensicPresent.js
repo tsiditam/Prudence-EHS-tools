@@ -31,14 +31,40 @@ const isNum = (v) => v != null && Number.isFinite(v)
 const arr = (v) => (Array.isArray(v) ? v : [])
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {})
 
-/** What each pattern kind is, as a heading. Descriptive, never a verdict. */
+/**
+ * What each pattern kind is, as a heading. Descriptive, never a verdict —
+ * and never stronger than what the detector actually established.
+ *
+ * Two of these were, and the way they went wrong is worth keeping written
+ * down, because the pull is constant. A heading is short, so the tempting
+ * phrasing is the one that says what the pattern MEANS; and meaning is the
+ * reading's job, one line further down.
+ *
+ *   "Excursion in one zone only" claimed spatial localization. The detector
+ *   knows no matching event was found in the comparison zones THAT HAD
+ *   COVERAGE — it knows nothing about a zone whose logger was down. The
+ *   summary carries `zonesWithoutCoverage` precisely because that distinction
+ *   matters, so a heading erasing it contradicted the evidence line beneath
+ *   it. Now: no matching zone event, and the line says how many zones were
+ *   compared and how many could not be.
+ *
+ *   "Two parameters moved together" claimed a shared direction. The detector
+ *   pairs events whose windows OVERLAP, and does not ask which way either
+ *   went — one rising while the other falls is a coincidence it reports
+ *   identically. Now: coincident events, with each event's own kind on the
+ *   evidence line, where the direction actually is.
+ *
+ * `forensic-present-labels.test.ts` pins every string here for that reason.
+ */
 export const PATTERN_LABELS = Object.freeze({
   recurring_cycle: 'Recurring daily cycle',
-  coincidence: 'Two parameters moved together',
+  coincidence: 'Coincident parameter events',
   occupancy_comparison: 'Occupied against unoccupied',
+  // Parallel to the zone case below, and accurate: this detector DOES
+  // establish outdoor coverage of the window before raising the pattern.
+  no_matching_outdoor_event: 'Indoor excursion with no matching outdoor event',
   indoor_outdoor_comparison: 'Indoor against outdoor',
-  no_matching_outdoor_event: 'Indoor excursion with no outdoor match',
-  no_matching_zone_event: 'Excursion in one zone only',
+  no_matching_zone_event: 'Excursion with no matching zone event',
   event_proximity: 'Excursion near a logged activity',
 })
 

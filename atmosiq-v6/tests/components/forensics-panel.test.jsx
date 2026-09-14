@@ -11,6 +11,7 @@ import ForensicsPanel, { forensicInputFromEnvelope } from '../../src/components/
 import { normalizeSensorData, SENSOR_DATA_VERSION } from '../../src/utils/sensorParser'
 import { buildForensicBundle } from '../../src/utils/forensicBundle'
 import { validateForensicOutput, buildForensicInterpretationRecord, refuseForensicOutput } from '../../src/utils/forensicValidate'
+import { acceptInterpretation, emptyForensicReview } from '../../src/utils/forensicReview'
 
 const DAY = 86400_000
 const T0 = Date.UTC(2026, 2, 2, 0, 0, 0)
@@ -52,7 +53,20 @@ const generating = (readings) => vi.fn(async (input) => {
 
 function Harness({ initial, generate }) {
   const [env, setEnv] = useState(initial)
-  return <ForensicsPanel env={env} onPersist={(record) => setEnv({ ...env, forensicInterpretation: record })} generate={generate} />
+  return (
+    <ForensicsPanel
+      env={env}
+      onPersist={(record) => setEnv((e) => ({ ...e, forensicInterpretation: record }))}
+      onReview={(review) => setEnv((e) => ({ ...e, forensicReview: review }))}
+      generate={generate}
+    />
+  )
+}
+/** An envelope already carrying a validated reading of its cycle pattern. */
+const withReading = (env, over = {}) => {
+  const bundle = bundleOf(env)
+  const validation = validateForensicOutput({ interpretations: [goodReading(env)] }, bundle)
+  return { ...env, forensicInterpretation: buildForensicInterpretationRecord({ bundle, validation }), ...over }
 }
 
 afterEach(() => cleanup())
@@ -162,5 +176,83 @@ describe('the reading is asked for once, stored, and labeled', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Read the patterns/ })) })
     expect(screen.getByText('The AI service account needs attention.')).toBeTruthy()
     expect(onPersist).not.toHaveBeenCalled()
+  })
+})
+
+describe('nothing reaches the report until the assessor says so', () => {
+  it('offers accept and dismiss on a validated reading, and neither is pre-chosen', () => {
+    render(<Harness initial={withReading(envelope())} generate={vi.fn()} />)
+    const decision = screen.getByTestId('forensic-decision')
+    expect(within(decision).getByRole('button', { name: 'Accept for report' })).toBeTruthy()
+    expect(within(decision).getByRole('button', { name: 'Dismiss' })).toBeTruthy()
+    expect(screen.queryByText('Accepted for report')).toBeNull()
+    expect(screen.getByText(/Nothing enters the monitoring report until you accept it/)).toBeTruthy()
+  })
+
+  it('accepting writes a decision keyed by pattern, with the language and the fingerprint', async () => {
+    const env = withReading(envelope())
+    const bundle = bundleOf(env)
+    const onReview = vi.fn()
+    render(<ForensicsPanel env={env} onPersist={() => {}} onReview={onReview} generate={vi.fn()} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Accept for report' })) })
+    const review = onReview.mock.calls[0][0]
+    const decision = review.decisions[cycleOf(env).id]
+    expect(decision.status).toBe('accepted')
+    expect(decision.fingerprint).toBe(bundle.fingerprint)
+    expect(decision.accepted.interpretation).toBe(goodReading(env).interpretation)
+    expect(typeof decision.reviewedAt).toBe('string')
+  })
+
+  it('shows the decision and lets the assessor reopen it', async () => {
+    render(<Harness initial={withReading(envelope())} generate={vi.fn()} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Accept for report' })) })
+    expect(screen.getByText('Accepted for report')).toBeTruthy()
+    expect(screen.getByText(/1 accepted for the monitoring report/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Accept for report' })).toBeNull()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reopen' })) })
+    expect(screen.queryByText('Accepted for report')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Accept for report' })).toBeTruthy()
+  })
+
+  it('shows a dismissal as a dismissal, not as an absence', async () => {
+    render(<Harness initial={withReading(envelope())} generate={vi.fn()} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Dismiss' })) })
+    expect(screen.getByText('Dismissed')).toBeTruthy()
+    expect(screen.getByText(/Nothing enters the monitoring report until you accept it/)).toBeTruthy()
+  })
+
+  it('offers no acceptance at all on a stale reading', () => {
+    // Accepting a reading of a session that no longer exists is not a decision
+    // anyone should be able to make by mistake.
+    const env = withReading(envelope())
+    const changed = { ...env, occupancyWindows: [{ id: 'occ-1', start: T0 + 9 * 3600_000, end: T0 + 17 * 3600_000, kind: 'occupied' }] }
+    render(<ForensicsPanel env={changed} onPersist={() => {}} onReview={vi.fn()} generate={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Accept for report' })).toBeNull()
+    expect(screen.getByRole('status').textContent).toMatch(/earlier version of this session/)
+  })
+
+  it('says why a standing acceptance will not be included once it is superseded', () => {
+    const env = withReading(envelope())
+    const bundle = bundleOf(env)
+    const review = acceptInterpretation(emptyForensicReview(), {
+      patternId: cycleOf(env).id, interpretation: goodReading(env), fingerprint: bundle.fingerprint,
+    })
+    // The model was asked again and said something else, at the same fingerprint.
+    const rewritten = validateForensicOutput(
+      { interpretations: [{ ...goodReading(env), interpretation: 'The recurring shape is consistent with a timed system start, and requires confirmation.' }] },
+      bundle,
+    )
+    const changed = { ...env, forensicInterpretation: buildForensicInterpretationRecord({ bundle, validation: rewritten }), forensicReview: review }
+    render(<ForensicsPanel env={changed} onPersist={() => {}} onReview={vi.fn()} generate={vi.fn()} />)
+    expect(screen.getByText('Accepted for report')).toBeTruthy()
+    expect(screen.getByText(/Accepted against different wording/)).toBeTruthy()
+    expect(screen.getByText(/Nothing enters the monitoring report until you accept it/)).toBeTruthy()
+  })
+
+  it('shows no decision controls at all when the panel is read-only', () => {
+    render(<ForensicsPanel env={withReading(envelope())} onPersist={() => {}} generate={vi.fn()} />)
+    expect(screen.getByTestId('forensic-reading')).toBeTruthy()
+    expect(screen.queryByTestId('forensic-decision')).toBeNull()
   })
 })

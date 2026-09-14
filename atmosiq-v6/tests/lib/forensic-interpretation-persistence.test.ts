@@ -68,6 +68,25 @@ describe('the reading round-trips through storage', () => {
     expect(out.tempDisplay).toBe('°C')
   })
 
+  it('carries the assessor\u2019s review alongside, as its own record', () => {
+    // Three facts, three fields: what was detected (re-derived), what the model
+    // said (forensicInterpretation), and what a person decided about it
+    // (forensicReview). Collapsing the last two would make "validated" read as
+    // "approved", which is the one thing this layer exists to prevent.
+    const review = { version: 1, decisions: { 'pat-x': { status: 'accepted', reviewedAt: 't', fingerprint: 'f', accepted: { interpretation: 'x' } } } }
+    const out: any = normalizeSensorData(envelope({ forensicInterpretation: RECORD, forensicReview: review }))
+    expect(out.forensicReview).toEqual(review)
+    expect(out.forensicInterpretation).toEqual(RECORD)
+    expect(normalizeSensorData(out).forensicReview).toEqual(review)
+  })
+
+  it('the review is null on an envelope nobody reviewed, and never lands in the dataset', () => {
+    expect((normalizeSensorData(envelope()) as any).forensicReview).toBeNull()
+    const v1: any = normalizeSensorData({ params: ['co2'], points: [], forensicReview: { version: 1, decisions: {} } })
+    expect(v1.datasets[0].forensicReview).toBeUndefined()
+    expect(v1.forensicReview).toEqual({ version: 1, decisions: {} })
+  })
+
   it('storing the reading does not change the fingerprint it is compared against', () => {
     // The fingerprint digests INPUTS. If persisting the reading moved it, every
     // reading would be stale the moment it was saved.
@@ -76,5 +95,9 @@ describe('the reading round-trips through storage', () => {
     expect(forensicInputHash({ sensorData: withReading })).toBe(forensicInputHash({ sensorData: bare }))
     const current = { fingerprint: forensicInputHash({ sensorData: bare }) }
     expect(forensicFreshness({ ...RECORD, fingerprint: current.fingerprint }, current).fresh).toBe(true)
+    // The review does not move it either — an acceptance must not invalidate
+    // itself the instant it is written.
+    const withReview = envelope({ forensicReview: { version: 1, decisions: { a: { status: 'accepted' } } } })
+    expect(forensicInputHash({ sensorData: withReview })).toBe(forensicInputHash({ sensorData: bare }))
   })
 })

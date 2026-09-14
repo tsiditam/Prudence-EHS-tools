@@ -33,7 +33,9 @@ import { parseSensorRows, SENSOR_PARAMS, convertTvoc, tvocBasis, parseCalibratio
 import SendToReportSheet from './SendToReportSheet'
 import Profiles from '../../utils/profiles'
 import MonitoringReportSheet from './MonitoringReportSheet'
-import ForensicsPanel from './ForensicsPanel'
+import ForensicsPanel, { forensicInputFromEnvelope } from './ForensicsPanel'
+import { buildForensicBundle } from '../../utils/forensicBundle'
+import { monitoringPatternReview } from '../../utils/forensicReview'
 import ProjectSpreadsheetPicker from './ProjectSpreadsheetPicker'
 import { splitCsvLine } from '../../utils/labResultsParser'
 import { xlsxToRows } from '../../utils/sensorXlsx'
@@ -296,6 +298,21 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
   const analyzeTimer = useRef(null)
   const phaseTimer = useRef(null)
   const env = useMemo(() => normalizeSensorData(value), [value])
+  // Accepted, still-current pattern readings, for the monitoring report. Empty
+  // whenever nothing was accepted, which is also how the report's section
+  // knows not to exist. Built lazily — the bundle is only assembled when a
+  // reading has actually been accepted, so the common case costs nothing.
+  const acceptedPatternReview = useMemo(() => {
+    if (!env || !env.forensicReview || !env.forensicInterpretation) return []
+    try {
+      const input = forensicInputFromEnvelope(env, { calibrationGas: calGas })
+      return monitoringPatternReview({
+        bundle: buildForensicBundle(input),
+        record: env.forensicInterpretation,
+        review: env.forensicReview,
+      })
+    } catch { return [] }
+  }, [env, calGas])
   const primary = env ? primaryDataset(env) : null
   const datasets = env ? env.datasets : []
   // Temperature display unit. Defaults to the native detected unit; the user
@@ -808,6 +825,7 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
               env={env}
               calibrationGas={calGas}
               onPersist={(record) => onChange({ ...env, forensicInterpretation: record })}
+              onReview={(review) => onChange({ ...env, forensicReview: review })}
             />
           )}
 
@@ -874,6 +892,11 @@ export default function SensorDataPage({ value, onChange, reports = [], currentR
           data={data}
           occupancyWindows={occWindows}
           events={(env && env.events) || []}
+          // The patterns the assessor accepted, already gated on freshness and
+          // on the reading still being the one they approved. Computed here so
+          // the sheet stays what it is — inputs and a button — and so the
+          // report's rows and the panel's rows come from one function.
+          patternReview={acceptedPatternReview}
           onClose={() => setIemrOpen(false)}
           onGenerated={(report) => onChange({ ...env, monitoringReport: report })}
         />

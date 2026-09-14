@@ -22,9 +22,16 @@
  * labeled stale, with the offer to read again; it is never silently reused
  * and never silently dropped.
  *
- * What this panel does not do: enter annotations (no producer exists yet),
- * touch the per-chart "Explain this pattern" action, or reach the monitoring
- * report. Those are separate layers.
+ * ── Acceptance is the third fact, and it is the assessor's ─────────────
+ * A validated reading means the model produced it and the gates passed it. It
+ * does NOT mean anyone agreed with it, and nothing reaches the monitoring
+ * report until somebody with a credential says so here. Accept, dismiss and
+ * reopen write `forensicReview` (see `forensicReview.js`); the report reads
+ * only accepted decisions that are still about this session and still describe
+ * the reading on offer.
+ *
+ * What this panel does not do: enter annotations (no producer exists yet), or
+ * touch the per-chart "Explain this pattern" action.
  */
 
 import { useMemo, useState } from 'react'
@@ -35,9 +42,11 @@ import StatusPill from '../ui/StatusPill'
 import { buildForensicBundle, forensicFreshness } from '../../utils/forensicBundle'
 import { generateForensicInterpretation } from '../../engines/forensicInterpret'
 import {
-  patternTitle, patternEvidence, interpretationsByPattern,
-  IMPORTANCE_LABELS, REJECTION_LABELS,
+  patternTitle, patternEvidence, IMPORTANCE_LABELS, REJECTION_LABELS,
 } from '../../utils/forensicPresent'
+import {
+  reviewedPatterns, acceptInterpretation, dismissInterpretation, reopenInterpretation,
+} from '../../utils/forensicReview'
 import { siteOffsetMinutes } from './MonitoringReportSheet'
 
 const TEXT = 'var(--text)', SUB = 'var(--sub)', BORDER = 'var(--border)', ACCENT = 'var(--accent)'
@@ -93,10 +102,28 @@ function EvidenceLine({ parts }) {
   )
 }
 
+const DECISION_TONE = { accepted: V3.STATUS.ready, dismissed: V3.STATUS.draft }
+const DECISION_LABEL = { accepted: 'Accepted for report', dismissed: 'Dismissed' }
+const INELIGIBLE_NOTE = {
+  stale: 'Accepted against an earlier version of this session, so it will not be included.',
+  superseded: 'Accepted against different wording than the reading above, so it will not be included.',
+  digits_in_prose: 'The accepted wording states a figure, so it will not be included. Figures come from the analysis.',
+}
+
+/** A text action in the row's own idiom — the page uses these throughout. */
+const RowAction = ({ onClick, children, tone }) => (
+  <button type="button" onClick={onClick} style={{
+    background: 'none', border: 'none', padding: '6px 0', font: 'inherit', fontSize: 12,
+    fontWeight: 600, color: tone || ACCENT, cursor: 'pointer', minHeight: 32,
+  }}>{children}</button>
+)
+
 /** Jasper's reading of one pattern. Words, with the missing context named. */
-function Reading({ item, pattern }) {
+function Reading({ item, pattern, row, onAccept, onDismiss, onReopen }) {
   const gaps = new Map((pattern.missingContext || []).map((m) => [m.id, m]))
   const named = (item.missing_context_ids || []).map((id) => gaps.get(id)).filter(Boolean)
+  const status = row ? row.status : 'unreviewed'
+  const notes = row && status === 'accepted' ? row.ineligible : []
   return (
     <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: `2px solid ${V3.BORDER_ACCENT}` }} data-testid="forensic-reading">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -128,6 +155,26 @@ function Reading({ item, pattern }) {
           </ul>
         </div>
       )}
+
+      {/* The assessor's decision. Nothing reaches the report without one. */}
+      {onAccept && (
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }} data-testid="forensic-decision">
+          {status === 'unreviewed' ? (
+            <>
+              <RowAction onClick={onAccept}>Accept for report</RowAction>
+              <RowAction onClick={onDismiss} tone={SUB}>Dismiss</RowAction>
+            </>
+          ) : (
+            <>
+              <StatusPill tone={DECISION_TONE[status]} dim={status === 'dismissed'}>{DECISION_LABEL[status]}</StatusPill>
+              <RowAction onClick={onReopen} tone={SUB}>Reopen</RowAction>
+            </>
+          )}
+        </div>
+      )}
+      {notes.map((r) => (
+        <div key={r} role="status" style={{ ...V3.T.captionDim, marginTop: 6, lineHeight: 1.5 }}>{INELIGIBLE_NOTE[r]}</div>
+      ))}
     </div>
   )
 }
@@ -137,9 +184,10 @@ function Reading({ item, pattern }) {
  * @param {object} props.env the normalized sensor envelope
  * @param {string} [props.calibrationGas] the PID span gas the page already holds
  * @param {(record: object) => void} props.onPersist store the record on the envelope
+ * @param {(review: object) => void} [props.onReview] store the review on the envelope
  * @param {Function} [props.generate] injection seam; defaults to the real generation path
  */
-export default function ForensicsPanel({ env, calibrationGas = '', onPersist, generate = generateForensicInterpretation }) {
+export default function ForensicsPanel({ env, calibrationGas = '', onPersist, onReview, generate = generateForensicInterpretation }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -151,9 +199,13 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, ge
     try { return buildForensicBundle(input) } catch { return null }
   }, [input])
   const stored = (env && env.forensicInterpretation) || null
+  const review = (env && env.forensicReview) || null
   const freshness = useMemo(() => (stored && bundle ? forensicFreshness(stored, bundle) : null), [stored, bundle])
-  const readings = useMemo(() => interpretationsByPattern(stored), [stored])
+  // One row per detected pattern: what was found, what was said about it, what
+  // the assessor decided, and whether that decision still counts.
+  const rows = useMemo(() => (bundle ? reviewedPatterns({ bundle, record: stored, review }) : []), [bundle, stored, review])
   const patterns = (bundle && bundle.patterns) || []
+  const acceptedCount = rows.filter((r) => r.eligible).length
 
   const run = async () => {
     setBusy(true); setError(null)
@@ -172,6 +224,19 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, ge
   const stale = !!(stored && freshness && !freshness.fresh)
   const reasons = stored && stored.validation ? [...new Set(stored.validation.reasons || [])] : []
 
+  const decide = (fn) => (row) => {
+    if (typeof onReview !== 'function') return
+    onReview(fn(review, {
+      patternId: row.patternId,
+      interpretation: row.interpretation,
+      fingerprint: bundle && bundle.fingerprint,
+      interpretationVersion: stored && stored.version,
+    }))
+  }
+  const accept = decide(acceptInterpretation)
+  const dismiss = decide(dismissInterpretation)
+  const reopen = (row) => { if (typeof onReview === 'function') onReview(reopenInterpretation(review, row.patternId)) }
+
   return (
     <div>
       {/* What was found — deterministic, always shown. */}
@@ -186,14 +251,25 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, ge
         </div>
       ) : (
         <div style={{ paddingTop: 4 }}>
-          {patterns.map((p) => {
-            const item = readings.get(p.id)
+          {rows.map((row) => {
+            const p = row.pattern
+            const item = row.interpretation
+            // A stale RECORD is dimmed and offers no decision: accepting a
+            // reading of a session that no longer exists is not a decision
+            // anyone should be able to make by mistake.
+            const reading = item && (
+              <Reading
+                item={item} pattern={p} row={row}
+                onAccept={stale || !onReview ? null : () => accept(row)}
+                onDismiss={() => dismiss(row)}
+                onReopen={() => reopen(row)}
+              />
+            )
             return (
-              <div key={p.id} style={{ paddingTop: 14, paddingBottom: 14, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }} data-testid="forensic-pattern">
+              <div key={row.patternId} style={{ paddingTop: 14, paddingBottom: 14, borderTop: `1px solid ${V3.BORDER_SUBTLE}` }} data-testid="forensic-pattern">
                 <div style={V3.T.bodyStrong}>{patternTitle(p)}</div>
                 <EvidenceLine parts={patternEvidence(p, bundle)} />
-                {item && !stale && <Reading item={item} pattern={p} />}
-                {item && stale && <div style={{ opacity: 0.6 }}><Reading item={item} pattern={p} /></div>}
+                {stale ? <div style={{ opacity: 0.6 }}>{reading}</div> : reading}
               </div>
             )
           })}
@@ -238,7 +314,7 @@ export default function ForensicsPanel({ env, calibrationGas = '', onPersist, ge
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ ...V3.T.captionDim, lineHeight: 1.5, minWidth: 0, flex: 1 }}>
               {stored && !stale
-                ? 'AI-assisted reading — verify before use. The figures above come from the analysis; the reading is an interpretation of them.'
+                ? `AI-assisted reading — verify before use. The figures above come from the analysis; the reading is an interpretation of them. ${acceptedCount ? `${acceptedCount} accepted for the monitoring report.` : 'Nothing enters the monitoring report until you accept it.'}`
                 : 'Jasper reads the patterns above and says what each is consistent with, what it cannot separate, and what would settle it. It states no figures; those stay on the evidence lines.'}
             </div>
             <AiAction

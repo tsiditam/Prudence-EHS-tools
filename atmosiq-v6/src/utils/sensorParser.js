@@ -615,14 +615,22 @@ export function normalizeSensorData(sd) {
       // covers the readings — and not part of the forensic fingerprint either,
       // which digests INPUTS: storing the reading must not make it stale.
       forensicInterpretation: sd.forensicInterpretation || null,
+      // The assessor's decision about each reading — accepted, dismissed, or
+      // (by absence) unreviewed. Stored APART from the reading itself because
+      // they answer different questions: one is what a model said, the other
+      // is whether a credentialed professional will put it in a deliverable.
+      // Only this record can admit anything to the monitoring report, and it
+      // never survives a change it was not made about — see
+      // `forensicReview.js`.
+      forensicReview: sd.forensicReview || null,
     }
   }
   // Legacy v1: the object itself is the primary (indoor) dataset, with
   // graphs/thresholds/mapping riding alongside the parsed fields.
-  // `monitoringReport` and `forensicInterpretation` are destructured out with
-  // them so an envelope that somehow carries one cannot fold it into the
-  // dataset's parsed fields.
-  const { graphs, thresholds, version, datasets, occupancyWindows, monitoringReport, forensicInterpretation, ...parsed } = sd
+  // `monitoringReport`, `forensicInterpretation` and `forensicReview` are
+  // destructured out with them so an envelope that somehow carries one cannot
+  // fold it into the dataset's parsed fields.
+  const { graphs, thresholds, version, datasets, occupancyWindows, monitoringReport, forensicInterpretation, forensicReview, ...parsed } = sd
   return {
     version: SENSOR_DATA_VERSION,
     datasets: [{ id: 'primary', role: 'indoor', label: 'Indoor', ...parsed }],
@@ -631,6 +639,7 @@ export function normalizeSensorData(sd) {
     graphs: graphs || {},
     monitoringReport: monitoringReport || null,
     forensicInterpretation: forensicInterpretation || null,
+    forensicReview: forensicReview || null,
   }
 }
 
