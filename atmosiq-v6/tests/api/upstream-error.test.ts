@@ -102,8 +102,18 @@ describe('every endpoint that calls the model reads this module', () => {
   })
 
   it('every endpoint that calls the model imports it', () => {
-    for (const f of ['narrative.js', 'report-sections.js', 'inline-ai.js', 'field-assistant.ts', 'photo-analyze.js', 'inline-complete.js', 'pre-review-semantic.js']) {
+    for (const f of ['narrative.js', 'report-sections.js', 'inline-ai.js', 'field-assistant.ts', 'photo-analyze.js', 'inline-complete.js']) {
       expect(code(f), f).toMatch(/_upstream-error\.js/)
     }
+  })
+
+  it('and where the provider call sits behind an adapter, the ADAPTER imports it', () => {
+    // The semantic path calls the model through `_semantic-provider.js` —
+    // the only module in that path that knows a provider exists — so the
+    // classifier lives there rather than in the handler. The rule is that
+    // whatever touches the upstream response classifies it with the shared
+    // helper; the rule is not that a particular file does.
+    expect(code('_semantic-provider.js')).toMatch(/_upstream-error\.js/)
+    expect(code('pre-review-semantic.js')).toMatch(/_semantic-provider\.js/)
   })
 })

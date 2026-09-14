@@ -127,26 +127,71 @@ line, from the assistant they were already talking to:
 > Before leaving this area, afternoon occupancy has not been documented.
 > Add it now or mark it unavailable.
 
-## One consistency agent was already built, and nobody can reach it
+## One consistency agent was already built — its fate is now decided
 
-`api/pre-review-semantic.js` plus `src/utils/preReviewValidator.js` are a
-complete two-layer pre-review agent: deterministic checks in layer one,
-a semantic pass in layer two, streaming structured issues shaped
-`{ id, severity, category, title, detail, anchor }`. It is rate-limited
-and covered by tests.
+*Decision recorded 2026-09. This section used to end by demanding one and
+must not be read as still asking for it.*
 
-**No component imports it and nothing fetches the endpoint.** Its prompt
-was copied into the assistant's `review_attached_document` tool, which is
-the path that actually ships. So the reachable feature lives in the
-assistant, exactly as this document prescribes, and the standalone agent
-became the dead half.
+`api/pre-review-semantic.js` plus `src/utils/preReviewValidator.js` were a
+complete two-layer pre-review agent that no component imported and no
+client fetched: deterministic checks in layer one, a semantic pass in
+layer two, rate-limited, covered by tests, reachable by nobody. Its prompt
+had been copied into the assistant's `review_attached_document` tool,
+which is the path that ships, so the standalone agent became the dead
+half — the `aiProvenanceBanner` shape again, where a module's tests are
+its only consumer and it is embalmed rather than covered.
 
-This is the `aiProvenanceBanner` shape again, and the same rule applies:
-a module whose tests are its only consumer is not covered, it is
-embalmed. Before any consistency or integrity work starts, decide
-explicitly whether to revive it as a background pass, fold what is useful
-into the integrity layer, or delete it. Leaving it is the one option that
-guarantees the next person builds a third copy.
+The two halves were given different answers, because they are different
+questions.
+
+**Layer one was FOLDED IN, and that is the Report Consistency layer.**
+`src/engines/integrity/report-consistency.js` is one deterministic list in
+the shared integrity contract, under the `report_package` source layer this
+document's finding shape declared and left unbuilt. It composes rather than
+competes:
+
+- `checkRenderModel`'s twenty rules keep their logic, their messages and
+  their ownership. The detector receives their output and projects it into
+  the contract; it never re-runs them, because a second run is a second
+  opinion about one document.
+- The surviving `preReviewValidator` checks are ported behind the same
+  contract. `checkPlaceholderText` was deliberately not: `validation.js`
+  already raises the assessor placeholder, and two surfaces answering one
+  question about the assessor's own name is worse than one.
+- Three structural rules are new — a severe finding whose room carries no
+  immediate action, material stale content, and evidence addressed to a
+  zone that no longer exists.
+
+`preReviewValidator.js` is retained for exactly one commit, because the
+port is a reimplementation and the parity test compares the two over the
+same input. Do not add a rule to it. It is retired once that parity has
+stood, and `tests/engine/no-molhave.test.ts` must be repointed at the
+detector's `ANTI_PATTERNS` before it goes.
+
+**Layer two stays disconnected, deliberately, and is Phase 2.** It is the
+half a structural layer cannot do: whether a cited standard actually
+supports the claim beside it, whether two differently worded sections
+genuinely contradict each other, whether a recommendation conflicts with a
+finding, whether a conclusion overstates what the evidence supports. No
+amount of joining reaches a comparison of meaning.
+
+One thing must exist before it is wired: **quote-resolution validation.**
+Every issue the model returns must quote the report verbatim, and a
+deterministic validator must resolve that quotation against the text it
+claims to cite, dropping any issue whose quote is not found. That is the
+discipline `forensicValidate.js` already applies to every id the forensic
+interpreter returns — resolved against `bundleEvidence()` rather than
+trusted — and it is what stops a semantic reviewer inventing a defect in a
+report that does not contain one. Three further conditions, none optional:
+it runs last, over what the deterministic rules could not resolve, and may
+never suppress a deterministic finding; its own prose passes
+`scanProseForBannedLanguage` before display, because a reviewer checking a
+document for over-claiming may not over-claim; and nothing it returns may
+enter the render model, since it produces issues ABOUT text and never text.
+
+**Report QA warns; it never blocks.** Stated as the product rule it is
+under *Report QA never gates the deliverable* in `CLAUDE.md`, and it binds
+this phase and every phase after it.
 
 ## The seven categories an agent may not collapse
 

@@ -44,8 +44,11 @@
 
 import { fnv1aHex } from '../../utils/forensicEvents.js'
 
-/** Bumped when the finding shape changes. Version 2 added `anchor`. */
-export const INTEGRITY_CONTRACT_VERSION = 2
+/**
+ * Bumped when the finding shape changes. Version 2 added `anchor`;
+ * version 3 added `provenance.review`.
+ */
+export const INTEGRITY_CONTRACT_VERSION = 3
 
 /**
  * How much of the reviewer's attention, in one vocabulary that both
@@ -151,6 +154,48 @@ export const INTEGRITY_ANCHOR_KINDS = Object.freeze([
   'photo', 'zone', 'labRow', 'narrative', 'check',
 ])
 
+/**
+ * How a finding was produced, for a finding that came out of a REVIEW PASS
+ * rather than straight off the record.
+ *
+ * A deterministic detector needs none of this: it reads the record, and the
+ * record plus the detector name is the whole account of where the finding
+ * came from. A semantic pass is different in a way that matters at audit
+ * time — the same report, the same rule and the same validator can return a
+ * different set of candidates depending on which model answered, which
+ * prompt was current, and which text was in front of it.
+ *
+ * So the shape exists to answer one question a year from now: what produced
+ * THIS finding, and could it be produced again? Nothing more.
+ *
+ * ── It is provenance, and provenance only ─────────────────────────────
+ * No field here reaches the id, the fingerprint or equality, and none of
+ * them may. A finding is the same finding whichever model proposed it: two
+ * providers that both notice the executive summary contradicting the
+ * findings table have noticed one contradiction, not two, and a reader must
+ * not be shown it twice because the vendor changed. `integrityFindingId`
+ * reads no provenance at all and `integrityIdentity` excludes the whole
+ * block, so this holds by construction rather than by care.
+ *
+ * That is also what keeps the contract portable. Switching providers must
+ * change what is RECORDED about a finding and nothing about what a finding
+ * IS — otherwise the semantic layer could not be moved between models
+ * without redesigning this file.
+ */
+export const REVIEW_PROVENANCE_FIELDS = Object.freeze([
+  // The closed input package's version — what the reviewer was allowed to see.
+  'package_version',
+  // The report prose the pass ran against. A finding is about one document.
+  'report_fingerprint',
+  // The instructions in force. A reworded prompt is a different question.
+  'prompt_version',
+  // The validation pipeline that admitted it. The trust boundary's version.
+  'validator_version',
+  // Who generated the candidate. Recorded, never part of the finding.
+  'provider',
+  'model',
+])
+
 const isNum = (v) => v != null && Number.isFinite(v)
 const arr = (v) => (Array.isArray(v) ? v : [])
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
@@ -177,6 +222,27 @@ const anchorOf = (v) => {
     kind: kind || null,
     ref: ref || null,
   })
+}
+
+/**
+ * Normalize the review block, or null for a finding no review pass produced.
+ *
+ * Null rather than an object of nulls: a deterministic finding did not come
+ * out of a review, and saying so with an empty shell would invite a consumer
+ * to read `review.model` on a finding that never met a model.
+ */
+const reviewOf = (v) => {
+  const r = v && typeof v === 'object' && !Array.isArray(v) ? v : null
+  if (!r) return null
+  const out = {}
+  let any = false
+  for (const key of REVIEW_PROVENANCE_FIELDS) {
+    const raw = r[key]
+    const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : str(raw) || null
+    out[key] = value
+    if (value !== null && value !== '') any = true
+  }
+  return any ? Object.freeze(out) : null
 }
 
 /**
@@ -237,6 +303,10 @@ export function integrityFindingId(detector, scope = {}) {
  *   where in the assembled document this sits. Outside the id by
  *   construction — `integrityFindingId` never reads it — so re-titling a
  *   section does not mint a new finding about the same disagreement.
+ * @param {object} [input.review] REVIEW_PROVENANCE_FIELDS, for a finding a
+ *   review pass produced. Provenance only: no field reaches the id, the
+ *   fingerprint or equality, so the same finding keeps one identity across
+ *   providers, models and prompt revisions.
  * @param {string|null} [input.generated_at] ISO. Never part of identity.
  * @param {object} [input.identity] explicit id scope, when the default is
  *   wrong. THE DEFAULT INCLUDES SUPPORTING EVIDENCE, which is right for a
@@ -290,6 +360,8 @@ export function integrityFinding(input = {}) {
       inputs_fingerprint: str(input.inputs_fingerprint) || null,
       // Outside identity by construction: nothing above reads it.
       generated_at: str(input.generated_at) || null,
+      // Null for every deterministic detector, which is all of them today.
+      review: reviewOf(input.review),
     }),
   })
 }

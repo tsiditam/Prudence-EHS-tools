@@ -704,6 +704,60 @@ When working on report generation:
   may still emit a Pre-Assessment Memo instead of a full consultant
   report when it has no measurements — that is the engine's own behavior
   and a deliverable, not a finalization gate.
+- **Report QA never gates the deliverable.** Standing product rule, and it
+  is permanent rather than a property of the current phase: **Report QA can
+  warn and recommend review, but it never blocks report generation,
+  finalization, export, or issuance.** Same reasoning as the advisory
+  finalization gate above — a credentialed assessor owns defensibility, so
+  the platform surfaces what it cannot support and lets them decide. Do not
+  add a hard block on any of the four without explicit product sign-off,
+  and do not read a future semantic pass as an exception to it.
+
+  **The deterministic layer that implements it** is
+  `src/engines/integrity/report-consistency.js` — one list, in the shared
+  integrity contract, under the `report_package` source layer, feeding the
+  Report tab's existing "Report consistency" section. It answers *does the
+  assembled report faithfully represent the investigation record*, and it
+  **composes rather than competes**: `checkRenderModel` keeps its twenty
+  rules and is run by the caller, the surviving `preReviewValidator` checks
+  are ported behind the same contract, and three structural rules are its
+  own — a severe finding whose room carries no immediate action, material
+  stale content, and evidence addressed to a zone that no longer exists.
+
+  Four properties hold and are pinned by
+  `tests/engine/report-consistency.test.ts`:
+
+  1. **Severity is clamped below `blocking`.** The word belongs to
+     `validation.js`, which means a finalization blocker by it; a second
+     source of it would change what "Ready" means. The legacy validator
+     really did call a dangling photograph reference blocking, and the
+     clamp is policy rather than a re-rating of that rule.
+  2. **Resolution is derived, never stored.** Fix the record and the
+     finding stops deriving. No waiver, no acceptance, no persisted
+     disposition — persisting one makes the fingerprint and staleness
+     semantics load-bearing, and that is designed separately once the
+     detector is stable.
+  3. **Workflow boundaries hold.** Field integrity reaches the field and
+     readiness surfaces; report consistency reaches the Report tab. This
+     module is not in the assistant's context block and not in
+     `zone-gaps.js`.
+  4. **Staleness is MATERIAL, not storage.** A stale AI-section record the
+     export already refuses raises nothing — warning there is a warning
+     about a mechanism working correctly. What is raised is a stale record
+     carrying the assessor's own rewrite or written justification, which is
+     work they did deliberately and the document is silently not using.
+
+  **A layer that checks a document for over-claiming may not over-claim in
+  the checking.** The report's own banned-language scanner runs over every
+  string the detector can emit, which is how the ported anti-pattern
+  guidance was caught: its original explained the spore rule using the
+  exact phrase these reports may not print. Harmless as advice, wrong as a
+  sentence this layer emits.
+
+  **Phase 2 is the semantic reviewer**, and `api/pre-review-semantic.js`
+  stays disconnected until quote-resolution validation exists. See "One
+  consistency agent was already built" in `docs/AGENT_ARCHITECTURE.md` for
+  the decision and the conditions.
 - **Report lifecycle: labeling ≠ issuance.** A report carries a profile
   (screening | professional | compliance) and a status (draft →
   in_review → reviewed → final); see `src/constants/reportLifecycle.js`.
@@ -1383,7 +1437,7 @@ report's record is the only evidence of what it said.
   (`tsc --noEmit -p tsconfig.check.json`: api/, lib/, scripts/,
   components/, pages/, the typed tests, and `src/**/*.ts(x)`; `strict`
   is still off and `src/**/*.js(x)` is not type-checked)
-- `npm run lint` — three parts, all must pass:
+- `npm run lint` — five parts, all must pass:
   - `lint:eslint` — infra paths (scripts/, server/, lib/, api/*.ts,
     components/, pages/, tests/{api,scripts,lib,components,pages}) with
     real rules at `--max-warnings=0`
@@ -1399,6 +1453,23 @@ report's record is the only evidence of what it said.
   - `lint:spelling` — `scripts/check-spelling.mjs`: American English in
     every source file, test, acceptance config, doc and this file (see
     "Anti-patterns")
+  - `lint:text` — `scripts/check-text-files.mjs`: no C0 control byte or DEL
+    in source, minus tab / newline / carriage return. A raw control byte
+    makes the file BINARY to git — it commits as `Bin 0 -> N bytes`, diffs
+    as nothing and is invisible in review — while running perfectly,
+    because the escape sequence and the literal byte produce the same
+    value. That is why no other gate sees it: vitest, tsc, eslint, the
+    spelling check and the acceptance runner all read such a file happily,
+    and the only symptom is one line of `git show --stat`. It had happened
+    four times, including once in production under a `TODO(claude)` that
+    named the problem and left it (`resultsGrouping.js`), and once inside
+    the guard's own first draft. **Write the escape, never the byte**, and
+    in a test construct it (`String.fromCharCode`) rather than writing an
+    escape a tool might materialize. Zero-width characters are NOT in
+    scope and must not be added to it: a ZERO WIDTH JOINER builds the
+    emoji in `questions.js` and a ZERO WIDTH SPACE holds a ghost overlay's
+    last line in `TextareaWithGhost.jsx`, both correct, both multi-byte
+    UTF-8 rather than control bytes.
 - `npm run build` — Vite SPA production build (vendor chunks split by
   `build.rollupOptions.output.manualChunks` in `vite.config.js`)
 - `npm run accept:api-boot` — bundle + import every `api/**` entry under

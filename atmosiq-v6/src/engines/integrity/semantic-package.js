@@ -1,0 +1,338 @@
+/**
+ * Prudence Safety & Environmental Consulting, LLC
+ * Copyright (c) 2026 Prudence Safety & Environmental Consulting, LLC
+ * All rights reserved.
+ *
+ * The closed package a semantic reviewer is allowed to see.
+ *
+ * Semantic Report QA compares MEANING, which is the one thing the
+ * deterministic layer cannot do. That makes the reviewer useful and it makes
+ * it dangerous in a specific way: a model asked "does this report contradict
+ * itself" will answer from whatever it was given plus whatever it knows, and
+ * only the first of those can be checked. So it is given a closed universe,
+ * every element of which carries an identifier this codebase can resolve, and
+ * the validator refuses anything that resolves to nothing.
+ *
+ * This is the same discipline `evidencePackage.js` applies to the AI WRITER,
+ * for the same reason and with one difference worth stating. The writer's
+ * package exists so generated prose can be audited against the record. This
+ * one exists so a returned CRITICISM can be. A reviewer that cannot point at
+ * the text it is criticizing is a reviewer inventing defects, and a defect
+ * invented about a client report is worse than one missed.
+ *
+ * ── The reviewer sees prose and ids, never the machinery ───────────────
+ * `packageForReviewer` is what crosses the boundary. It carries section text
+ * from `reportText.js` — the collector proven against the real document — and
+ * structured facts reduced to identifiers and short labels. It carries no
+ * render model, no docx primitive, no renderer internal, no photograph, no
+ * assessment record, and nothing about the user. The collector is the
+ * canonical semantic surface, and keeping that boundary clean is what lets
+ * the model's output be checked against one thing rather than several.
+ *
+ * ── Standards grounding is EARNED, not assumed ─────────────────────────
+ * `reference_context` is the part most likely to be got wrong, so it is built
+ * the long way round. The report's reference strings are free-form citation
+ * labels — "ASHRAE Position Document on Indoor CO₂ (2022)", "NIOSH Pocket
+ * Guide — formaldehyde (carcinogen)" — and NONE of them is a manifest key, so
+ * there is no string path from a printed reference to an approved statement
+ * about it. Matching them by prefix or similarity would be a guess dressed as
+ * evidence, which is precisely what a standards judgment must not rest on.
+ *
+ * The deterministic path is the criterion. An engine finding carries `cid`,
+ * the criterion that judged the reading; a corpus entry declares
+ * `figures[].criterionId` for every threshold its text states. That join is
+ * exact and already double-entry tested. So an approved statement reaches the
+ * reviewer only when the assessment actually applied a criterion the corpus
+ * documents.
+ *
+ * When it does not, `reference_context` is empty and the rule that depends on
+ * it cannot fire. That is the designed outcome rather than a shortfall:
+ * absence of reference context proves nothing about the citation, and the
+ * honest answer to a question AtmosFlow cannot ground is no finding.
+ */
+
+import { collectReportText, reportTextFingerprint } from '../../report/reportText.js'
+import { STANDARDS_CORPUS } from '../../constants/standards-corpus.js'
+import { fnv1aHex } from '../../utils/forensicEvents.js'
+
+/** Bumped when the package shape or what it carries changes. */
+export const SEMANTIC_PACKAGE_VERSION = 1
+
+/**
+ * Kinds of thing a reviewer may refer to by id.
+ *
+ * One flat, resolvable namespace, the way `bundleEvidence()` gives the
+ * forensic validator one set to check model-returned ids against. A reviewer
+ * naming anything outside it is naming something this record does not have.
+ */
+export const EVIDENCE_KINDS = Object.freeze([
+  'zone', 'finding', 'recommendation', 'limitation',
+  'instrument', 'reference', 'reference_context',
+])
+
+const arr = (v) => (Array.isArray(v) ? v : [])
+const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {})
+const str = (v) => (typeof v === 'string' ? v.trim() : '')
+
+/** A content-derived id, so the same fact keeps one handle across runs. */
+const idFor = (kind, ...parts) => `${kind}-${fnv1aHex(parts.map((p) => str(p)).join('\u0000'))}`
+
+/** Zones as the report names them, minus the arithmetic summary rows. */
+function buildZones(model) {
+  const rows = arr(obj(obj(model).results).rows)
+  return rows
+    .filter((r) => str(obj(r).id) && str(obj(r).id) !== 'Site mean')
+    .map((r) => ({
+      id: idFor('zone', obj(r).id),
+      name: str(obj(r).id),
+      use: str(obj(r).use) || null,
+      outcome: str(obj(r).sev) || null,
+      // 'Outdoor reference' is a place and a row, and it is not a room.
+      role: str(obj(r).role) || null,
+    }))
+}
+
+/**
+ * The findings table, as identifiers.
+ *
+ * The sentence is carried because a reviewer comparing a recommendation
+ * against the finding it claims to address has to read the finding. It is NOT
+ * quotable text: findings print inside table cells, which `reportText.js`
+ * excludes for good reason, so the validator will not resolve a quote against
+ * one. Carried as a fact, not as prose.
+ */
+function buildFindings(model) {
+  return arr(obj(obj(model).findings).rows).map((r) => ({
+    id: idFor('finding', obj(r).z, obj(r).f),
+    zone: str(obj(r).z) || null,
+    outcome: str(obj(r).sev) || null,
+    basis: str(obj(r).basis) || null,
+    statement: str(obj(r).f),
+    cites: str(obj(r).std) || null,
+  }))
+}
+
+/** The action register, as identifiers. */
+function buildRecommendations(model) {
+  const rec = obj(obj(model).recommendations)
+  return arr(rec.register).map((r) => ({
+    id: idFor('recommendation', obj(r).priority, obj(r).action, obj(r).location),
+    priority: str(obj(r).priority) || null,
+    timeframe: str(obj(r).timeframe) || null,
+    action: str(obj(r).action),
+    location: str(obj(r).location) || null,
+    owner: str(obj(r).owner) || null,
+  }))
+}
+
+/**
+ * The limitations, keyed to the blocks a reviewer can actually quote.
+ *
+ * Limitations are the one structured list that is ALSO quotable prose — they
+ * render as bullets, so they appear in the collector too. Both handles are
+ * given, and they agree by construction because both derive from the same
+ * string.
+ */
+function buildLimitations(sections) {
+  const s = arr(sections).find((x) => obj(x).section_id === 'limitations')
+  return arr(obj(s).blocks).map((b) => ({
+    id: idFor('limitation', obj(b).text),
+    block_id: obj(b).id,
+    text: str(obj(b).text),
+  }))
+}
+
+/** The QA/QC record, which is where instruments are stated. */
+function buildInstruments(model) {
+  return arr(obj(model).qaQc).map((row) => {
+    const text = str(row)
+    const i = text.indexOf(': ')
+    return {
+      id: idFor('instrument', text),
+      item: i < 0 ? text : text.slice(0, i),
+      record: i < 0 ? '' : text.slice(i + 2),
+    }
+  })
+}
+
+/** The references the report prints, as identifiers. */
+function buildReferences(model) {
+  return arr(obj(model).references).map((entry) => {
+    const [name, basis] = arr(entry)
+    return {
+      id: idFor('reference', name),
+      name: str(name),
+      basis: str(basis) || null,
+    }
+  })
+}
+
+/**
+ * Criterion ids this assessment actually applied.
+ *
+ * Read off the evidence package the AI writer already uses, so the two layers
+ * agree about what was judged by what. Returns an empty set when no package
+ * is supplied, which makes reference grounding unavailable rather than
+ * approximate.
+ */
+export function appliedCriterionIds(evidence) {
+  const out = new Set()
+  const e = obj(evidence)
+  arr(e.findings).forEach((f) => { if (str(obj(f).criterion_id)) out.add(str(obj(f).criterion_id)) })
+  arr(e.measurements).forEach((m) => {
+    const c = obj(m).criterion
+    const id = typeof c === 'string' ? c : str(obj(c).id)
+    if (id) out.add(id)
+  })
+  return out
+}
+
+/**
+ * Approved statements about the standards this assessment actually applied.
+ *
+ * The join is criterion id to `figures[].criterionId`, which is exact and
+ * already guarded by the standards double-entry test. Nothing here reads a
+ * citation string, a title or a similarity score: a reference the corpus does
+ * not document simply gets no context, and a rule that needs context then has
+ * nothing to stand on.
+ *
+ * The corpus text is a paraphrase with a primary-source citation and BCSP
+ * sign-off — see `standards-corpus.js`. That is what makes it usable as
+ * evidence for a client-facing finding, and it is the only thing that is.
+ */
+export function buildReferenceContext(evidence) {
+  const applied = appliedCriterionIds(evidence)
+  if (!applied.size) return []
+  const out = []
+  for (const entry of arr(STANDARDS_CORPUS)) {
+    const e = obj(entry)
+    const matched = arr(e.figures)
+      .map((f) => str(obj(f).criterionId))
+      .filter((id) => id && applied.has(id))
+    if (!matched.length) continue
+    out.push({
+      id: idFor('reference_context', e.id),
+      corpus_id: str(e.id),
+      title: str(e.title),
+      citation: str(e.citation),
+      criterion_ids: [...new Set(matched)].sort(),
+      // The approved proposition. A semantic judgment about a standard may
+      // rest on this and on nothing else.
+      text: str(e.text),
+    })
+  }
+  return out.sort((a, b) => a.corpus_id.localeCompare(b.corpus_id))
+}
+
+/**
+ * Build the closed review package for one assembled report.
+ *
+ * Pure and synchronous.
+ *
+ * @param {object} input
+ * @param {object} input.model the assembled render model, AI folded in — the
+ *   same object the export renders
+ * @param {object} [input.evidence] `buildEvidencePackage` output, read ONLY to
+ *   learn which criteria were applied. Absent, reference grounding is
+ *   unavailable and the rule depending on it cannot fire.
+ * @param {Array} [input.deterministicFindings] `detectReportConsistency`
+ *   output, so the reviewer is not asked to rediscover what is already known
+ * @returns {object} the package, with section blocks retained for LOCAL
+ *   resolution. Use `packageForReviewer` for what crosses the boundary.
+ */
+export function buildSemanticPackage(input = {}) {
+  const model = obj(input.model)
+  const sections = collectReportText(model)
+  const structured_facts = {
+    zones: buildZones(model),
+    findings: buildFindings(model),
+    recommendations: buildRecommendations(model),
+    limitations: buildLimitations(sections),
+    instruments: buildInstruments(model),
+    references: buildReferences(model),
+  }
+  const reference_context = buildReferenceContext(input.evidence)
+
+  const deterministic_findings = arr(input.deterministicFindings).map((f) => ({
+    id: str(obj(f).id),
+    issue_type: str(obj(f).issue_type),
+    anchor: obj(obj(f).anchor),
+  })).filter((f) => f.id)
+
+  return Object.freeze({
+    package_version: SEMANTIC_PACKAGE_VERSION,
+    report_fingerprint: reportTextFingerprint(sections),
+    sections,
+    structured_facts: Object.freeze(structured_facts),
+    reference_context: Object.freeze(reference_context),
+    deterministic_findings: Object.freeze(deterministic_findings),
+  })
+}
+
+/**
+ * Every identifier the package makes referable, by kind.
+ *
+ * The validator's lookup, built here rather than there so the set a reviewer
+ * may name and the set it is checked against are the same object. A second
+ * construction of this is how the two start disagreeing.
+ */
+export function packageEvidenceIndex(pkg) {
+  const p = obj(pkg)
+  const facts = obj(p.structured_facts)
+  const index = new Map()
+  const add = (kind, rows) => arr(rows).forEach((r) => {
+    const id = str(obj(r).id)
+    if (id) index.set(id, { kind, item: r })
+  })
+  add('zone', facts.zones)
+  add('finding', facts.findings)
+  add('recommendation', facts.recommendations)
+  add('limitation', facts.limitations)
+  add('instrument', facts.instruments)
+  add('reference', facts.references)
+  add('reference_context', p.reference_context)
+  return index
+}
+
+/** The sections that carry prose, indexed by id, for quote resolution. */
+export function packageSectionIndex(pkg) {
+  const index = new Map()
+  arr(obj(pkg).sections).forEach((s) => {
+    const id = str(obj(s).section_id)
+    if (id) index.set(id, s)
+  })
+  return index
+}
+
+/**
+ * What actually crosses the boundary to a provider.
+ *
+ * Prose and identifiers. Section `blocks` are dropped — they are the
+ * collector's internal handles, and the reviewer quotes from `text` — and
+ * every other structure is already reduced to labels. Nothing here is a
+ * render model, a docx object, a photograph, an assessment record or anything
+ * about the user.
+ *
+ * Empty sections are dropped as well: a section with no prose cannot be
+ * quoted, and offering it invites a reviewer to say something about an
+ * absence, which is the one inference this layer forbids outright.
+ */
+export function packageForReviewer(pkg) {
+  const p = obj(pkg)
+  return {
+    package_version: p.package_version,
+    report_fingerprint: p.report_fingerprint,
+    sections: arr(p.sections)
+      .filter((s) => str(obj(s).text))
+      .map((s) => ({
+        section_id: s.section_id,
+        section_name: s.section_name,
+        text: s.text,
+      })),
+    structured_facts: p.structured_facts,
+    reference_context: p.reference_context,
+    deterministic_findings: p.deterministic_findings,
+  }
+}
+
+export const __test = { idFor, buildZones, buildFindings, buildRecommendations, buildInstruments, buildReferences }

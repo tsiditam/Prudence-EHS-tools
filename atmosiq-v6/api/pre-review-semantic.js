@@ -1,74 +1,52 @@
 /**
  * Vercel Serverless Function — /api/pre-review-semantic
  *
- * ── STATUS: DISCONNECTED ON PURPOSE. Phase 2 of Report Consistency. ────
+ * ── What crosses this boundary ─────────────────────────────────────────
+ * IN: a reviewer package (`packageForReviewer`) — the report's own prose by
+ * section, the identifiers the assessment recorded, any approved reference
+ * statements, and the issues the deterministic layer already reported.
+ * Prose and identifiers. No render model, no docx object, no photograph, no
+ * assessment record, nothing about the user.
  *
- * No component fetches this endpoint and none should yet. It is kept,
- * rather than deleted, because the deterministic half of the pre-review
- * agent has now been rebuilt as the Report Consistency layer
- * (`src/engines/integrity/report-consistency.js`) and this is the half that
- * layer cannot do: deciding whether a cited standard actually SUPPORTS the
- * claim beside it, whether a severity matches the observation it sits next
- * to, whether one section's account of a zone matches another's. Those are
- * comparisons of meaning, and no amount of structural joining reaches them.
+ * OUT: CANDIDATE JSON, exactly as the provider returned it, plus the
+ * provenance needed to label it.
  *
- * ONE THING MUST BE BUILT BEFORE IT IS WIRED: quote-resolution validation.
+ * ── What this endpoint deliberately does NOT do ────────────────────────
+ * It never returns an IntegrityFinding, and it must never learn how to. The
+ * model-output schema and the internal trusted representation are different
+ * types on purpose: that difference IS the trust boundary. A candidate
+ * becomes a finding in exactly one place — `validateSemanticResponse` on the
+ * client, against the same package the reviewer was given — and it gets
+ * there only by having every quote and identifier resolved rather than
+ * believed. An endpoint that promoted candidates itself would move that
+ * decision to the one side of the wire that cannot check it.
  *
- * Every issue the model returns must quote the report verbatim, and a
- * deterministic validator must resolve that quotation against the text it
- * claims to cite, dropping any issue whose quote is not found. That is the
- * same discipline `forensicValidate.js` already applies to the forensic
- * interpreter — every id the model returns is resolved against
- * `bundleEvidence()` rather than trusted — and it is what keeps a semantic
- * reviewer from inventing a defect in a report that does not contain one.
- * The prompt below asks for `anchor` rather than `quote`; the reviewer
- * prompt in `field-assistant-tools.js` already asks for `quote` and already
- * states the two absolutes ("QUOTE, ALWAYS", "ABSENCE PROVES NOTHING"),
- * which is the shape to converge on.
+ * It also does not STREAM. The old handler emitted each issue as an SSE
+ * frame the moment it was parsed, which put unvalidated model output in
+ * front of an assessor by construction. The complete response is validated
+ * before anything is shown.
  *
- * Three further conditions, each cheap and none optional:
- *   • it runs LAST, over what the deterministic rules could not resolve,
- *     and may never suppress a deterministic finding;
- *   • its own prose passes `scanProseForBannedLanguage` before display, so
- *     a reviewer checking a document for over-claiming cannot over-claim;
- *   • nothing it returns may enter the render model. It produces issues
- *     ABOUT text and never text.
+ * And it does not rate. No `blocking` severity exists anywhere in this path.
+ * Report review warns and recommends; it never stops a report being
+ * generated, finalized, exported or issued.
  *
- * ── What it is ────────────────────────────────────────────────────────
+ * ── Failure is technical, never editorial ──────────────────────────────
+ * A timeout, an outage, a non-2xx or an unparseable reply all mean the same
+ * thing: the review did not happen. None is a statement about the report,
+ * so none produces a finding, a warning, or a mark against the document.
+ * The response carries `status: 'unavailable'` with a machine-readable
+ * reason and HTTP 200 — the request was handled correctly, the review
+ * simply has nothing to say.
  *
- * Layer 2 of the pre-review agent. Where Layer 1 (deterministic,
- * in src/utils/preReviewValidator.js) catches things that can be
- * checked with regex + token similarity, this endpoint sends the
- * assembled assessment context to Claude with a structured
- * audit prompt and asks the model to identify:
- *
- *   • Findings whose cited standard doesn't actually support the
- *     claim (e.g., "ASHRAE 62.1 says CO2 ≥ 1000 ppm is dangerous"
- *     — ASHRAE 62.1 says no such thing)
- *   • Recommendations missing a citation when one is needed
- *   • Language that overstates a screening-level finding ("proves",
- *     "demonstrates", "definitive" + harm claim)
- *   • Severity mismatches (a "critical" finding whose underlying
- *     data is mild, or vice versa)
- *   • Recommendations that don't address any finding
- *   • Internal inconsistency (zone names referenced in narrative
- *     that don't exist in the zones array, etc.)
- *
- * Response: SSE stream of `issue` events as the model surfaces
- * each one, plus `done` / `error` frames. Same shape as
- * /api/field-assistant so the client reuses parseSseFrames.
- *
- * Each `issue` event carries the same shape as Layer 1's issues
- * (severity / category / title / detail / anchor) so the panel UI
- * can render Layer 1 + Layer 2 in the same list.
- *
- * Engine-sacred: this handler reads engine output via the request
- * body; never imports from src/engine/* or src/engines/*.
- *
- * Auth: Bearer token via Supabase, same as the other AI endpoints.
- * Model: Claude Sonnet 4.6 — semantic citation judgment needs the
- * reasoning depth; Haiku gets the structure right but misses the
- * subtle "standard cited doesn't actually support this claim" cases.
+ * ── History ────────────────────────────────────────────────────────────
+ * This file was the disconnected Phase 2 stub, kept rather than deleted
+ * because the half it described — judging whether a cited standard supports
+ * the claim beside it, whether two sections agree — is the half no
+ * structural join reaches. The condition on wiring it was quote-resolution
+ * validation, which now exists (`src/engines/integrity/semantic-validate.js`).
+ * Everything the stub carried has been replaced: the prompt is server-owned
+ * and byte-parity tested, the schema is closed, and the old three-tier
+ * severity with its `blocking` top end is gone.
  *
  * Quota (per user, per generation_type='pre_review_semantic'):
  *   • 10 runs / 60s rolling window
@@ -80,69 +58,31 @@ const { createClient } = require('@supabase/supabase-js')
 const { hasUnlimitedUsage } = require('../lib/unlimited-usage.js')
 const { auditLog } = require('./_audit.js')
 const rateLimit = require('./_rate-limit.js')
-const { classifyUpstream, statusForUpstream } = require('./_upstream-error.js')
 const { withSentry } = require('./_with-sentry-cjs.js')
+const { requestSemanticCandidates, PROVIDER, MODEL } = require('./_semantic-provider.js')
+const { SEMANTIC_PROMPT_VERSION } = require('./_semantic-review-prompt.js')
 
 const PER_MINUTE_LIMIT = 10
 const PER_DAY_LIMIT = 60
 const FREE_TIER_DAILY_CAP = 8
-const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
 const GENERATION_TYPE = 'pre_review_semantic'
 
-const MAX_OUTPUT_TOKENS = 1500
-const MAX_INPUT_BYTES = 200_000 // ~50KB JSON body cap — large reports compress well
+// The reviewer package is report prose plus labels — comparable to the
+// writer's payload, and bounded the same way.
+const MAX_INPUT_BYTES = 200_000
+
+// $/M tokens — keep in sync with Anthropic pricing.
 const COST_INPUT_PER_M = 3
 const COST_OUTPUT_PER_M = 15
-
-const SYSTEM_PROMPT = `You audit IAQ assessment reports for the AtmosFlow platform BEFORE they go to a CIH for review. Your job is to surface inconsistencies the human reviewer would otherwise catch — so they spend their time on judgment, not proofreading.
-
-Look for these issue classes:
-
-CITATION INTEGRITY
-  • A standard cited in a finding or recommendation that doesn't actually support the claim made. (ASHRAE 62.1 governs ventilation rate, not CO₂ contaminant limits. IICRC S520 covers mold remediation, not assessment. Spore counts are NOT health proof — IOM 2004, ACMT 2025.)
-  • A recommendation whose claim needs a citation but has none.
-  • A citation to a standard that doesn't exist (made-up document number).
-
-LANGUAGE INTEGRITY
-  • Words that overstate a screening-level conclusion: "proves", "demonstrates", "definitive", "confirms" — paired with a health-harm or causation claim.
-  • Regulatory determinations made from screening data ("exceeds the OSHA PEL" requires sampling, not walk-through).
-  • Mold findings that frame spore counts as health risk evidence.
-  • TVOC described as above, below, within, exceeding or meeting any limit, threshold, tier or guideline. No consensus health-based limit exists for total VOCs and AtmosFlow applies none, so a TVOC reading is reported and not scored. (This rule inverted in 2026-08: it used to flag TVOC interpretations that did NOT cite the 1991 advisory tiers.)
-
-INTERNAL CONSISTENCY
-  • Zone names in the narrative that don't appear in the zones array.
-  • Sample IDs cited in text that don't appear in the lab results.
-  • Severity mismatches: a finding flagged "critical" whose underlying data is mild ("slight haze" + critical), or a finding flagged "low" whose underlying data is serious ("active water intrusion" + low).
-  • Recommendations that don't connect to any finding.
-  • Findings without a corresponding recommendation in the right priority tier.
-
-OUTPUT FORMAT — STRICT
-Return ONLY a JSON array of issue objects. No preamble. No markdown. No code fence. Each issue must follow this schema exactly:
-
-  {
-    "severity": "blocking" | "warning" | "suggestion",
-    "category": "snake_case_identifier",
-    "title": "one-line headline up to 100 chars",
-    "detail": "1-3 sentences citing the specific text. quote the problem in double quotes.",
-    "anchor": { "type": "finding" | "recommendation" | "narrative" | "labRow" | "zone", "id"?: "string", "zone"?: "string" }
-  }
-
-If you find zero issues, return [].
-
-Severity tiers:
-  blocking    — citation is factually wrong, language makes a regulatory determination, or a fact is internally inconsistent (zone doesn't exist, sample ID nonexistent).
-  warning     — overstated language, missing citation where one is needed, possible severity mismatch.
-  suggestion  — defensibility nudge, soft framing improvement.
-
-Be precise. Cite the exact text. Don't invent issues. Don't restate Layer 1 findings (duplicates, missing photos, lab date inversion, placeholder names — those are caught by the deterministic layer; ignore them).`
 
 let _supabase = null
 let _fetch = null
 function getSupabase() {
   if (_supabase) return _supabase
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-  return createClient(url, key)
+  return createClient(
+    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  )
 }
 function getFetch() { return _fetch || global.fetch }
 
@@ -160,122 +100,42 @@ async function checkRateLimits(supabase, userId, plan, now = Date.now()) {
   )
 }
 
-function writeSse(res, event, data) {
-  res.write(`event: ${event}\n`)
-  res.write(`data: ${JSON.stringify(data)}\n\n`)
-}
-
 /**
- * Slim down the assessment payload to just the fields the audit
- * needs. The full ctx in MobileApp has photos as data URLs, full
- * presurvey state, etc. — sending all that would blow the input
- * cap AND make the model focus on irrelevant fields.
- *
- * The slim shape keeps only what's auditable: narrative, recs,
- * zone findings, lab rows, photo COUNT (not the dataURLs).
+ * The reviewer did not answer. 200, because the REQUEST was handled — the
+ * client reads `status` and leaves the report exactly as it was.
  */
-function slimAssessment(input) {
-  const out = {}
-  if (typeof input?.narrative === 'string') out.narrative = input.narrative.slice(0, 20000)
-  if (input?.recs && typeof input.recs === 'object') {
-    out.recs = {}
-    for (const tier of ['imm', 'eng', 'adm', 'mon']) {
-      const list = Array.isArray(input.recs[tier]) ? input.recs[tier] : []
-      out.recs[tier] = list.map((r) => (typeof r === 'string' ? r : r?.text || '')).filter(Boolean).slice(0, 50)
-    }
-  }
-  if (Array.isArray(input?.zoneScores)) {
-    out.zones = input.zoneScores.map((zs, i) => ({
-      name: zs?.zoneName || `Zone ${i + 1}`,
-      composite: typeof zs?.tot === 'number' ? zs.tot : null,
-      findings: (Array.isArray(zs?.cats) ? zs.cats : [])
-        .flatMap((c) => (Array.isArray(c?.r) ? c.r : []).map((f) => ({
-          category: c?.l || '',
-          severity: f?.sev || '',
-          text: typeof f?.t === 'string' ? f.t.slice(0, 600) : '',
-          citation: typeof f?.std === 'string' ? f.std : '',
-        })))
-        .slice(0, 60),
-    })).slice(0, 30)
-  }
-  if (input?.labResults && Array.isArray(input.labResults.rows)) {
-    out.labResults = input.labResults.rows.slice(0, 40).map((r) => ({
-      sampleId: r?.sampleId || '',
-      analyte: r?.analyte || '',
-      result: r?.result || '',
-      units: r?.units || '',
-      collectedAt: r?.collectedAt || '',
-      receivedAt: r?.receivedAt || '',
-    }))
-    out.laboratory = input.labResults.laboratory || null
-  }
-  if (typeof input?.facilityName === 'string') out.facilityName = input.facilityName
-  if (typeof input?.assessor === 'string') out.assessor = input.assessor
-  return out
-}
-
-/**
- * Parse the model's emitted text into a JSON array of issues.
- * The system prompt asks for raw JSON only, but Claude can still
- * wrap it in a code fence or add a sentence — defensive parsing
- * tolerates both.
- */
-function tryParseIssues(text) {
-  if (typeof text !== 'string' || !text.trim()) return []
-  let s = text.trim()
-  // Strip code fence if present.
-  const fenceMatch = s.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fenceMatch) s = fenceMatch[1].trim()
-  // Find the first '[' and last ']' — model sometimes adds preamble.
-  const first = s.indexOf('[')
-  const last = s.lastIndexOf(']')
-  if (first === -1 || last === -1 || last <= first) return []
-  const candidate = s.slice(first, last + 1)
-  try {
-    const parsed = JSON.parse(candidate)
-    if (!Array.isArray(parsed)) return []
-    // Defensive shape coercion — drop anything that doesn't look
-    // like an issue.
-    return parsed
-      .filter((x) => x && typeof x === 'object' && typeof x.title === 'string' && typeof x.severity === 'string')
-      .map((x, i) => ({
-        id: `sem-${Date.now().toString(36)}-${i}`,
-        severity: ['blocking', 'warning', 'suggestion'].includes(x.severity) ? x.severity : 'suggestion',
-        category: typeof x.category === 'string' ? x.category : 'unspecified',
-        title: x.title.slice(0, 200),
-        detail: typeof x.detail === 'string' ? x.detail.slice(0, 2000) : '',
-        anchor: x.anchor && typeof x.anchor === 'object' ? x.anchor : {},
-        source: 'semantic',
-      }))
-  } catch {
-    return []
-  }
-}
+const unavailable = (res, reason, extra = {}) =>
+  res.status(200).json({ status: 'unavailable', reason, ...extra })
 
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return res.status(500).json({ error: 'Server misconfigured — missing API key' })
 
   const authHeader = req.headers.authorization
   if (!authHeader) return res.status(401).json({ error: 'Not authenticated' })
 
   const supabase = getSupabase()
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+  const { data: { user } = {}, error: authErr } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
   if (authErr || !user) return res.status(401).json({ error: 'Invalid token' })
 
   const body = req.body || {}
-  const assessment = body.assessment
-  if (!assessment || typeof assessment !== 'object') {
-    return res.status(400).json({ error: 'missing_assessment' })
+  const pkg = body.package
+  if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) {
+    return res.status(400).json({ error: 'missing_package' })
+  }
+  if (!Array.isArray(pkg.sections) || !pkg.sections.length) {
+    return res.status(400).json({ error: 'empty_package' })
   }
 
-  const slim = slimAssessment(assessment)
-  const slimJson = JSON.stringify(slim)
-  if (slimJson.length > MAX_INPUT_BYTES) {
-    return res.status(400).json({ error: 'assessment_too_large', max_bytes: MAX_INPUT_BYTES })
+  const pkgJson = JSON.stringify(pkg)
+  if (pkgJson.length > MAX_INPUT_BYTES) {
+    return res.status(400).json({ error: 'package_too_large', max_bytes: MAX_INPUT_BYTES })
   }
+
+  // Configuration is checked AFTER the request is understood, so a
+  // misconfigured deployment reports the same way an outage does: the review
+  // is unavailable, and the report is untouched.
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return unavailable(res, 'not_configured')
 
   let plan = 'free'
   try {
@@ -283,14 +143,13 @@ async function handler(req, res) {
     plan = (profile && profile.plan) || 'free'
   } catch { /* missing profile treated as free */ }
 
-  const unlimited = hasUnlimitedUsage((user && user.email) || '')
-  if (!unlimited) {
+  if (!hasUnlimitedUsage((user && user.email) || '')) {
     let limitCheck = { ok: true }
     try {
       limitCheck = await checkRateLimits(supabase, user.id, plan)
     } catch (err) {
       console.error('[pre-review-semantic] rate limit check failed:', err && err.message)
-      return res.status(500).json({ error: 'rate_limit_check_failed' })
+      return unavailable(res, 'rate_limit_check_failed')
     }
     if (!limitCheck.ok) {
       if (typeof res.setHeader === 'function') res.setHeader('Retry-After', String(limitCheck.retry_after))
@@ -302,78 +161,42 @@ async function handler(req, res) {
     }
   }
 
-  // Open SSE response. Once headers are set we communicate failures
-  // via an 'error' frame rather than HTTP status.
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache, no-transform')
-  res.setHeader('Connection', 'keep-alive')
-
-  // Reserve the ledger row BEFORE the upstream call (api/_rate-limit.js).
-  let reservation
+  let reservation = null
   try {
     reservation = await rateLimit.reserveGeneration(supabase, { userId: user.id, generationType: GENERATION_TYPE, tag: 'pre-review-semantic' })
   } catch {
-    writeSse(res, 'error', { error: 'ledger_reserve_failed' })
-    return res.end()
+    return unavailable(res, 'ledger_reserve_failed')
   }
 
-  let upstream
-  try {
-    upstream = await getFetch()('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: MAX_OUTPUT_TOKENS,
-        system: SYSTEM_PROMPT,
-        messages: [{
-          role: 'user',
-          content: `Audit this IAQ assessment payload. Return ONLY a JSON array of issues per the schema.\n\nASSESSMENT:\n${slimJson}`,
-        }],
-      }),
-    })
-  } catch (err) {
-    console.error('[pre-review-semantic] anthropic call threw:', err && err.message)
-    await rateLimit.releaseGeneration(supabase, reservation.id, 'pre-review-semantic')
-    writeSse(res, 'error', { error: 'upstream_unreachable' })
-    return res.end()
+  const result = await requestSemanticCandidates({ apiKey, pkg, fetchFn: getFetch() })
+
+  if (!result.ok) {
+    // The run is released rather than finalized: nothing was produced, so
+    // the assessor's budget is not spent on a review that did not happen.
+    try { await rateLimit.releaseGeneration(supabase, reservation.id, 'pre-review-semantic') } catch { /* best effort */ }
+    if (result.status) console.error('[pre-review-semantic] provider:', result.reason, result.code || '', result.status, result.detail || '')
+    // `code` distinguishes a billing/quota failure from a transient outage
+    // for whoever is operating the deployment. It is a machine token, never
+    // a sentence, and never anything about the report.
+    return unavailable(res, result.reason, result.code ? { code: result.code } : {})
   }
 
-  if (!upstream.ok || !upstream.body) {
-    const errText = typeof upstream.text === 'function' ? await upstream.text() : ''
-    console.error('[pre-review-semantic] anthropic non-2xx:', upstream.status, String(errText).slice(0, 300))
-    await rateLimit.releaseGeneration(supabase, reservation.id, 'pre-review-semantic')
-    const { code, message } = classifyUpstream(upstream.status, errText, 'The semantic review is')
-    writeSse(res, 'error', { error: `upstream_${upstream.status}`, code, message })
-    return res.end()
-  }
-
-  // Non-streamed read — semantic audit is one structured JSON
-  // response; we surface the parsed issues one at a time so the
-  // client renders them as they're ready (same UX shape as the
-  // streaming chat path, despite the underlying call being a
-  // single-shot completion).
-  let data
-  try { data = await upstream.json() } catch { data = null }
-  const text = (data?.content || [])
-    .map((b) => (b && b.type === 'text' ? b.text : ''))
-    .filter(Boolean)
-    .join('')
-
-  const issues = tryParseIssues(text)
-  for (const issue of issues) {
-    writeSse(res, 'issue', issue)
-  }
-
-  const inputTokens = data?.usage?.input_tokens || 0
-  const outputTokens = data?.usage?.output_tokens || 0
+  const inputTokens = result.usage.input_tokens
+  const outputTokens = result.usage.output_tokens
   const cost = estimateCost(inputTokens, outputTokens)
 
-  await rateLimit.finalizeGeneration(supabase, reservation.id, { inputTokens, outputTokens, cost }, 'pre-review-semantic')
+  try {
+    await rateLimit.finalizeGeneration(supabase, reservation.id, { inputTokens, outputTokens, cost }, 'pre-review-semantic')
+  } catch (err) {
+    console.error('[pre-review-semantic] finalize failed:', err && err.message)
+  }
+
+  // The count logged is of CANDIDATES, and the name says so. None of them is
+  // a finding yet, and a log line that called them findings would be the
+  // first place the distinction started to blur.
+  const candidateCount = Array.isArray(result.response && result.response.issues)
+    ? result.response.issues.length
+    : 0
 
   try {
     await auditLog({
@@ -382,11 +205,11 @@ async function handler(req, res) {
       actor_email: user.email,
       target_type: 'assessment',
       details: {
-        model: ANTHROPIC_MODEL,
-        issue_count: issues.length,
-        blocking_count: issues.filter((i) => i.severity === 'blocking').length,
-        warning_count: issues.filter((i) => i.severity === 'warning').length,
-        suggestion_count: issues.filter((i) => i.severity === 'suggestion').length,
+        provider: result.provider,
+        model: result.model,
+        prompt_version: result.prompt_version,
+        report_fingerprint: pkg.report_fingerprint || null,
+        candidate_count: candidateCount,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         estimated_cost_usd: cost,
@@ -397,13 +220,21 @@ async function handler(req, res) {
     console.error('[pre-review-semantic] audit log failed:', err && err.message)
   }
 
-  writeSse(res, 'done', {
-    issue_count: issues.length,
-    input_tokens: inputTokens,
-    output_tokens: outputTokens,
-    estimated_cost_usd: cost,
+  // `candidates` is the provider's object VERBATIM. It is not reshaped,
+  // filtered, sorted or repaired here — the validator is written to reject
+  // anything malformed, and a handler that tidied the response first would
+  // be deciding what the validator gets to see.
+  return res.status(200).json({
+    status: 'completed',
+    candidates: result.response,
+    provenance: {
+      provider: result.provider,
+      model: result.model,
+      prompt_version: result.prompt_version,
+      report_fingerprint: pkg.report_fingerprint || null,
+    },
+    usage: { input_tokens: inputTokens, output_tokens: outputTokens, estimated_cost_usd: cost },
   })
-  res.end()
 }
 
 const wrapped = withSentry(handler, { route: 'pre-review-semantic' })
@@ -413,9 +244,9 @@ module.exports.__test = {
   setSupabase(s) { _supabase = s },
   setFetch(f) { _fetch = f },
   reset() { _supabase = null; _fetch = null },
-  slimAssessment,
-  tryParseIssues,
-  SYSTEM_PROMPT,
   MAX_INPUT_BYTES,
   GENERATION_TYPE,
+  PROVIDER,
+  MODEL,
+  SEMANTIC_PROMPT_VERSION,
 }
