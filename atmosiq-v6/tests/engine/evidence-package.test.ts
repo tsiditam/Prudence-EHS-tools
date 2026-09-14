@@ -60,7 +60,7 @@ describe('buildEvidencePackage — a projection of the report, not a second opin
       'facts', 'findings', 'immutable_values', 'measurements', 'observations',
       'prohibited_claims', 'recommendation_options', 'references', 'report_id',
       'report_limitations', 'required_limitations', 'allowed_interpretations',
-      'context_standards', 'sections', 'version',
+      'context_standards', 'parameter_context', 'sections', 'version',
     ].sort())
   })
 

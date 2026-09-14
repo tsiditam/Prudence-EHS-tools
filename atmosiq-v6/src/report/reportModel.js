@@ -1146,16 +1146,16 @@ export function assembleRenderModel(data = {}, opts = {}) {
   // grouping this function already uses rather than a second copy of it: temperature
   // and relative humidity are one entry here and stay one entry there.
   const interp = []
-  if (params.co2) interp.push({ key: 'co2', title: 'Carbon dioxide (CO2) — ventilation indicator', body: [`What it is and why we measure it: ${NL.WHAT_IS.co2}`, observed('co2', params.co2)] })
-  if (params.co) interp.push({ key: 'co', title: 'Carbon monoxide (CO)', body: [`What it is and why we measure it: ${NL.WHAT_IS.co}`, observed('co', params.co)] })
+  if (params.co2) interp.push({ key: 'co2', title: 'Carbon dioxide (CO2) — ventilation indicator', body: [`What it is and why we measure it: ${NL.PARAMETER_BACKGROUND.co2}`, observed('co2', params.co2)] })
+  if (params.co) interp.push({ key: 'co', title: 'Carbon monoxide (CO)', body: [`What it is and why we measure it: ${NL.PARAMETER_BACKGROUND.co}`, observed('co', params.co)] })
   if (params.temperature || params.relativeHumidity) {
-    const body = [`What it is and why we measure it: ${NL.WHAT_IS.tempRh}`]
+    const body = [`What it is and why we measure it: ${NL.PARAMETER_BACKGROUND.thermal}`]
     if (params.temperature) body.push(observed('temperature', params.temperature))
     if (params.relativeHumidity) body.push(observed('relativeHumidity', params.relativeHumidity))
     interp.push({ key: 'thermal', title: 'Thermal comfort — temperature & relative humidity', body })
   }
-  if (params.pm25) interp.push({ key: 'pm25', title: 'Fine particulate (PM2.5)', body: [`What it is and why we measure it: ${NL.WHAT_IS.pm25}`, observed('pm25', params.pm25)] })
-  if (params.tvoc) interp.push({ key: 'tvoc', title: 'Total volatile organic compounds (TVOC)', body: [`What it is and why we measure it: ${NL.WHAT_IS.tvoc}`, NL.OBSERVED.tvoc(params.tvoc, params.tvoc.outcome)] })
+  if (params.pm25) interp.push({ key: 'pm25', title: 'Fine particulate (PM2.5)', body: [`What it is and why we measure it: ${NL.PARAMETER_BACKGROUND.pm25}`, observed('pm25', params.pm25)] })
+  if (params.tvoc) interp.push({ key: 'tvoc', title: 'Total volatile organic compounds (TVOC)', body: [`What it is and why we measure it: ${NL.PARAMETER_BACKGROUND.tvoc}`, NL.OBSERVED.tvoc(params.tvoc, params.tvoc.outcome)] })
 
   // Logger Studio chart images (real assessments embed the PNGs).
   const imageCharts = rd.charts.filter(c => c.type === 'image')
