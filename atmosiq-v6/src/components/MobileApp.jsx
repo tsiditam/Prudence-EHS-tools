@@ -16,7 +16,7 @@ import { resolveFinalizeTarget } from '../utils/finalizeTarget'
 import { ensureAssessmentUid } from '../billing/assessmentUid'
 import { hasDraftContent } from '../utils/draftContent'
 import { resolveDraftResumeView } from '../utils/resumePhase'
-import { appendZoneNote, blankZoneIndices, ensureZoneIds, hasZoneId, newZoneId, removeZoneAt, removeZonesAt, resolveProposalZone, zoneIndexById, zoneLabel } from '../utils/zoneContent'
+import { appendZone, appendZoneNote, blankZoneIndices, ensureZoneIds, hasZoneId, newZoneId, removeZoneAt, removeZonesAt, resolveProposalZone, zoneIndexById, zoneLabel } from '../utils/zoneContent'
 import Profiles from '../utils/profiles'
 import Storage from '../utils/cloudStorage'
 import { supabase, trackEvent } from '../utils/supabaseClient'
@@ -73,7 +73,7 @@ import Exhibit from './ui/Exhibit'
 // never describe one zone in two vocabularies.
 import { REPORT_PARAMETERS, zoneParamOutcome, zoneObservations, zoneOccupantReports, collectReferences, collectFindings } from '../report/reportModel'
 import { evalCondition, visibleQuestions } from '../utils/conditions.js'
-import { zoneGaps, interruptsZoneCompletion } from '../engines/zone-gaps.js'
+import { zoneGaps, interruptsZoneCompletion, zoneIntegrityFindings, zoneSheetItems } from '../engines/zone-gaps.js'
 import { photosForZone, photoCaption } from '../utils/photoIndex'
 import { spaceUse } from '../utils/samplePoints'
 import Select from './ui/Select'
@@ -1785,11 +1785,17 @@ export default function MobileApp() {
     if (!existing && !isCurrent) return { ok: false }
     const baseDraft = existing || {}
     const srcZones = isCurrent ? zones : (baseDraft.zones || [])
-    const nextZones = srcZones.map(z => ({ ...(z || {}) }))
+    let nextZones = srcZones.map(z => ({ ...(z || {}) }))
     let zi
     if (zoneIndex === 'new') {
-      nextZones.push({ zn: (newZoneName || '').trim() || `Zone ${nextZones.length + 1}` })
-      zi = nextZones.length - 1
+      // Through `appendZone`, so the zone is written with its `zid` already
+      // on it. Logger Studio offers the zone it just created in the
+      // dataset-to-zone selector immediately, which keys on that id — a zone
+      // that only gets one on the next reopen is one the assessor can see
+      // and cannot link to.
+      const added = appendZone(nextZones, newZoneName)
+      nextZones = added.zones
+      zi = added.index
     } else {
       zi = zoneIndex
       if (zi == null || zi < 0 || zi >= nextZones.length) return { ok: false }
@@ -5116,31 +5122,38 @@ export default function MobileApp() {
               a complete walkthrough should stay as fast as it is today. */}
           {(() => {
             const gaps = zoneGaps({ zones, presurvey, bldg }, curZone)
+            // Integrity findings are a SECOND list and never a third opinion:
+            // they come from a detector `zone-gaps.js` composes, exactly as the
+            // gaps above do. They are advisory, so they can bring the sheet's
+            // list into existence but they are never why it stops anyone —
+            // `interruptsZoneCompletion` reads the gaps and nothing else.
+            const findings = zoneIntegrityFindings({ zones, presurvey, bldg }, curZone)
             // Nothing outstanding, or nothing worth stopping for. A zone whose
             // only remaining gaps are `optional` is a zone that was recorded
             // properly, and greeting that assessor with the same panel as one
             // who skipped a required reading is what makes the panel ignorable.
             // The optional items are not dropped — they are still in `gaps`,
             // and the Readiness panel still lists them at review.
-            if (!interruptsZoneCompletion(gaps)) return null
-            // Three on a phone. This is read standing up, one-handed, at the
-            // end of a zone — a longer list is skimmed rather than acted on.
-            const SHOWN = 3
-            const shown = gaps.slice(0, SHOWN)
-            const rest = gaps.length - shown.length
+            const stopping = interruptsZoneCompletion(gaps)
+            if (!stopping && !findings.length) return null
+            // Three on a phone, ACROSS BOTH LISTS. This is read standing up,
+            // one-handed, at the end of a zone, and a cap applied per stream
+            // is not a cap. `zoneSheetItems` owns the merge, the order and
+            // the overflow count; it changes neither stream's contract.
+            const { items, total, rest } = zoneSheetItems({ gaps: stopping ? gaps : [], findings })
             return (
               <div style={{margin:'4px 0 18px',paddingBottom:16,borderBottom:`1px solid ${V3.BORDER_SUBTLE}`}}>
                 <div style={{...V3.T.micro, marginBottom:10}}>Before you leave {zData.zn || 'this zone'}</div>
                 <div style={{...V3.T.bodyDim, marginBottom:12, lineHeight:1.5}}>
-                  {gaps.length === 1 ? 'One item would strengthen the investigation:' : `${gaps.length} items would strengthen the investigation:`}
+                  {total === 1 ? 'One item would strengthen the investigation:' : `${total} items would strengthen the investigation:`}
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:9}}>
-                  {shown.map(g => (
-                    <div key={g.id} style={{display:'flex',alignItems:'flex-start',gap:9}}>
-                      <span aria-hidden="true" style={{width:5,height:5,borderRadius:'50%',background:g.kind==='required'||g.kind==='warn'?WARN:DIM,flexShrink:0,marginTop:7}} />
+                  {items.map(it => (
+                    <div key={it.id} style={{display:'flex',alignItems:'flex-start',gap:9}}>
+                      <span aria-hidden="true" style={{width:5,height:5,borderRadius:'50%',background:it.tone==='warn'?WARN:DIM,flexShrink:0,marginTop:7}} />
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{...V3.T.body, lineHeight:'19px'}}>{g.label}</div>
-                        <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{g.why}</div>
+                        <div style={{...V3.T.body, lineHeight:'19px'}}>{it.label}</div>
+                        <div style={{...V3.T.captionDim, marginTop:2, lineHeight:1.45}}>{it.why}</div>
                       </div>
                     </div>
                   ))}
@@ -6201,7 +6214,7 @@ export default function MobileApp() {
         {/* A tool carries the project it was opened from as its params
             (see ProjectDetail's onOpenLogger) — nothing in the shell
             remembers it. */}
-        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} onApplyAverages={applyAveragesToReport} onBack={nav.back} onAskAI={(q)=>askAI(q, 'logger_studio')} /></Suspense>}
+        {view==='sensor-data'&&<Suspense fallback={LAZY_FALLBACK}><SensorDataPage value={sensorData} onChange={setSensorData} reports={index.drafts||[]} currentReportId={draftId} currentProjectId={nav.params?.projectId || null} currentZones={zones} currentInvestigation={readinessInvestigation} onApplyAverages={applyAveragesToReport} onBack={nav.back} onAskAI={(q)=>askAI(q, 'logger_studio')} /></Suspense>}
         {(view==='projects' || (view==='home' && !isDesktop))&&<ProjectsScreen onReportIncident={()=>setView('incident-form')} onOpen={(pid)=>{setActiveProjectId(pid);setView('project-detail')}} onTryDemo={()=>runDemo(userMode === 'fm' ? undefined : 'findings')} />}
         {/* Desktop landing — the state of the work. A phone that restores a
             'home' entry (window resized below 1024) gets Projects above. */}

@@ -43,10 +43,15 @@
  * no gap to report.
  */
 
-import { PARAMETER_LABEL } from '../engine/investigation'
+import { PARAMETER_LABEL, LIVE_HYPOTHESIS_STATUSES } from '../engine/investigation'
 
-/** Statuses that keep a differential in play. Mirrors the engine's own. */
-const LIVE = new Set(['supported_by_measurement', 'mixed_measurement_support', 'untested'])
+/**
+ * Statuses that keep a differential in play. Read from the engine rather
+ * than mirrored: this file used to restate the list with a comment saying
+ * it mirrored the engine's, and a second consumer would have made that
+ * comment the only thing holding two copies together.
+ */
+const LIVE = new Set(LIVE_HYPOTHESIS_STATUSES)
 
 /**
  * A parameter's reader-facing name. Falls back to the key rather than

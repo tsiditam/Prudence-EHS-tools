@@ -43,6 +43,7 @@ import { localTimeParts, formatDateRange } from './monitoringInsights'
 const isNum = (v) => v != null && Number.isFinite(v)
 const arr = (v) => (Array.isArray(v) ? v : [])
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {})
+const str = (v) => (typeof v === 'string' ? v.trim() : '')
 
 /**
  * What each pattern kind is, as a heading. Descriptive, never a verdict —
@@ -468,6 +469,44 @@ export function occurrenceNavigation(pattern, occurrenceId) {
     eventIds: arr(target.eventIds),
     windows: windows.map((w) => ({ id: w.id, start: w.start, end: isNum(w.end) ? w.end : w.start, representative: !!w.representative })),
   }
+}
+
+/**
+ * How a reported complaint period and a pattern's occurrences line up, as
+ * one short line, or null.
+ *
+ * ── Only a conclusive answer earns a line ──────────────────────────────
+ * `insufficient_temporal_evidence` renders NOTHING. It is the common
+ * answer — most sessions have more than one zone, and the record does not
+ * say which room a logger was in — so rendering it would put "not
+ * comparable" on every card of every multi-zone session. The reason is not
+ * lost: it rides on the relationship object for the assistant and for a
+ * later surface that has somewhere useful to put it. A card is not that
+ * place.
+ *
+ * ── It states two clocks agreeing, and never why ───────────────────────
+ * No verb here connects the pattern to the complaint. "Occurred then"
+ * is a statement about time. Whether the parameter bears on anything the
+ * investigation is entertaining is a separate axis on the relationship and
+ * is deliberately NOT rendered: a card that said so would be the framing
+ * this layer exists to avoid.
+ *
+ * @param {object} relationship one of `detectTemporalRelationships`
+ * @returns {{label:string, parts:string[]}|null}
+ */
+export function patternAgreement(relationship) {
+  const r = obj(relationship)
+  const d = obj(r.observed_days)
+  const period = str(r.reported_period).toLowerCase()
+  if (!period || !isNum(d.withOccurrence) || d.withOccurrence <= 0) return null
+  const days = (n) => `${n} day${n === 1 ? '' : 's'}`
+  if (r.relationship === 'temporal_overlap') {
+    return { label: 'Reported', parts: [period, `pattern occurred then on ${d.inPeriod} of ${days(d.withOccurrence)}`] }
+  }
+  if (r.relationship === 'temporal_mismatch') {
+    return { label: 'Reported', parts: [period, `pattern occurred on ${days(d.withOccurrence)}, none of them then`] }
+  }
+  return null
 }
 
 /** The pattern's heading: its kind, and the parameter(s) it concerns. */

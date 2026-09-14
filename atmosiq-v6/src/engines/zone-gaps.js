@@ -39,6 +39,7 @@
 
 import { evaluateCategorySufficiency } from './sufficiency.js'
 import { detectDefensibilityGaps } from './defensibility-gaps.js'
+import { detectComplaintContextGaps, asZoneGapLine } from './integrity/context-gaps.js'
 
 /** The categories `sufficiency.js` declares requirements for. */
 const CATEGORIES = ['Ventilation', 'Contaminants', 'HVAC', 'Complaints', 'Environment']
@@ -198,4 +199,95 @@ function gapLabel(kind) {
 export function zoneGapCounts(assessment) {
   const zones = (assessment && assessment.zones) || []
   return zones.map((_, i) => zoneGaps(assessment, i).length)
+}
+
+/**
+ * How many items the Zone-complete sheet shows at once.
+ *
+ * Three, because that sheet is read standing up, one-handed, at the end of
+ * a zone. A longer list is skimmed rather than acted on, which is the same
+ * reasoning that keeps `optional` gaps from opening it at all.
+ */
+export const ZONE_SHEET_LIMIT = 3
+
+/**
+ * The Zone-complete sheet's display list: two streams, one cap.
+ *
+ * A PRESENTATION projection and nothing else. It merges no detector, reads
+ * no record, and changes neither stream's contract — both arrive already
+ * built, and either could be rendered alone without it. It exists because
+ * the cap belongs to the sheet, and a cap applied per stream is not a cap:
+ * three gaps and three findings is six items on a phone.
+ *
+ * Gaps come first and keep their own order, so the priority `zoneGaps`
+ * already established survives the merge. Integrity findings fill whatever
+ * room is left, which is the right way round: a missing required reading
+ * is worth an assessor's attention before a missing piece of context.
+ *
+ * `tone` is decided here rather than in the component so the rule is
+ * testable, and it is a display weight, not a severity: integrity findings
+ * are advisory and always read quiet.
+ *
+ * @param {object} input
+ * @param {Array} [input.gaps] `zoneGaps` output, already filtered by the
+ *   caller to the ones worth stopping for
+ * @param {Array} [input.findings] `zoneIntegrityFindings` output
+ * @param {number} [input.limit=ZONE_SHEET_LIMIT]
+ * @returns {{items: Array<{id,label,why,tone}>, total: number, rest: number}}
+ */
+export function zoneSheetItems(input = {}) {
+  const gaps = Array.isArray(input.gaps) ? input.gaps : []
+  const findings = Array.isArray(input.findings) ? input.findings : []
+  const limit = Number.isFinite(input.limit) ? Math.max(0, input.limit) : ZONE_SHEET_LIMIT
+  const total = gaps.length + findings.length
+
+  const shownGaps = gaps.slice(0, limit).map((g) => ({
+    id: g.id,
+    label: g.label,
+    why: g.why,
+    tone: g.kind === 'required' || g.kind === 'warn' ? 'warn' : 'dim',
+  }))
+  const shownFindings = findings
+    .slice(0, Math.max(0, limit - shownGaps.length))
+    .map((f) => ({ id: f.id, label: f.label, why: f.why, tone: 'dim' }))
+
+  const items = [...shownGaps, ...shownFindings]
+  return { items, total, rest: total - items.length }
+}
+
+/**
+ * Integrity findings for one zone, as lines for the same sheet.
+ *
+ * A SEPARATE list from `zoneGaps`, deliberately, and the separation is the
+ * whole design rather than a tidiness preference.
+ *
+ * `interruptsZoneCompletion` treats every gap whose kind is not `optional`
+ * as reason to stop the assessor, so folding an integrity finding into
+ * `zoneGaps` would make an advisory finding gate zone completion — new
+ * blocking behavior, on a surface that has none today, from a detector
+ * whose whole point is that it is advisory. Returning it beside the gaps
+ * lets the sheet show both while `interruptsZoneCompletion` keeps reading
+ * exactly the list it always read.
+ *
+ * This file still composes rather than judges: the rule lives in
+ * `integrity/context-gaps.js`, the same relationship `zoneGaps` has with
+ * `sufficiency.js` and `defensibility-gaps.js`.
+ *
+ * @param {object} assessment the live draft
+ * @param {number} zoneIndex
+ * @param {object} [opts] forwarded to the detector; `forensics` is an
+ *   optional built bundle, absent on the walkthrough path
+ * @returns {Array<{ id, label, why }>}
+ */
+export function zoneIntegrityFindings(assessment, zoneIndex, opts = {}) {
+  const zones = (assessment && assessment.zones) || []
+  const zone = zones[zoneIndex]
+  if (!zone) return []
+  // The detector reads the whole assessment and tags each finding with the
+  // zone it concerns, the same shape `detectDefensibilityGaps` returns and
+  // the same reason: a rule may need to see the other zones to judge one.
+  const key = (zone.zid && String(zone.zid)) || `zone-${zoneIndex + 1}`
+  return detectComplaintContextGaps(assessment, { onSite: true, ...opts })
+    .filter((f) => (f.zone_ids || []).includes(key))
+    .map(asZoneGapLine)
 }

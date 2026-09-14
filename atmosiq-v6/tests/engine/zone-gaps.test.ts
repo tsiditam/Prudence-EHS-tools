@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { zoneGaps, zoneGapCounts, interruptsZoneCompletion } from '../../src/engines/zone-gaps.js'
+import { zoneGaps, zoneGapCounts, interruptsZoneCompletion, zoneSheetItems, ZONE_SHEET_LIMIT } from '../../src/engines/zone-gaps.js'
 import { evaluateCategorySufficiency } from '../../src/engines/sufficiency.js'
 
 /** A zone with every required input captured across all five categories. */
@@ -223,6 +223,73 @@ describe('ordering and shape', () => {
   })
 })
 
+describe('the sheet shows three items, across both lists', () => {
+  const gap = (i: number, kind = 'required') => ({ id: `g${i}`, label: `Gap ${i}`, why: 'why', kind, source: 'sufficiency', rank: i })
+  const finding = (i: number) => ({ id: `intg-${i}`, label: `Finding ${i}`, why: 'why' })
+
+  it('caps the COMBINED list, which a per-stream cap does not', () => {
+    // The defect: three gaps and three findings rendered six items on a
+    // phone, under a comment promising three.
+    const out = zoneSheetItems({ gaps: [gap(1), gap(2), gap(3)], findings: [finding(1), finding(2), finding(3)] })
+    expect(out.items).toHaveLength(ZONE_SHEET_LIMIT)
+    expect(out.total).toBe(6)
+    expect(out.rest).toBe(3)
+  })
+
+  it('gives the room to gaps first, in the order zoneGaps established', () => {
+    // A missing required reading outranks a missing piece of context, and
+    // the merge must not reorder what the gap engine already ranked.
+    const out = zoneSheetItems({ gaps: [gap(1), gap(2)], findings: [finding(1), finding(2)] })
+    expect(out.items.map((i: any) => i.id)).toEqual(['g1', 'g2', 'intg-1'])
+    expect(out.rest).toBe(1)
+  })
+
+  it('shows a finding on its own when there are no gaps worth stopping for', () => {
+    const out = zoneSheetItems({ gaps: [], findings: [finding(1)] })
+    expect(out.items.map((i: any) => i.id)).toEqual(['intg-1'])
+    expect(out.total).toBe(1)
+    expect(out.rest).toBe(0)
+  })
+
+  it('reports an overflow only when something is actually hidden', () => {
+    expect(zoneSheetItems({ gaps: [gap(1)], findings: [] }).rest).toBe(0)
+    expect(zoneSheetItems({ gaps: [gap(1), gap(2), gap(3)], findings: [] }).rest).toBe(0)
+    expect(zoneSheetItems({ gaps: [gap(1), gap(2), gap(3), gap(4)], findings: [] }).rest).toBe(1)
+    expect(zoneSheetItems({}).items).toEqual([])
+    expect(zoneSheetItems({}).rest).toBe(0)
+  })
+
+  it('marks integrity findings quiet, because they are advisory', () => {
+    const out = zoneSheetItems({ gaps: [gap(1, 'required'), gap(2, 'info')], findings: [finding(1)] })
+    expect(out.items.map((i: any) => i.tone)).toEqual(['warn', 'dim', 'dim'])
+    expect(zoneSheetItems({ gaps: [gap(1, 'warn')], findings: [] }).items[0].tone).toBe('warn')
+  })
+
+  it('is projection only — it reads no record and merges no detector', () => {
+    const src = readFileSync(new URL('../../src/engines/zone-gaps.js', import.meta.url), 'utf8')
+    // Comments stripped first, the way the threshold guard below does it:
+    // the next function's doc block sits inside this slice and talks about
+    // the assessment, which is prose about a neighbor, not a read.
+    const fn = src
+      .slice(src.indexOf('export function zoneSheetItems'), src.indexOf('export function zoneIntegrityFindings'))
+      .replace(/\/\*\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+    expect(fn).not.toMatch(/detectComplaintContextGaps|detectDefensibilityGaps|evaluateCategorySufficiency/)
+    expect(fn).not.toMatch(/assessment|zones\b/)
+  })
+
+  it('is what the Zone-complete sheet actually renders', () => {
+    // Otherwise the cap lives in a function nobody calls and the six-item
+    // list comes straight back.
+    const app = readFileSync(new URL('../../src/components/MobileApp.jsx', import.meta.url), 'utf8')
+    const sheet = app.slice(app.indexOf('<BottomSheet title="Zone complete"'))
+    expect(sheet).toMatch(/zoneSheetItems\(/)
+    // No per-stream slicing left behind beside it.
+    expect(sheet).not.toMatch(/findings\.slice\(/)
+    expect(sheet).not.toMatch(/gaps\.slice\(/)
+  })
+})
+
 describe('it adds no judgement of its own', () => {
   it('holds no thresholds and no severity logic', () => {
     // Whether a reading is elevated is the criterion registry's answer. A
@@ -238,10 +305,34 @@ describe('it adds no judgement of its own', () => {
     expect(code).not.toMatch(/['"]critical['"]/)
   })
 
-  it('imports only the two engines it composes', () => {
+  it('imports only detectors it composes, and never a rule of its own', () => {
+    // The list grows when this file composes another DETECTOR, which is the
+    // sanctioned way for it to gain an item. What the guard is really for is
+    // the other direction: an import that is not a detector — a threshold
+    // registry, a scoring path, a criteria table — would mean the judgement
+    // moved in here, and then the Zone-complete sheet and the Readiness
+    // panel could give an assessor two different answers about the same zone.
     const src = readFileSync(new URL('../../src/engines/zone-gaps.js', import.meta.url), 'utf8')
     const imports = [...src.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1])
-    expect(imports.sort()).toEqual(['./defensibility-gaps.js', './sufficiency.js'])
+    expect(imports.sort()).toEqual([
+      './defensibility-gaps.js',
+      './integrity/context-gaps.js',
+      './sufficiency.js',
+    ])
+    // The display cap is presentation and brings no import with it.
+    expect(src).toMatch(/export function zoneSheetItems/)
+  })
+
+  it('gates zone completion on the gaps alone, never on an integrity finding', () => {
+    // `interruptsZoneCompletion` treats any kind but `optional` as reason to
+    // stop the assessor. An advisory integrity finding folded into `zoneGaps`
+    // would therefore start blocking, which is exactly the behavior change
+    // Phase 1 promised not to make — hence two lists, not one.
+    const src = readFileSync(new URL('../../src/engines/zone-gaps.js', import.meta.url), 'utf8')
+    const gapsFn = src.slice(src.indexOf('export function zoneGaps'), src.indexOf('export function zoneGapCounts'))
+    expect(gapsFn).not.toMatch(/detectComplaintContextGaps|asZoneGapLine/)
+    const interrupt = src.slice(src.indexOf('export function interruptsZoneCompletion'))
+    expect(interrupt.slice(0, 200)).not.toMatch(/integrity/i)
   })
 })
 

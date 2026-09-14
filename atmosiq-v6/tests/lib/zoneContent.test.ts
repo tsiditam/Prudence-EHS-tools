@@ -6,7 +6,10 @@ import { describe, it, expect } from 'vitest'
 import {
   isBlankZone, blankZoneIndices, zoneLabel, removeZoneAt, removeZonesAt,
   hasZoneId, newZoneId, ensureZoneIds, zoneIndexById, resolveProposalZone, appendZoneNote,
+  appendZone,
 } from '../../src/utils/zoneContent'
+import { readFileSync } from 'node:fs'
+import { linkableZones } from '../../src/components/sensor/sensorHelpers'
 
 const OUTDOOR = ['co2o', 'tfo', 'rho', 'pmo', 'tvo']
 
@@ -209,5 +212,75 @@ describe('zone identity — appendZoneNote', () => {
     expect(appendZoneNote(zones, 0, '   ')).toBe(zones)
     expect(appendZoneNote(zones, -1, 'note')).toBe(zones)
     expect(appendZoneNote(zones, 1, 'note')).toBe(zones)
+  })
+})
+
+/**
+ * A zone created away from the walkthrough — Logger Studio's "apply these
+ * averages to a new zone" — carries its id from the moment it is written.
+ *
+ * It did not, and the gap was invisible until something else keyed on the
+ * id in the same breath: the zone appeared in the assessment correctly and
+ * simply could not be selected in the dataset-to-zone association, because
+ * `ensureZoneIds` only ran on load and on the add-zone button. "Reopen the
+ * draft and it works" is not a behavior, it is a race the assessor loses.
+ */
+describe('a zone created outside the walkthrough is identified immediately', () => {
+  it('mints the id on creation, through the one convention', () => {
+    const { zones, index } = appendZone([], 'Break Room')
+    expect(index).toBe(0)
+    expect(hasZoneId(zones[0])).toBe(true)
+    expect(zones[0].zn).toBe('Break Room')
+    // The same shape `newZoneId` produces — not a second scheme beside it.
+    const shape = new RegExp('^' + newZoneId(0).replace(/[a-z0-9]+/g, '[a-z0-9]+') + '$')
+    expect(zones[0].zid).toMatch(shape)
+    // Unnamed falls back to the positional label, as it always did.
+    expect(appendZone([{ zn: 'A' }], '  ').zones[1].zn).toBe('Zone 2')
+    expect(appendZone(null as never, 'X').zones).toHaveLength(1)
+  })
+
+  it('is available for dataset linking with no reopen in between', () => {
+    // The integration claim, stated against the selector's own projection:
+    // what Logger Studio offers as an association target.
+    const before = [{ zid: 'z-1', zn: 'Room 214' }]
+    expect(linkableZones(before).map((z) => z.zid)).toEqual(['z-1'])
+    const { zones, index } = appendZone(before, 'Break Room')
+    const offered = linkableZones(zones)
+    expect(offered).toHaveLength(2)
+    expect(offered[1]).toEqual({ zid: zones[index].zid, name: 'Break Room' })
+  })
+
+  it('keeps that id when the draft is reopened', () => {
+    const { zones } = appendZone([{ zid: 'z-1', zn: 'Room 214' }], 'Break Room')
+    const minted = zones[1].zid
+    // Reopening is `setZones(ensureZoneIds(d.zones))` over the stored record.
+    const reopened = ensureZoneIds(JSON.parse(JSON.stringify(zones)))
+    expect(reopened.map((z: any) => z.zid)).toEqual(['z-1', minted])
+    // Nothing to mint, so the guarantee is already met and the array is
+    // returned untouched rather than rebuilt.
+    expect(ensureZoneIds(zones)).toBe(zones)
+  })
+
+  it('never reissues an id an existing zone already carries', () => {
+    const existing = [{ zid: 'z-1', zn: 'A' }, { zid: 'z-2', zn: 'B' }]
+    const { zones } = appendZone(existing, 'C')
+    expect(zones.slice(0, 2)).toEqual(existing)
+    expect(zones[0]).toBe(existing[0])
+    expect(new Set(zones.map((z: any) => z.zid)).size).toBe(3)
+    // A legacy zone with no id of its own is stamped rather than left
+    // behind — the same thing its next reopen would have done anyway.
+    const mixed = appendZone([{ zn: 'legacy' }], 'C').zones
+    expect(mixed.every(hasZoneId)).toBe(true)
+  })
+
+  it('is the path applyAveragesToReport actually takes', () => {
+    // A source pin: the defect was a bare zone literal pushed onto the list,
+    // and nothing about the record afterwards says which path created it.
+    const app = readFileSync('src/components/MobileApp.jsx', 'utf8')
+    const start = app.indexOf('const applyAveragesToReport')
+    const body = app.slice(start, app.indexOf('\n  }\n', start))
+    expect(start).toBeGreaterThan(0)
+    expect(body).toMatch(/appendZone\(nextZones, newZoneName\)/)
+    expect(body).not.toMatch(/nextZones\.push\(/)
   })
 })

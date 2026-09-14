@@ -313,6 +313,13 @@ export function buildForensicBundle(input = {}) {
       id: d.id || `ds-${i}`,
       role: d.role || 'indoor',
       label: d.label || 'Indoor',
+      // The walkthrough zone this logger was deployed in, when the assessor
+      // has said so. Optional by design — a standalone Logger Studio session
+      // has no zones to name — and deliberately ABSENT from
+      // `forensicInputSignature`: it changes nothing about what the readings
+      // mean, so linking a dataset must not make an existing interpretation
+      // stale. It is read only by the cross-evidence layer.
+      zoneId: str(d.zoneId) || null,
       params: arr(d.params),
       fileName: str(d.fileName) || null,
       hasTimestamps: !!d.hasTimestamps,
