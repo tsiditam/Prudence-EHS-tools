@@ -293,13 +293,20 @@ describe('the wiring reaches every production export site', () => {
     expect(src).toMatch(/aiSections: lockAiSections\(aiSections\)/)
   })
 
-  it('every export literal prefers the stored, locked record over live draft state', () => {
+  it('every reader prefers the stored, locked record over live draft state', () => {
     const src = read('../../src/components/MobileApp.jsx')
     // Same precedence as calibrationAcknowledgement and standardsManifest:
     // an archived/finalized report's OWN stored record wins over whatever
     // the live state happens to hold.
+    //
+    // Four sites: the three export literals, and the report-consistency read
+    // that asks whether stale stored content still costs the assessor
+    // something. The fourth is not an export and still needs the same
+    // precedence — a consistency check reading the LIVE record while the
+    // export reads the stored one would describe a different document than
+    // the one that ships, which is the class of defect it exists to find.
     const matches = src.match(/aiSections: viewRpt\?\.aiSections \|\| aiSections/g) || []
-    expect(matches.length).toBe(3)
+    expect(matches.length).toBe(4)
   })
 
   it('AssessmentContext restores aiSections on both the draft and the report load paths, and clears it on reset', () => {

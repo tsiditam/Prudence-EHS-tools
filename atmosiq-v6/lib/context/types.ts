@@ -85,6 +85,19 @@ export interface IntegrityFinding {
   readonly evidence_ids: readonly string[]
   readonly parameter_ids: readonly string[]
   readonly time_window: { readonly start: number; readonly end: number; readonly basis: string } | null
+  /**
+   * Where in an assembled document the finding sits, when it sits in one.
+   * A structural address, not a minted identifier: the report package has no
+   * evidence registry to resolve ids against, so `report_package` findings
+   * carry an anchor where a field finding carries `evidence_ids`. Null for a
+   * finding about the record rather than about a document.
+   */
+  readonly anchor: {
+    readonly section: string | null
+    readonly rule: string | null
+    readonly kind: string | null
+    readonly ref: string | null
+  } | null
   readonly title: string
   readonly description: string
   readonly why_it_matters: string

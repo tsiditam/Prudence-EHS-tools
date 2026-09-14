@@ -28,6 +28,7 @@ import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/r
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
 import { withAiSections, evidencePackageFor, lockAiSections, applyOverride, removeOverride, isOverridden, applyEdit, removeEdit, isEdited, sectionText, MIN_OVERRIDE_JUSTIFICATION, MIN_SECTION_TEXT } from '../report/aiSections'
 import { checkRenderModel } from '../report/modelConsistency'
+import { detectReportConsistency, asConsistencyRow } from '../engines/integrity/report-consistency.js'
 import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
 import { getCalibrationBannerState, loadInstruments, isOutOfCal } from '../utils/instrumentRegistry'
 import {
@@ -3445,6 +3446,13 @@ export default function MobileApp() {
     // whatever AI output is stored (aiSectionsStatus, evidenceFingerprint).
     let reportModel = null
     let reportConsistency = []
+    // The same list in the shared integrity contract — severity, issue type
+    // and a structural anchor — which is what the Report-consistency section
+    // renders. `checkRenderModel` still owns its twenty rules and is run
+    // here, once; `detectReportConsistency` projects that output and adds the
+    // rules the render model can answer and nothing asked it. The section's
+    // rows are unchanged for every rule it showed before.
+    let reportConsistencyRows = []
     if (rTab === 'report' && zoneScores.length) {
       try {
         reportModel = withAiSections({
@@ -3453,8 +3461,18 @@ export default function MobileApp() {
           aiSections,
         })
         reportConsistency = checkRenderModel(reportModel)
+        reportConsistencyRows = detectReportConsistency({
+          model: reportModel,
+          consistency: reportConsistency,
+          assessment: {
+            zones, zoneScores, recs, photos, presurvey, profile, narrative,
+            labResults: viewRpt?.labResults || null,
+          },
+          aiSections: viewRpt?.aiSections || aiSections,
+        }).map(asConsistencyRow)
       } catch (e) {
         reportConsistency = [{ id: 'model-error', where: 'Report', message: `The report model could not be assembled: ${e && e.message}` }]
+        reportConsistencyRows = reportConsistency
       }
     }
 
@@ -3713,7 +3731,7 @@ export default function MobileApp() {
                 tab label so it is never hidden behind the tab. */}
             <ReadinessPanel
               assessment={readinessAssessment}
-              consistency={reportConsistency}
+              consistency={reportConsistencyRows}
               onFeedback={()=>openFeedback('Findings & readiness')}
               onFix={archived ? (viewRpt?.id ? resumeAndFix : undefined) : fixBlocker}
             />
