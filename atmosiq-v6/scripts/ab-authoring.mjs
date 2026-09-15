@@ -53,6 +53,24 @@
  *   npm run eval:ab -- --run           # spends real money; needs ANTHROPIC_API_KEY
  *   npm run eval:ab -- --run --case messy
  *   npm run eval:ab -- --run --out /tmp/ab.md
+ *   npm run eval:ab -- --run --blind --out /tmp/ab.md   # see below
+ *
+ * ── Blind scoring ──────────────────────────────────────────────────────
+ * `--blind` splits the run into two documents. The SCORING document
+ * carries the prose alone, as Report X and Report Y, with the rubric; the
+ * KEY document carries the hashes, the deterministic table, the plan
+ * block and the X/Y → A/B mapping. Assignment is drawn independently per
+ * case, so one accidental reveal does not unblind the others.
+ *
+ * Three things leave the scoring document, and the third is the one worth
+ * arguing about. The hash table and the plan block are identity outright
+ * — only one arm can produce a plan, and the two prompts differ in
+ * length. The per-section audit flags are NOT identity, and they still
+ * come out: a paragraph labeled BLOCKED BY AUDIT has been pre-judged by
+ * the deterministic layer, and a reader scoring "unsupported
+ * interpretation" underneath that label is agreeing with a machine rather
+ * than reading. Both halves are in the key, against the arm that earned
+ * them.
  *
  * ── Why it boots Vite to read the engine ───────────────────────────────
  * It runs under plain `node`, but it cannot `import` the engine directly.
@@ -68,7 +86,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { createHash, randomInt } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
@@ -399,16 +417,19 @@ const RUBRIC = [
   ['Assessor cleanup required', 'how much editing before issue; 5 = none'],
 ]
 
-function rubricForm(caseKey) {
+const ARM_LABELS = ['Arm A (no plan)', 'Arm B (plan)']
+const BLIND_LABELS = ['Report X', 'Report Y']
+
+function rubricForm(caseKey, labels = ARM_LABELS) {
   const rows = RUBRIC.map(([name, why]) =>
     `| ${name} | ☐ 1 ☐ 2 ☐ 3 ☐ 4 ☐ 5 | ☐ 1 ☐ 2 ☐ 3 ☐ 4 ☐ 5 |  | _${why}_ |`)
   return [
     `### Rubric — ${caseKey}`,
     '',
-    'Score each 1–5 for both arms. **A gap of 2 or more points requires a note**;',
+    'Score each 1–5 for both reports. **A gap of 2 or more points requires a note**;',
     'a difference that large without a stated reason is a preference, not a finding.',
     '',
-    '| Category | Arm A (no plan) | Arm B (plan) | Note (required if gap ≥ 2) | What it means |',
+    `| Category | ${labels[0]} | ${labels[1]} | Note (required if gap ≥ 2) | What it means |`,
     '|---|---|---|---|---|',
     ...rows,
     '',
@@ -458,16 +479,61 @@ function compareBlock(a, b) {
   return lines.join('\n')
 }
 
-function sectionsBlock(arm) {
+function sectionsBlock(arm, { hideGates = false } = {}) {
   if (arm.failed) return `_arm did not complete (${arm.failed})_`
   const flat = flatten(arm.sections)
   if (!flat.length) return '_no sections_'
   return flat.map(([k, t]) => {
+    if (hideGates) return `#### ${k}\n\n${t}\n`
     const g = arm.gates.per_section[k] || {}
     const flag = g.supported === false ? ' **[BLOCKED BY AUDIT]**' : ''
     const rules = g.rules && g.rules.length ? ` _(${g.rules.join(', ')})_` : ''
     return `#### ${k}${flag}${rules}\n\n${t}\n`
   }).join('\n')
+}
+
+/**
+ * Which arm is shown as X and which as Y, drawn fresh for each case.
+ *
+ * Per case rather than per run on purpose: a single mapping across all
+ * three means working out one case works out the other two, and the
+ * messy case is read first precisely because it is the one most likely
+ * to give itself away.
+ */
+const blindAssign = () => (randomInt(2) === 0 ? { X: 'A', Y: 'B' } : { X: 'B', Y: 'A' })
+
+/** Where the key goes, given where the scoring document goes. */
+const keyPathFor = (out) => (/\.md$/i.test(out) ? out.replace(/\.md$/i, '.key.md') : `${out}.key.md`)
+
+const armDescription = (arm) => (arm === 'A' ? 'A — no plan (pinned baseline)' : 'B — plan (working tree)')
+
+/**
+ * One blinded case, split into the two documents it belongs in.
+ *
+ * Returned rather than pushed so the property that matters can be
+ * asserted directly: NOTHING in `scoring` says which arm is which. That
+ * is checked in `tests/scripts/ab-authoring.test.ts` against prose built
+ * to be maximally revealing, because a blinding that leaks is worse than
+ * no blinding — it produces a score the reader believes was impartial.
+ */
+function blindCaseBlocks(caseKey, caseLabel, a, b, assign) {
+  const armFor = (label) => (assign[label] === 'A' ? a : b)
+  return {
+    scoring: [
+      '### Report X', '', sectionsBlock(armFor('X'), { hideGates: true }), '',
+      '### Report Y', '', sectionsBlock(armFor('Y'), { hideGates: true }), '',
+      rubricForm(caseKey, BLIND_LABELS),
+    ],
+    key: [
+      `\n---\n\n## Case: ${caseKey} — ${caseLabel}`, '',
+      '| Label | Arm |', '|---|---|',
+      `| Report X | ${armDescription(assign.X)} |`,
+      `| Report Y | ${armDescription(assign.Y)} |`, '',
+      '### Deterministic signals', '', compareBlock(a, b), '',
+      '<details><summary>Arm A output, with the gate findings</summary>\n', sectionsBlock(a), '\n</details>', '',
+      '<details><summary>Arm B output, with the gate findings</summary>\n', sectionsBlock(b), '\n</details>', '',
+    ],
+  }
 }
 
 // ── Main ───────────────────────────────────────────────────────────────
@@ -480,8 +546,14 @@ async function main() {
   const dry = !has('--run')
   const only = val('--case')
   const out = val('--out')
+  const blind = has('--blind')
   const keys = only ? [only] : Object.keys(CASES)
   for (const k of keys) if (!CASES[k]) fail(`unknown case "${k}"; expected one of ${Object.keys(CASES).join(', ')}`)
+
+  // Blinding that prints the key to the same place it prints the prose
+  // is not blinding, and a dry run has no prose to score.
+  if (blind && !out) fail('--blind needs --out: the key is written beside the scoring document, not to stdout')
+  if (blind && dry) fail('--blind needs --run: a dry run produces no prose to score')
 
   // Arm A first, and its hash is a hard requirement: a baseline that can
   // drift is not a baseline.
@@ -502,11 +574,8 @@ async function main() {
   // baseline costs nothing and a run that gets this far is comparable.
   await loadEngine()
 
-  const head = [
-    '# Authoring A/B — plan vs no plan',
-    '',
-    `Run: ${new Date().toISOString()}${dry ? '  ·  **DRY RUN — no provider calls made**' : ''}`,
-    '',
+  const stamp = `Run: ${new Date().toISOString()}${dry ? '  ·  **DRY RUN — no provider calls made**' : ''}`
+  const provenance = [
     '| Arm | Source | Chars | sha256 |',
     '|---|---|---|---|',
     `| A (no plan) | pinned commit \`${ARM_A_COMMIT}\` | ${armA.length} | \`${armAHash.slice(0, 16)}…\` |`,
@@ -517,6 +586,21 @@ async function main() {
       : '> Arm A is read from a commit and hash-checked, so the baseline cannot drift. Arm B\'s hash is recorded, not pinned.',
     '',
   ]
+
+  // In blind mode the provenance table IS the answer — two prompts of
+  // different lengths, one of which is named as the one with the plan —
+  // so it goes to the key and the scoring document never sees it.
+  const head = blind
+    ? ['# Authoring A/B — blind scoring', '', stamp, '',
+      'Two reports per case, labeled **Report X** and **Report Y**. Which arm is which',
+      'is drawn independently for each case and recorded only in the key beside this file.',
+      '',
+      'Score the rubric first. Read the key afterwards.', '']
+    : ['# Authoring A/B — plan vs no plan', '', stamp, '', ...provenance]
+
+  const keyHead = ['# Authoring A/B — key', '', stamp, '', ...provenance,
+    '> Read this only after the rubric is filled in.', '']
+  const keyBody = []
 
   const body = []
   let total = 0
@@ -537,18 +621,39 @@ async function main() {
     }
 
     total += (a.cost_usd || 0) + (b.cost_usd || 0)
+
+    if (blind) {
+      const { scoring, key: keyLines } = blindCaseBlocks(key, fixture.label, a, b, blindAssign())
+      body.push(...scoring)
+      keyBody.push(...keyLines)
+      continue
+    }
+
     body.push('### Deterministic signals', '', compareBlock(a, b), '',
       rubricForm(key),
       '<details><summary>Arm A output</summary>\n', sectionsBlock(a), '\n</details>', '',
       '<details><summary>Arm B output</summary>\n', sectionsBlock(b), '\n</details>', '')
   }
 
-  const tail = ['', '---', '',
-    `Total ${dry ? 'estimated ' : ''}cost: **$${total.toFixed(4)}**`, '',
-    dry ? 'Re-run with `--run` to make the calls.' : 'Fill in the rubric while reading. The deterministic table says what planning COST; only the rubric says what it GAINED.', '']
+  const costLine = `Total ${dry ? 'estimated ' : ''}cost: **$${total.toFixed(4)}**`
+  const tail = blind
+    // The bill is a weak tell — the arm with the longer prompt costs more —
+    // and it belongs with the other numbers anyway.
+    ? ['', '---', '', 'Fill in every rubric before opening the key.', '']
+    : ['', '---', '', costLine, '',
+      dry ? 'Re-run with `--run` to make the calls.'
+        : 'Fill in the rubric while reading. The deterministic table says what planning COST; only the rubric says what it GAINED.', '']
 
   const doc = [...head, ...body, ...tail].join('\n')
-  if (out) { writeFileSync(out, doc); console.log(`ab-authoring: wrote ${out}`) } else console.log(doc)
+  if (!out) { console.log(doc); return }
+
+  writeFileSync(out, doc)
+  console.log(`ab-authoring: wrote ${out}`)
+  if (!blind) return
+
+  const keyPath = keyPathFor(out)
+  writeFileSync(keyPath, [...keyHead, ...keyBody, '', '---', '', costLine, ''].join('\n'))
+  console.log(`ab-authoring: wrote ${keyPath} — do not open it until the rubrics are filled in`)
 }
 
 /**
@@ -558,7 +663,7 @@ async function main() {
  * numbers the whole comparison rests on — see
  * `tests/scripts/ab-authoring.test.ts`.
  */
-export const __eval = { flatten, words, norm, repetition, coverage, zoneKey, rubricForm, sha, RUBRIC, ARM_A_SHA256, ARM_A_COMMIT, WRITABLE }
+export const __eval = { flatten, words, norm, repetition, coverage, zoneKey, rubricForm, sectionsBlock, blindAssign, blindCaseBlocks, keyPathFor, armDescription, sha, RUBRIC, ARM_LABELS, BLIND_LABELS, ARM_A_SHA256, ARM_A_COMMIT, WRITABLE }
 
 // Run only when invoked directly. Importing this file — which the guard
 // test does — must not boot Vite, read git or call a provider.
