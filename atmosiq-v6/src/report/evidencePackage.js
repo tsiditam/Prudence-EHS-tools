@@ -628,6 +628,14 @@ function buildImmutableValues(measurements, findings) {
   return out
 }
 
+/** Cover facts that name the document rather than the assessment. */
+const FINGERPRINT_IGNORED_FACTS = Object.freeze({ ids: ['fact-report-id'], labels: ['Report ID'] })
+
+const namesTheDocument = (fact) => !!fact && (
+  FINGERPRINT_IGNORED_FACTS.ids.includes(str(fact.id))
+  || FINGERPRINT_IGNORED_FACTS.labels.includes(str(fact.label))
+)
+
 /**
  * A stable 32-bit FNV-1a hash of the package's claim-bearing content.
  *
@@ -645,11 +653,40 @@ function buildImmutableValues(measurements, findings) {
  * `version`, `sections` and `immutable_values` are excluded: the first two
  * describe the package's own shape, not the assessment, and the third is a
  * derived index over fields already included.
+ *
+ * The REPORT ID is excluded too, and for a different reason worth stating
+ * because it cost the feature its output. It identifies the document, not the
+ * assessment: two packages describing the same readings, findings and
+ * criteria are the same evidence whatever the document is called, and no
+ * generated sentence changes because the cover page carries a different
+ * number. Left in, it silently disabled the whole capability — an assessment
+ * with no id of its own gets a freshly minted one on EVERY
+ * `assembleRenderModel` call, so the package built at generation and the
+ * package rebuilt at render disagreed on it, the fingerprints differed, and
+ * `isAiSectionsFresh` reported prose as stale the instant it was written. The
+ * sections then fell back to deterministic text with nothing but a "the
+ * assessment changed" note to explain where five credits went. Measured on
+ * the findings demo, which carries no id: two builds of identical content
+ * hashed to b3ce2cbd and 10f20df1.
+ *
+ * It is removed in TWO places, because the id reaches the package twice: as
+ * `report_id`, and as the `Report ID` cover fact inside `facts`. The fact is
+ * dropped rather than blanked so that an assessment with an id and one
+ * without hash identically — blanking would still leave a present-vs-absent
+ * difference between them.
+ *
+ * Nothing else is stripped, deliberately. Every other fact is claim-bearing —
+ * the facility, the survey date, the assessor, the report profile and status
+ * are all things a writer may state and a reader may rely on, and a change to
+ * any of them SHOULD invalidate prose written before it.
  */
 export function fingerprintPackage(pkg) {
   if (!pkg) return null
-  const { version, sections, immutable_values, ...evidence } = pkg
-  const s = stableStringify(evidence)
+  const { version, sections, immutable_values, report_id, ...evidence } = pkg
+  const claimBearing = Array.isArray(evidence.facts)
+    ? { ...evidence, facts: evidence.facts.filter((f) => !namesTheDocument(f)) }
+    : evidence
+  const s = stableStringify(claimBearing)
   let hash = 0x811c9dc5
   for (let i = 0; i < s.length; i++) {
     hash ^= s.charCodeAt(i)
