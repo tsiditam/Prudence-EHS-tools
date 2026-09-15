@@ -1610,10 +1610,26 @@ export function assembleRenderModel(data = {}, opts = {}) {
 
   // Peak-CO2-by-zone bar (walkthrough data).
   const bar = rd.charts.find(c => c.type === 'barCo2ByZone')
+  // NO THRESHOLD LINE, and the reason is the report's own text.
+  //
+  // This chart drew a line at `STD.v.co2.con` (1000 ppm) labeled "ASHRAE 62.1
+  // advisory (1000 ppm)", with a caption reading "against the ASHRAE 62.1
+  // ventilation indicator". `standards.js` documents that constant, in its
+  // own comment, as a NIOSH screening trigger point — not an ASHRAE figure —
+  // and the Methods section of this same report states that ASHRAE 62.1
+  // "prescribes ventilation rates rather than a CO2 limit". The chart
+  // contradicted the paragraph four pages before it and attributed a number
+  // to a standard that does not contain it.
+  //
+  // It is not replaced with another threshold. No canonical criterion in the
+  // registry sets a generic indoor CO2 limit — that is the whole point of the
+  // ASHRAE 62.1 note — so the chart states the measured pattern and nothing
+  // else. `STD.v.co2.con` is untouched and still drives the engine's own
+  // ventilation-indicator logic, where it has a basis.
   const co2Bars = bar && bar.data.length > 1 ? {
     data: bar.data.map(b => ({ zone: b.zone, value: b.value, outcome: OUTCOME_TO_SEV[b.outcome] || 'ok' })),
-    threshold: bar.threshold, thresholdLabel: `ASHRAE 62.1 advisory (${bar.threshold} ppm)`,
-    caption: 'Highest CO2 reading per area against the ASHRAE 62.1 ventilation indicator. Bar color reflects the screening outcome.',
+    threshold: null, thresholdLabel: null,
+    caption: 'Highest CO2 reading recorded in each area. CO2 indexes outdoor-air delivery relative to occupancy; this report applies no generic indoor CO2 limit, and the bars are not compared against one.',
   } : null
 
   // Findings table.

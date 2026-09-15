@@ -169,7 +169,24 @@ export function methodologyBullets(instrument, calibration, measurementTypes = [
     ? `${phrases.length === 1 ? phrases[0] : `${phrases.slice(0, -1).join(', ')} and ${phrases[phrases.length - 1]}`} as recorded per zone`
     : 'readings as recorded per zone'
   return [
-    `${instrument || 'Direct-reading instrumentation'}${calibration ? ` (calibration: ${calibration})` : ''}. Carbon dioxide, carbon monoxide, temperature, relative humidity, fine particulate (PM2.5), and total VOCs captured as available.`,
+    // NO PARAMETER LIST. This sentence used to continue "Carbon dioxide,
+    // carbon monoxide, temperature, relative humidity, fine particulate
+    // (PM2.5), and total VOCs captured as available" — six parameters
+    // attributed, by a hardcoded string, to whatever single instrument the
+    // assessor typed into `ps_inst_iaq`. On the Larkin Hall assessment that
+    // named a TSI Q-Trak 7575 as the source of PM2.5 and TVOC readings while
+    // the QA/QC table three rows below correctly credited a ppbRAE 3000, a
+    // Formaldemeter and a continuous logger. Methods contradicted QA/QC
+    // inside one document, and the contradiction was authored here.
+    //
+    // The instruments are named ONCE, in the QA/QC table in this same
+    // section, which builds each row from the record (`buildQaQc`). This
+    // bullet names the primary meter and points at that table rather than
+    // restating a parameter-to-instrument mapping the assessment record does
+    // not carry. It does not carry one: there is no per-parameter instrument
+    // field, which is a schema gap reported as follow-up work rather than
+    // papered over with a sentence that guesses.
+    `${instrument || 'Direct-reading instrumentation'}${calibration ? ` (calibration: ${calibration})` : ''}. Every instrument documented for this assessment, with its serial number and calibration record, is listed under Quality assurance / quality control below.`,
     `Measurement protocol: ${captured}, taken at occupied breathing-zone height (approx. 1.5 m) and held to stabilization before recording.`,
   ]
 }

@@ -501,7 +501,13 @@ export function buildDemoHchoSensorData() {
     thresholds: { co2: true, rh: true, pm: true },
     graphs: {
       hcho: { include: true, caption: 'Formaldehyde, Room 214, hourly averages 25–31 May 2026. Baseline ≈ 0.037 mg/m³ (0.03 ppm); one 25-hour excursion on 27 May to 0.10–0.13 mg/m³ (0.08–0.11 ppm).' },
-      co2: { include: true, caption: 'CO₂, Room 214. About 840 ppm overnight while the room is slept in, about 600 ppm by day; every reading below the 1,000 ppm advisory.' },
+      // No "below the 1,000 ppm advisory" clause. 1,000 ppm is a NIOSH
+      // screening trigger point (STD.v.co2.con), not an advisory limit and
+      // not an ASHRAE figure, and the report states in Methods that ASHRAE
+      // 62.1 prescribes ventilation rates rather than a CO2 limit. A
+      // hand-written caption asserting a threshold the report declines to
+      // apply is a second reference model living in the fixture.
+      co2: { include: true, caption: 'CO₂, Room 214. About 840 ppm overnight while the room is slept in, about 600 ppm by day, tracking occupancy.' },
       pm: { include: true, caption: 'PM2.5, Room 214. Baseline 2–10 µg/m³ with a one-hour rise to about 30 µg/m³ at 18:00 every day, coincident with the TVOC rise.' },
       tvoc: { include: true, caption: 'TVOC (PID, isobutylene-equivalent), Room 214. Baseline 100–190 ppb with a one-hour rise to 430–480 ppb at 18:00 every day.' },
     },
