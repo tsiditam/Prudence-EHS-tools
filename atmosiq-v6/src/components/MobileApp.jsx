@@ -26,7 +26,7 @@ import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { withAiSections, evidencePackageFor, lockAiSections, applyOverride, removeOverride, isOverridden, applyEdit, removeEdit, isEdited, sectionText, withRequiredLimitations, canRepairSection, recordRepairAttempt, MIN_OVERRIDE_JUSTIFICATION, MIN_SECTION_TEXT } from '../report/aiSections'
+import { withAiSections, evidencePackageFor, lockAiSections, applyOverride, removeOverride, isOverridden, applyEdit, removeEdit, isEdited, sectionText, withRequiredLimitations, canRepairSection, recordRepairAttempt, needsModelRepair, MIN_OVERRIDE_JUSTIFICATION, MIN_SECTION_TEXT } from '../report/aiSections'
 import { checkRenderModel } from '../report/modelConsistency'
 import { detectReportConsistency, asConsistencyRow } from '../engines/integrity/report-consistency.js'
 import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
@@ -2408,7 +2408,7 @@ export default function MobileApp() {
     try { pkg = evidencePackageFor(reportDataForAi()) } catch { pkg = null }
     if (!pkg) { toast.error('That section could not be checked, so nothing was changed.'); return }
     const proposed = withRequiredLimitations(aiSections, key, pkg)
-    if (!proposed) return
+    if (!proposed) { toast.error('The missing limitation could not be resolved against this assessment. Edit the section instead.'); return }
     setSectionRepairError(null)
     setEditDraft({ key, text: proposed, source: 'limitation' })
     trackEvent('ai_section_limitation_proposed', { section: key })
@@ -3913,7 +3913,13 @@ export default function MobileApp() {
                       const limitationMissing = blocked && !kept
                         && ((aiSections.audit && aiSections.audit[key]) || []).some(i => i && i.id === 'limitation-missing')
                       const repairing = repairPhase.key === key && repairPhase.phase !== 'idle'
-                      const repairable = blocked && !kept && canRepairSection(aiSections, key)
+                      // A model call is offered only for a blocker the exact
+                      // fix cannot answer. Where every blocker is a missing
+                      // limitation the deterministic repair covers the row, so
+                      // a second button would buy a wait and nothing else.
+                      const modelRepairable = blocked && !kept && needsModelRepair(aiSections, key)
+                      const repairable = modelRepairable && canRepairSection(aiSections, key)
+                      const repairSpent = modelRepairable && !repairable
                       return (
                         <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5,padding:'10px 0',borderTop: si === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
                           {/* A status dot and the section name in the primary
@@ -3974,7 +3980,13 @@ export default function MobileApp() {
                           {!revising && !repairing && (
                             <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                               {limitationMissing && (
-                                <TactileButton variant="primary" size="sm" pill onClick={()=>addRequiredLimitation(key)}>
+                                /* Neutral, like every other control resting in
+                                   this list. The export is the one primary on
+                                   this tab — the generate button above says so
+                                   and takes the same tone — so the order and
+                                   the amber dot carry the hierarchy here, not
+                                   a filled accent competing with it. */
+                                <TactileButton variant="neutral" size="sm" pill onClick={()=>addRequiredLimitation(key)}>
                                   Add required limitation
                                 </TactileButton>
                               )}
@@ -3988,7 +4000,7 @@ export default function MobileApp() {
                                 {revised ? 'Edit your wording…' : 'Edit this section…'}
                               </TactileButton>
                               {revised && <TactileButton variant="neutral" size="sm" pill onClick={()=>revertSection(key)}>Restore the AI text</TactileButton>}
-                              {blocked && !kept && !repairable && (
+                              {repairSpent && (
                                 <span style={V3.T.captionDim}>Repaired once already — edit it here, or regenerate the sections.</span>
                               )}
                               {blocked && !kept && !editing && (

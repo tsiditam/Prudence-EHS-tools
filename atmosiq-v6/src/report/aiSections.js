@@ -172,6 +172,24 @@ export function lockAiSections(aiSections) {
  */
 export const MAX_REPAIRS_PER_SECTION = 1
 
+/**
+ * Whether this section has a blocker the DETERMINISTIC fix cannot answer.
+ *
+ * The two repairs are not alternatives to choose between. A missing required
+ * limitation has an exact answer already in the package, so where every
+ * blocker is one of those, the deterministic fix covers the row completely
+ * and a model call would add nothing but a second button and a wait.
+ *
+ * Only a blocker counts. A warning does not stop the section reaching the
+ * report, so a row whose blockers are all missing limitations is fully served
+ * by the exact fix even if a warning remains beside it.
+ */
+export function needsModelRepair(aiSections, key) {
+  const issues = (aiSections && aiSections.audit && aiSections.audit[key]) || []
+  return issues.some((i) => i && i.severity === 'blocking' && i.id !== 'limitation-missing')
+}
+
+
 export function repairAttempts(aiSections, key) {
   const n = aiSections && aiSections.repairs ? aiSections.repairs[key] : 0
   return Number.isFinite(n) && n > 0 ? n : 0

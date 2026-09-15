@@ -43,7 +43,7 @@ import { auditNarrative } from '../../src/report/narrativeAudit.js'
 import {
   buildAiSectionsRecord, applyEdit, applyOverride, isOverridden, removeEdit,
   missingLimitations, withRequiredLimitations, sectionText,
-  canRepairSection, recordRepairAttempt, repairAttempts, MAX_REPAIRS_PER_SECTION,
+  canRepairSection, recordRepairAttempt, repairAttempts, MAX_REPAIRS_PER_SECTION, needsModelRepair,
 } from '../../src/report/aiSections.js'
 // @ts-ignore js
 import { repairReportSection } from '../../src/engines/reportSections.js'
@@ -248,5 +248,44 @@ describe('a repair is free, and capped instead of priced', () => {
     const rec = blockedOn(pkg)
     expect(recordRepairAttempt(rec, null as any)).toBe(rec)
     expect(recordRepairAttempt(null as any, 'discussion')).toBeNull()
+  })
+})
+
+describe('the two repairs are not alternatives', () => {
+  it('asks for no model call when the exact fix answers every blocker', () => {
+    const { pkg } = build()
+    const rec = blockedOn(pkg)
+    // The screenshot's case: both blockers are missing limitations, so the
+    // deterministic repair covers the row completely.
+    const blockers = rec.audit.discussion.filter((i: any) => i.severity === 'blocking')
+    expect(blockers.length).toBeGreaterThan(0)
+    expect(blockers.every((i: any) => i.id === 'limitation-missing')).toBe(true)
+    expect(needsModelRepair(rec, 'discussion')).toBe(false)
+  })
+
+  it('asks for one when a blocker the exact fix cannot answer is present', () => {
+    const { pkg } = build()
+    const rec = blockedOn(pkg)
+    const withFigure = applyEdit(rec, 'discussion', {
+      text: `${TVOC_PROSE}\n\nCarbon dioxide reached 4242 ppm, a figure this assessment never recorded.`,
+    }, pkg)
+    const ids = withFigure.audit.discussion.map((i: any) => i.id)
+    expect(ids).toContain('figure-unsupported')
+    expect(needsModelRepair(withFigure, 'discussion')).toBe(true)
+  })
+
+  it('counts blockers only — a warning beside a limitation does not summon one', () => {
+    const rec: any = {
+      audit: { discussion: [
+        { id: 'limitation-missing', severity: 'blocking', message: 'x' },
+        { id: 'style-note', severity: 'warning', message: 'y' },
+      ] },
+    }
+    expect(needsModelRepair(rec, 'discussion')).toBe(false)
+  })
+
+  it('offers nothing for a section with no findings at all', () => {
+    expect(needsModelRepair({ audit: { discussion: [] } } as any, 'discussion')).toBe(false)
+    expect(needsModelRepair(null as any, 'discussion')).toBe(false)
   })
 })

@@ -290,6 +290,16 @@ describe('the lock stops regeneration, not the assessor', () => {
     const fixAt = at('Repair section')
     expect(panel.slice(Math.max(0, fixAt - 300), fixAt)).toContain('repairable')
     expect(panel).toContain('canRepairSection(aiSections, key)')
+    // …and only for a blocker the deterministic fix cannot answer, so the two
+    // repairs never both sit on a row the exact one already covers.
+    expect(panel).toContain('needsModelRepair(aiSections, key)')
+
+    // Nothing resting in this list wears the filled accent. The export is the
+    // one primary on this tab — the generate button above takes the neutral
+    // tone for exactly that reason — so a remedy may not outshout it.
+    const limAt = at('Add required limitation')
+    expect(panel.slice(Math.max(0, limAt - 300), limAt)).toContain('variant="neutral"')
+    expect(panel.slice(Math.max(0, limAt - 300), limAt)).not.toContain('variant="primary"')
 
     // The repair is FREE. AtmosFlow wrote the section and AtmosFlow's check
     // found the problem, so a price on the correction reads as "the AI made a
