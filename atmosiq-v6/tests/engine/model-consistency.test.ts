@@ -76,13 +76,21 @@ describe('every rule bites on a deliberately broken model', () => {
   }
 
   it('site-mean-rank', () => expectRule('site-mean-rank', m => { m.results.rows.find((r: any) => r.id === 'Site mean').sev = 'ok' }))
-  it('summary-scope — "Most areas" over a fully affected table', () => expectRule('summary-scope', m => {
-    m.overallStatement = 'Most areas presented acceptable ventilation, comfort, and air-quality indicators, with 3 items flagged for follow-up.'
-    for (const r of m.results.rows) if (r.id !== 'Site mean' && r.id !== 'Outdoor reference') r.sev = 'elevated'
+  it('summary-scope — a count the findings census does not support', () => expectRule('summary-scope', m => {
+    // The statement claims more affected areas than the census names. The
+    // rule reads the CENSUS, not the six-parameter results table, which is
+    // how its predecessor agreed with the contradiction it should have caught.
+    m.overallStatement = 'Conditions of note were identified in 9 of the 2 areas assessed: A. 3 items are flagged for follow-up.'
   }))
-  it('summary-scope — "Every area" with a clean row', () => expectRule('summary-scope', m => {
-    m.overallStatement = 'Every area assessed presented at least one condition of note, with 3 items flagged for follow-up.'
-    m.results.rows.find((r: any) => r.id === 'Conf 4C').sev = 'ok'
+  it('summary-scope — "Every area" while findings name only one', () => expectRule('summary-scope', m => {
+    m.overallStatement = 'Every area assessed carries at least one condition of note: A.'
+    for (const r of m.findings.rows) { r.zones = ['4th Floor Open Office — North']; r.z = '4th Floor Open Office — North' }
+  }))
+  it('summary-all-clear — the all-clear sentence over a report with findings', () => expectRule('summary-all-clear', m => {
+    // The Larkin Hall contradiction as an invariant: every parameter in the
+    // measurement table was clean while four findings stood in one room, and
+    // the report opened by calling the assessment clean.
+    m.overallStatement = 'All measured parameters were within recognized references during the assessment window. Routine operation and periodic reassessment are appropriate; no corrective action is indicated at this time.'
   }))
   it('summary-finding-orphan', () => expectRule('summary-finding-orphan', m => { m.execSummary.findings.push('4th Floor Open Office — North — Radon 9 pCi/L') }))
   it('citation-missing', () => expectRule('citation-missing', m => { m.findings.rows[0].std = 'ISO 16000-99'; m.findings.rows[0].cite = '' }))

@@ -254,46 +254,76 @@ export function buildExecSummary({
 }
 
 /**
- * The one-paragraph verdict under Findings at a Glance.
+ * The one-paragraph verdict at the top of the report.
  *
- * It used to open "Most areas presented acceptable ventilation, comfort, and
- * air-quality indicators" whenever anything at all was flagged — the only
- * branch was flaggedCount === 0. In a two-zone assessment where BOTH zones
- * read Elevated it still said "Most areas", directly contradicting the table
- * printed immediately above it. A template states the CONDITION; how much of
- * the site is affected is a fact about the data, not a house style.
+ * ── Where its scope comes from, and why that changed ───────────────────
+ * It used to be handed the zones the MEASUREMENT RESULTS TABLE marked. That
+ * table covers six parameters, and the engine finds conditions outside all
+ * six — a formaldehyde reading, an odor, an occupant symptom pattern, a
+ * visible condition. On an assessment where all six were clean in both rooms
+ * while the engine raised four findings in one of them, the `!affected`
+ * branch fired and the report opened with "Measured parameters were within
+ * recognized references across the areas assessed, with 4 items flagged for
+ * follow-up" — a sentence that contradicts its own second half, and the
+ * Discussion section two pages later.
  *
- * `totalZones` is what makes "most" checkable. Absent it the paragraph falls
- * back to naming the affected zones without quantifying the rest, which is
- * the safe reading rather than a guess.
+ * It is now handed the FINDINGS CENSUS: the zones that carry a flagged
+ * finding, and what those findings are about. `flaggedCount` already came
+ * from that census, so the two halves of the sentence now derive from one
+ * source and cannot disagree. There is no branch left that can call an
+ * assessment clean while findings exist — that is the point of the change,
+ * and `modelConsistency.overallStatementMatchesTable` pins it.
+ *
+ * ── What it may and may not say ────────────────────────────────────────
+ * It states WHERE and WHAT, and hands the decision to the sections that own
+ * it. It does not rate the building, does not assert an exposure, and does
+ * not say a condition is acceptable or unacceptable: "warrant further
+ * characterization" is a statement about what the assessment should do next,
+ * which is the one thing a summary is entitled to conclude.
+ *
+ * @param {number} flaggedCount      how many findings the census carries
+ * @param {string[]} attentionZones  the zones those findings name
+ * @param {string[]} attentionSubjects  parameter labels, then "walkthrough
+ *   observations" when any finding rests on the walkthrough. Already ordered.
+ * @param {number} totalZones        areas assessed, so "some" is checkable
  */
-export function buildOverallStatement({ flaggedCount, elevatedZones, totalZones }) {
+export function buildOverallStatement({ flaggedCount, attentionZones = [], attentionSubjects = [], totalZones }) {
   if (!flaggedCount) return 'All measured parameters were within recognized references during the assessment window. Routine operation and periodic reassessment are appropriate; no corrective action is indicated at this time.'
-  const affected = (elevatedZones && elevatedZones.length) || 0
-  const items = `${flaggedCount} item${flaggedCount === 1 ? '' : 's'} flagged for follow-up`
-  // What the report ACTUALLY prints beside each finding is its evidentiary
-  // basis — whether it rests on an instrument reading or on an observation.
-  // This sentence promised a per-finding "confidence rating" for as long as
-  // the findings table has carried a Basis column instead, and the promise is
-  // now read on the first page of the management layer rather than buried
-  // under a parameter table. A summary may not describe a column the document
-  // does not have.
+  const affected = attentionZones.length
+  const items = `${flaggedCount} item${flaggedCount === 1 ? ' is' : 's are'} flagged for follow-up`
+  const zoneList = attentionZones.join(', ')
   const tail = ' Each flagged item states the evidence it rests on; recommended actions follow a verify-before-invest ladder.'
-  const zoneList = affected ? elevatedZones.join(', ') : ''
-  let lead
+
+  // Where. "Most areas were acceptable" is a claim about the areas that are
+  // NOT named, so it is made only when the arithmetic supports it and the
+  // denominator is known.
+  let where
   if (!affected) {
-    // Findings exist but no zone reached an elevated outcome — advisory-tier
-    // conditions only. "Most areas acceptable" is fair here and is the one
-    // case it was ever fair in.
-    lead = `Measured parameters were within recognized references across the areas assessed, with ${items}.`
+    // Findings with no zone between them is a defect upstream, not a clean
+    // building. Say the count and claim nothing about the site.
+    where = `${items.charAt(0).toUpperCase()}${items.slice(1)}.`
   } else if (totalZones && affected >= totalZones) {
-    lead = `Every area assessed presented at least one condition of note, with ${items}. Conditions were found in ${zoneList}.`
-  } else if (totalZones && affected > totalZones / 2) {
-    lead = `Conditions of note were found in ${affected} of the ${totalZones} areas assessed, with ${items}: ${zoneList}.`
+    where = `Every area assessed carries at least one condition of note: ${zoneList}.`
   } else if (totalZones) {
-    lead = `Most areas presented acceptable ventilation, comfort, and air-quality indicators, with ${items}. Conditions of note were concentrated in ${zoneList}.`
+    where = `Conditions of note were identified in ${affected} of the ${totalZones} area${totalZones === 1 ? '' : 's'} assessed: ${zoneList}.`
   } else {
-    lead = `${items.charAt(0).toUpperCase()}${items.slice(1)}. Conditions of note were recorded in ${zoneList}.`
+    where = `Conditions of note were identified in ${zoneList}.`
   }
-  return lead + tail
+
+  // What. Named rather than counted, because a count says how much was found
+  // and not what — the reason the summary stopped closing on one in 2026-09.
+  const subjects = attentionSubjects.length
+    ? `${listOf(attentionSubjects)} warrant${attentionSubjects.length === 1 ? 's' : ''} further characterization, and ${items}.`
+    : (affected ? `${items.charAt(0).toUpperCase()}${items.slice(1)}.` : '')
+  return `${where}${subjects ? ` ${subjects}` : ''}${tail}`
+}
+
+/** "a", "a and b", "a, b and c" — sentence-cased on the first item. */
+function listOf(parts) {
+  const list = (parts || []).filter(Boolean).map(String)
+  if (!list.length) return ''
+  const joined = list.length === 1
+    ? list[0]
+    : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`
+  return joined.charAt(0).toUpperCase() + joined.slice(1)
 }

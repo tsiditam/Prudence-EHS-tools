@@ -336,6 +336,9 @@ export function collectFindings(zoneScores = []) {
           std: r.std || null,
           // Verbatim from the engine finding; absent on an observation-derived
           // finding, which has no criterion behind it by construction.
+          // The engine's parameter id (`co2`, `hcho`, …), for consumers that
+          // need to name what a finding is about. Absent on an observation.
+          parameter: r.p || null,
           criterionId: r.cid || null,
           criterionClass: r.criterionClass || null,
           averaging: r.averaging || null,
@@ -1280,19 +1283,32 @@ function attentionItems(model, chains) {
       if (/^Building-wide/.test(w)) return true
       return item.zones.every(z => z && w.includes(z))
     }
-    // The pathway whose receptor is this row's location. `chains` is the
-    // engine's own output, read the way the conceptual site model reads it;
-    // nothing here weighs or ranks one.
+    // The pathway whose receptor is this row's location — the PRIMARY one,
+    // chosen by the engine's own `pickPrimaryChain`, which `weighChain` ranks
+    // so a measured chain outranks a complaint-only hypothesis.
     //
-    // Two kinds are deliberately not read. A `notEvaluated` chain is the
+    // This used to be `chains.find(...)`, i.e. ARRAY ORDER, and array order is
+    // the order zones were walked and rules happened to fire. On the Larkin
+    // Hall assessment that made the management layer announce "ventilation
+    // deficiency" — a complaint-only hypothesis that happened to be built
+    // first — while the Executive Summary, which has always used
+    // `pickPrimaryChain`, named chemical exposure from a measured
+    // formaldehyde reading and three identified sources. One report, one
+    // room, two different leading hypotheses, decided by list position.
+    //
+    // No second ranking is introduced here: this calls the engine's. The
+    // candidate set is narrowed to the chains that cover this row, and the
+    // engine picks among them.
+    //
+    // Two kinds are deliberately not candidates. A `notEvaluated` chain is the
     // engine stating that pressurization was never assessed — an absence, not
     // a hypothesis about this location, and printing it as one would make a
     // gap look like a lead. A BUILDING-WIDE chain covers every location by
     // construction, so it would print the identical clause on every row of
     // the table; it is stated once, in the Conceptual Site Model and the
     // Executive Summary's conclusion, which is where a reader looks it up.
-    const chain = (chains || []).find(c =>
-      c && !c.notEvaluated && String(c.zone || '') !== 'Building-wide' && coversAll(c.zone))
+    const chain = pickPrimaryChain((chains || []).filter(c =>
+      c && !c.notEvaluated && String(c.zone || '') !== 'Building-wide' && coversAll(c.zone))) || null
     // The action already in the register for this location: most urgent
     // first, then the one scoped most tightly to this row. A building-wide
     // action applies everywhere, so it competes on urgency rather than being
@@ -1563,6 +1579,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
     // Criterion provenance, carried from the engine through collectFindings.
     // No renderer prints these; the management projection and the consistency
     // rules read them, which is why they are on the row rather than recomputed.
+    parameter: f.parameter || null,
     criterionId: f.criterionId || null,
     criterionClass: f.criterionClass || null,
     averaging: f.averaging || null,
@@ -1681,16 +1698,35 @@ export function assembleRenderModel(data = {}, opts = {}) {
   else photos = { intro: 'No project photographs were uploaded.', items: [] }
 
   const flagged = rd.findings.length
-  // The zones the overall statement names are the zones the results table
-  // marks: any zone row whose governing outcome is advisory or worse. Until
-  // 2026-09 this counted only zones with a critical/high FINDING, so a site
-  // whose rows mostly carried advisory outcomes read "Most areas presented
-  // acceptable…" directly above a table that said otherwise — the exact
-  // disagreement modelConsistency's `summary-scope` rule exists to catch,
-  // and one it caught on ordinary data the moment a fixture had three zones.
-  const elevatedZones = resultsRows
-    .filter(r => r.id !== 'Site mean' && r.id !== 'Outdoor reference' && r.sev !== 'ok' && r.sev !== 'not_evaluated' && r.sev !== 'reference')
-    .map(r => r.id)
+  // ── The overall statement's scope comes from the FINDINGS CENSUS ────────
+  //
+  // It used to come from the Measurement Results table: any zone row whose
+  // governing outcome was advisory or worse. That table covers six
+  // parameters, and the engine finds conditions outside all six — a
+  // formaldehyde reading (not a column), an odor, an occupant symptom
+  // pattern, a visible condition. On the Larkin Hall assessment every one of
+  // the six was clean in both rooms while the engine raised four findings in
+  // Room 214, so the table said nothing was affected and the summary
+  // announced "Measured parameters were within recognized references across
+  // the areas assessed, with 4 items flagged for follow-up" — a sentence that
+  // contradicts itself and the Discussion section below it.
+  //
+  // The census is the canonical record of what the engine concluded, and it
+  // is already what `flaggedCount` counts. Reading the scope from the same
+  // place makes the two halves of one sentence agree by construction rather
+  // than by coincidence. Nothing is scored here: `rd.findings` is
+  // `collectFindings`, already folded, already severity-ranked.
+  const attentionZones = [...new Set(rd.findings.flatMap(f => f.zones || [f.zone]).filter(Boolean))]
+    .sort((a, b) => String(a).localeCompare(String(b)))
+  // What the flagged items are ABOUT, for a summary that says more than a
+  // count: the measured parameters that produced a finding, then whether any
+  // finding rests on the walkthrough rather than an instrument. Both are read
+  // off the finding rows; neither is a judgement made here.
+  const attentionSubjects = [
+    ...[...new Set(rd.findings.map(f => f.parameter).filter(Boolean))]
+      .map(p => PARAM_LABEL[p] || p),
+    ...(rd.findings.some(f => !f.parameter) ? ['walkthrough observations'] : []),
+  ]
 
   // ONE call, read by both the executive summary's next-step sentence and the
   // Action Plan. It used to be built twice from the same input — equal, but
@@ -1771,7 +1807,12 @@ export function assembleRenderModel(data = {}, opts = {}) {
     findingsAtGlance,
     showSeverityLegend: true,
     severityLegendNote: NL.SEVERITY_LEGEND_NOTE,
-    overallStatement: NL.buildOverallStatement({ flaggedCount: flagged, elevatedZones, totalZones: rd.projectSummary.numberOfZones }),
+    overallStatement: NL.buildOverallStatement({
+      flaggedCount: flagged,
+      attentionZones,
+      attentionSubjects,
+      totalZones: rd.projectSummary.numberOfZones,
+    }),
     scope: {
       paras: [
         `The assessment covered ${rd.projectSummary.numberOfZones} zone${rd.projectSummary.numberOfZones === 1 ? '' : 's'} at ${meta.facilityName}${rd.projectSummary.buildingDescription ? ` (${rd.projectSummary.buildingDescription})` : ''}${rd.projectSummary.hvacDescription ? `, served by ${rd.projectSummary.hvacDescription}` : ''}. ${rd.projectSummary.assessmentPurpose ? `The assessment was prompted by ${String(rd.projectSummary.assessmentPurpose).toLowerCase()}.` : ''}`.trim(),

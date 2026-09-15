@@ -54,25 +54,48 @@ function siteMeanNotBetterThanZones(M) {
   return []
 }
 
-/** The overall statement's scope claim must match how many zones are affected. */
-function overallStatementMatchesTable(M) {
+/**
+ * The overall statement may not represent the assessment as clean while the
+ * report carries a finding, and its scope claim must match the census.
+ *
+ * This rule used to compare the statement against the MEASUREMENT RESULTS
+ * TABLE, which is how it missed the defect it most needed to catch: that
+ * table covers six parameters, the engine finds conditions outside all six,
+ * and on an assessment where every one of the six was clean while four
+ * findings stood in one room, the statement announced "Measured parameters
+ * were within recognized references across the areas assessed, with 4 items
+ * flagged for follow-up" and this rule agreed with it. Both were reading the
+ * same incomplete source.
+ *
+ * It now reads the FINDINGS CENSUS — the canonical record of what the engine
+ * concluded — so the rule and the statement can only agree when the statement
+ * is right about the whole report rather than about one table.
+ */
+function overallStatementMatchesCensus(M) {
   const text = String(M.overallStatement || '')
   if (!text) return []
-  const rows = ((M.results && M.results.rows) || []).filter(r => r.id !== 'Site mean' && r.id !== 'Outdoor reference')
-  if (!rows.length) return []
-  const affected = rows.filter(r => rank(r.sev) >= RANK.advisory).length
+  const rows = (M.findings && M.findings.rows) || []
   const out = []
-  if (/Most areas presented acceptable/.test(text) && affected * 2 > rows.length) {
-    out.push(issue('summary-scope', 'Overall statement',
-      `"Most areas presented acceptable…" while ${affected} of ${rows.length} zone rows carry a finding. The statement and the table disagree about how much of the site is affected.`))
+  // The all-clear sentence, over a report that carries findings. This is the
+  // Larkin Hall contradiction, stated as an invariant.
+  if (!rows.length) return out
+  if (/\bAll measured parameters were within recognized references\b/.test(text)
+      || /\bno corrective action is indicated\b/i.test(text)) {
+    out.push(issue('summary-all-clear', 'Overall statement',
+      `The overall statement reads as an all-clear while the report carries ${rows.length} finding(s). A summary may not describe the assessment as clean when the findings census contradicts it.`))
   }
-  if (/Every area assessed presented/.test(text) && affected < rows.length) {
+  const zones = new Set(rows.flatMap(r => r.zones || [r.z]).filter(Boolean))
+  const tableZones = ((M.results && M.results.rows) || [])
+    .filter(r => r.id !== 'Site mean' && r.id !== 'Outdoor reference').length
+  const affected = zones.size
+  if (/Every area assessed carries/.test(text) && tableZones && affected < tableZones) {
     out.push(issue('summary-scope', 'Overall statement',
-      `"Every area assessed presented at least one condition of note" while ${rows.length - affected} zone row(s) carry none.`))
+      `"Every area assessed carries at least one condition of note" while findings name only ${affected} of ${tableZones} areas.`))
   }
-  if (/within recognized references/.test(text) && affected > 0 && !/flagged for follow-up/.test(text)) {
+  const m = /identified in (\d+) of the (\d+) area/.exec(text)
+  if (m && Number(m[1]) !== affected) {
     out.push(issue('summary-scope', 'Overall statement',
-      'The statement reads as an all-clear while the results table carries a finding.'))
+      `The statement says ${m[1]} area(s) carry conditions of note; the findings census names ${affected}.`))
   }
   return out
 }
@@ -284,7 +307,7 @@ function registerTimeframeAgrees(M) {
 
 const RULES = [
   siteMeanNotBetterThanZones,
-  overallStatementMatchesTable,
+  overallStatementMatchesCensus,
   summaryFindingsInTable,
   citationsResolve,
   registerComplete,
@@ -312,7 +335,7 @@ export function checkRenderModel(model) {
 
 /** The rule ids, for tests that assert every rule is exercised. */
 export const RULE_IDS = [
-  'site-mean-rank', 'summary-scope', 'summary-finding-orphan', 'citation-missing', 'citation-number',
+  'site-mean-rank', 'summary-scope', 'summary-all-clear', 'summary-finding-orphan', 'citation-missing', 'citation-number',
   'reference-orphan', 'register-location', 'register-owner', 'register-evidence', 'register-action', 'register-timeframe',
   'qa-tvoc', 'qa-tvoc-limitation', 'qa-hcho-limitation', 'observation-verdict',
   'limitation-photos', 'limitation-logger', 'gap-undisclosed', 'floorplan-pin', 'conclusion-vs-site-model',

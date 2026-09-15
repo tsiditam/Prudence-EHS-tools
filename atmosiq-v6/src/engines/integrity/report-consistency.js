@@ -100,6 +100,10 @@ export const WHY_IT_MATTERS = Object.freeze({
 export const RENDER_RULE_MAP = Object.freeze({
   'site-mean-rank': { issue_type: 'contradiction', severity: 'warning', kind: 'section' },
   'summary-scope': { issue_type: 'contradiction', severity: 'warning', kind: 'section' },
+  // The summary reads as an all-clear while the findings census says
+  // otherwise. A contradiction between two sections of one document, which is
+  // what this layer exists to surface.
+  'summary-all-clear': { issue_type: 'contradiction', severity: 'warning', kind: 'section' },
   'summary-finding-orphan': { issue_type: 'contradiction', severity: 'warning', kind: 'finding' },
   'citation-missing': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'finding' },
   'citation-number': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'finding' },

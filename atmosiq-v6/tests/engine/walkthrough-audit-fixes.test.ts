@@ -117,16 +117,20 @@ describe('the report does not contradict its own results table', () => {
     expect(RANK[mean.sev]).toBeGreaterThanOrEqual(worstZone)
   })
 
-  it('"Most areas" is not claimed when every area is affected', () => {
-    expect(buildOverallStatement({ flaggedCount: 16, elevatedZones: ['A', 'B'], totalZones: 2 }))
-      .not.toMatch(/Most areas/)
-    expect(buildOverallStatement({ flaggedCount: 16, elevatedZones: ['A', 'B'], totalZones: 2 }))
-      .toMatch(/Every area assessed/)
+  it('a whole-site claim is not made when every area is affected', () => {
+    // `elevatedZones` became `attentionZones` in 2026-09: the scope comes
+    // from the findings census rather than the six-parameter results table,
+    // which could not see a formaldehyde or observation finding at all.
+    const every = buildOverallStatement({ flaggedCount: 16, attentionZones: ['A', 'B'], attentionSubjects: ['CO₂'], totalZones: 2 })
+    expect(every).toMatch(/Every area assessed carries/)
+    expect(every).not.toMatch(/Most areas/)
   })
 
-  it('"Most areas" survives where it is actually true', () => {
-    expect(buildOverallStatement({ flaggedCount: 2, elevatedZones: ['A'], totalZones: 6 }))
-      .toMatch(/Most areas/)
+  it('names the affected areas against a known denominator when some are clean', () => {
+    const some = buildOverallStatement({ flaggedCount: 2, attentionZones: ['A'], attentionSubjects: ['CO₂'], totalZones: 6 })
+    expect(some).toMatch(/identified in 1 of the 6 areas assessed: A\./)
+    // And it never reads as an all-clear while findings exist.
+    expect(some).not.toMatch(/no corrective action is indicated/)
   })
 
   it('the methodology bullet does not assert an averaging period the zones contradict', () => {
