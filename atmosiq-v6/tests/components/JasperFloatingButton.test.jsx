@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
-import JasperFloatingButton, { clampToViewport, scrollOffsetOf } from '../../src/components/JasperFloatingButton'
+import JasperFloatingButton, { clampToViewport, scrollOffsetOf, launcherSafeArea, LAUNCHER_SIZE, LAUNCHER_CONTENT_GAP, LAUNCHER_ANCHOR_BOTTOM } from '../../src/components/JasperFloatingButton'
 import { KEYS } from '../../src/utils/storageKeys'
 
 // jsdom gives every element a zero-size rect, so a pointerdown at (x, y)
@@ -238,6 +238,40 @@ describe('JasperFloatingButton', () => {
       window.localStorage.setItem(KEYS.jasperButtonPos, '{ not json')
       render(<JasperFloatingButton onClick={() => {}} />)
       expect(screen.getByRole('button', { name: 'AtmosFlow AI' }).style.right).toBe('16px')
+    })
+  })
+
+  describe('launcherSafeArea', () => {
+    // The launcher is fixed, so content scrolls underneath it and whatever
+    // the scroll comes to REST on stays underneath it, unreachable. Measured
+    // on a 390x844 phone before this was reserved: the report footer sat
+    // under the launcher at the bottom of the Findings, Report and Actions
+    // tabs alike. The content surface reserves this much scrollable end.
+    it('reserves the launcher, its anchor offset and a gap, above the safe-area inset', () => {
+      expect(launcherSafeArea()).toBe(
+        `calc(env(safe-area-inset-bottom, 0px) + ${LAUNCHER_ANCHOR_BOTTOM + LAUNCHER_SIZE + LAUNCHER_CONTENT_GAP}px)`)
+      expect(launcherSafeArea()).toBe('calc(env(safe-area-inset-bottom, 0px) + 138px)')
+    })
+
+    it('tracks a different anchor offset, so the two can never disagree', () => {
+      expect(launcherSafeArea(24)).toBe('calc(env(safe-area-inset-bottom, 0px) + 84px)')
+    })
+
+    it('clears the launcher: the reservation exceeds its anchor plus its height', () => {
+      // Stated as a property rather than a number, so a resize of the disc or
+      // a move of the anchor cannot silently leave content underneath.
+      const px = Number(launcherSafeArea().match(/\+ (\d+)px/)[1])
+      expect(px).toBeGreaterThan(LAUNCHER_ANCHOR_BOTTOM + LAUNCHER_SIZE)
+    })
+
+    it('rests at the anchor the reservation is measured from', () => {
+      render(<JasperFloatingButton onClick={() => {}} />)
+      const btn = screen.getByRole('button', { name: 'AtmosFlow AI' })
+      expect(btn.style.right).toBe('16px')
+      // jsdom's CSS parser reorders and mangles `env()`, so assert what the
+      // declaration SAYS rather than its exact text.
+      expect(btn.style.bottom).toContain('safe-area-inset-bottom')
+      expect(btn.style.bottom).toContain(`${LAUNCHER_ANCHOR_BOTTOM}px`)
     })
   })
 

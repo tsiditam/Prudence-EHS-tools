@@ -33,6 +33,45 @@ import { useEffect, useRef, useState } from 'react'
 import JasperBrainIcon from './JasperBrainIcon'
 import { KEYS } from '../utils/storageKeys'
 
+// The launcher's own footprint, exported because the SCROLLING CONTENT has
+// to reserve room for it.
+//
+// The launcher is `position: fixed`, so content scrolls underneath it and
+// whatever the scroll comes to rest on stays underneath it — permanently,
+// because there is nothing further to scroll. Measured on a 390x844 phone
+// before this was reserved: at the bottom of the Findings, Report and
+// Actions tabs alike, the launcher covered the report's own footer block
+// (the facility name and street address), and on the Report tab at the top
+// of the scroll it covered the "Client name missing" readiness blocker and
+// the first line of its explanation.
+//
+// The remedy is a SAFE AREA, not a moving button. The anchor below stays
+// exactly where it is — bottom-right, one place, every screen — and the
+// content surface pads its scrollable end by the launcher's height plus a
+// gap, on top of the bottom-dock clearance the screens already carry. A
+// launcher that dodged content would be less predictable, not more: it
+// would move for reasons the reader cannot see and would not be where they
+// reached for it last time.
+export const LAUNCHER_SIZE = 48
+/** Clear space kept between the last line of content and the launcher. */
+export const LAUNCHER_CONTENT_GAP = 12
+/** Where the resting anchor puts the launcher's foot, above the safe-area inset. */
+export const LAUNCHER_ANCHOR_BOTTOM = 78
+
+/**
+ * The scroll-end padding that keeps content clear of the launcher.
+ *
+ * Measured from the VIEWPORT BOTTOM rather than added as a delta on top of
+ * whatever each screen already pads, because those paddings differ per tab:
+ * a delta large enough for the Report tab left text under the launcher on
+ * Pathways and Actions. Padding accumulates, so an absolute reservation is
+ * a guarantee — the content box can end no lower than this — where a delta
+ * is only a guess about every screen at once.
+ */
+export function launcherSafeArea(bottomOffset = LAUNCHER_ANCHOR_BOTTOM) {
+  return `calc(env(safe-area-inset-bottom, 0px) + ${bottomOffset + LAUNCHER_SIZE + LAUNCHER_CONTENT_GAP}px)`
+}
+
 // Keep-on-screen inset used when clamping a dragged position.
 const EDGE_MARGIN = 8
 // Pointer travel (px) that turns a tap into a drag, so moving the button
@@ -100,7 +139,7 @@ export function scrollOffsetOf(target) {
   return Math.min(Math.max(0, y), max)
 }
 
-export default function JasperFloatingButton({ onClick, active, label = 'AtmosFlow AI', bottomOffset = 78 }) {
+export default function JasperFloatingButton({ onClick, active, label = 'AtmosFlow AI', bottomOffset = LAUNCHER_ANCHOR_BOTTOM }) {
   // Instagram-style scroll response: shrink while scrolling down, grow back
   // when scrolling up or near the top.
   const [shrunk, setShrunk] = useState(false)
@@ -134,7 +173,7 @@ export default function JasperFloatingButton({ onClick, active, label = 'AtmosFl
     }
   }, [])
 
-  const size = shrunk ? 40 : 48
+  const size = shrunk ? 40 : LAUNCHER_SIZE
   const glyph = shrunk ? 17 : 22
   // The aura keeps one extent whatever the disc is doing. It used to track
   // `size`, which resized the masked span in a single step while the disc

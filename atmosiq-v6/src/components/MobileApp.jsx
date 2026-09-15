@@ -58,7 +58,7 @@ import GlassCard from './ui/GlassCard'
 import { clickable } from './ui/a11y'
 import AssessmentSegmentedPillNav from './ui/AssessmentSegmentedPillNav'
 import AtmosFlowFloatingDock from './ui/AtmosFlowFloatingDock'
-import JasperFloatingButton from './JasperFloatingButton'
+import JasperFloatingButton, { launcherSafeArea } from './JasperFloatingButton'
 import AnimatedPageTransition from './ui/AnimatedPageTransition'
 import FeedbackSheet from './ui/FeedbackSheet'
 import FeedbackButton from './ui/FeedbackButton'
@@ -4673,6 +4673,15 @@ export default function MobileApp() {
   const dtcq = dtVis[dqi]
   const zcq = zVis[zqi]
   const isAssessing = ['quickstart','zone','details'].includes(view)
+  // Whether the floating AtmosFlow AI launcher is on screen. Read twice: once
+  // to render it, and once by the content surface, which reserves the launcher
+  // a protected safe area at the end of its scroll so nothing readable comes
+  // to rest underneath it (see LAUNCHER_SAFE_AREA). The two must agree — a
+  // reserved gap with no launcher is dead space, and a launcher with no
+  // reserved gap is the overlap this fixes.
+  const jasperLauncherVisible = !isAssessing && !milestone && userMode !== 'fm' && !isDesktop
+  // One number for the anchor and for the space reserved under it.
+  const jasperLauncherOffset = isDesktop ? 24 : 78
   // What the header back pill names — the screen one tap returns to.
   const backLabel = (() => {
     const dest = nav.backView
@@ -5020,7 +5029,12 @@ export default function MobileApp() {
       className={profile && showHomeMenu ? 'af-content-surface is-open' : 'af-content-surface'}
       onTouchStart={onShellTouchStart}
       onTouchEnd={onShellTouchEnd}
-      style={{minHeight:V3.FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: railW, paddingRight: aiW}}>
+      style={{minHeight:V3.FULL_VH,background:BG,color:TEXT,fontFamily:"'inherit', system-ui, sans-serif",paddingLeft: railW, paddingRight: aiW,
+        // The launcher's protected safe area: the scroll ends above the
+        // launcher's top edge, so nothing readable and nothing tappable comes
+        // to REST underneath it on any tab. On the screens that hide the
+        // launcher there is nothing to clear and nothing is reserved.
+        paddingBottom: jasperLauncherVisible ? launcherSafeArea(jasperLauncherOffset) : undefined}}>
       {/* Global offline banner — sits above the header so the
           offline state is impossible to miss. PendingSyncIndicator
           below stays as the source-of-truth for queue depth + last
@@ -6505,10 +6519,10 @@ export default function MobileApp() {
           bottom-right edge. Rendered outside the dock's !isDesktop gate so it
           appears in both layouts. Consultant mode only, and hidden during the
           assessment / milestone flows just like the dock. */}
-      {!isAssessing && !milestone && userMode !== 'fm' && !isDesktop && (
+      {jasperLauncherVisible && (
         <JasperFloatingButton
           active={faOpen}
-          bottomOffset={isDesktop ? 24 : 78}
+          bottomOffset={jasperLauncherOffset}
           onClick={() => { haptic('light'); supabase && trackEvent('jasper_open', { source: 'floating_button' }); setFaOpen(true) }}
         />
       )}
