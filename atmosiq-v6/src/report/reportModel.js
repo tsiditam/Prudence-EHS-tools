@@ -305,6 +305,19 @@ export function collectFindings(zoneScores = []) {
         // zone, carried no information, and disagreed with the measurement-
         // confidence breakdown the app showed on the same assessment.
         const basis = r.qualitative_only ? 'Qualitative' : (r.p ? 'Measured' : 'Observed')
+        // The criterion provenance the engine already stamped on the finding
+        // (`criterionFields` in scoring.js). It was computed, carried as far as
+        // the engine finding, and then dropped here — so the client report
+        // printed "above the NIOSH REL of 0.016 ppm, which is a 10-hour
+        // time-weighted average" with no way for any downstream layer to know
+        // that a 15-minute walkthrough reading CANNOT settle that comparison.
+        // `determinative` is the flag that says so, and it is false here.
+        //
+        // Nothing is re-derived: these are read off the finding verbatim. What
+        // changes is that they survive the projection, which is what lets the
+        // management layer distinguish "numerically above a reference value"
+        // from "demonstrated exceedance of that reference's averaging-period
+        // exposure limit" without inventing a second opinion about either.
         // JSON rather than a joined string: a separator can appear inside a
         // finding sentence, and two different findings must never collide
         // into one row.
@@ -321,6 +334,15 @@ export function collectFindings(zoneScores = []) {
           severity: r.sev,
           text: r.t,
           std: r.std || null,
+          // Verbatim from the engine finding; absent on an observation-derived
+          // finding, which has no criterion behind it by construction.
+          criterionId: r.cid || null,
+          criterionClass: r.criterionClass || null,
+          averaging: r.averaging || null,
+          // `null` where the engine stamped nothing, so a consumer can tell
+          // "no criterion applied" from "the comparison is not settled".
+          determinative: typeof r.determinative === 'boolean' ? r.determinative : null,
+          evidenceBasis: r.evidenceBasis || null,
           // The ZONE's confidence, kept for consumers that want it. It is not
           // a property of this finding and the report no longer prints it as
           // one — see `basis` above.
@@ -1538,6 +1560,14 @@ export function assembleRenderModel(data = {}, opts = {}) {
     // `std` rides along so modelConsistency can check the citation resolves;
     // the renderer prints `cite`.
     f: f.text, std: f.std || null, cite: cite(f.std),
+    // Criterion provenance, carried from the engine through collectFindings.
+    // No renderer prints these; the management projection and the consistency
+    // rules read them, which is why they are on the row rather than recomputed.
+    criterionId: f.criterionId || null,
+    criterionClass: f.criterionClass || null,
+    averaging: f.averaging || null,
+    determinative: typeof f.determinative === 'boolean' ? f.determinative : null,
+    evidenceBasis: f.evidenceBasis || null,
   }))
 
   // Conceptual site model + hypotheses from the primary causal chain.
