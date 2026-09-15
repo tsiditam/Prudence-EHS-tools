@@ -53,6 +53,7 @@
 import { useMemo, useState } from 'react'
 import * as V3 from '../../styles/tokens'
 import AiAction from '../ui/AiAction'
+import JasperActivity, { JASPER_REVEAL_CLASS } from '../ui/JasperActivity'
 import InlineError from '../ui/InlineError'
 import StatusPill from '../ui/StatusPill'
 import { buildForensicBundle, forensicFreshness } from '../../utils/forensicBundle'
@@ -209,13 +210,17 @@ const RowAction = ({ onClick, children, tone }) => (
 )
 
 /** Jasper's reading of one pattern. Words, with the missing context named. */
-function Reading({ item, pattern, row, onAccept, onDismiss, onReopen }) {
+function Reading({ item, pattern, row, onAccept, onDismiss, onReopen, arriving = false }) {
   const gaps = new Map((pattern.missingContext || []).map((m) => [m.id, m]))
   const named = (item.missing_context_ids || []).map((id) => gaps.get(id)).filter(Boolean)
   const status = row ? row.status : 'unreviewed'
   const notes = row && status === 'accepted' ? row.ineligible : []
   return (
-    <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: `2px solid ${V3.BORDER_ACCENT}` }} data-testid="forensic-reading">
+    <div
+      // A reading that has just been produced eases in as the activity
+      // status eases out; one reopened from storage simply renders.
+      className={arriving ? JASPER_REVEAL_CLASS : undefined}
+      style={{ marginTop: 10, paddingLeft: 12, borderLeft: `2px solid ${V3.BORDER_ACCENT}` }} data-testid="forensic-reading">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={V3.T.bodyStrong}>{item.title}</div>
         <StatusPill tone={IMPORTANCE_TONE[item.importance] || V3.STATUS.draft}>{IMPORTANCE_LABELS[item.importance] || item.importance}</StatusPill>
@@ -286,7 +291,13 @@ function Reading({ item, pattern, row, onAccept, onDismiss, onReopen }) {
  * @param {Function} [props.generate] injection seam; defaults to the real generation path
  */
 export default function ForensicsPanel({ env, calibrationGas = '', zones = [], investigation = null, onPersist, onReview, onNavigate, generate = generateForensicInterpretation }) {
-  const [busy, setBusy] = useState(false)
+  // What Jasper is doing at the foot of the panel: nothing, reading, or
+  // finishing. `done` and `failed` are the moment between the answer
+  // arriving and the activity status having faded — the status owns that
+  // exit and reports when it is over. The request itself is one round trip
+  // with no intermediate stages, so the status keeps its own time.
+  const [phase, setPhase] = useState('idle')
+  const busy = phase !== 'idle'
   const [error, setError] = useState(null)
   // Which patterns have their occurrence list open. Keyed by pattern id so a
   // re-analysis that keeps a pattern keeps its list open too.
@@ -316,15 +327,16 @@ export default function ForensicsPanel({ env, calibrationGas = '', zones = [], i
   const acceptedCount = rows.filter((r) => r.eligible).length
 
   const run = async () => {
-    setBusy(true); setError(null)
+    setPhase('reading'); setError(null)
+    let produced = false
     try {
       const r = await generate(input)
-      if (r && r.record) onPersist(r.record)
+      if (r && r.record) { onPersist(r.record); produced = true }
       if (r && r.error) setError(r.error)
     } catch {
       setError('This session could not be interpreted. Please try again.')
     } finally {
-      setBusy(false)
+      setPhase(produced ? 'done' : 'failed')
     }
   }
 
@@ -377,7 +389,7 @@ export default function ForensicsPanel({ env, calibrationGas = '', zones = [], i
             // anyone should be able to make by mistake.
             const reading = item && (
               <Reading
-                item={item} pattern={p} row={row}
+                item={item} pattern={p} row={row} arriving={busy}
                 onAccept={stale || !onReview ? null : () => accept(row)}
                 onDismiss={() => dismiss(row)}
                 onReopen={() => reopen(row)}
@@ -444,12 +456,20 @@ export default function ForensicsPanel({ env, calibrationGas = '', zones = [], i
                 ? `AI-assisted reading — verify before use. The figures above come from the analysis; the reading is an interpretation of them. ${acceptedCount ? `${acceptedCount} accepted for the monitoring report.` : 'Nothing enters the monitoring report until you accept it.'}`
                 : 'Jasper reads the patterns above and says what each is consistent with, what it cannot separate, and what would settle it. It states no figures; those stay on the evidence lines.'}
             </div>
-            <AiAction
-              label={busy ? 'Reading…' : stored ? 'Read again' : 'Read the patterns'}
-              title={busy ? 'Reading the patterns' : 'Ask Jasper to read the patterns'}
-              disabled={busy}
-              onClick={run}
-            />
+            {busy ? (
+              <JasperActivity
+                context="logger-forensics"
+                active={phase === 'reading'}
+                brighten={phase === 'done'}
+                onSettled={() => setPhase('idle')}
+              />
+            ) : (
+              <AiAction
+                label={stored ? 'Read again' : 'Read the patterns'}
+                title="Ask Jasper to read the patterns"
+                onClick={run}
+              />
+            )}
           </div>
         </div>
       )}
