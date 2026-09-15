@@ -266,7 +266,13 @@ describe('the lock stops regeneration, not the assessor', () => {
     }
     // Regeneration, on the other hand, must stay locked.
     expect(app).toMatch(/!aiSectionsLocked[\s\S]{0,200}Regenerate report sections|Regenerate report sections[\s\S]{0,200}/)
-    expect(app).toMatch(/!reportSectionsLoading && !aiSectionsLocked/)
+    // …and must not be offered while a generation is under way. The flag is
+    // `reportSectionsBusy`, not `reportSectionsLoading`: the Jasper activity
+    // status owns the moment between the sections arriving and the status
+    // having faded, and the button must not reappear underneath it. Busy is
+    // a superset of loading, so this guard only ever got stronger.
+    expect(app).toMatch(/!reportSectionsBusy && !aiSectionsLocked/)
+    expect(app).toMatch(/const reportSectionsBusy = reportSectionsLoading \|\|/)
   })
 
   it('a finalized report can still be edited and overridden', () => {

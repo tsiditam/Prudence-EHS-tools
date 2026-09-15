@@ -14,6 +14,9 @@ import JasperActivity, {
   JASPER_ACTIVITY_CONTEXTS, JASPER_ACTIVITY_STAGES, JASPER_ACTIVITY_TIMING,
 } from '../../src/components/ui/JasperActivity'
 
+const CONTEXTS = Object.keys(JASPER_ACTIVITY_CONTEXTS)
+const phrasesOf = (c) => [...c.sequence, ...c.loop, ...Object.values(c.phrases || {})]
+
 const ctx = JASPER_ACTIVITY_CONTEXTS['logger-forensics']
 const phrase = () => screen.getByTestId('jasper-activity-phrase').textContent
 const tick = (ms) => act(() => { vi.advanceTimersByTime(ms) })
@@ -124,5 +127,90 @@ describe('completion', () => {
     render(<JasperActivity context="logger-forensics" active={false} onSettled={onSettled} />)
     tick(0)
     expect(onSettled).toHaveBeenCalledTimes(1)
+  })
+})
+
+
+describe('every registered context', () => {
+  it('covers the four Jasper surfaces', () => {
+    expect(CONTEXTS).toEqual(
+      expect.arrayContaining(['logger-forensics', 'report-narrative', 'report-sections', 'assistant']),
+    )
+  })
+
+  it('names the work rather than the machine', () => {
+    for (const key of CONTEXTS) {
+      const c = JASPER_ACTIVITY_CONTEXTS[key]
+      expect(c.announce, key).toMatch(/\.$/)
+      expect(c.sequence.length, key).toBeGreaterThan(2)
+      expect(c.loop.length, key).toBeGreaterThan(1)
+      for (const p of phrasesOf(c)) {
+        expect(p, `${key}: ${p}`).toMatch(/…$/)
+        expect(p, `${key}: ${p}`).not.toMatch(/^(Thinking|Working|Loading|Please wait|Doing magic|AI is analyzing|Generating insights)/i)
+      }
+    }
+  })
+
+  it('never reopens with the first phrase once the sequence is spent', () => {
+    for (const key of CONTEXTS) {
+      const c = JASPER_ACTIVITY_CONTEXTS[key]
+      expect(c.loop, key).not.toContain(c.sequence[0])
+    }
+  })
+
+  it('walks each context in its own words', () => {
+    for (const key of CONTEXTS) {
+      const c = JASPER_ACTIVITY_CONTEXTS[key]
+      const { unmount } = render(<JasperActivity context={key} />)
+      expect(phrase(), key).toBe(c.sequence[0])
+      tick(JASPER_ACTIVITY_TIMING.phraseMs)
+      expect(phrase(), key).toBe(c.sequence[1])
+      unmount()
+    }
+  })
+})
+
+describe('a caller with live status text', () => {
+  it('shows the text it is given and runs no timer', () => {
+    const { rerender } = render(<JasperActivity context="assistant" phrase="Searching the standards corpus…" />)
+    expect(phrase()).toBe('Searching the standards corpus…')
+    tick(JASPER_ACTIVITY_TIMING.phraseMs * 3)
+    expect(phrase()).toBe('Searching the standards corpus…')
+    rerender(<JasperActivity context="assistant" phrase="Analyzing the attached photo…" />)
+    expect(phrase()).toBe('Analyzing the attached photo…')
+  })
+
+  it('reserves no width, since the set is not knowable', () => {
+    const { container } = render(<JasperActivity context="assistant" phrase="Searching the web…" />)
+    expect(container.querySelectorAll('.af-ja-phrase').length).toBe(1)
+  })
+
+  it('wraps rather than running a long tool description off the screen', () => {
+    const { container, rerender } = render(
+      <JasperActivity context="assistant" phrase={'Searching standards for "a very long query a phone cannot fit"…'} />,
+    )
+    expect(container.querySelector('.af-ja-text').className).toContain('af-ja-free')
+    // The fixed sets keep their nowrap — that is what stops a swap moving the row.
+    rerender(<JasperActivity context="assistant" />)
+    expect(container.querySelector('.af-ja-text').className).not.toContain('af-ja-free')
+  })
+
+  it('rejoins the timed phrases without rewinding when the stage clears', () => {
+    const assistant = JASPER_ACTIVITY_CONTEXTS.assistant
+    const { rerender } = render(<JasperActivity context="assistant" phrase="Searching the web…" />)
+    rerender(<JasperActivity context="assistant" />)
+    expect(phrase()).not.toBe(assistant.sequence[0])
+    expect(assistant.loop).toContain(phrase())
+  })
+})
+
+describe('a surface with its own status face', () => {
+  it('keeps the type it passes in', () => {
+    const { container } = render(
+      <JasperActivity context="assistant" textStyle={{ fontFamily: 'PixelFace', fontWeight: 700 }} />,
+    )
+    const text = container.querySelector('.af-ja-text')
+    expect(text.style.fontFamily).toContain('PixelFace')
+    expect(text.style.fontWeight).toBe('700')
   })
 })

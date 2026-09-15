@@ -14,14 +14,21 @@
  * the only moving part. No spinner, no dots, no ring.
  *
  * ── Stages, and where they come from ───────────────────────────────────
- * Each `context` names an ordered stage sequence and a phrase per stage.
- * A caller whose pipeline reports real progress passes `stage`, and the
- * phrase follows it. Today no Jasper path does — the forensic reading is one
- * request with one response — so with `stage` absent the component walks
- * the context's default progression on a timer, then cycles the LATER
- * stages for as long as the work runs. It never restarts from the first
- * phrase: a status that says "Reading the patterns…" for the third time is
- * a status the assessor has stopped believing.
+ * Each `context` names an ordered phrase sequence and a phrase per stage.
+ * A real stage always beats a simulated one, in two forms: a caller whose
+ * pipeline reports named progress passes `stage`, and one that already
+ * composes its own status text passes `phrase`. The assistant sheet uses
+ * the second — a running tool describes itself ("Searching the standards
+ * corpus…") and that description stands until the tool ends.
+ *
+ * With neither, the component walks the context's progression on a timer
+ * and then cycles the LATER phrases for as long as the work runs. The
+ * three request-and-response paths — the forensic reading, the findings
+ * narrative, the report sections — are all one round trip with no
+ * intermediate stages to report, so they use the timer. It never restarts
+ * from the first phrase, and a stage that CLEARS rejoins the loop rather
+ * than rewinding: a status that says "Reading the patterns…" for the third
+ * time is a status the assessor has stopped believing.
  *
  * The phrases describe the kind of work, never the model's reasoning. They
  * are copy, chosen here, not anything the model said.
@@ -37,7 +44,10 @@
  * The text box is as wide as the LONGEST phrase of its context, so a phrase
  * change never moves the caption beside it, and the box is the height of
  * the `AiAction` it stands in for, so swapping one for the other moves
- * nothing either.
+ * nothing either. Live `phrase` text is the exception: its set is not
+ * knowable, so nothing is reserved and the text wraps instead — such a
+ * status stands on its own line, where wrapping costs no neighbor anything
+ * and running off a phone's right edge would cost the reader the sentence.
  *
  * ── Assistive tech ─────────────────────────────────────────────────────
  * One live-region sentence ("Jasper is analyzing the forensic patterns.")
@@ -54,7 +64,13 @@ import * as V3 from '../../styles/tokens'
 // `loop`: what a long run cycles through after the sequence is spent —
 // later-stage work only, so nothing reads as starting over.
 // `announce`: the one sentence assistive technology hears.
+// `phrases`: the phrase per STAGE, for a caller whose pipeline reports
+// real progress. Stage names are the context's own — a report writer and
+// a pattern reader do different work and have no shared vocabulary —
+// so each context declares the ones its own pipeline can report.
 
+// The logger-forensics stage vocabulary. Other contexts key `phrases` by
+// their own stages; nothing requires one context's names on another.
 export const JASPER_ACTIVITY_STAGES = [
   'reading',
   'comparing_timing',
@@ -93,6 +109,92 @@ export const JASPER_ACTIVITY_CONTEXTS = {
       'Connecting the evidence…',
       'Testing the interpretation…',
       'Building the assessment…',
+    ],
+  },
+
+  // The Report tab's findings narrative. The writing is the model's; the
+  // findings and figures are not, so the phrases describe fitting words to
+  // a record that already exists rather than working anything out.
+  'report-narrative': {
+    announce: 'Jasper is writing the findings narrative.',
+    phrases: {
+      reading: 'Reading the findings…',
+      checking_evidence: 'Checking what the evidence supports…',
+      tracing_figures: 'Tracing the figures to the analysis…',
+      drafting: 'Drafting the narrative…',
+      reviewing: 'Reviewing the wording…',
+    },
+    sequence: [
+      'Reading the findings…',
+      'Checking what the evidence supports…',
+      'Tracing the figures to the analysis…',
+      'Drafting the narrative…',
+      'Reviewing the wording…',
+    ],
+    loop: [
+      'Checking what the evidence supports…',
+      'Tracing the figures to the analysis…',
+      'Reviewing the limitations…',
+      'Drafting the narrative…',
+      'Reviewing the wording…',
+    ],
+  },
+
+  // The five writable report sections. The progression names the actual
+  // sections the one call returns, in the order the report carries them.
+  'report-sections': {
+    announce: 'Jasper is writing the report sections.',
+    phrases: {
+      reading: 'Reading the assessment record…',
+      executive_summary: 'Drafting the executive summary…',
+      discussion: 'Writing the discussion…',
+      site_model: 'Describing the conceptual site model…',
+      recommendations: 'Framing the recommendations…',
+      background: 'Writing the parameter background…',
+      reviewing: 'Checking each section against the record…',
+    },
+    sequence: [
+      'Reading the assessment record…',
+      'Drafting the executive summary…',
+      'Writing the discussion…',
+      'Describing the conceptual site model…',
+      'Framing the recommendations…',
+      'Checking each section against the record…',
+    ],
+    loop: [
+      'Writing the discussion…',
+      'Describing the conceptual site model…',
+      'Framing the recommendations…',
+      'Writing the parameter background…',
+      'Checking each section against the record…',
+    ],
+  },
+
+  // The assistant sheet, between the question and the first token. When a
+  // TOOL is running the caller passes its live description as `phrase`
+  // instead, because that is a real stage and beats a simulated one.
+  assistant: {
+    announce: 'AtmosFlow AI is working on your question.',
+    phrases: {
+      reading: 'Reading your question…',
+      standards: 'Checking the standards…',
+      thresholds: 'Cross-referencing thresholds…',
+      weighing: 'Weighing what the record supports…',
+      composing: 'Putting the answer together…',
+    },
+    sequence: [
+      'Reading your question…',
+      'Checking the standards…',
+      'Cross-referencing thresholds…',
+      'Weighing what the record supports…',
+      'Putting the answer together…',
+    ],
+    loop: [
+      'Checking the standards…',
+      'Cross-referencing thresholds…',
+      'Consulting the corpus…',
+      'Weighing what the record supports…',
+      'Putting the answer together…',
     ],
   },
 }
@@ -138,9 +240,13 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
     .af-ja-done .af-ja-brain::before { animation: afjaHaloBright ${JASPER_ACTIVITY_TIMING.brightenMs}ms var(--ease-out) both; }
     .af-ja-leaving { animation: afjaLeave ${JASPER_ACTIVITY_TIMING.fadeMs}ms ease ${JASPER_ACTIVITY_TIMING.settleMs - JASPER_ACTIVITY_TIMING.fadeMs}ms both; }
     .af-ja-leaving.af-ja-quiet { animation-delay: 0ms; }
-    /* Phrases stack in one grid cell; the hidden ones still size it. */
+    /* Phrases stack in one grid cell; the hidden ones still size it, which
+       is what keeps a swap from moving the row, so they may not wrap. Live
+       text reserves nothing and can be any length, so it wraps instead of
+       running off a phone's right edge. */
     .af-ja-text { display: grid; align-items: center; min-width: 0; }
     .af-ja-phrase { grid-area: 1 / 1; white-space: nowrap; }
+    .af-ja-free .af-ja-phrase { white-space: normal; overflow-wrap: anywhere; }
     /* The new phrase waits for the old one to clear, so the two never
        overprint: out, then in, each over one swap. */
     .af-ja-phrase[data-state="in"] { animation: afjaPhraseIn ${JASPER_ACTIVITY_TIMING.swapMs}ms var(--ease-out) ${JASPER_ACTIVITY_TIMING.swapMs}ms both; }
@@ -188,8 +294,11 @@ function nextLoopPhrase(loop, current) {
 /**
  * @param {object} props
  * @param {string} [props.context] which phrase set — a key of JASPER_ACTIVITY_CONTEXTS
- * @param {string} [props.stage] a real pipeline stage, one of JASPER_ACTIVITY_STAGES;
- *   when supplied the phrase follows it and the timer is not used
+ * @param {string} [props.stage] a real pipeline stage, named by the context's
+ *   own `phrases` map; when supplied the phrase follows it and no timer runs
+ * @param {string} [props.phrase] live status text, for a caller that already
+ *   composes its own (the assistant's running tool). Outranks `stage` and the
+ *   timer, and reserves no width, since the set is not known in advance
  * @param {boolean} [props.active] true while the work runs; flip to false to
  *   finish — the status brightens once, fades, then reports `onSettled`
  * @param {boolean} [props.brighten] false for an ending that is not a result
@@ -197,17 +306,21 @@ function nextLoopPhrase(loop, current) {
  * @param {{announce?: string, sequence?: string[], loop?: string[], phrases?: object}} [props.phrases]
  *   a one-off phrase set, for a surface with no registered context
  * @param {number} [props.size] the brain, in px (16 matches AiAction)
+ * @param {object} [props.textStyle] merged over the status type. For a surface
+ *   with its own established status face; the default is the system one
  * @param {object} [props.style]
  */
 export default function JasperActivity({
-  context = 'logger-forensics', stage, active = true, brighten = true, onSettled, phrases, size = 16, style,
+  context = 'logger-forensics', stage, phrase, active = true, brighten = true,
+  onSettled, phrases, size = 16, textStyle, style,
 }) {
   const set = useMemo(() => ({ ...(JASPER_ACTIVITY_CONTEXTS[context] || JASPER_ACTIVITY_CONTEXTS['logger-forensics']), ...(phrases || {}) }), [context, phrases])
   const { sequence, loop } = useMemo(() => {
     const seq = set.sequence || []
     return { sequence: seq, loop: set.loop && set.loop.length ? set.loop : seq }
   }, [set])
-  const staged = stage && set.phrases && set.phrases[stage] ? set.phrases[stage] : null
+  // Live text outranks a stage, which outranks the timer.
+  const staged = phrase || (stage && set.phrases && set.phrases[stage] ? set.phrases[stage] : null)
 
   // The phrase showing, the one on its way out, and where the timer is in
   // the sequence. `outgoing` exists only for the swap's duration. The ref
@@ -219,22 +332,46 @@ export default function JasperActivity({
   const stepRef = useRef(0)
   const reduced = prefersReducedMotion()
 
-  // Every phrase this context can show, for sizing the box. Deduplicated
-  // so a phrase in both lists is measured once.
-  const all = useMemo(() => [...new Set([...sequence, ...loop, ...Object.values(set.phrases || {})])], [sequence, loop, set.phrases])
+  // Every phrase this context can show, for sizing the box, deduplicated so
+  // a phrase in both lists is measured once. A caller passing live text has
+  // no knowable set, so nothing is reserved and only what is showing renders
+  // — such a status stands on its own line, where reserving nothing costs
+  // nothing.
+  const all = useMemo(() => {
+    if (phrase) return [current, outgoing].filter((p, i, a) => p && a.indexOf(p) === i)
+    return [...new Set([...sequence, ...loop, ...Object.values(set.phrases || {})])]
+  }, [phrase, current, outgoing, sequence, loop, set.phrases])
 
-  const swapTo = useCallback((phrase) => {
-    if (!phrase || phrase === currentRef.current) return
+  const swapTo = useCallback((next) => {
+    if (!next || next === currentRef.current) return
     setOutgoing(currentRef.current)
-    currentRef.current = phrase
-    setCurrent(phrase)
+    currentRef.current = next
+    setCurrent(next)
   }, [])
 
-  // A fresh run starts the progression over; a real stage wins over the
-  // timer whenever it is supplied.
+  // What to show, whenever the inputs move. Three cases, in order: a fresh
+  // run opens the progression; a real stage replaces whatever is showing; a
+  // stage that CLEARS (a tool finished) rejoins the timed phrases in the
+  // loop, never back at the opening one — the work is further along than
+  // that, and a status that rewinds reads as a status nobody is driving.
+  const runRef = useRef(false)
+  const stagedSeenRef = useRef(false)
   useEffect(() => {
-    if (active) { stepRef.current = 0; swapTo(staged || sequence[0]) }
-  }, [active, staged, sequence, swapTo])
+    if (!active) { runRef.current = false; stagedSeenRef.current = false; return }
+    if (!runRef.current) {
+      runRef.current = true
+      stepRef.current = 0
+      stagedSeenRef.current = !!staged
+      swapTo(staged || sequence[0])
+      return
+    }
+    if (staged) { stagedSeenRef.current = true; swapTo(staged); return }
+    if (stagedSeenRef.current) {
+      stagedSeenRef.current = false
+      stepRef.current = Math.max(stepRef.current, sequence.length)
+      swapTo(nextLoopPhrase(loop, currentRef.current))
+    }
+  }, [active, staged, sequence, loop, swapTo])
 
   // The timed progression, only while active and only with no real stage.
   useEffect(() => {
@@ -290,8 +427,10 @@ export default function JasperActivity({
         {set.announce || 'Jasper is working.'}
       </span>
       {/* System activity, not a heading: the caption face at the action's
-          size, medium weight, one step below body ink. */}
-      <span className="af-ja-text" aria-hidden="true" style={{ ...V3.T.caption, fontSize: 13, lineHeight: '16px', fontWeight: 500, color: V3.TEXT_SECONDARY }}>
+          size, medium weight, one step below body ink. A surface with its own
+          established status face passes `textStyle` rather than having this
+          one imposed on it. */}
+      <span className={phrase ? 'af-ja-text af-ja-free' : 'af-ja-text'} aria-hidden="true" style={{ ...V3.T.caption, fontSize: 13, lineHeight: '16px', fontWeight: 500, color: V3.TEXT_SECONDARY, ...textStyle }}>
         {all.map((p) => {
           const state = p === current ? 'in' : p === outgoing ? 'out' : 'measure'
           return <span key={p} className="af-ja-phrase" data-state={state} data-testid={state === 'in' ? 'jasper-activity-phrase' : undefined}>{p}</span>
