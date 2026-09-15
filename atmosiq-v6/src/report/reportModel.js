@@ -25,6 +25,12 @@
  */
 
 import { STD } from '../constants/standards'
+// Read-only, for DISPLAY text the registry already authors: a criterion
+// class's `framing` (what kind of reference it is) and an averaging period's
+// `label`. No applicability decision is made here and none could be — this
+// layer never calls `evaluateCriteria`; it reads the ids the engine already
+// stamped on a finding and looks up the words for them.
+import { CRITERION_CLASS, AVERAGING } from '../constants/criteria'
 import { parsePhotoKey, photoCaption } from '../utils/photoIndex.js'
 import { actionLine, HVAC_UNMAPPED_PREFIX } from '../utils/recFormatting'
 import { readNumber, scoreZone } from '../engines/scoring'
@@ -1239,6 +1245,55 @@ const NO_ACTION_PROPOSED = 'No corrective action is proposed for this condition;
 const chainLabel = (type) => String(type || '').replace(/\s*\((?:Hypothesis|Mechanism)\)\s*$/, '').trim()
 
 /**
+ * Why a row matters — decision significance, and nothing beyond it.
+ *
+ * Every clause is a lookup of something the ENGINE already decided and
+ * stamped on the finding. Nothing here rates a condition, estimates an
+ * exposure, attributes a source, or infers a health effect; there is no
+ * ranking function and no new inference. Read in order:
+ *
+ *   1. WHAT KIND OF REFERENCE applied — `CRITERION_CLASS[class].framing`,
+ *      the registry's own reviewed sentence. This is the line that stops an
+ *      occupational limit being read as an indoor air quality criterion, and
+ *      it is printed nowhere else in the report, so this is its one statement.
+ *   2. WHETHER THE COMPARISON CAN BE SETTLED — `determinative`, which the
+ *      engine computes from the criterion's averaging period against the
+ *      measurement's evidence basis. `false` is the whole of Issue 2: a
+ *      0.032 ppm spot reading is NUMERICALLY ABOVE a 0.016 ppm reference
+ *      expressed as a 10-hour TWA, and that is not a demonstrated exceedance
+ *      of a 10-hour exposure limit. The engine has always known this. Until
+ *      now nothing said it where a manager reads.
+ *   3. WHETHER A SOURCE IS ESTABLISHED — the presence of a causal chain,
+ *      which by construction is a working hypothesis.
+ *
+ * A row with no criterion behind it says so plainly rather than borrowing a
+ * reference it does not have.
+ */
+function whyItMatters(rowFindings, chain) {
+  const parts = []
+  const withCriterion = (rowFindings || []).filter(f => f && f.criterionClass)
+  if (withCriterion.length) {
+    // The most severe criterion-bearing finding decides which reference class
+    // is described. `rd.findings` arrives severity-ranked, so the first is it.
+    const lead = withCriterion[0]
+    const cls = CRITERION_CLASS[lead.criterionClass]
+    if (cls && cls.framing) parts.push(cls.framing)
+    // ANY non-determinative comparison on the row, not just the lead one:
+    // a reader must not have to work out which of two findings the caveat
+    // belonged to.
+    const unsettled = withCriterion.find(f => f.determinative === false)
+    if (unsettled) {
+      const avg = AVERAGING[unsettled.averaging]
+      parts.push(`A short-duration reading cannot settle a comparison against ${avg && avg.label ? avg.label.replace(/^an? /, '') : 'this averaging period'}, so the result identifies a condition rather than establishing an exposure.`)
+    }
+  } else {
+    parts.push('This rests on what was observed and reported during the walkthrough rather than on an instrument reading.')
+  }
+  if (chain) parts.push('No source has been established.')
+  return parts.join(' ')
+}
+
+/**
  * The management "What needs attention" rows.
  *
  * ONE ROW PER LOCATION SCOPE, where the scope is the one `collectFindings`
@@ -1257,13 +1312,14 @@ function attentionItems(model, chains) {
     const location = r.z || r.zoneKey || 'Zone'
     let item = byLocation.get(location)
     if (!item) {
-      item = { location, zones: r.zones || [r.zoneKey || location], severity: r.sev, issues: [], findings: [] }
+      item = { location, zones: r.zones || [r.zoneKey || location], severity: r.sev, issues: [], findings: [], rows: [] }
       byLocation.set(location, item)
     }
     // Worst severity at this location, taken from the tokens the findings
     // table already prints. No re-rating.
     if ((MGR_SEV_RANK[r.sev] ?? 9) < (MGR_SEV_RANK[item.severity] ?? 9)) item.severity = r.sev
     item.findings.push(r.f)
+    item.rows.push(r)
     const claim = headline(r.f)
     if (claim && !item.issues.includes(claim)) item.issues.push(claim)
   }
@@ -1340,6 +1396,9 @@ function attentionItems(model, chains) {
       issues: item.issues.slice(0, 3),
       more: Math.max(0, item.issues.length - 3),
       findings: item.findings,
+      // Decision significance, projected from the criterion provenance the
+      // engine stamped. See whyItMatters — no new inference, no new severity.
+      whyItMatters: whyItMatters(item.rows, chain),
       status,
       nextAction: action ? action.action : (chain && chain.verification ? `${upperFirst(chain.verification)}.` : NO_ACTION_PROPOSED),
       priority: action ? action.priority : null,

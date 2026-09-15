@@ -572,17 +572,26 @@ export function atmosFlowReportChildren(model) {
     if (att.items && att.items.length) {
       if (att.intro) c.push(body(att.intro))
       const rows = att.items
+      // "Why it matters" sits between what was found and where it stands,
+      // because that is the order the question arrives in. It carries
+      // DECISION SIGNIFICANCE only — what kind of reference applied, whether
+      // the comparison can be settled by this measurement, whether a source
+      // is established — every clause a lookup of something the engine
+      // already stamped (see whyItMatters in reportModel.js). It determines
+      // no health risk, exposure, toxicity, compliance, severity, causation
+      // or source attribution, and it introduces no ranking of its own.
       c.push(
         table(
-          ['Location', 'What we found', 'Current status', 'What happens next'],
+          ['Location', 'What we found', 'Why it matters', 'Current status', 'What happens next'],
           rows.map((it) => [
             fmt(it.location),
             [...it.issues, ...(it.more ? [`+${it.more} more in Discussion & Conclusions`] : [])],
+            fmt(it.whyItMatters),
             fmt(it.status),
             fmt(it.nextAction),
           ]),
-          [1700, 2960, 2300, 2400],
-          { cellSpec: (r, ci) => (ci === 0 ? { bold: true } : ci === 2 ? { color: sev(rows[r].severity).color } : {}) },
+          [1380, 2040, 2400, 1770, 1770],
+          { cellSpec: (r, ci) => (ci === 0 ? { bold: true } : ci === 3 ? { color: sev(rows[r].severity).color } : {}) },
         ),
       )
       c.push(caption('What happens next is the highest-priority action the register already carries for that location; the register itself, with every action and its own location, is the Action Plan below. Findings are stated in full, with the criterion applied and the measurements behind them, in Discussion & Conclusions.'))

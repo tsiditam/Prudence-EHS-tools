@@ -490,12 +490,15 @@ function buildContent() {
       if (att.intro) p(att.intro)
       table(
         [
-          { label: 'Location', width: 84, render: r => ({ t: fmt(r.location), bold: true }) },
-          { label: 'What we found', width: 150, render: r => (
+          { label: 'Location', width: 70, render: r => ({ t: fmt(r.location), bold: true }) },
+          { label: 'What we found', width: 108, render: r => (
             [...r.issues, ...(r.more ? [`+${r.more} more in Findings & Interpretation`] : [])].join('\n')
           ) },
-          { label: 'Current status', width: 118, render: r => ({ t: fmt(r.status), color: sevOf(r.severity).color }) },
-          { label: 'What happens next', width: 148, render: r => fmt(r.nextAction) },
+          // Decision significance only — see sections-atmosflow.js and
+          // whyItMatters in reportModel.js.
+          { label: 'Why it matters', width: 126, render: r => fmt(r.whyItMatters) },
+          { label: 'Current status', width: 98, render: r => ({ t: fmt(r.status), color: sevOf(r.severity).color }) },
+          { label: 'What happens next', width: 98, render: r => fmt(r.nextAction) },
         ],
         att.items, { fontSize: 8.5, rowH: 30 },
       )
