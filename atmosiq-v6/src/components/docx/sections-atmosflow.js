@@ -531,10 +531,17 @@ export function atmosFlowReportChildren(model) {
       c.push(...label('Leading findings'))
       es.findings.forEach((f) => c.push(bullet(f)))
     }
-    if ((es.actions || []).length) {
-      c.push(...label('First actions'))
-      es.actions.forEach((a2) => c.push(bullet(a2)))
-    }
+    // The most important next step, in prose and as ONE sentence. It was a
+    // "First actions" bullet list until the management layer put the Action
+    // Plan a page below this, and the What-Needs-Attention table named a next
+    // step per location — three presentations of the same action inside two
+    // pages. The Action Plan is the canonical structured list; this is the
+    // sentence a reader who stops here still needs.
+    //
+    // Rendered OUTSIDE the AI-authored paragraphs above, and not covered by
+    // the provenance note, because it is not AI-writable: the action text is
+    // the engine's, quoted verbatim (reportModel.js / narrativeLibrary.js).
+    if (es.nextStep) c.push(body(es.nextStep))
   }
 
 

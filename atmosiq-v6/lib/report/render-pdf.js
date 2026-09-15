@@ -476,7 +476,9 @@ function buildContent() {
     // parameter table further down the page.
     if (M.overallStatement) { h2('Overall Statement'); p(M.overallStatement) }
     if ((es.findings || []).length) { h2('Leading Findings'); bullets(es.findings) }
-    if ((es.actions || []).length) { h2('First Actions'); bullets(es.actions) }
+    // One sentence, not a list: the Action Plan below is the canonical
+    // structured presentation of actions. See sections-atmosflow.js.
+    if (es.nextStep) p(es.nextStep)
   }
 
   const mgr = M.managerSummary

@@ -725,6 +725,25 @@ When working on report generation:
      a building-wide chain would print the identical clause on every row, so
      neither is read there.
 
+  **The executive summary states the most important next step in ONE SENTENCE,
+  and the Action Plan is the canonical structured list.** It used to close on a
+  "First actions" bullet list; with the Action Plan a page below it and the
+  attention table naming a next step per location, the same action appeared
+  three times in the opening pages. `execSummary.nextStep` quotes the
+  register's first Immediate action verbatim, and is deliberately NOT part of
+  `paragraphs` — the slot `aiSections.js` may replace. Two reasons, both
+  load-bearing: the action text is the ENGINE's, and `api/report-pdf.js` scans
+  authored prose for banned language while deliberately leaving engine output
+  alone, so folding a register row into an AI-writable paragraph would route
+  engine text into a gate that returns 422; and asking the writer to name a
+  specific action would set two contracts in one prompt at odds
+  (`recommendations_prose` says "Do not name a specific action"), while a
+  PARAPHRASED action trips `recommendation-unsupported` in `narrativeAudit.js`
+  and would silently fall the most important section back to deterministic
+  prose. The writer and the gate disagreeing has shipped three times here; this
+  does not make it four. Because it sits outside `paragraphs`, the sentence
+  survives an AI-authored summary unchanged, so both paths state the next step.
+
   **"Findings at a glance" is now "Measurement overview", inside section 4.**
   It is a per-PARAMETER summary against a reference basis, which asks a
   facility manager to work out for themselves what "CO2 | 618 ppm | ASHRAE

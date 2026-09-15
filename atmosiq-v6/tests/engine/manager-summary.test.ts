@@ -52,6 +52,10 @@ import { atmosFlowReportChildren } from '../../src/components/docx/sections-atmo
 import { buildAtmosFlowDocument } from '../../src/components/DocxReport'
 // @ts-expect-error js
 import { collectReportText } from '../../src/report/reportText.js'
+// @ts-expect-error js
+import { buildEvidencePackage } from '../../src/report/evidencePackage.js'
+// @ts-expect-error js
+import { buildAiSectionsRecord, applyAiSections } from '../../src/report/aiSections.js'
 
 const require = createRequire(import.meta.url)
 const { renderReportPdf } = require('../../lib/report/render-pdf.js')
@@ -165,6 +169,16 @@ function pdfText(buffer: Buffer): string {
   }
   return out.join('')
 }
+
+/**
+ * Whitespace removed, for comparing a string against extracted PDF text.
+ *
+ * `p()` sets body copy JUSTIFIED, which pdfkit renders by positioning each
+ * word separately — so the inter-word spaces are layout, not content, and a
+ * paragraph comes back out as one run of letters. Squashing both sides
+ * compares what the page SAYS without asserting how it was spaced.
+ */
+const squash = (s: string) => String(s).replace(/\s+/g, '')
 
 // ── 1. It is a projection ─────────────────────────────────────────────────
 
@@ -489,10 +503,11 @@ describe('the document leads with the management layer and keeps the evidence be
     ]) {
       const ascii = String(needle).replace(/[^\x20-\x7E]/g, '')
       expect(xml.includes(String(needle)) || xml.includes(ascii), `missing from DOCX: ${needle}`).toBe(true)
-      // The PDF's WinAnsi runs decode to single bytes; compare on the ASCII
-      // run each string starts with rather than on its punctuation.
-      const probe = ascii.split(/\s{2,}/)[0].slice(0, 40).trim()
-      expect(pdf.includes(probe), `missing from PDF: ${probe}`).toBe(true)
+      // Compared with whitespace removed: justified body copy comes back out
+      // of the PDF as one run of letters (see `squash`), and the WinAnsi runs
+      // decode to single bytes, so the ASCII skeleton is what both formats
+      // genuinely share.
+      expect(squash(pdf).includes(squash(ascii)), `missing from PDF: ${ascii.slice(0, 60)}`).toBe(true)
     }
   })
 
@@ -505,5 +520,106 @@ describe('the document leads with the management layer and keeps the evidence be
     // Every block is in the document the client receives.
     const text = docxText(model)
     for (const b of blocks) expect(text.includes(b), b.slice(0, 60)).toBe(true)
+  })
+})
+
+// ── 6. The executive summary states the next step, once and in prose ──────
+
+describe('the most important next step is a sentence, and the Action Plan is the list', () => {
+  const zones = [odorous('Room 214'), stuffy('Room 216'), clean('Room 108')]
+  const { model, data } = build(zones)
+
+  it('quotes the register\u2019s first Immediate action verbatim, as one sentence', () => {
+    const lead = model.recommendations.register.find((r: any) => r.priority === 'Immediate')
+    expect(lead).toBeTruthy()
+    const step = model.execSummary.nextStep as string
+    expect(typeof step).toBe('string')
+    // Verbatim, so the summary and the Action Plan row cannot phrase the same
+    // action two ways.
+    expect(step).toContain(lead.action)
+    expect(step).toContain(lead.location)
+    expect(step).toContain('Action Plan')
+    // The list is gone from the summary's contract.
+    expect(model.execSummary.actions).toBeUndefined()
+  })
+
+  it('renders no "First actions" list in either client deliverable', async () => {
+    const text = docxText(model)
+    expect(text).not.toContain('FIRST ACTIONS')
+    expect(text).not.toContain('First actions')
+    expect(text).toContain(model.execSummary.nextStep)
+    const pdf = pdfText(await renderReportPdf(model))
+    expect(pdf).not.toContain('First Actions')
+    expect(squash(pdf)).toContain(squash(model.execSummary.nextStep))
+  })
+
+  it('names the leading action at most twice in the opening pages, not three times', () => {
+    // It was three: the summary bullet, the What-Needs-Attention next step,
+    // and the Action Plan row. The summary sentence and the plan row remain,
+    // and the attention table's own next step for that location is the same
+    // action — so the count is what the hierarchy intends, not an accident.
+    const action = model.recommendations.register.find((r: any) => r.priority === 'Immediate').action
+    const paragraphs = docxParagraphs(atmosFlowReportChildren(model))
+    const summaryBullets = paragraphs.filter((t) => t === `${model.managerSummary.attention.items[0].location}: ${action}`)
+    expect(summaryBullets).toHaveLength(0)
+  })
+
+  it('reads in the intended order: summary, then what needs attention, then the plan', () => {
+    const paragraphs = docxParagraphs(atmosFlowReportChildren(model))
+    const at = (needle: string) => paragraphs.findIndex((t) => t === needle)
+    const step = paragraphs.findIndex((t) => t === model.execSummary.nextStep)
+    expect(at('Executive Summary')).toBeLessThan(step)
+    expect(step).toBeLessThan(at('What Needs Attention'))
+    expect(at('What Needs Attention')).toBeLessThan(at('Action Plan'))
+  })
+
+  it('says nothing about a next step when nothing is urgent', () => {
+    const quiet = build([clean('Room 108'), clean('Room 110')]).model
+    // Same gate the bullet list had: no Immediate action, no sentence. The
+    // overall statement already says routine operation is appropriate.
+    expect(quiet.recommendations.register.some((r: any) => r.priority === 'Immediate')).toBe(false)
+    expect(quiet.execSummary.nextStep).toBeNull()
+    const text = docxText(quiet)
+    expect(text).not.toContain('The first action is at')
+  })
+
+  it('survives an AI-authored executive summary, which replaces only the paragraphs', () => {
+    const pkg = buildEvidencePackage(model, { zoneScores: data.zoneScores, causalChains: data.causalChains })
+    const record = buildAiSectionsRecord(
+      { executive_summary: 'Carbon dioxide stood out at this site.\n\nThe source was not identified during the assessment.' },
+      pkg,
+    )
+    const folded = applyAiSections(model, record, pkg)
+    // The writer owns the paragraphs…
+    expect(folded.aiAuthoredSections).toContain('executive_summary')
+    expect(folded.execSummary.paragraphs[0]).toContain('Carbon dioxide stood out')
+    // …and the next step, which is the engine's action quoted verbatim, is
+    // not in that slot and is unchanged. Both paths state it.
+    expect(folded.execSummary.nextStep).toBe(model.execSummary.nextStep)
+    expect(docxText(folded)).toContain(model.execSummary.nextStep)
+  })
+
+  it('keeps the whole rendered executive summary clear of banned language', () => {
+    // The gate at api/report-pdf.js scans AUTHORED prose and deliberately
+    // leaves engine output alone, so the leading findings and this sentence
+    // are not scanned at runtime — a descriptive word in an engine finding
+    // must not 422 a client's report. That policy is unchanged. What this
+    // asserts is the thing the policy leaves unproven: that the section a
+    // manager reads first is clean end to end, on a findings-heavy
+    // assessment and on a clean one.
+    for (const fixture of [model, build([clean('Room 108'), clean('Room 110')]).model]) {
+      const es = fixture.execSummary
+      for (const line of [
+        ...(es.paragraphs || []), ...(es.findings || []),
+        es.nextStep, fixture.overallStatement,
+      ].filter(Boolean)) {
+        expect(scan(line), line).toEqual([])
+      }
+    }
+  })
+
+  it('offers the sentence to a semantic reviewer, where the bullet list used to be', () => {
+    const section = collectReportText(model).find((s: any) => s.section_id === 'executive_summary')
+    expect(section.blocks.map((b: any) => b.text)).toContain(model.execSummary.nextStep)
   })
 })

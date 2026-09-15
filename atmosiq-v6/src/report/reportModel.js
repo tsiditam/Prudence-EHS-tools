@@ -1662,6 +1662,15 @@ export function assembleRenderModel(data = {}, opts = {}) {
     .filter(r => r.id !== 'Site mean' && r.id !== 'Outdoor reference' && r.sev !== 'ok' && r.sev !== 'not_evaluated' && r.sev !== 'reference')
     .map(r => r.id)
 
+  // ONE call, read by both the executive summary's next-step sentence and the
+  // Action Plan. It used to be built twice from the same input — equal, but
+  // two derivations of one register, which is the shape a drift starts in.
+  const register = actionRegister(data.recs || {})
+  // The single most important next step: the first Immediate action the
+  // register carries. Selection only — the register decided the priority and
+  // the order, and the action text is quoted verbatim from the row.
+  const leadAction = register.find(r => r.priority === 'Immediate') || null
+
   const review = buildReviewBlock({
     profile: reportProfile,
     status: mode === 'final' ? REPORT_STATUS.FINAL : reportStatus,
@@ -1716,20 +1725,18 @@ export function assembleRenderModel(data = {}, opts = {}) {
       conclusion: primary
         ? `${upperFirst(String(primary.type).replace(/\s*\((?:Hypothesis|Mechanism)\)\s*$/, '').toLowerCase())} in ${primary.zone || 'the assessed area'} is the leading working hypothesis on the observations available. No causal relationship has been established${primary.verification ? `; ${primary.verification} before a causal conclusion is drawn` : ', and verification is required before a causal conclusion is drawn'}.`
         : null,
-      // The substance a count cannot carry: the worst findings, and the
-      // actions that open the register. Already ranked upstream.
-      // `headline` trims a finding to its claim. The full CO2 finding runs to
-      // three sentences of methodological caveat, which is right in the
-      // findings table and wrong in a summary the CIH review asked to be "3–5
-      // substantive findings" — a 60-word bullet is not a summary.
+      // The substance a count cannot carry: the worst findings. Already
+      // ranked upstream. `headline` trims a finding to its claim — the full
+      // CO2 finding runs to three sentences of methodological caveat, which
+      // is right in the findings table and wrong in a summary the CIH review
+      // asked to be "3–5 substantive findings"; a 60-word bullet is not a
+      // summary.
       leadFindings: findingRows.slice(0, 4).map(f => `${f.z} — ${headline(f.f)}`),
-      // From the REGISTER, not the flattened bullet strings, so the summary
-      // and section 6 phrase the same action the same way — including having
-      // the unmapped-equipment caveat out of the action text.
-      leadActions: actionRegister(data.recs || {})
-        .filter(r => r.priority === 'Immediate')
-        .slice(0, 3)
-        .map(r => `${r.location}: ${r.action}`),
+      // From the REGISTER, so the summary sentence and the Action Plan row
+      // quote the same action — including having the unmapped-equipment
+      // caveat out of the action text. One sentence, not a list: see
+      // buildExecSummary for why the list went.
+      leadAction,
     }),
     findingsAtGlance,
     showSeverityLegend: true,
@@ -1781,7 +1788,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
       mediumTerm: rd.recommendations.mediumTerm,
       // One register instead of three bullet lists. Carries what the data
       // supports; see actionRegister for what it deliberately does not.
-      register: actionRegister(data.recs || {}),
+      register,
       registerNote: 'Owner is the role proposed for each action; the client assigns named individuals and target dates. Completion evidence is what would show the action was carried out.',
     },
     // The confirmatory sampling the engine proposed, read verbatim. The app's

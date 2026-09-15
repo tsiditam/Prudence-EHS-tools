@@ -181,16 +181,44 @@ export function methodologyBullets(instrument, calibration, measurementTypes = [
  * It used to close on a count — "flagged 16 items for follow-up" — which a
  * CIH review called out as giving the reader less context than naming the
  * findings would. A count says how much was found; it does not say what. The
- * summary now leads with the conclusion, names the leading findings, and
- * names the first actions, which is what a facilities manager reads this
- * section for.
+ * summary leads with the conclusion, names the leading findings, and states
+ * the most important next step.
  *
- * `leadFindings` and `leadActions` are already-ranked text from the model —
- * this function selects and phrases, it does not decide severity.
+ * **`nextStep` is ONE SENTENCE, not a list, and that is the contract change.**
+ * This used to return `actions` — the first three Immediate actions as
+ * bullets. With the management layer's Action Plan now printed a page below
+ * it, and the What-Needs-Attention table naming a next step per location, the
+ * same action appeared three times in the opening pages. The Action Plan is
+ * the canonical STRUCTURED presentation of actions; the summary keeps the
+ * single most important one, in prose, because a reader who stops after the
+ * first page still has to know what to do.
+ *
+ * It is deliberately NOT part of `paragraphs`, which is the slot
+ * `aiSections.js` may replace. Two reasons, and both are load-bearing:
+ *
+ *   - The action text is the ENGINE's, and `api/report-pdf.js` scans authored
+ *     prose for banned language while deliberately leaving engine output
+ *     alone. Folding a register row into an AI-writable paragraph would route
+ *     engine text into a gate that returns 422, so a descriptive word in a
+ *     recommendation could block a client's report.
+ *   - Asking the writer to name a specific action would put two contracts in
+ *     one prompt at odds: `recommendations_prose` says "Do not name a
+ *     specific action — the register does that". And a PARAPHRASED action
+ *     trips `recommendation-unsupported` in `narrativeAudit.js`, which would
+ *     silently fall the most important section back to deterministic prose.
+ *     The writer and the gate disagreeing has shipped three times in this
+ *     codebase; this does not make it four.
+ *
+ * Because it sits outside `paragraphs`, the sentence survives an AI-authored
+ * summary unchanged — `applyAiSections` spreads the object around the slot it
+ * replaces — so the next step is stated on both paths.
+ *
+ * `leadFindings` and `leadAction` are already-ranked data from the model —
+ * this function selects and phrases, it does not decide severity or priority.
  */
 export function buildExecSummary({
   firm, facility, date, numberOfZones, purpose, flaggedCount, topOutcome, hasOccupantReports,
-  conclusion, leadFindings = [], leadActions = [],
+  conclusion, leadFindings = [], leadAction = null,
 }) {
   const scopeBit = numberOfZones ? ` across ${numberOfZones} representative zone${numberOfZones === 1 ? '' : 's'}` : ''
   const purposeBit = purpose ? ` in response to ${String(purpose).toLowerCase()}` : ''
@@ -202,7 +230,7 @@ export function buildExecSummary({
   if (!flaggedCount) {
     return {
       paragraphs: [`${opening} No conditions were flagged above the references during the assessment window. Results reflect conditions observed during the assessment window and are interpreted in light of the limitations herein.`],
-      findings: [], actions: [],
+      findings: [], nextStep: null,
     }
   }
   const conclusionSentence = conclusion
@@ -215,7 +243,13 @@ export function buildExecSummary({
       'Results reflect conditions observed during the assessment window and are interpreted in light of the limitations herein.',
     ],
     findings: leadFindings,
-    actions: leadActions,
+    // Gated on an Immediate action existing, which is exactly what the bullet
+    // list was gated on — an assessment with nothing urgent said nothing here
+    // before and says nothing here now. The action is quoted verbatim, so the
+    // sentence and the Action Plan row cannot phrase it differently.
+    nextStep: leadAction && leadAction.action
+      ? `The first action is at ${leadAction.location}: ${leadAction.action} The Action Plan below sets out the full set in priority order.`
+      : null,
   }
 }
 

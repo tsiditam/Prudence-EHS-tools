@@ -150,7 +150,10 @@ const COLLECTORS = {
       const es = typeof M.execSummary === 'string' ? { paragraphs: [M.execSummary] } : obj(M.execSummary)
       arr(es.paragraphs).forEach((p) => out.push(p))
       arr(es.findings).forEach((f) => out.push(f))
-      arr(es.actions).forEach((a) => out.push(a))
+      // One sentence naming the first action, since 2026-09; it was a list of
+      // three until the Action Plan became the canonical structured
+      // presentation. Quotable like any other rendered paragraph.
+      if (es.nextStep) out.push(es.nextStep)
     }
     // Printed under its own label between the summary and section 1, so it
     // belongs to the summary a reader has just read rather than to section 1.
