@@ -29,6 +29,55 @@
 
 const PDFDocument = require('pdfkit')
 
+// ─── Text the base-14 fonts can actually print ─────────────────────
+//
+// This renderer draws with Helvetica, one of PDF's base-14 fonts, declared
+// `/Encoding /WinAnsiEncoding` and not embedded — so every byte in a text run
+// IS a WinAnsi code point. pdfkit encodes a character it cannot map by
+// writing its raw code point, which for anything above U+00FF becomes TWO
+// bytes and therefore two wrong glyphs: the engine's own finding sentence
+// `CO₂ 1385 ppm (Δ955 ppm above outdoor)` reached the client's PDF as
+// `CO ‚ 1385 ppm (…)`. The DOCX, which is UTF-8, has always printed it
+// correctly, so the same report said different things in the two formats.
+//
+// The fold is applied at ONE chokepoint — `doc.text` and `doc.heightOfString`
+// are wrapped on the instance — rather than at each of the two dozen call
+// sites, so a call added later cannot miss it. Height measurement is wrapped
+// too: a substitution changes a string's width, and measuring the unfolded
+// form would size a table row for text the page does not contain.
+//
+// WinAnsi covers Latin-1 plus the 0x80–0x9F block of typographic
+// punctuation, which is where the em dash, the curly quotes and the bullet
+// live — all of which this report uses and none of which needs folding.
+const WINANSI_HIGH = new Set([
+  0x20AC, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160,
+  0x2039, 0x0152, 0x017D, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+  0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x017E, 0x0178,
+].map(c => String.fromCharCode(c)))
+const encodable = (ch) => ch.codePointAt(0) <= 0xFF || WINANSI_HIGH.has(ch)
+// Spelled out where an ASCII equivalent would be read as something else. A
+// reader who meets "Delta 955 ppm" knows what it means; one who meets a
+// stray quotation mark does not.
+const PDF_FOLD = { '\u0394': 'Delta ', '\u03B4': 'delta ', '\u2264': '<=', '\u2265': '>=', '\u2260': '!=', '\u2248': '~', '\u2192': '->' }
+function pdfSafe(value) {
+  const str = String(value == null ? '' : value)
+  // Fast path: the overwhelming majority of runs are plain.
+  let needs = false
+  for (const ch of str) { if (!encodable(ch)) { needs = true; break } }
+  if (!needs) return str
+  let out = ''
+  for (const ch of str) {
+    if (encodable(ch)) { out += ch; continue }
+    if (PDF_FOLD[ch]) { out += PDF_FOLD[ch]; continue }
+    // NFKD resolves the compatibility forms this report actually carries —
+    // the subscripts in CO₂ and PM₂.₅ decompose to their digits. Anything
+    // still unprintable is dropped rather than printed as a wrong glyph.
+    const decomposed = ch.normalize('NFKD').replace(/[\u0300-\u036F]/g, '')
+    for (const d of decomposed) if (encodable(d)) out += d
+  }
+  return out
+}
+
 // ─── Fixed palette / geometry ──────────────────────────────────────
 const INK = '#0F172A', SLATE = '#1E293B', SOFT = '#475569', FAINT = '#64748B'
 const RULE = '#CBD5E1', ZEBRA = '#F1F5F9', CARD = '#F8FAFC'
@@ -448,7 +497,7 @@ function buildContent() {
         ],
         att.items, { fontSize: 8.5, rowH: 30 },
       )
-      metaLine('Findings are stated in full, with the criterion applied and the measurements behind them, in Findings & Interpretation.')
+      metaLine('What happens next is the highest-priority action the register already carries for that location; the register itself, with every action and its own location, is the Action Plan below. Findings are stated in full, with the criterion applied and the measurements behind them, in Findings & Interpretation.')
     } else if (att.none) {
       // No row, and no empty table either. The statement is bounded to the
       // areas assessed and to the assessment window, and certifies nothing.
@@ -773,6 +822,14 @@ function renderOnce(model, total) {
         Keywords: 'IAQ, indoor air quality, screening assessment',
       },
     })
+    // One chokepoint for the WinAnsi fold (see pdfSafe above). Bound on the
+    // instance so every call site, present and future, goes through it —
+    // including the chained `.text(a, { continued: true }).text(b)` form,
+    // which returns this same document.
+    const drawText = doc.text.bind(doc)
+    doc.text = (value, ...rest) => drawText(pdfSafe(value), ...rest)
+    const measure = doc.heightOfString.bind(doc)
+    doc.heightOfString = (value, ...rest) => measure(pdfSafe(value), ...rest)
     let inChrome = false
     doc.on('pageAdded', () => {
       if (inChrome) return

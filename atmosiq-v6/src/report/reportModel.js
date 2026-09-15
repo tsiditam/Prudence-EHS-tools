@@ -1271,11 +1271,21 @@ function attentionItems(model, chains) {
     // Executive Summary's conclusion, which is where a reader looks it up.
     const chain = (chains || []).find(c =>
       c && !c.notEvaluated && String(c.zone || '') !== 'Building-wide' && coversAll(c.zone))
-    // The action already in the register for this location, most urgent
-    // first. A building-wide action applies everywhere, so it competes on
-    // urgency rather than being a fallback.
-    const byUrgency = (a, b) => (MGR_PRIORITY_RANK[a.priority] ?? 9) - (MGR_PRIORITY_RANK[b.priority] ?? 9)
-    const action = register.filter(a => coversAll(a.location)).sort(byUrgency)[0] || null
+    // The action already in the register for this location: most urgent
+    // first, then the one scoped most tightly to this row. A building-wide
+    // action applies everywhere, so it competes on urgency rather than being
+    // a fallback — but between two equally urgent actions, the one addressed
+    // to this room beats the one addressed to the whole floor.
+    //
+    // The register carries no link back to the finding that produced an
+    // action (see `recommendationIdentity` in evidenceIdentity.js), so the
+    // match is by LOCATION and the column says so. Inventing a link would be
+    // inventing a recommendation.
+    const specificity = (where) => (/^Building-wide/.test(String(where || '')) ? 99 : String(where || '').split(',').length)
+    const byUrgencyThenScope = (a, b) =>
+      ((MGR_PRIORITY_RANK[a.priority] ?? 9) - (MGR_PRIORITY_RANK[b.priority] ?? 9)) ||
+      (specificity(a.location) - specificity(b.location))
+    const action = register.filter(a => coversAll(a.location)).sort(byUrgencyThenScope)[0] || null
     // The decision the outcome token already means, in the legend's own
     // words. Not a second severity ladder — the same one, spelled out.
     const decision = upperFirst(NL.SEVERITY_DECISION[item.severity] || NL.SEVERITY_DECISION.advisory)

@@ -578,7 +578,7 @@ export function atmosFlowReportChildren(model) {
           { cellSpec: (r, ci) => (ci === 0 ? { bold: true } : ci === 2 ? { color: sev(rows[r].severity).color } : {}) },
         ),
       )
-      c.push(caption('Findings are stated in full, with the criterion applied and the measurements behind them, in Discussion & Conclusions.'))
+      c.push(caption('What happens next is the highest-priority action the register already carries for that location; the register itself, with every action and its own location, is the Action Plan below. Findings are stated in full, with the criterion applied and the measurements behind them, in Discussion & Conclusions.'))
     } else if (att.none) {
       // No row, and no empty table either — an empty table with a heading
       // over it reads as a section that failed to render. The statement is

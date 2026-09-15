@@ -237,7 +237,14 @@ export function buildOverallStatement({ flaggedCount, elevatedZones, totalZones 
   if (!flaggedCount) return 'All measured parameters were within recognized references during the assessment window. Routine operation and periodic reassessment are appropriate; no corrective action is indicated at this time.'
   const affected = (elevatedZones && elevatedZones.length) || 0
   const items = `${flaggedCount} item${flaggedCount === 1 ? '' : 's'} flagged for follow-up`
-  const tail = ' Each flagged item carries a confidence rating and the verification it would require; recommended actions follow a verify-before-invest ladder.'
+  // What the report ACTUALLY prints beside each finding is its evidentiary
+  // basis — whether it rests on an instrument reading or on an observation.
+  // This sentence promised a per-finding "confidence rating" for as long as
+  // the findings table has carried a Basis column instead, and the promise is
+  // now read on the first page of the management layer rather than buried
+  // under a parameter table. A summary may not describe a column the document
+  // does not have.
+  const tail = ' Each flagged item states the evidence it rests on; recommended actions follow a verify-before-invest ladder.'
   const zoneList = affected ? elevatedZones.join(', ') : ''
   let lead
   if (!affected) {

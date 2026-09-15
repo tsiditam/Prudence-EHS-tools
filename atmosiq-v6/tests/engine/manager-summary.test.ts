@@ -233,6 +233,12 @@ describe('the management summary is a projection, not a second opinion', () => {
     expect(model.recommendations.register.length).toBeGreaterThan(0)
     // Identity, not equality: there is one action register in this report.
     expect(model.managerSummary.actionPlan.rows).toBe(model.recommendations.register)
+    // And it survives the AI-sections fold, which replaces the
+    // recommendations INTRO by spreading the object around it. A copy there
+    // would give the Action Plan and section 6 two registers to disagree
+    // about, silently, only on reports that carry AI prose.
+    const folded = { ...model, recommendations: { ...model.recommendations, intro: ['AI-authored framing.'] } }
+    expect(model.managerSummary.actionPlan.rows).toBe(folded.recommendations.register)
   })
 
   it('does not change with the report lifecycle — only the chrome does', () => {
