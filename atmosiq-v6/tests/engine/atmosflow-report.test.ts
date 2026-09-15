@@ -53,7 +53,7 @@ async function renderXml(data: any): Promise<string> {
 }
 
 describe('buildAtmosFlowDocument — the AtmosFlow PDF design, as editable DOCX', () => {
-  it('renders the teal cover, a numbered heading, and the findings-at-a-glance table', async () => {
+  it('renders the teal cover, the management layer, and a numbered heading', async () => {
     const xml = await renderXml(buildFixture())
     // Cover: teal ATMOSFLOW eyebrow + the big title.
     expect(xml).toContain('ATMOSFLOW')
@@ -69,8 +69,15 @@ describe('buildAtmosFlowDocument — the AtmosFlow PDF design, as editable DOCX'
     // `&` is XML-escaped in document.xml, so match either side of it.
     expect(xml).toContain('2. Investigation Methods')
     expect(xml).toContain('3. Walkthrough Observations')
-    // The Findings at a Glance section (h2, uppercased by the renderer).
-    expect(xml).toContain('FINDINGS AT A GLANCE')
+    // The management layer opens the body, before any numbered section.
+    expect(xml).toContain('What Needs Attention')
+    expect(xml).toContain('Action Plan')
+    expect(xml).toContain('Assessment Scope')
+    // The per-parameter table moved into section 4 and was renamed for what
+    // it is. It is still rendered — "manager-first" moved it, it did not
+    // delete the technical evidence (h2, uppercased by the renderer).
+    expect(xml).toContain('MEASUREMENT OVERVIEW')
+    expect(xml).not.toContain('FINDINGS AT A GLANCE')
     // The facility from the cover meta table.
     expect(xml).toContain('Test Site')
   })

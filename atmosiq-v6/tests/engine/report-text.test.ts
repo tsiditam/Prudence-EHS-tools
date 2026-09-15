@@ -310,15 +310,20 @@ describe('it is deterministic and identified by content', () => {
   })
 
   it('identifies a block by its text, never its position', () => {
-    const a = collectReportText({ limitations: ['One.', 'Two.'] })[7]
-    const b = collectReportText({ limitations: ['Two.', 'One.'] })[7]
+    // Looked up by id, not by array index: a section added to the list must
+    // not silently re-point this assertion at a different section, which is
+    // the same positional-identity defect the test itself is about.
+    const at = (model: any, id: string) => collectReportText(model).find((s: any) => s.section_id === id)
+    const a = at({ limitations: ['One.', 'Two.'] }, 'limitations')
+    const b = at({ limitations: ['Two.', 'One.'] }, 'limitations')
     expect(a.section_id).toBe('limitations')
     expect(new Set(a.blocks.map((x: any) => x.id))).toEqual(new Set(b.blocks.map((x: any) => x.id)))
     expect(a.blocks[0].id).toBe(blockId('One.'))
   })
 
   it('lists one entry per distinct string, so a repeat is one handle', () => {
-    const s = collectReportText({ limitations: ['Same.', 'Same.', 'Other.'] })[7]
+    const s = collectReportText({ limitations: ['Same.', 'Same.', 'Other.'] })
+      .find((x: any) => x.section_id === 'limitations')
     expect(s.blocks.map((b: any) => b.text)).toEqual(['Same.', 'Other.'])
   })
 
@@ -350,14 +355,16 @@ describe('it is deterministic and identified by content', () => {
   })
 
   it('carries a version that a section-list change has to move', () => {
-    expect(REPORT_TEXT_VERSION).toBe(1)
-    expect(REPORT_SECTION_IDS).toHaveLength(10)
+    expect(REPORT_TEXT_VERSION).toBe(2)
+    expect(REPORT_SECTION_IDS).toHaveLength(11)
     // The id is the stable handle a reviewer names; renaming one is a
-    // breaking change to every stored quote.
+    // breaking change to every stored quote. In DOCUMENT order — the
+    // management layer opens the body, after the executive summary and
+    // before the first numbered technical section.
     expect(REPORT_SECTION_IDS).toEqual([
-      'executive_summary', 'scope_and_purpose', 'methods', 'walkthrough_observations',
-      'measurement_results', 'discussion', 'recommended_actions', 'limitations',
-      'professional_review', 'parameter_background',
+      'executive_summary', 'management_summary', 'scope_and_purpose', 'methods',
+      'walkthrough_observations', 'measurement_results', 'discussion', 'recommended_actions',
+      'limitations', 'professional_review', 'parameter_background',
     ])
   })
 })

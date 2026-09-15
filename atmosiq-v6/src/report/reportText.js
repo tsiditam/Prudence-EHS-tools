@@ -56,8 +56,15 @@
 
 import { fnv1aHex } from '../utils/forensicEvents.js'
 
-/** Bumped when the section list or the collection rules change. */
-export const REPORT_TEXT_VERSION = 1
+/**
+ * Bumped when the section list or the collection rules change.
+ *
+ * v2 (2026-09): `management_summary` added. The report's first pages became a
+ * manager-first layer — what needs attention, the action plan, and what the
+ * assessment did and did not do — and its prose is client-facing text a
+ * semantic reviewer must be able to quote like any other.
+ */
+export const REPORT_TEXT_VERSION = 2
 
 /**
  * The sections a semantic reviewer may quote from, in document order.
@@ -68,6 +75,7 @@ export const REPORT_TEXT_VERSION = 1
  */
 export const REPORT_SECTIONS = Object.freeze([
   Object.freeze({ id: 'executive_summary', name: 'Executive Summary' }),
+  Object.freeze({ id: 'management_summary', name: 'What Needs Attention, Action Plan & Assessment Scope' }),
   Object.freeze({ id: 'scope_and_purpose', name: 'Purpose, Scope & Site Background' }),
   Object.freeze({ id: 'methods', name: 'Investigation Methods & QA/QC' }),
   Object.freeze({ id: 'walkthrough_observations', name: 'Walkthrough Observations & Occupant Reports' }),
@@ -98,6 +106,9 @@ export const EXCLUDED_FROM_TEXT = Object.freeze({
   observations_building: 'The building-systems table. Structured rows, and each cell passes through fmt().',
   floor_plan_pins: 'The site-plan pin table. Structured rows naming locations, not claims about them.',
   headings: 'label() upper-cases; h1/h2 are navigation, not claims.',
+  attention_table: 'The management "What needs attention" rows. Structured cells, and the What-we-found column is headline() — a truncation of the finding, whose full sentence is quotable in discussion.',
+  action_plan_table: 'The management Action Plan. The same register rows as the technical section, in a table, with priority and timeframe sharing a cell.',
+  cross_references: 'Sentences that say where in the document something is printed. Navigation, like a heading, not a claim about the building.',
   captions: 'Figure and table captions, set by the renderer rather than carried as report claims.',
   photo_captions: 'Composed by the renderer from a title and a timestamp.',
   cover_and_signature: 'Identity and metadata, not statements about the building.',
@@ -144,6 +155,37 @@ const COLLECTORS = {
     // Printed under its own label between the summary and section 1, so it
     // belongs to the summary a reader has just read rather than to section 1.
     if (M.overallStatement) out.push(M.overallStatement)
+    return out
+  },
+
+  /**
+   * The management layer's prose.
+   *
+   * Three of its four blocks are TABLES and excluded for the usual reason;
+   * what is left is the attention intro (or the statement that stands in for
+   * the table when there is nothing to attend to) and the assessment-scope
+   * summary.
+   *
+   * `scope.notDone` lines are the report's own limitation sentences, quoted
+   * verbatim, so the same string is a block here AND in `limitations`. That
+   * is correct and deliberate: the claim is restated in two prose places and
+   * a reviewer comparing them needs both handles. Resolution is unambiguous
+   * because it is scoped to the section the reviewer names.
+   */
+  management_summary(M) {
+    const mgr = obj(M.managerSummary)
+    if (!M.managerSummary) return []
+    const out = []
+    const att = obj(mgr.attention)
+    // The renderer prints the intro only above a populated table, and the
+    // `none` statement only in its place.
+    if (arr(att.items).length) { if (att.intro) out.push(att.intro) } else if (att.none) out.push(att.none)
+    const scope = obj(mgr.scope)
+    if (arr(scope.did).length || arr(scope.notDone).length) {
+      if (scope.intro) out.push(scope.intro)
+      arr(scope.did).forEach((line) => out.push(line))
+      arr(scope.notDone).forEach((line) => out.push(line))
+    }
     return out
   },
 
