@@ -54,13 +54,18 @@ describe('the harness cannot touch what it evaluates', () => {
     expect(SOURCE).toContain('_report-authoring-provider.js')
   })
 
-  it('writes exactly one file, and only where it is told', () => {
-    // writeFileSync for --out is the whole write surface. Anything that
-    // creates, appends to or removes a path is a persistence mechanism
-    // this tool was explicitly not given.
+  it('writes only the two files --out names, and nothing else', () => {
+    // writeFileSync is the whole write surface. Anything that creates,
+    // appends to or removes a path is a persistence mechanism this tool
+    // was explicitly not given.
     const writers = CODE.match(/\b(appendFileSync|rmSync|unlinkSync|mkdirSync|rmdirSync|createWriteStream|copyFileSync|renameSync)\b/g)
     expect(writers, 'the harness grew a second write path').toBeNull()
-    expect(CODE.match(/writeFileSync\(/g) || []).toHaveLength(1)
+    // Two, not one: blind mode writes the key beside the scoring
+    // document. Both destinations derive from --out, so a run that was
+    // not given one still writes nothing.
+    const calls = CODE.match(/writeFileSync\(([a-zA-Z]+),/g) || []
+    expect(calls.map((c) => c.replace(/writeFileSync\(|,/g, ''))).toEqual(['out', 'keyPath'])
+    expect(CODE).toContain('const keyPath = keyPathFor(out)')
   })
 
   it('runs no git command that could change the repository', () => {
@@ -187,5 +192,121 @@ describe('the rubric is a form, not a score', () => {
     // report quality is worth anything. A harness that scored the rubric
     // would be answering it with itself.
     expect(CODE).not.toMatch(/\bscoreSection|autoScore|judgeArm|rateQuality\b/)
+  })
+})
+
+describe('blind scoring hides which arm is which', () => {
+  const { blindAssign, blindCaseBlocks, keyPathFor, sectionsBlock, rubricForm, BLIND_LABELS } = __eval as any
+
+  /**
+   * Two arms built to be as revealing as a real run could be: the plan
+   * arm carries a plan and a blocked section, the prompts differ in
+   * length, the costs differ. If anything identifying survives into the
+   * scoring document, it survives here.
+   */
+  const arm = (tag: string, extra: Record<string, unknown> = {}) => ({
+    name: tag,
+    model: 'claude-sonnet-4-6',
+    usage: { input_tokens: 9000, output_tokens: 800 },
+    cost_usd: tag === 'A' ? 0.039 : 0.047,
+    sections_present: ['executive_summary', 'discussion'],
+    sections_absent: [],
+    words: { executive_summary: 8, discussion: 7 },
+    words_total: 15,
+    repetition: { sentences: 2, duplicate_sentences: 0, shingles: 4, repeated_shingles: 0, repeat_rate: 0 },
+    coverage: { register_entries: 3, register_touched: 2, findings_total: 4, findings_touched: 1, zones_total: 1, zones_named: 1 },
+    gates: {
+      blocked_sections: tag === 'A' ? 0 : 1,
+      sections_with_banned_language: 0,
+      per_section: {
+        executive_summary: { supported: true, blocking: 0, warnings: 0, rules: [], banned_terms: [] },
+        discussion: { supported: tag !== 'B', blocking: tag === 'B' ? 1 : 0, warnings: 0, rules: tag === 'B' ? ['pathway-rated'] : [], banned_terms: [] },
+      },
+    },
+    sections: { executive_summary: `${tag} summary prose.`, discussion: `${tag} discussion prose.` },
+    ...extra,
+  })
+
+  const armA = arm('A')
+  const armB = arm('B', {
+    plan: { present: true, usable: true, all_references_resolve: false, unresolved: ['primary_findings:find-deadbeef'], fields_used: ['overall_conclusion', 'throughline'] },
+  })
+
+  it('assigns both permutations and never the same arm twice', () => {
+    const seen = new Set<string>()
+    for (let i = 0; i < 400; i++) {
+      const a = blindAssign()
+      expect([a.X, a.Y].sort()).toEqual(['A', 'B'])
+      seen.add(`${a.X}${a.Y}`)
+    }
+    // 400 draws landing on one permutation would mean the coin is nailed
+    // down, which is a blinding that only looks like one.
+    expect(seen).toEqual(new Set(['AB', 'BA']))
+  })
+
+  it('leaks nothing identifying into the scoring document', () => {
+    for (const assign of [{ X: 'A', Y: 'B' }, { X: 'B', Y: 'A' }]) {
+      const doc = blindCaseBlocks('messy', 'messy — many zones', armA, armB, assign).scoring.join('\n')
+      // Arm identity, the plan that only one arm can produce, the gate
+      // verdicts, and the cost that tracks prompt length.
+      expect(doc, 'arm label').not.toMatch(/\bArm [AB]\b/)
+      expect(doc, 'plan block').not.toMatch(/no plan|\(plan\)|authoring.plan|Plan \(arm/i)
+      expect(doc, 'gate verdict').not.toMatch(/BLOCKED BY AUDIT|pathway-rated/)
+      expect(doc, 'cost or tokens').not.toMatch(/cost|tokens|usd/i)
+      expect(doc, 'hash or commit').not.toMatch(/sha256|[0-9a-f]{16}/)
+      expect(doc).toContain('Report X')
+      expect(doc).toContain('Report Y')
+    }
+  })
+
+  it('puts each arm behind the label it was actually drawn for', () => {
+    const xIsB = blindCaseBlocks('messy', 'l', armA, armB, { X: 'B', Y: 'A' }).scoring.join('\n')
+    expect(xIsB.indexOf('B summary prose.')).toBeGreaterThan(xIsB.indexOf('Report X'))
+    expect(xIsB.indexOf('B summary prose.')).toBeLessThan(xIsB.indexOf('Report Y'))
+
+    const xIsA = blindCaseBlocks('messy', 'l', armA, armB, { X: 'A', Y: 'B' }).scoring.join('\n')
+    expect(xIsA.indexOf('A summary prose.')).toBeGreaterThan(xIsA.indexOf('Report X'))
+    expect(xIsA.indexOf('A summary prose.')).toBeLessThan(xIsA.indexOf('Report Y'))
+  })
+
+  it('records the mapping and every withheld signal in the key', () => {
+    const key = blindCaseBlocks('messy', 'messy — many zones', armA, armB, { X: 'B', Y: 'A' }).key.join('\n')
+    expect(key).toContain('| Report X | B — plan (working tree) |')
+    expect(key).toContain('| Report Y | A — no plan (pinned baseline) |')
+    // Everything the scoring document refused to show has to land here,
+    // or blinding has destroyed the measurement rather than protecting it.
+    expect(key).toContain('Plan (arm B only)')
+    expect(key).toContain('find-deadbeef')
+    expect(key).toContain('BLOCKED BY AUDIT')
+    expect(key).toContain('pathway-rated')
+    expect(key).toMatch(/cost \(USD\)/)
+  })
+
+  it('scores the rubric by label, not by arm', () => {
+    const form = rubricForm('messy', BLIND_LABELS)
+    expect(form).toContain('| Category | Report X | Report Y |')
+    expect(form).not.toMatch(/Arm [AB]/)
+    // Same seven categories and the same gap rule either way.
+    expect(form.match(/☐ 1 ☐ 2 ☐ 3 ☐ 4 ☐ 5/g) || []).toHaveLength(14)
+    expect(form).toContain('Note (required if gap ≥ 2)')
+  })
+
+  it('hides the gate findings only when asked', () => {
+    expect(sectionsBlock(armB)).toContain('BLOCKED BY AUDIT')
+    expect(sectionsBlock(armB, { hideGates: true })).not.toContain('BLOCKED BY AUDIT')
+    // The prose itself is untouched either way.
+    expect(sectionsBlock(armB, { hideGates: true })).toContain('B discussion prose.')
+  })
+
+  it('writes the key beside the scoring document', () => {
+    expect(keyPathFor('/tmp/ab.md')).toBe('/tmp/ab.key.md')
+    expect(keyPathFor('/tmp/ab')).toBe('/tmp/ab.key.md')
+  })
+
+  it('refuses a blind run that would print the key to stdout, or has no prose', () => {
+    // --blind without --out would write the key to the same stream as the
+    // prose; --blind on a dry run has nothing to score.
+    expect(CODE).toContain("if (blind && !out) fail(")
+    expect(CODE).toContain("if (blind && dry) fail(")
   })
 })
