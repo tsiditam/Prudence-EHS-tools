@@ -815,23 +815,43 @@ export function buildFloorPlans(data = {}) {
   }
 }
 
-/** Standard limitations + project-specific additions. */
-export function buildLimitations(data) {
+/**
+ * Standard limitations + project-specific additions, each tagged with what
+ * kind of statement it is.
+ *
+ * The STRINGS and their ORDER are exactly what `buildLimitations` has always
+ * returned — this function only says, of each one, whether it is a BOUNDARY
+ * (a statement of work that was not performed) or a qualifier on the work
+ * that was. Nothing is reworded and nothing is added.
+ *
+ * The tag exists so the management-layer "what we did not do" summary can
+ * quote the canonical limitation VERBATIM instead of paraphrasing it. A
+ * paraphrase would be a second limitation list — two wordings of one
+ * boundary, free to drift, which is the defect class this codebase keeps
+ * paying for. A reader therefore sees the same sentence in the management
+ * summary and in section 7, because it IS the same sentence.
+ *
+ * @returns {Array<{text: string, boundary: boolean}>}
+ */
+export function buildLimitationEntries(data) {
+  // `boundary: false` — a qualifier on what WAS done, or a disclosure about
+  // the record. It belongs in section 7 and not in a "what we did not do"
+  // list, however true it is.
   const base = [
-    'Reflects conditions on the assessment date only.',
-    'Not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.',
-    'Direct-reading instruments are indicative tools; TVOC and PM2.5 are non-specific indicators.',
+    { text: 'Reflects conditions on the assessment date only.', boundary: false },
+    { text: 'Not a regulatory exposure determination, OSHA compliance certification, or medical evaluation.', boundary: false },
+    { text: 'Direct-reading instruments are indicative tools; TVOC and PM2.5 are non-specific indicators.', boundary: false },
   ]
   const extra = []
   const hasLogger = !!(data.sensorData && data.sensorData.graphs && Object.values(data.sensorData.graphs).some(g => g && g.include))
-  if (!hasLogger) extra.push('No continuous logger data was collected; values reflect readings taken during the site visit.')
-  if (!(data.zones || []).some(z => num(z && z.co2) !== null)) extra.push('Limited quantitative measurements were available for this assessment.')
+  if (!hasLogger) extra.push({ text: 'No continuous logger data was collected; values reflect readings taken during the site visit.', boundary: true })
+  if (!(data.zones || []).some(z => num(z && z.co2) !== null)) extra.push({ text: 'Limited quantitative measurements were available for this assessment.', boundary: false })
   // A reading with no instrument behind it is disclosed, not attributed by
   // implication to whichever meter the QA/QC table happens to name first.
   const orphans = unattributedParameters(data.presurvey || {}, data.zones || [])
   if (orphans.length) {
     const list = orphans.length > 1 ? `${orphans.slice(0, -1).join(', ')} and ${orphans[orphans.length - 1]}` : orphans[0]
-    extra.push(`${list} ${orphans.length === 1 ? 'was' : 'were'} recorded, but no instrument for ${orphans.length === 1 ? 'it' : 'them'} is documented in the project record; ${orphans.length === 1 ? 'that reading is' : 'those readings are'} reported without instrument attribution.`)
+    extra.push({ text: `${list} ${orphans.length === 1 ? 'was' : 'were'} recorded, but no instrument for ${orphans.length === 1 ? 'it' : 'them'} is documented in the project record; ${orphans.length === 1 ? 'that reading is' : 'those readings are'} reported without instrument attribution.`, boundary: false })
   }
   // What was NOT done, derived from the record rather than asserted as
   // boilerplate. A reviewer reads limitations to learn the edges of the
@@ -841,16 +861,24 @@ export function buildLimitations(data) {
   // data says so, and disappears when the data says otherwise.
   const zones = data.zones || []
   const n = zones.length
-  if (n) extra.push(`Findings apply to the ${n} area${n === 1 ? '' : 's'} assessed and do not characterize areas that were not entered or measured.`)
+  if (n) extra.push({ text: `Findings apply to the ${n} area${n === 1 ? '' : 's'} assessed and do not characterize areas that were not entered or measured.`, boundary: true })
   const quantifiedVent = zones.some(z => z && (num(z.cfm_person) !== null || num(z.ach) !== null || num(z.oa_flow_cfm) !== null))
   if (!quantifiedVent && zones.some(z => z && num(z.co2) !== null)) {
-    extra.push('No quantified ventilation-rate measurement (outdoor-air cfm per person or air changes per hour) was made; ventilation adequacy is inferred from CO₂ as an indicator only.')
+    extra.push({ text: 'No quantified ventilation-rate measurement (outdoor-air cfm per person or air changes per hour) was made; ventilation adequacy is inferred from CO₂ as an indicator only.', boundary: true })
   }
-  extra.push('No full-shift or personal exposure sampling was performed; direct-reading values are short-duration and do not represent time-weighted exposures.')
-  extra.push('No destructive or concealed-material investigation was performed; conditions behind finishes are not characterized.')
+  extra.push({ text: 'No full-shift or personal exposure sampling was performed; direct-reading values are short-duration and do not represent time-weighted exposures.', boundary: true })
+  extra.push({ text: 'No destructive or concealed-material investigation was performed; conditions behind finishes are not characterized.', boundary: true })
   const photoCount = Object.values(data.photos || {}).reduce((acc, arr) => acc + ((Array.isArray(arr) ? arr : []).length), 0)
-  if (!photoCount) extra.push('No photographs are included; visual observations are as recorded by the assessor.')
-  return [...base, ...extra, ...collectDataGaps(data.zoneScores || [])]
+  if (!photoCount) extra.push({ text: 'No photographs are included; visual observations are as recorded by the assessor.', boundary: false })
+  // A data gap is a fact about one reading, stated per zone. It is a
+  // limitation on the record, not a description of the scope of work.
+  const gaps = collectDataGaps(data.zoneScores || []).map(text => ({ text, boundary: false }))
+  return [...base, ...extra, ...gaps]
+}
+
+/** Standard limitations + project-specific additions. */
+export function buildLimitations(data) {
+  return buildLimitationEntries(data).map(e => e.text)
 }
 
 /**
@@ -902,6 +930,7 @@ export function buildReportModel(data = {}, opts = {}) {
         .map(([id, g]) => ({ type: 'image', id, title: g.title || 'Logger chart', imageDataUrl: g.imageDataUrl, caption: g.caption || '' }))
     : []
   const co2Bars = peakCo2ByZone(zones, zoneScores)
+  const limitationEntries = buildLimitationEntries(data)
   const charts = [...graphs]
   if (co2Bars.length) charts.push({ type: 'barCo2ByZone', title: 'Peak CO2 by zone', data: co2Bars, threshold: STD.v.co2.con })
 
@@ -970,7 +999,11 @@ export function buildReportModel(data = {}, opts = {}) {
     charts,
     photos: data.photos || {},
     qaQc: buildQaQc(ps, zones),
-    limitations: buildLimitations(data),
+    limitations: limitationEntries.map(e => e.text),
+    // The same limitations, tagged. `assembleRenderModel` reads this to build
+    // the management-layer scope summary, which quotes the boundary
+    // statements verbatim rather than restating them. One source of text.
+    limitationEntries,
     references: referenceUsage.refs,
     referenceUsage: referenceUsage.usage,
     composite: data.comp || null,
@@ -1140,6 +1173,227 @@ function buildReviewBlock({ profile, status, reviewer, meta, firm, reportId, mod
     signatureTitle: meta.assessorCredentials || 'Preparing Assessor',
     signatureFirm: firm,
     signatureMeta: `${stamp}  ·  ${statusLabel(profile, status)}`,
+  }
+}
+
+// ── The management layer ───────────────────────────────────────────────
+//
+// A PROJECTION of the assembled report, and only a projection.
+//
+// The first pages of this deliverable are read by a property, facility or
+// EHS manager who has to decide what to do on Monday; the rest is read by a
+// CIH who has to be able to defend whatever that decision rests on. Those are
+// two depths of explanation over ONE evidence record — not two opinions — so
+// everything below re-presents values the model already carries and derives
+// no conclusion of its own.
+//
+// Concretely, `buildManagerSummary` may not and does not: score a reading,
+// choose a threshold, decide a severity, invent a recommendation, infer a
+// source, rank a causal pathway, or decide whether a reference applies. It
+// takes the model's own folded findings, the model's own action register,
+// the engine's own causal chains and the model's own limitation strings, and
+// it changes selection, grouping, ordering and labeling. `tests/engine/
+// manager-summary.test.ts` pins that as a property rather than a promise.
+
+/** Worst-first, for ordering attention items. Mirrors SEV_RANK_ORDER. */
+const MGR_SEV_RANK = { priority: 0, elevated: 1, advisory: 2, ok: 3, not_evaluated: 4 }
+
+/** What the register's priority buckets mean in order of urgency. */
+const MGR_PRIORITY_RANK = { 'Immediate': 0, 'Short term': 1, 'Medium term': 2, 'Ongoing': 3 }
+
+/**
+ * The sentence a manager row carries when the register proposes nothing for
+ * that location. Stating the absence is the honest answer: the alternative is
+ * an empty cell that reads as an oversight, or an action nobody recommended.
+ * `report-consistency.js` separately raises a severe finding whose room
+ * carries no immediate action, so this never hides a defect.
+ */
+const NO_ACTION_PROPOSED = 'No corrective action is proposed for this condition; see Discussion & Conclusions.'
+
+/** A chain type without its "(Hypothesis)" / "(Mechanism)" suffix. */
+const chainLabel = (type) => String(type || '').replace(/\s*\((?:Hypothesis|Mechanism)\)\s*$/, '').trim()
+
+/**
+ * The management "What needs attention" rows.
+ *
+ * ONE ROW PER LOCATION SCOPE, where the scope is the one `collectFindings`
+ * already folded to — so a condition the engine emitted once per zone, which
+ * that fold has already collapsed into a single finding reading "All zones
+ * (5)", reaches the manager once. Nothing folds here that was not already
+ * folded there: two findings whose sentences differ are two different
+ * findings and stay apart, in the management layer exactly as in the findings
+ * table.
+ */
+function attentionItems(model, chains) {
+  const rows = (model.findings && model.findings.rows) || []
+  const register = (model.recommendations && model.recommendations.register) || []
+  const byLocation = new Map()
+  for (const r of rows) {
+    const location = r.z || r.zoneKey || 'Zone'
+    let item = byLocation.get(location)
+    if (!item) {
+      item = { location, zones: r.zones || [r.zoneKey || location], severity: r.sev, issues: [], findings: [] }
+      byLocation.set(location, item)
+    }
+    // Worst severity at this location, taken from the tokens the findings
+    // table already prints. No re-rating.
+    if ((MGR_SEV_RANK[r.sev] ?? 9) < (MGR_SEV_RANK[item.severity] ?? 9)) item.severity = r.sev
+    item.findings.push(r.f)
+    const claim = headline(r.f)
+    if (claim && !item.issues.includes(claim)) item.issues.push(claim)
+  }
+
+  const items = [...byLocation.values()].map(item => {
+    // An action or a pathway belongs on this row only when it covers EVERY
+    // location the row names. A row reading "Room 108 · Room 214" that
+    // proposed an action scoped to Room 214 alone would tell a manager to do
+    // something about a place the action never addressed — and a pathway
+    // hypothesized for one room would arrive attached to a finding in
+    // another, which is inferring a source. Partial matches are therefore
+    // dropped rather than approximated; the action's own Location column in
+    // the Action Plan is what carries a narrower scope.
+    const coversAll = (where) => {
+      const w = String(where || '')
+      if (!w) return false
+      if (/^Building-wide/.test(w)) return true
+      return item.zones.every(z => z && w.includes(z))
+    }
+    // The pathway whose receptor is this row's location. `chains` is the
+    // engine's own output, read the way the conceptual site model reads it;
+    // nothing here weighs or ranks one.
+    //
+    // Two kinds are deliberately not read. A `notEvaluated` chain is the
+    // engine stating that pressurization was never assessed — an absence, not
+    // a hypothesis about this location, and printing it as one would make a
+    // gap look like a lead. A BUILDING-WIDE chain covers every location by
+    // construction, so it would print the identical clause on every row of
+    // the table; it is stated once, in the Conceptual Site Model and the
+    // Executive Summary's conclusion, which is where a reader looks it up.
+    const chain = (chains || []).find(c =>
+      c && !c.notEvaluated && String(c.zone || '') !== 'Building-wide' && coversAll(c.zone))
+    // The action already in the register for this location, most urgent
+    // first. A building-wide action applies everywhere, so it competes on
+    // urgency rather than being a fallback.
+    const byUrgency = (a, b) => (MGR_PRIORITY_RANK[a.priority] ?? 9) - (MGR_PRIORITY_RANK[b.priority] ?? 9)
+    const action = register.filter(a => coversAll(a.location)).sort(byUrgency)[0] || null
+    // The decision the outcome token already means, in the legend's own
+    // words. Not a second severity ladder — the same one, spelled out.
+    const decision = upperFirst(NL.SEVERITY_DECISION[item.severity] || NL.SEVERITY_DECISION.advisory)
+    const status = chain
+      ? `${decision}. Working hypothesis: ${chainLabel(chain.type).toLowerCase()} — no causal relationship has been established.`
+      : `${decision}.`
+    return {
+      location: item.location,
+      zones: item.zones,
+      severity: item.severity,
+      // Three claims is what a management table can carry before it stops
+      // being one. The rest are not dropped from the report — every finding
+      // is printed in full in Discussion & Conclusions, which `more` points at.
+      issues: item.issues.slice(0, 3),
+      more: Math.max(0, item.issues.length - 3),
+      findings: item.findings,
+      status,
+      nextAction: action ? action.action : (chain && chain.verification ? `${upperFirst(chain.verification)}.` : NO_ACTION_PROPOSED),
+      priority: action ? action.priority : null,
+    }
+  })
+
+  return items.sort((a, b) =>
+    ((MGR_SEV_RANK[a.severity] ?? 9) - (MGR_SEV_RANK[b.severity] ?? 9)) ||
+    String(a.location).localeCompare(String(b.location)))
+}
+
+/**
+ * "What we did" — one line per thing the record shows was performed.
+ *
+ * Every line is gated on the evidence for it EXISTING IN THIS DOCUMENT: the
+ * walkthrough line requires the observations section, the logger line
+ * requires the charts, the photographs line requires the appendix. A line
+ * that cannot point at a section of the report it summarizes would be a
+ * claim about the work rather than a summary of it.
+ */
+function scopeDid(model) {
+  const out = []
+  const zoneRows = ((model.results && model.results.rows) || [])
+    .filter(r => r && r.id !== 'Site mean' && r.id !== 'Outdoor reference')
+  const n = zoneRows.length
+  const obsZones = ((model.observations && model.observations.zones) || [])
+  // "in k of the n areas assessed", never a bare count: the walkthrough line
+  // is evidence-bound to the areas whose observations the document actually
+  // carries, and a manager comparing it against the measurement line should
+  // see the same denominator in both.
+  if (obsZones.length && n) {
+    out.push(`Walkthrough observations recorded in ${obsZones.length} of the ${n} area${n === 1 ? '' : 's'} assessed (Section 3).`)
+  }
+  const withReports = obsZones.filter(z => (z.occupantReports || []).length).length
+  if (withReports && n) {
+    out.push(`Occupant reports recorded in ${withReports} of the ${n} area${n === 1 ? '' : 's'} assessed, as described to the assessor (Section 3).`)
+  }
+  // The parameter labels VERBATIM from the measurement overview, including
+  // the abbreviation in each. Trimming "(PM2.5)" off "Fine particulate" would
+  // make the management line and the table name the same thing differently.
+  const measured = (model.findingsAtGlance || []).map(g => String(g.parameter)).filter(Boolean)
+  if (measured.length && n) {
+    out.push(`Direct-reading measurements in ${n} area${n === 1 ? '' : 's'}: ${measured.join(', ')} (Section 4).`)
+  }
+  if (((model.results && model.results.rows) || []).some(r => r && r.id === 'Outdoor reference')) {
+    out.push('Outdoor reference readings taken for comparison against the indoor areas (Section 4).')
+  }
+  const logger = ((model.loggerImages && model.loggerImages.images) || []).length
+  if (logger) {
+    out.push(`Continuous logger monitoring, charted over the monitored period (Section 4.1).`)
+  }
+  const plans = ((model.floorPlans && model.floorPlans.figures) || []).length
+  if (plans) out.push(`Sampling locations marked on ${plans === 1 ? 'the site plan' : `${plans} site plans`} (Section 1).`)
+  const photos = ((model.photos && model.photos.items) || []).length
+  if (photos) out.push(`${photos} site photograph${photos === 1 ? '' : 's'} (Appendix C).`)
+  return out
+}
+
+/**
+ * The management summary — a projection of `model`, and of the engine output
+ * `model` was already built from.
+ *
+ * @param {object} model  the assembled render model, before this field is
+ *   attached. Every value below is read off it.
+ * @param {object} [sources]
+ * @param {Array}  [sources.chains]  the engine's causal chains, read the same
+ *   way the conceptual site model reads them — for a pathway's receptor and
+ *   the verification it requires. Never weighed, never ranked here.
+ * @param {Array}  [sources.limitationEntries]  the report's own limitation
+ *   strings, tagged by `buildLimitationEntries`. The boundary statements are
+ *   quoted VERBATIM; this layer keeps no limitation wording of its own.
+ */
+export function buildManagerSummary(model = {}, sources = {}) {
+  const items = attentionItems(model, sources.chains || [])
+  const notEvaluated = (model.findingsAtGlance || []).some(g => g && g.outcome === 'not_evaluated')
+  const notDone = (sources.limitationEntries || []).filter(e => e && e.boundary).map(e => e.text)
+  return {
+    attention: {
+      intro: 'The locations below carry a condition identified during this assessment. Each states what was found, where the assessment stands on it, and the next step. The full finding text, the measurements behind it and the criteria applied are in the technical sections that follow.',
+      items,
+      // Stated only when there is nothing to state a row about. It reports
+      // what the assessment found and does not certify the building: the
+      // sentence is bounded to the areas assessed and to the assessment
+      // window, exactly as the overall statement above it is.
+      none: items.length ? null : [
+        'No conditions requiring corrective action were identified in the areas assessed during the assessment window.',
+        notEvaluated ? 'Parameters that were measured but not evaluated against a numerical criterion are identified in Measurement Results and in Limitations.' : null,
+      ].filter(Boolean).join(' '),
+    },
+    actionPlan: {
+      // The SAME array the technical section carries — not a copy and not a
+      // second derivation. `manager-summary.test.ts` asserts the identity.
+      rows: (model.recommendations && model.recommendations.register) || [],
+      note: (model.recommendations && model.recommendations.registerNote) || null,
+    },
+    scope: {
+      intro: 'What this assessment covered, and the boundaries that apply to what it can say. Both are set out in full in the sections that follow.',
+      did: scopeDid(model),
+      // Verbatim from the report's own limitations — see buildLimitationEntries.
+      notDone,
+      note: notDone.length ? 'The complete limitations that apply to this report are in Section 7.' : null,
+    },
   }
 }
 
@@ -1408,7 +1662,7 @@ export function assembleRenderModel(data = {}, opts = {}) {
     mode,
   })
 
-  return {
+  const model = {
     meta: {
       docTitle: `AtmosFlow — IAQ Assessment Report — ${meta.facilityName}`,
       reportTitle: 'Indoor Air Quality Assessment Report',
@@ -1529,4 +1783,14 @@ export function assembleRenderModel(data = {}, opts = {}) {
     references,
     photos,
   }
+
+  // The management layer, LAST and from the finished model: a projection of
+  // what is already assembled above, never an input to it. Building it here
+  // rather than inline is the point — it can only read fields that exist, so
+  // it cannot quietly become a second place a conclusion is formed.
+  model.managerSummary = buildManagerSummary(model, {
+    chains,
+    limitationEntries: rd.limitationEntries,
+  })
+  return model
 }

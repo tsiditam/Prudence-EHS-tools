@@ -107,7 +107,36 @@ export const OBSERVED = {
 }
 
 // ── Fixed blocks ───────────────────────────────────────────────────
-export const SEVERITY_LEGEND_NOTE = 'Acceptable: within recognized references. Advisory: monitor / investigate source. Elevated: corrective action recommended. Priority: prompt action recommended.'
+
+/**
+ * What each outcome MEANS as a decision, in the report's own words.
+ *
+ * This is the severity legend, decomposed. The legend has always glossed the
+ * four outcome tokens in decision terms — "corrective action recommended",
+ * "prompt action recommended" — and the management summary needs exactly that
+ * gloss for its Current-status column. Writing it a second time there would
+ * be a second severity vocabulary beside the legend, free to drift from it:
+ * the defect class this codebase keeps paying for (a phrase template that
+ * asserts a verdict; a results table that disagrees with the finding beside
+ * it). So the legend is BUILT from this map rather than stated beside it, and
+ * `SEVERITY_LEGEND_NOTE` is byte-identical to what it has always been.
+ *
+ * It is a DISPLAY mapping and nothing else. It decides no severity, reads no
+ * threshold and ranks nothing; the token it is keyed by is already the
+ * engine's own conclusion, projected through `ENGINE_SEV_TO_SEV` /
+ * `SEV_TO_OUTCOME` in `reportModel.js`. `not_evaluated` is deliberately here
+ * and deliberately NOT a rung: a parameter the platform has no basis to judge
+ * gets a statement of that fact, never the acceptable branch.
+ */
+export const SEVERITY_DECISION = Object.freeze({
+  ok: 'within recognized references',
+  advisory: 'monitor / investigate source',
+  elevated: 'corrective action recommended',
+  priority: 'prompt action recommended',
+  not_evaluated: 'not evaluated against a numerical criterion',
+})
+
+export const SEVERITY_LEGEND_NOTE = `Acceptable: ${SEVERITY_DECISION.ok}. Advisory: ${SEVERITY_DECISION.advisory}. Elevated: ${SEVERITY_DECISION.elevated}. Priority: ${SEVERITY_DECISION.priority}.`
 
 export const REFERENCE_FRAMEWORK = 'Outcomes are compared against recognized consensus and regulatory references: ASHRAE 62.1 (ventilation, used as an indicator basis for CO2 — not a CO2 contaminant limit), ASHRAE 55 (thermal comfort), US EPA NAAQS (CO and PM2.5), OSHA PELs (29 CFR 1910.1000). References are used to contextualize readings, not to render compliance determinations. TVOC is deliberately absent from that list: no consensus health-based limit exists for a non-specific sum of organic species, so the measured value is reported without comparison to any reference.'
 
