@@ -762,6 +762,93 @@ When working on report generation:
   which quote resolution handles because it is scoped to the section a
   reviewer names.
 
+- **A projection may re-present what the engine concluded; it may not conclude
+  more than the engine did.** Five contradictions shipped in one client report
+  (Larkin Hall, 2026-09) and every one was a projection reading the WRONG
+  SOURCE, not a bad sentence. They are worth stating as a class, because the
+  class is what recurs.
+
+  1. **The summary read the six-parameter table instead of the census.**
+     `elevatedZones` came from Measurement Results, which covers CO2, CO,
+     temperature, RH, PM2.5 and TVOC. The engine finds conditions outside all
+     six — formaldehyde is not a column, an odor is not a parameter, nor is an
+     occupant symptom pattern. Every one of the six was clean in both Larkin
+     rooms while four findings stood in Room 214, so the report opened
+     "Measured parameters were within recognized references across the areas
+     assessed, with 4 items flagged for follow-up". The scope and the count now
+     both come from `collectFindings`, so the halves of one sentence cannot
+     disagree. **`modelConsistency`'s rule had the same bug** — it validated the
+     statement against the same incomplete table, which is how it AGREED with
+     the contradiction it existed to catch. `overallStatementMatchesCensus`.
+  2. **The manager layer picked a hypothesis by array order.**
+     `chains.find(...)` returned whichever chain was built first — a
+     complaint-only "ventilation deficiency" — while the Executive Summary used
+     `pickPrimaryChain` and named chemical exposure from a measured
+     formaldehyde reading. One room, one evidence set, two leading hypotheses.
+     `reportModel.js` already re-exported `pickPrimaryChain` under a comment
+     saying it lives with the chains "so the results hero and this model cannot
+     disagree"; the fix restores what that comment promised.
+  3. **A subset label wore a verdict's clothes.** The Measurement Results
+     "Outcome" column showed the worst outcome among those six parameters,
+     beside the room's name, where it reads as a verdict on the room: Room 214
+     "Acceptable" over an elevated finding and four actions. **Removed, and NOT
+     replaced.** There is no honest single label for a room here — producing
+     one would make observations, occupant symptoms, logger evidence and
+     measurements compete in a severity calculation this platform does not
+     perform. `sev` stays on the model because four consistency rules read it.
+  4. **`determinative` died in the projection.** `scoring.js` stamps
+     `criterionClass`, `averaging`, `determinative` and `evidenceBasis` on every
+     criterion-derived finding, and `collectFindings` dropped all four. So the
+     report printed "Formaldehyde 0.032 ppm — above the NIOSH REL of 0.016 ppm,
+     which is a 10-hour time-weighted average" with no layer able to know what
+     the engine already knew: a 15-minute walkthrough reading cannot settle a
+     10-hour TWA. **NUMERICALLY ABOVE A REFERENCE VALUE is not DEMONSTRATED
+     EXCEEDANCE OF THAT REFERENCE'S AVERAGING-PERIOD LIMIT**, and the engine has
+     always been right about this. The fields are now carried verbatim and the
+     management layer's "Why it matters" states the distinction.
+  5. **Two hand-written strings asserted what the report denies.** The peak-CO2
+     chart drew a line labeled "ASHRAE 62.1 advisory (1000 ppm)" over
+     `STD.v.co2.con`, which `standards.js` documents as a NIOSH screening
+     trigger, four pages after Methods says ASHRAE 62.1 "prescribes ventilation
+     rates rather than a CO2 limit" — removed, not re-pointed, because no
+     canonical criterion sets a generic indoor CO2 limit. And
+     `methodologyBullets` attributed six parameters to whatever single meter
+     `ps_inst_iaq` names, crediting a Q-Trak with PM2.5 and TVOC while QA/QC
+     three rows below named a ppbRAE, a Formaldemeter and a logger.
+
+  **"Why it matters" is a projection, and stays one.** Every clause is a lookup
+  of something the engine stamped: `CRITERION_CLASS[class].framing` (printed
+  nowhere else, so this is its one statement), the `determinative` flag, the
+  finding's `basis`, and whether a chain covers the row. It determines no health
+  risk, exposure, toxicity, compliance, severity, causation or source
+  attribution, and adds no ranking. Where a measured finding carries no criterion
+  class — the CO2 ventilation-indicator findings are built outside
+  `evaluateCriteria` — it says what its own fields support rather than borrowing
+  a class the engine did not assign.
+
+  **Seven invariants in `modelConsistency.js`** now make the class mechanically
+  detectable rather than merely absent: `summary-all-clear`,
+  `unsettled-comparison`, `exposure-asserted`, `hypothesis-disagreement`,
+  `cause-asserted`, `screening-as-identification`, `context-as-compliance`,
+  `absence-as-safety`. They read STRUCTURED FIELDS wherever the defect is
+  structural, and `proseOf` deliberately excludes the engine's own finding
+  sentences — what is checked is every place a projection RESTATES them, because
+  that is where a restatement can get stronger than the thing it restates.
+  `assertsPositively` is why they are usable: the first run of `cause-asserted`
+  fired on the report's own "The chain is a working hypothesis, not an
+  established cause". **A rule that fires on the sentence disclaiming the claim
+  is worse than no rule** — the pressure becomes to delete the disclaimer.
+
+  **Known gap, deliberately not patched.** `evaluateCriteria` returns the first
+  EXCEEDED criterion or `null`; for a passing value it emits no provenance at
+  all. So there is no canonical record of which criteria were applied and
+  passed, and the Measurement Overview's `Basis` column stays hand-written in
+  `PARAMS` — "PM2.5 | US EPA NAAQS (context) | Acceptable" reads as compliance
+  with a reference that did not determine the word beside it. Deriving it
+  downstream would mean re-implementing applicability (season scope,
+  averaging-evaluability, `autoApplied` exclusion) outside the registry. Tracked
+  as follow-up, not worked around.
+
 - **Qualitative-only propagation.** Findings derived from instruments
   not in the accuracy database inherit a `qualitative_only: true` flag
   that propagates to every rendered output of that finding.
