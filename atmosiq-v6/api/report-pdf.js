@@ -70,8 +70,31 @@ async function requireUser(req, res) {
 function collectProse(model) {
   const out = []
   const push = (v) => { if (typeof v === 'string' && v.trim()) out.push(v) }
-  push(model.execSummary)
+  // The executive summary is `{ paragraphs, findings, actions }`; a report
+  // stored before it carried its own findings and actions is a plain string.
+  // Only the PARAGRAPHS are AtmosFlow's own prose — `findings` are engine
+  // finding sentences and `actions` are register rows, both engine-authored
+  // and both deliberately out of this gate's scope (see the note above).
+  //
+  // Until 2026-09 this pushed `model.execSummary` and nothing else, so once
+  // the summary became an object the gate stopped seeing the opening
+  // paragraphs of the deliverable entirely: `typeof v === 'string'` dropped
+  // it silently and the scan reported clean.
+  if (typeof model.execSummary === 'string') push(model.execSummary)
+  else if (model.execSummary) (model.execSummary.paragraphs || []).forEach(push)
   push(model.overallStatement)
+  // The management layer's own prose. Its tables are engine-authored — the
+  // finding headlines it shows and the register actions it names — and are
+  // scoped out for the same reason the findings table is.
+  const mgr = model.managerSummary
+  if (mgr) {
+    push(mgr.attention && mgr.attention.intro)
+    push(mgr.attention && mgr.attention.none)
+    push(mgr.scope && mgr.scope.intro)
+    ;((mgr.scope && mgr.scope.did) || []).forEach(push)
+    ;((mgr.scope && mgr.scope.notDone) || []).forEach(push)
+    push(mgr.scope && mgr.scope.note)
+  }
   ;(model.scope && model.scope.paras || []).forEach(push)
   push(model.scope && model.scope.text)
   push(model.methodology && model.methodology.referenceFramework)

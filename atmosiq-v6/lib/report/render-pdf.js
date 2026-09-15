@@ -40,7 +40,17 @@ const SEV = {
   advisory: { label: 'Advisory', color: '#B45309' },
   elevated: { label: 'Elevated', color: '#C2410C' },
   priority: { label: 'Priority', color: '#B91C1C' },
+  // A parameter that was MEASURED but is compared to nothing — TVOC since
+  // 2026-08, when the Molhave tiers were removed — and the outdoor baseline
+  // row, which is a reference rather than a judged location. Both used to
+  // fall through `SEV[x] || SEV.ok` and print a green "Acceptable": this
+  // renderer stated a verdict for the one reading the platform has no basis
+  // to judge. Neutral gray, and deliberately not green.
+  not_evaluated: { label: 'Not evaluated', color: '#4B5563' },
+  reference: { label: 'Reference', color: '#4B5563' },
 }
+/** Never falls through to the acceptable branch for an unknown token. */
+const sevOf = (t) => SEV[t] || SEV.not_evaluated
 const MARGIN = 64, PAGE_W = 612, PAGE_H = 792
 const CONTENT_W = PAGE_W - MARGIN * 2
 const HEADER_Y = 50, CONTENT_TOP = 92, BOTTOM_LIMIT = PAGE_H - MARGIN
@@ -248,7 +258,7 @@ function barChart({ data, threshold, thresholdLabel, unit = 'ppm', height = 200 
   data.forEach((d, i) => {
     const x = axisL + slot * i + (slot - bw) / 2
     const by = yToPix(d.value), bh = plotBot - by
-    doc.rect(x, by, bw, bh).fillColor((SEV[d.outcome] || SEV.ok).color).fill()
+    doc.rect(x, by, bw, bh).fillColor(sevOf(d.outcome).color).fill()
     doc.fillColor(INK).font('Helvetica-Bold').fontSize(6.6).text(String(d.value), x - 5, by - 9, { width: bw + 10, align: 'center', lineBreak: false })
     doc.fillColor(SOFT).font('Helvetica').fontSize(6.8).text(String(d.zone), x - 6, plotBot + 4, { width: bw + 12, align: 'center', lineBreak: false })
   })
@@ -392,36 +402,94 @@ function drawCover() {
 function buildContent() {
   drawCover()
 
-  if (M.execSummary) { doc.addPage(); h1('Executive Summary'); p(M.execSummary) }
+  // ─── The management layer ────────────────────────────────────────
+  //
+  // The same manager-first architecture the Word deliverable carries
+  // (src/components/docx/sections-atmosflow.js), over the same model, in this
+  // renderer's own visual system. The two client exports must present the
+  // report the same way or the choice of file format changes what the client
+  // is told.
+  //
+  // Executive Summary, then What Needs Attention, the Action Plan, and what
+  // the assessment did and did not do. Everything after it is the evidence a
+  // CIH needs to check those answers.
+  if (M.execSummary) {
+    doc.addPage()
+    h1('Executive Summary')
+    // The model hands this over as `{ paragraphs, findings, actions }`; a
+    // report stored before the summary carried its own findings and actions
+    // hands over a plain string. BOTH render — and until now only the string
+    // did: the object shape reached `p()` and printed "[object Object]" as
+    // the opening paragraph of the PDF deliverable.
+    const es = typeof M.execSummary === 'string' ? { paragraphs: [M.execSummary] } : (M.execSummary || {})
+    ;(es.paragraphs || []).forEach(para => p(para))
+    // The broad result, under the summary that sets it up rather than below a
+    // parameter table further down the page.
+    if (M.overallStatement) { h2('Overall Statement'); p(M.overallStatement) }
+    if ((es.findings || []).length) { h2('Leading Findings'); bullets(es.findings) }
+    if ((es.actions || []).length) { h2('First Actions'); bullets(es.actions) }
+  }
 
-  if (M.findingsAtGlance && M.findingsAtGlance.length) {
-    h2('Findings at a Glance')
+  const mgr = M.managerSummary
+
+  if (mgr && mgr.attention) {
+    const att = mgr.attention
+    h1('What Needs Attention')
+    if (att.items && att.items.length) {
+      if (att.intro) p(att.intro)
+      table(
+        [
+          { label: 'Location', width: 84, render: r => ({ t: fmt(r.location), bold: true }) },
+          { label: 'What we found', width: 150, render: r => (
+            [...r.issues, ...(r.more ? [`+${r.more} more in Findings & Interpretation`] : [])].join('\n')
+          ) },
+          { label: 'Current status', width: 118, render: r => ({ t: fmt(r.status), color: sevOf(r.severity).color }) },
+          { label: 'What happens next', width: 148, render: r => fmt(r.nextAction) },
+        ],
+        att.items, { fontSize: 8.5, rowH: 30 },
+      )
+      metaLine('Findings are stated in full, with the criterion applied and the measurements behind them, in Findings & Interpretation.')
+    } else if (att.none) {
+      // No row, and no empty table either. The statement is bounded to the
+      // areas assessed and to the assessment window, and certifies nothing.
+      p(att.none)
+    }
+  }
+
+  // The action register, printed ONCE and here — where the person who has to
+  // commission the work reads it. `mgr.actionPlan.rows` IS
+  // `M.recommendations.register`, the same array. Section 5 keeps the framing
+  // prose and points back to this table.
+  const mgrPlan = mgr && mgr.actionPlan
+  if (mgrPlan && mgrPlan.rows && mgrPlan.rows.length) {
+    h1('Action Plan')
     table(
       [
-        { label: 'Parameter', width: 118, render: r => ({ t: r.parameter, bold: true }) },
-        { label: 'Site range', width: 96, render: r => r.range },
-        { label: 'Reference basis', width: 150, render: r => r.basis },
-        { label: 'Outcome', width: 96, render: r => ({ t: (SEV[r.outcome] || SEV.ok).label, color: (SEV[r.outcome] || SEV.ok).color, bold: true }) },
+        { label: 'Priority', width: 64, render: r => ({ t: `${fmt(r.priority)}\n${fmt(r.timeframe)}`, bold: true }) },
+        { label: 'Action', width: 168, render: r => fmt(r.action) },
+        { label: 'Location', width: 76, render: r => fmt(r.location) },
+        { label: 'Owner (role)', width: 78, render: r => `${fmt(r.owner)}\n${fmt(r.control)}` },
+        { label: 'Completion evidence', width: 114, render: r => fmt(r.evidence) },
       ],
-      M.findingsAtGlance, { fontSize: 9, rowH: 26 },
+      mgrPlan.rows, { fontSize: 8, rowH: 30 },
     )
+    if (mgrPlan.note) metaLine(mgrPlan.note)
   }
 
-  if (M.showSeverityLegend) {
-    h2('Severity Legend')
-    const ly = doc.y
-    chip(SEV.ok.label, SEV.ok.color, MARGIN, ly, 86)
-    chip(SEV.advisory.label, SEV.advisory.color, MARGIN + 96, ly, 86)
-    chip(SEV.elevated.label, SEV.elevated.color, MARGIN + 192, ly, 86)
-    chip(SEV.priority.label, SEV.priority.color, MARGIN + 288, ly, 86)
-    doc.y = ly + 22
-    doc.fillColor(FAINT).font('Helvetica').fontSize(8.5).text(
-      M.severityLegendNote || 'Acceptable: within recognized screening references. Advisory: monitor / investigate source. Elevated: corrective action recommended. Priority: prompt action recommended.',
-      MARGIN, doc.y, { width: CONTENT_W, lineGap: 1.5 })
-    doc.x = MARGIN; doc.moveDown(0.6)
+  // What was done and what was not, before the reader reaches any number. The
+  // "what we did not do" lines are the report's OWN limitation sentences,
+  // quoted verbatim from the Limitations section rather than paraphrased.
+  const mgrScope = mgr && mgr.scope
+  if (mgrScope && ((mgrScope.did || []).length || (mgrScope.notDone || []).length)) {
+    h1('Assessment Scope')
+    if (mgrScope.intro) p(mgrScope.intro)
+    if ((mgrScope.did || []).length) { h2('What We Did'); bullets(mgrScope.did) }
+    if ((mgrScope.notDone || []).length) {
+      h2('What We Did Not Do')
+      bullets(mgrScope.notDone)
+      if (mgrScope.note) metaLine(mgrScope.note)
+    }
   }
-
-  if (M.overallStatement) { h2('Overall Statement'); p(M.overallStatement) }
 
   if (M.scope && (M.scope.paras || M.scope.text)) {
     doc.addPage()
@@ -451,12 +519,49 @@ function buildContent() {
           { label: 'RH\n%', width: 38, align: 'right', render: z => fmt(z.rh) },
           { label: 'PM2.5\nµg/m³', width: 48, align: 'right', render: z => fmt(z.pm) },
           { label: 'TVOC\nµg/m³', width: 50, align: 'right', render: z => fmt(z.tvoc) },
-          { label: 'Outcome', width: 60, render: z => ({ t: (SEV[z.sev] || SEV.ok).label, color: (SEV[z.sev] || SEV.ok).color, bold: true }) },
+          { label: 'Outcome', width: 60, render: z => ({ t: sevOf(z.sev).label, color: sevOf(z.sev).color, bold: true }) },
         ],
         M.results.rows, { fontSize: 8, rowH: 22 },
       )
     }
     if (M.results.note) metaLine(M.results.note)
+
+    // Measurement overview — one row per parameter, across the site.
+    //
+    // This opened the report until 2026-09 as "Findings at a Glance". It is a
+    // per-PARAMETER summary against a reference basis, which asks a facility
+    // manager to work out for themselves what "CO2 | 618 ppm | ASHRAE 62.1 |
+    // Acceptable" means for their building. It belongs beside the
+    // measurements it summarizes; the management layer answers the manager's
+    // question by LOCATION instead. The model key is unchanged.
+    if (M.findingsAtGlance && M.findingsAtGlance.length) {
+      h2('Measurement Overview')
+      table(
+        [
+          { label: 'Parameter', width: 118, render: r => ({ t: r.parameter, bold: true }) },
+          { label: 'Site range', width: 96, render: r => r.range },
+          { label: 'Reference basis', width: 150, render: r => r.basis },
+          { label: 'Outcome', width: 96, render: r => ({ t: sevOf(r.outcome).label, color: sevOf(r.outcome).color, bold: true }) },
+        ],
+        M.findingsAtGlance, { fontSize: 9, rowH: 26 },
+      )
+    }
+
+    // The legend, beside the outcomes it decodes, for the same reason.
+    if (M.showSeverityLegend) {
+      h2('Severity Legend')
+      const ly = doc.y
+      chip(SEV.ok.label, SEV.ok.color, MARGIN, ly, 86)
+      chip(SEV.advisory.label, SEV.advisory.color, MARGIN + 96, ly, 86)
+      chip(SEV.elevated.label, SEV.elevated.color, MARGIN + 192, ly, 86)
+      chip(SEV.priority.label, SEV.priority.color, MARGIN + 288, ly, 86)
+      doc.y = ly + 22
+      doc.fillColor(FAINT).font('Helvetica').fontSize(8.5).text(
+        M.severityLegendNote || 'Acceptable: within recognized references. Advisory: monitor / investigate source. Elevated: corrective action recommended. Priority: prompt action recommended.',
+        MARGIN, doc.y, { width: CONTENT_W, lineGap: 1.5 })
+      doc.x = MARGIN; doc.moveDown(0.6)
+    }
+
     if (M.results.parameters && M.results.parameters.length) {
       h2('Per-Parameter Interpretation')
       if (M.results.perParamIntro) p(M.results.perParamIntro)
@@ -507,7 +612,7 @@ function buildContent() {
       table(
         [
           { label: 'Zone', width: 52, key: 'z' },
-          { label: 'Severity', width: 62, render: r => ({ t: (SEV[r.sev] || SEV.ok).label, color: (SEV[r.sev] || SEV.ok).color, bold: true }) },
+          { label: 'Severity', width: 62, render: r => ({ t: sevOf(r.sev).label, color: sevOf(r.sev).color, bold: true }) },
           { label: 'Conf.', width: 52, key: 'conf' },
           { label: 'Finding', width: 304, key: 'f' },
         ],
@@ -544,14 +649,29 @@ function buildContent() {
     }
   }
 
+  // ─── 5. Recommended Actions ───────────────────────────────────────
+  //
+  // The register itself is in the Action Plan of the management layer, above.
+  // Printing the identical five-column table again here would not add a
+  // technical reading of it — it would be the same table twice, and a reader
+  // would have to check whether the two agreed. What stays is the framing
+  // prose and the pointer back. The legacy bullet lists stay too, for a
+  // stored report whose actions carry no location, owner or completion
+  // evidence to table.
   const rec = M.recommendations
-  if (rec && ((rec.immediate || []).length || (rec.shortTerm || []).length || (rec.mediumTerm || []).length)) {
+  const hasRegister = !!(rec && rec.register && rec.register.length)
+  const hasLegacyList = !!(rec && ((rec.immediate || []).length || (rec.shortTerm || []).length || (rec.mediumTerm || []).length))
+  if (hasRegister || hasLegacyList) {
     doc.addPage()
     h1('5. Recommended Actions')
-    if (rec.intro) p(rec.intro)
-    if ((rec.immediate || []).length) { h2('Immediate (0–7 days)'); bullets(rec.immediate) }
-    if ((rec.shortTerm || []).length) { h2('Short term (7–30 days)'); bullets(rec.shortTerm) }
-    if ((rec.mediumTerm || []).length) { h2(rec.mediumTermLabel || 'Medium term (30–90 days)'); bullets(rec.mediumTerm) }
+    if (rec.intro) (Array.isArray(rec.intro) ? rec.intro : [rec.intro]).forEach(para => p(para))
+    if (hasRegister) {
+      p('The prioritized action register — each action with its location, the role proposed to own it, and the evidence that would show it complete — is in the Action Plan at the front of this report.')
+    } else {
+      if ((rec.immediate || []).length) { h2('Immediate (0–7 days)'); bullets(rec.immediate) }
+      if ((rec.shortTerm || []).length) { h2('Short term (7–30 days)'); bullets(rec.shortTerm) }
+      if ((rec.mediumTerm || []).length) { h2(rec.mediumTermLabel || 'Medium term (30–90 days)'); bullets(rec.mediumTerm) }
+    }
   }
 
   const hasQa = M.qaQc && M.qaQc.length
