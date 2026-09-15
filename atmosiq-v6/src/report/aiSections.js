@@ -216,6 +216,68 @@ export function removeOverride(aiSections, key) {
 export const MIN_SECTION_TEXT = 40
 
 /**
+ * The required limitations a section is missing, with the exact sentence each
+ * one needs, in the order the check raised them.
+ *
+ * `limitation-missing` is much the most common blocker, and it is the one the
+ * audit can already answer in full: the rule fires per entry in the package's
+ * `required_limitations`, and the finding carries that entry's id in `where`,
+ * so the sentence that is absent is a lookup rather than a guess. This is
+ * what makes a deterministic repair possible at all — no model is involved,
+ * the words come from the package, and the result is exact.
+ *
+ * Every entry's own `text` satisfies its own `must_mention` tokens, which is
+ * the invariant that makes inserting it actually clear the finding. It is
+ * asserted over every limitation the package builder can produce, rather than
+ * trusted, because a future limitation whose prose drifted from its tokens
+ * would produce a fix button that silently does not fix anything.
+ */
+export function missingLimitations(aiSections, key, pkg) {
+  const issues = (aiSections && aiSections.audit && aiSections.audit[key]) || []
+  const byId = new Map(((pkg && pkg.required_limitations) || []).map((l) => [l && l.id, l]))
+  const out = []
+  const seen = new Set()
+  for (const issue of issues) {
+    if (!issue || issue.id !== 'limitation-missing') continue
+    const lim = byId.get(issue.where)
+    const text = lim && typeof lim.text === 'string' ? lim.text.trim() : ''
+    if (!text || seen.has(lim.id)) continue
+    seen.add(lim.id)
+    out.push({ id: lim.id, text })
+  }
+  return out
+}
+
+/** Sentence-final punctuation, so an inserted limitation does not run on. */
+const ENDS_SENTENCE = /[.!?]["'”’)\]]?$/
+
+/**
+ * This section's text with every missing required limitation added, or null
+ * when none is missing.
+ *
+ * A PROPOSAL, not a write. The caller puts this in the section editor for the
+ * assessor to read and save, and `applyEdit` is what re-audits it — the same
+ * path a hand-typed revision takes, so a deterministic fix is checked exactly
+ * as strictly as anything else and cannot enter the report unreviewed.
+ *
+ * Placement: appended to the closing paragraph, which is where a limitation
+ * reads as part of the account rather than as a stub bolted on beneath it.
+ * The assessor can move it; the point is that the words are already right.
+ */
+export function withRequiredLimitations(aiSections, key, pkg) {
+  const missing = missingLimitations(aiSections, key, pkg)
+  if (!missing.length) return null
+  const current = sectionText(aiSections, key)
+  const paragraphs = splitParagraphs(current)
+  if (!paragraphs.length) return null
+  const last = paragraphs[paragraphs.length - 1]
+  const closing = ENDS_SENTENCE.test(last) ? last : `${last}.`
+  paragraphs[paragraphs.length - 1] = [closing, ...missing.map((m) => m.text)].join(' ')
+  return paragraphs.join('\n\n')
+}
+
+
+/**
  * The text a section renders from — the assessor's revision where one exists,
  * the model's own text otherwise.
  *

@@ -170,6 +170,33 @@ export const JASPER_ACTIVITY_CONTEXTS = {
     ],
   },
 
+  // Repairing ONE section that the evidence check could not support. Shorter
+  // than a generation and narrower: the phrases say the section is being
+  // changed to answer a finding, not rewritten.
+  'report-repair': {
+    announce: 'Jasper is repairing this section.',
+    phrases: {
+      reading: 'Reading the finding…',
+      section: 'Re-reading the section…',
+      checking_evidence: 'Checking what the evidence supports…',
+      revising: 'Revising the wording…',
+      reviewing: 'Re-checking the section…',
+    },
+    sequence: [
+      'Reading the finding…',
+      'Re-reading the section…',
+      'Checking what the evidence supports…',
+      'Revising the wording…',
+      'Re-checking the section…',
+    ],
+    loop: [
+      'Re-reading the section…',
+      'Checking what the evidence supports…',
+      'Revising the wording…',
+      'Re-checking the section…',
+    ],
+  },
+
   // The assistant sheet, between the question and the first token. When a
   // TOOL is running the caller passes its live description as `phrase`
   // instead, because that is a real stage and beats a simulated one.

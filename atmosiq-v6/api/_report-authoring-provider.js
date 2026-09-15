@@ -127,6 +127,11 @@ function extractText(data) {
 async function requestReportSections(opts = {}) {
   const { apiKey, system, payload, fetchFn } = opts
   const subject = opts.subject || 'Report sections are'
+  // The lead-in above the payload. Defaulted, not required, so the
+  // generation call is byte-identical to what it always sent; a repair
+  // asks for one section and must not be told to write the report.
+  const instruction = opts.instruction
+    || 'Based ONLY on this evidence package, write the report sections as the strict JSON schema requires:'
 
   let response
   try {
@@ -144,7 +149,7 @@ async function requestReportSections(opts = {}) {
         system,
         messages: [{
           role: 'user',
-          content: `Based ONLY on this evidence package, write the report sections as the strict JSON schema requires:\n\n${JSON.stringify(payload)}`,
+          content: `${instruction}\n\n${JSON.stringify(payload)}`,
         }],
       }),
     })

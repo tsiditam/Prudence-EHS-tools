@@ -26,7 +26,7 @@ import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { withAiSections, evidencePackageFor, lockAiSections, applyOverride, removeOverride, isOverridden, applyEdit, removeEdit, isEdited, sectionText, MIN_OVERRIDE_JUSTIFICATION, MIN_SECTION_TEXT } from '../report/aiSections'
+import { withAiSections, evidencePackageFor, lockAiSections, applyOverride, removeOverride, isOverridden, applyEdit, removeEdit, isEdited, sectionText, withRequiredLimitations, MIN_OVERRIDE_JUSTIFICATION, MIN_SECTION_TEXT } from '../report/aiSections'
 import { checkRenderModel } from '../report/modelConsistency'
 import { detectReportConsistency, asConsistencyRow } from '../engines/integrity/report-consistency.js'
 import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
@@ -47,7 +47,7 @@ import { scoreZone, summarizeAssessment, evalOSHA, genRecs, evalMold, evalMeasur
 import { generateSamplingPlan } from '../engines/sampling'
 import { buildCausalChains, pickPrimaryChain } from '../engines/causalChains'
 import { generateNarrative } from '../engines/narrative'
-import { generateReportSections } from '../engines/reportSections'
+import { generateReportSections, repairReportSection } from '../engines/reportSections'
 import PricingSheet from './pricing/PricingSheet'
 import { I } from './Icons'
 import { isOtherChoice } from '../utils/choiceOther'
@@ -295,6 +295,10 @@ const auditFromMeta = (meta) => (meta && Array.isArray(meta.audit) ? { issues: m
 // Reader-facing names for the AI-sections audit breakdown (src/report/aiSections.js
 // keys). Matches the WRITABLE_SECTIONS names, plus the per-parameter
 // `parameter_background.<key>` keys reportModel.js's own grouping produces.
+// A targeted repair is one small call against one section, not the five-section
+// generation above it, and it is priced as the exception it is.
+const REPAIR_CREDIT_COST = 1
+
 const AI_SECTION_LABELS = {
   executive_summary: 'Executive Summary',
   discussion: 'Discussion & Conclusions',
@@ -2301,6 +2305,11 @@ export default function MobileApp() {
   // typed into it. Never persisted — only the committed override is.
   const [overrideDraft, setOverrideDraft] = useState({ key: null, text: '' })
   const [editDraft, setEditDraft] = useState({ key: null, text: '' })
+  // Which section Jasper is repairing, and what came of it. `phase` runs
+  // 'working' → 'done' | 'failed' so the activity status owns its own exit,
+  // the same as the narrative and the sections above.
+  const [repairPhase, setRepairPhase] = useState({ key: null, phase: 'idle' })
+  const [sectionRepairError, setSectionRepairError] = useState(null)
 
   /**
    * Keep an AI section the evidence check could not support.
@@ -2370,7 +2379,7 @@ export default function MobileApp() {
     const next = applyEdit(aiSections, key, { text, by: profile?.name || presurvey?.ps_assessor || null }, pkg)
     if (next === aiSections) { toast.error('That section could not be edited.'); return }
     setAiSections(next)
-    setEditDraft({ key: null, text: '' })
+    setEditDraft({ key: null, text: '', source: null })
     await persistAiOutput({ aiSections: next })
     const summary = next.auditSummary && next.auditSummary[key]
     emitEvent('ai_section_edited', {
@@ -2384,11 +2393,58 @@ export default function MobileApp() {
       : 'Edit saved, but the check still objects. See what it says below.')
   }
 
+  /**
+   * The deterministic repair: add the required limitation the check says is
+   * absent, in the package's own words.
+   *
+   * The safest of the four answers to a blocked section and, for
+   * `limitation-missing`, the complete one. The audit already knows the exact
+   * sentence — the rule fires per entry in `required_limitations` and the
+   * finding carries that entry's id — so no model is involved and the result
+   * is exact.
+   *
+   * It PROPOSES. The text lands in the section editor for the assessor to
+   * read and save, and saving is what re-audits it. Writing it silently would
+   * put words into a client's report that nobody read.
+   */
+  const addRequiredLimitation = (key) => {
+    let pkg = null
+    try { pkg = evidencePackageFor(reportDataForAi()) } catch { pkg = null }
+    if (!pkg) { toast.error('That section could not be checked, so nothing was changed.'); return }
+    const proposed = withRequiredLimitations(aiSections, key, pkg)
+    if (!proposed) return
+    setSectionRepairError(null)
+    setEditDraft({ key, text: proposed, source: 'limitation' })
+    trackEvent('ai_section_limitation_proposed', { section: key })
+  }
+
+  /**
+   * The targeted AI repair: the section, its exact findings and the same
+   * closed package go to the model with "change what the findings name and
+   * nothing else" (`repairReportSection`).
+   *
+   * One attempt. What comes back lands in the section editor exactly as the
+   * deterministic fix does, so it degrades into a manual edit the moment it
+   * is not good enough, and saving is what re-audits it. Nothing loops and
+   * nothing spends a second generation on its own initiative.
+   */
+  const repairSection = async (key) => {
+    if (!PAYWALL_DISABLED && credits < REPAIR_CREDIT_COST) { setShowPricing(true); return }
+    setSectionRepairError(null)
+    setRepairPhase({ key, phase: 'working' })
+    const { text, error } = await repairReportSection(reportDataForAi(), { aiSections, key })
+    setRepairPhase({ key, phase: text ? 'done' : 'failed' })
+    if (!text) { setSectionRepairError({ key, message: error || 'This section could not be repaired.' }); return }
+    consumeCredit(REPAIR_CREDIT_COST, 'report_section_repair')
+    setEditDraft({ key, text, source: 'repair' })
+    trackEvent('ai_section_repaired', { section: key })
+  }
+
   const revertSection = async (key) => {
     const next = removeEdit(aiSections, key)
     if (next === aiSections) return
     setAiSections(next)
-    setEditDraft({ key: null, text: '' })
+    setEditDraft({ key: null, text: '', source: null })
     await persistAiOutput({ aiSections: next })
     trackEvent('ai_section_edit_reverted', { section: key })
   }
@@ -3844,6 +3900,14 @@ export default function MobileApp() {
                       const revised = isEdited(aiSections, key)
                       const revising = editDraft.key === key
                       const okTone = !blocked || kept
+                      // Whether the deterministic fix has anything to offer.
+                      // Read off the record alone — the audit rule fires per
+                      // required limitation, so the finding's presence is the
+                      // whole question. The package is built only on the tap,
+                      // where the exact sentence is looked up.
+                      const limitationMissing = blocked && !kept
+                        && ((aiSections.audit && aiSections.audit[key]) || []).some(i => i && i.id === 'limitation-missing')
+                      const repairing = repairPhase.key === key && repairPhase.phase !== 'idle'
                       return (
                         <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5,padding:'10px 0',borderTop: si === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
                           {/* A status dot and the section name in the primary
@@ -3866,26 +3930,83 @@ export default function MobileApp() {
                               read differently because the model was asked
                               again — it was never meant to strand the assessor
                               with a warning and no way to act on it. */}
-                          {!revising && (
+                          {repairing && (
+                            <div style={{marginTop:6,marginLeft:-8}}>
+                              <JasperActivity
+                                context="report-repair"
+                                active={repairPhase.phase === 'working'}
+                                brighten={repairPhase.phase === 'done'}
+                                onSettled={()=>setRepairPhase({ key: null, phase: 'idle' })}
+                              />
+                            </div>
+                          )}
+                          {sectionRepairError && sectionRepairError.key === key && !repairing && (
+                            <div role="status" style={{...V3.T.caption,color:WARN,marginTop:6,lineHeight:1.5}}>{sectionRepairError.message}</div>
+                          )}
+                          {/* The four answers to a blocked section, in order of
+                              how much of the finding each one settles and what
+                              it costs to be wrong about it.
+
+                                1  the deterministic repair — the package's own
+                                   words, looked up by the id the finding
+                                   carries. It always clears the check.
+                                2  the targeted repair — the section, its
+                                   findings and the same closed package, with
+                                   "change what the findings name and nothing
+                                   else". Re-checked on save.
+                                3  the assessor's own editor.
+                                4  the WAIVER. It keeps prose the check could
+                                   not support and prints the reason in the
+                                   client's report.
+
+                              A waiver is not the peer of a repair, so it comes
+                              last and takes the quiet tone rather than a pill.
+                              None of the four consults the regeneration lock:
+                              that lock exists to stop the model being asked
+                              again, and a remedy hidden behind it is the defect
+                              this panel already shipped once. */}
+                          {!revising && !repairing && (
                             <div style={{marginTop:6,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                              <TactileButton variant="neutral" size="sm" pill onClick={()=>setEditDraft({ key, text: sectionText(aiSections, key) || '' })}>
+                              {limitationMissing && (
+                                <TactileButton variant="primary" size="sm" pill onClick={()=>addRequiredLimitation(key)}>
+                                  Add required limitation
+                                </TactileButton>
+                              )}
+                              {blocked && !kept && (
+                                /* The action and its price wrap as ONE unit. Left
+                                   as siblings of the row they separate at phone
+                                   width, and the orphaned "1 credit" comes to
+                                   rest beside the edit button, where it reads as
+                                   that button's price. */
+                                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                                  <AiAction
+                                    label="Fix with AI"
+                                    title="Jasper revises this section to answer the check, from this assessment only"
+                                    onClick={()=>repairSection(key)} />
+                                  <span style={V3.T.captionDim}>{REPAIR_CREDIT_COST} credit</span>
+                                </span>
+                              )}
+                              <TactileButton variant="neutral" size="sm" pill onClick={()=>setEditDraft({ key, text: sectionText(aiSections, key) || '', source: 'manual' })}>
                                 {revised ? 'Edit your wording…' : 'Edit this section…'}
                               </TactileButton>
-                              {/* Refine — the assistant rewrites THIS section from the
-                                  same evidence; the result is pasted back through the
-                                  edit path, which re-audits it like any revision. */}
-                              <AiAction label="Refine" onClick={()=>askAI(
-                                `Refine the ${AI_SECTION_LABELS[key] || key} of this report. Tighten it to what the findings and criteria support, keep every limitation it states, and return only the revised paragraph so I can paste it into the section editor.\n\nCurrent text:\n${sectionText(aiSections, key) || ''}`,
-                                'report_section')} />
                               {revised && <TactileButton variant="neutral" size="sm" pill onClick={()=>revertSection(key)}>Restore the AI text</TactileButton>}
+                              {blocked && !kept && !editing && (
+                                <button type="button" onClick={()=>setOverrideDraft({ key, text: '' })} style={{background:'none',border:'none',padding:'6px 0',font:'inherit',fontSize:12,fontWeight:600,color:SUB,cursor:'pointer',minHeight:32,WebkitTapHighlightColor:'transparent'}}>
+                                  Use this section anyway…
+                                </button>
+                              )}
                             </div>
                           )}
                           {revising && (
                             <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:8}}>
                               <div style={{...V3.T.caption,color:SUB}}>
-                                {blocked
-                                  ? 'Edit the text so the check is satisfied — where a limitation is missing, the message above quotes the exact sentence to add. Your version is re-checked when you save.'
-                                  : 'Your version is re-checked against the assessment record when you save, the same as the generated text.'}
+                                {editDraft.source === 'limitation'
+                                  ? 'The missing limitation has been added in the words the check looks for, at the end. Move or reword it if you prefer — it is re-checked when you save, and nothing is written until then.'
+                                  : editDraft.source === 'repair'
+                                    ? 'Jasper revised this section to answer the check, using this assessment only. Read it before you keep it: it is re-checked when you save, and nothing is written until then.'
+                                    : blocked
+                                      ? 'Edit the text so the check is satisfied — where a limitation is missing, the message above quotes the exact sentence to add. Your version is re-checked when you save.'
+                                      : 'Your version is re-checked against the assessment record when you save, the same as the generated text.'}
                               </div>
                               <textarea
                                 value={editDraft.text}
@@ -3900,11 +4021,6 @@ export default function MobileApp() {
                                 <TactileButton variant="neutral" size="sm" pill onClick={()=>setEditDraft({ key:null, text:'' })}>Cancel</TactileButton>
                                 <span style={V3.T.captionDim}>Blank lines start a new paragraph</span>
                               </div>
-                            </div>
-                          )}
-                          {blocked && !kept && !editing && !revising && (
-                            <div style={{marginTop:6}}>
-                              <TactileButton variant="neutral" size="sm" pill onClick={()=>setOverrideDraft({ key, text: '' })}>Use this section anyway…</TactileButton>
                             </div>
                           )}
                           {blocked && !kept && editing && (
