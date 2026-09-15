@@ -1912,7 +1912,10 @@ export function assembleRenderModel(data = {}, opts = {}) {
     results: {
       intro: 'The table below summarizes representative occupied-hours readings by zone, with the site arithmetic mean for context. Values are direct-reading measurements; the averaging period recorded for each zone is stated under Methodology.',
       rows: resultsRows,
-      note: resultsRows.length ? 'Site mean is the arithmetic mean of the measured zones. Outcome reflects the zone’s governing parameter.' : null,
+      // No second sentence about an Outcome column: there isn't one any more,
+      // and a note explaining a column the table does not have is how a
+      // removal leaves a contradiction behind it.
+      note: resultsRows.length ? 'Site mean is the arithmetic mean of the measured zones. Conditions identified in an area are set out in What Needs Attention and in Discussion & Conclusions.' : null,
       perParamIntro: 'Each indicator below is introduced briefly — what it is and why it is measured — followed by what was observed at this site.',
       parameters: interp,
     },
