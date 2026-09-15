@@ -296,11 +296,21 @@ function buildFindings(model, index) {
   // the row is assembled. See `evidenceIdentity.js` for what is in the tuple
   // and — more to the point — what is deliberately left out of it.
   return assignStableIds(rows.map((r) => {
-    const zone = str(r.z)
     const text = str(r.f)
+    // Two different zone fields, and the difference is load-bearing. `zoneKey`
+    // is ONE real zone name, which is what the engine index is keyed by;
+    // `z` is the reader's label and may name several zones at once since the
+    // report folds a finding that holds in more than one. Looking the index
+    // up by the label would miss, and a miss here silently strips the
+    // finding's parameter, criterion and averaging period — the fields the
+    // audit needs to tell a supported claim from an invented one.
+    const zone = str(r.zoneKey || r.z)
     const e = index.get(`${zone} ${text}`) || null
     return {
-      zone,
+      zone: str(r.z) || zone,
+      // Every zone the finding holds in. The writer needs this to say "in
+      // both suites" instead of naming one and implying the other is clear.
+      zones: Array.isArray(r.zones) && r.zones.length ? r.zones.map(str) : [zone],
       // Verbatim off the engine. The writer paraphrases this for the reader;
       // the package keeps the original so the audit can tell a paraphrase
       // from a different claim.

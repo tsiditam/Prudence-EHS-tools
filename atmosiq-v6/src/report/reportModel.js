@@ -237,35 +237,114 @@ export function collectDataGaps(zoneScores = []) {
   return lines
 }
 
-/** Flagged findings (critical/high/medium) from engine zone scores. */
+/**
+ * How a folded finding names where it applies.
+ *
+ * The list, in the order the zones were walked, joined the way every other
+ * folded row on the results screen joins its locations. A finding that holds
+ * in EVERY zone is named as such instead: on an eight-zone survey the list is
+ * both unreadable and less true than the sentence it replaces, because a
+ * condition present everywhere is a building-wide condition. Below three
+ * zones the list is shorter than the summary would be, so it stays a list.
+ */
+export function zoneScopeLabel(zones = [], totalZones = 0) {
+  const list = (zones || []).filter(Boolean)
+  if (!list.length) return 'Zone'
+  if (totalZones >= 3 && list.length === totalZones) return `All zones (${totalZones})`
+  return list.join(' · ')
+}
+
+/**
+ * Flagged findings (critical/high/medium) from engine zone scores, FOLDED.
+ *
+ * The engine assesses one zone at a time and has no cross-zone awareness, so
+ * a condition present in every zone is emitted once per zone. That used to
+ * reach the deliverable as one table row each: on the Harborview fixture,
+ * twenty-one distinct sentences arrived as twenty-nine rows at two zones and
+ * one hundred and sixteen at eight, and the reader met the same sentence
+ * eight times over with only the zone cell changing. The distinct content
+ * never grew; only the enumeration did.
+ *
+ * Rows fold when they are the same finding in every respect except the zone —
+ * same category, same severity, same evidentiary basis, same sentence — and
+ * the zones accumulate. Nothing folds across a difference: a reading that
+ * produced different prose in two zones has different text and stays two
+ * rows, so no figure and no criterion is ever averaged, hidden or combined.
+ *
+ * No information leaves the document. What the fold removes is the REPETITION
+ * of one sentence; the per-zone measurements behind it are printed in full in
+ * Measurement Results, and the per-zone observations in Walkthrough
+ * Observations. This is the fold `utils/resultsGrouping.js` has applied to
+ * the results screen since 2026-09, reaching the report at last.
+ *
+ * `zone` stays the FIRST zone rather than the label, because the evidence
+ * package indexes engine findings by `zone + text` to recover a finding's
+ * parameter and criterion; a label would resolve to nothing and silently
+ * strip that metadata. `zoneLabel` is what a reader sees, `zones` is the
+ * list, and `zone` is the key.
+ */
 export function collectFindings(zoneScores = []) {
   const FLAG = new Set(['critical', 'high', 'medium'])
   const rows = []
+  const byKey = new Map()
+  const totalZones = (zoneScores || []).length
   for (const zs of zoneScores) {
     for (const cat of (zs.cats || [])) {
       for (const r of (cat.r || [])) {
         if (!FLAG.has(r.sev)) continue
-        rows.push({
-          zone: zs.zoneName || 'Zone', category: cat.l, severity: r.sev, text: r.t, std: r.std || null,
+        const zone = zs.zoneName || 'Zone'
+        // What this finding actually rests on. `p` is the parameter id the
+        // engine stamps on a finding derived from an instrument reading; its
+        // absence means the finding came from an observation or an intake
+        // answer. `qualitative_only` marks a reading from an instrument
+        // outside the accuracy database.
+        //
+        // The report's per-finding column used to print `zs.confidence` —
+        // one zone-level number copied onto every row under a heading that
+        // implied it was per-finding. It read the same for all findings in a
+        // zone, carried no information, and disagreed with the measurement-
+        // confidence breakdown the app showed on the same assessment.
+        const basis = r.qualitative_only ? 'Qualitative' : (r.p ? 'Measured' : 'Observed')
+        // JSON rather than a joined string: a separator can appear inside a
+        // finding sentence, and two different findings must never collide
+        // into one row.
+        const key = JSON.stringify([cat.l, r.sev, basis, r.t])
+        const seen = byKey.get(key)
+        if (seen) {
+          if (!seen.zones.includes(zone)) seen.zones.push(zone)
+          continue
+        }
+        const row = {
+          zone,
+          zones: [zone],
+          category: cat.l,
+          severity: r.sev,
+          text: r.t,
+          std: r.std || null,
           // The ZONE's confidence, kept for consumers that want it. It is not
           // a property of this finding and the report no longer prints it as
-          // one — see `basis` below.
+          // one — see `basis` above.
           confidence: zs.confidence || null,
-          // What this finding actually rests on. `p` is the parameter id the
-          // engine stamps on a finding derived from an instrument reading;
-          // its absence means the finding came from an observation or an
-          // intake answer. `qualitative_only` marks a reading from an
-          // instrument outside the accuracy database.
-          //
-          // The report's per-finding column used to print `zs.confidence` —
-          // one zone-level number copied onto every row under a heading that
-          // implied it was per-finding. It read the same for all findings in a
-          // zone, carried no information, and disagreed with the measurement-
-          // confidence breakdown the app showed on the same assessment.
-          basis: r.qualitative_only ? 'Qualitative' : (r.p ? 'Measured' : 'Observed'),
-        })
+          basis,
+        }
+        byKey.set(key, row)
+        rows.push(row)
       }
     }
+  }
+  // Sorted, not walk order, and that is an identity requirement rather than a
+  // presentation choice. A finding's id hashes its zone, so leaving the list
+  // in the order the zones happened to be visited would make the same finding
+  // in the same building carry a different id depending on which room was
+  // walked first — the positional identity `evidenceIdentity.js` exists to
+  // forbid, and what its reordering guard caught the first time this folded.
+  // `zone` is taken from the sorted list for the same reason: it is the key
+  // the evidence package indexes by, and it has to be one real zone name that
+  // does not move.
+  for (const row of rows) {
+    row.zones.sort((a, b) => String(a).localeCompare(String(b)))
+    row.zone = row.zones[0]
+    row.zoneLabel = zoneScopeLabel(row.zones, totalZones)
   }
   const rank = { critical: 0, high: 1, medium: 2 }
   return rows.sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9))
@@ -1185,7 +1264,13 @@ export function assembleRenderModel(data = {}, opts = {}) {
   const citeIndex = new Map(rd.references.map((ref, i) => [ref, i + 1]))
   const cite = (std) => (std && citeIndex.has(std) ? `[${citeIndex.get(std)}]` : '')
   const findingRows = rd.findings.map(f => ({
-    z: f.zone, sev: ENGINE_SEV_TO_SEV[f.severity] || 'advisory', basis: f.basis || '—', conf: f.confidence || '—',
+    // `z` is what the reader sees — every zone the finding holds in. `zoneKey`
+    // is the single zone the evidence package indexes engine findings by, and
+    // it has to stay a real zone name or that lookup returns nothing.
+    z: f.zoneLabel || f.zone,
+    zoneKey: f.zone,
+    zones: f.zones || [f.zone],
+    sev: ENGINE_SEV_TO_SEV[f.severity] || 'advisory', basis: f.basis || '—', conf: f.confidence || '—',
     // `std` rides along so modelConsistency can check the citation resolves;
     // the renderer prints `cite`.
     f: f.text, std: f.std || null, cite: cite(f.std),
