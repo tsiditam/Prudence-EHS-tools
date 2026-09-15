@@ -265,3 +265,84 @@ describe('POST /api/report-sections — upstream failure handling', () => {
     expect(r._body.any_banned).toBe(false)
   })
 })
+
+describe('POST /api/report-sections — repairing one section', () => {
+  const REPAIR = {
+    section: 'discussion',
+    current_text: 'Total VOCs were logged in every zone during the walkthrough.',
+    findings: [{ id: 'limitation-missing', where: 'lim-tvoc', message: 'A required limitation is not stated anywhere in the narrative: "TVOC is reported, not judged."' }],
+  }
+  const repairReq = (repair: unknown) => makeReq({ evidence: { version: 1, facts: [] }, repair })
+
+  it('returns the repaired section, not the five-key object', async () => {
+    anthropicText = JSON.stringify({ section: 'TVOC was logged in every zone. TVOC is reported, not judged.' })
+    const r = makeRes()
+    await handler(repairReq(REPAIR), r)
+    expect(r._status).toBe(200)
+    expect(r._body.section).toBe('TVOC was logged in every zone. TVOC is reported, not judged.')
+    expect(r._body.repaired_key).toBe('discussion')
+    expect(r._body.language_review).toBe('passed')
+    expect(r._body.sections).toBeUndefined()
+  })
+
+  it('sends the repair prompt, and the section and findings with it', async () => {
+    anthropicText = JSON.stringify({ section: 'Repaired.' })
+    let sent: any = null
+    handler.__test.setFetch(async (_url: string, init: any) => {
+      sent = JSON.parse(init.body)
+      return { ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: anthropicText }], usage: { input_tokens: 10, output_tokens: 10 } }), text: async () => '' }
+    })
+    await handler(repairReq(REPAIR), makeRes())
+    expect(sent.system).toContain('# This is a repair, not a rewrite')
+    expect(sent.system).not.toContain('authoring_plan')
+    // The instruction above the payload asks for a repair, never for the report.
+    expect(sent.messages[0].content).toContain('Repair ONLY the section named in')
+    expect(sent.messages[0].content).toContain('lim-tvoc')
+    expect(sent.messages[0].content).toContain('Total VOCs were logged in every zone')
+  })
+
+  it('applies the banned-language floor to a repair too', async () => {
+    anthropicText = JSON.stringify({ section: 'The building is safe and compliant with the OSHA permissible exposure limit.' })
+    const r = makeRes()
+    await handler(repairReq(REPAIR), r)
+    expect(r._status).toBe(200)
+    expect(['failed', 'passed']).toContain(r._body.language_review)
+    if (r._body.language_review === 'failed') expect(r._body.any_banned).toBe(true)
+  })
+
+  it('400s a malformed repair rather than generating five sections instead', async () => {
+    // The failure that matters: a bad repair must not silently become a full
+    // generation, which would cost a generation and replace the record the
+    // assessor was looking at.
+    anthropicText = JSON.stringify({ executive_summary: 'Five sections nobody asked for.' })
+    for (const bad of [
+      {},
+      { section: 'discussion' },
+      { section: 'discussion', current_text: 'text long enough to matter' },
+      { section: 'discussion', current_text: 'text', findings: [] },
+      { section: 'not_a_section', current_text: 'text', findings: [{ message: 'x' }] },
+      { section: 'parameter_background.../etc', current_text: 'text', findings: [{ message: 'x' }] },
+      'discussion',
+    ]) {
+      const r = makeRes()
+      await handler(repairReq(bad), r)
+      expect(r._status, JSON.stringify(bad)).toBe(400)
+      expect(r._body.error).toBe('invalid_repair_request')
+    }
+  })
+
+  it('reads a parameter-background key as repairable', () => {
+    const ok = handler.__test.readRepair({ repair: { ...REPAIR, section: 'parameter_background.co2' } })
+    expect(ok && ok.key).toBe('parameter_background.co2')
+    expect(handler.__test.readRepair({ repair: { ...REPAIR, section: 'parameter_background' } })).toBeNull()
+  })
+
+  it('leaves generation untouched when no repair is asked for', async () => {
+    anthropicText = JSON.stringify({ executive_summary: 'Carbon dioxide was elevated relative to the outdoor reference.' })
+    const r = makeRes()
+    await handler(makeReq(), r)
+    expect(r._status).toBe(200)
+    expect(r._body.sections.executive_summary).toContain('Carbon dioxide was elevated')
+    expect(r._body.section).toBeUndefined()
+  })
+})

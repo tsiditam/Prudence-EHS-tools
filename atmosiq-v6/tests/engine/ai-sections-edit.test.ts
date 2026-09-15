@@ -250,8 +250,17 @@ describe('the lock stops regeneration, not the assessor', () => {
     // `applyOverride` worked on a locked record the entire time, and the
     // button was hidden. Read the source rather than trusting the comment.
     const app = readFileSync(path.join(__dirname, '../../src/components/MobileApp.jsx'), 'utf8')
-    const panel = app.slice(app.indexOf('Checked against the assessment record —'))
+    // Comments out, code only. Every positional check below reads a window of
+    // source around a control, and a comment that happens to name a label or
+    // an identifier is not a gate — it would make this guard fail on prose,
+    // which is both wrong and exactly how it has already misfired twice.
+    const code = app
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/^\s*\/\/.*$/gm, ' ')
+    const panel = code.slice(code.indexOf('Checked against the assessment record —'))
     const remedies = [
+      'Add required limitation',     // the deterministic fix
+      'Repair section',              // the targeted repair
       'Use this section anyway…',   // record an override
       'Edit this section…',          // revise the prose
       'Restore the AI text',         // drop a revision
@@ -264,15 +273,54 @@ describe('the lock stops regeneration, not the assessor', () => {
       const guard = panel.slice(Math.max(0, at - 400), at)
       expect(guard.includes('aiSectionsLocked'), `${label} is gated on the lock again`).toBe(false)
     }
+    // The order the remedies are offered in is itself load-bearing. A waiver
+    // keeps prose the check could not support and prints the reason in the
+    // client's report; a fix settles the finding. The two are not peers, so
+    // the waiver comes last — after the deterministic fix, the targeted
+    // repair, and the assessor's own editor.
+    const at = (label: string) => panel.indexOf(label)
+    expect(at('Add required limitation')).toBeLessThan(at('Repair section'))
+    expect(at('Repair section')).toBeLessThan(at('Edit this section…'))
+    expect(at('Edit this section…')).toBeLessThan(at('Use this section anyway…'))
+
+    // A repair answers a finding, so it is offered only where there is one,
+    // and only while an attempt is left. Left on every row it would be the
+    // generic rewrite button this replaced, and `repairReportSection` refuses
+    // a section with nothing to answer.
+    const fixAt = at('Repair section')
+    expect(panel.slice(Math.max(0, fixAt - 300), fixAt)).toContain('repairable')
+    expect(panel).toContain('canRepairSection(aiSections, key)')
+    // …and only for a blocker the deterministic fix cannot answer, so the two
+    // repairs never both sit on a row the exact one already covers.
+    expect(panel).toContain('needsModelRepair(aiSections, key)')
+
+    // Nothing resting in this list wears the filled accent. The export is the
+    // one primary on this tab — the generate button above takes the neutral
+    // tone for exactly that reason — so a remedy may not outshout it.
+    const limAt = at('Add required limitation')
+    expect(panel.slice(Math.max(0, limAt - 300), limAt)).toContain('variant="neutral"')
+    expect(panel.slice(Math.max(0, limAt - 300), limAt)).not.toContain('variant="primary"')
+
+    // The repair is FREE. AtmosFlow wrote the section and AtmosFlow's check
+    // found the problem, so a price on the correction reads as "the AI made a
+    // mistake, pay again". The cap protects the cost instead — never a charge.
+    expect(panel).not.toMatch(/REPAIR_CREDIT_COST/)
+    expect(panel.slice(fixAt, fixAt + 400)).not.toMatch(/credit/i)
+    // The old generic Refine detoured through the assistant sheet and was
+    // never given the finding — it could return prose that failed the same
+    // check for the same reason. It must not come back.
+    expect(code).not.toContain('<AiAction label="Refine"')
+    expect(code).not.toContain('so I can paste it into the section editor')
+
     // Regeneration, on the other hand, must stay locked.
-    expect(app).toMatch(/!aiSectionsLocked[\s\S]{0,200}Regenerate report sections|Regenerate report sections[\s\S]{0,200}/)
+    expect(code).toMatch(/!aiSectionsLocked[\s\S]{0,200}Regenerate report sections|Regenerate report sections[\s\S]{0,200}/)
     // …and must not be offered while a generation is under way. The flag is
     // `reportSectionsBusy`, not `reportSectionsLoading`: the Jasper activity
     // status owns the moment between the sections arriving and the status
     // having faded, and the button must not reappear underneath it. Busy is
     // a superset of loading, so this guard only ever got stronger.
-    expect(app).toMatch(/!reportSectionsBusy && !aiSectionsLocked/)
-    expect(app).toMatch(/const reportSectionsBusy = reportSectionsLoading \|\|/)
+    expect(code).toMatch(/!reportSectionsBusy && !aiSectionsLocked/)
+    expect(code).toMatch(/const reportSectionsBusy = reportSectionsLoading \|\|/)
   })
 
   it('a finalized report can still be edited and overridden', () => {

@@ -217,8 +217,64 @@ const REPORT_SECTIONS_SYSTEM_PROMPT = [
   OUTPUT_CONTRACT,
 ].join('')
 
+/**
+ * The repair contract — what to do when a section that was already written
+ * failed the deterministic evidence check.
+ *
+ * This is a DIFFERENT job from writing the section, and the difference is the
+ * whole point. Generation starts from the package. A repair starts from prose
+ * the assessor has already read, plus the exact findings against it, so the
+ * governing instruction is "change what the finding names and nothing else"
+ * rather than "write this better".
+ *
+ * It replaced a generic Refine action that opened the assistant sheet asking
+ * for a tightened paragraph "so I can paste it into the section editor". That
+ * action was never given the finding, and it instructed the model to "keep
+ * every limitation it states" — the exact wrong instruction when the finding
+ * IS that a required limitation is missing. It could therefore hand back
+ * prose that failed the same check for the same reason, having been asked to.
+ */
+const REPAIR_CONTRACT = `# This is a repair, not a rewrite
+You are given ONE section that was already written and the exact findings a deterministic evidence check raised against it. The check compared that section against the package above. It is not an opinion and it is not negotiable.
+
+Repair what the findings name. Leave everything else alone.
+
+- Keep every sentence the findings do not implicate, in the words it already has. Returning a fresh draft of the whole section is a failed repair, even when the new draft reads better.
+- Add no fact, figure, criterion, standard or recommendation that is not already in the package. A repair is the moment it is most tempting to reach outside it, and the package is still the whole world.
+- Where a finding says a required limitation is not stated, add it in the words the finding quotes. You may fit it to the surrounding voice, but every word the check looks for has to survive, so the quoted sentence itself is always a safe repair.
+- Never drop a limitation, qualifier or caveat the section already carries. Answering one finding by removing another disclosure is the worst result available to you.
+- Where a finding says a claim is not supported, say instead what the package does support, or drop the claim. Softening the wording until it slips past the check is not a repair.
+- Return the COMPLETE section. Not a diff, not a fragment, not a list of what you changed.
+
+You get one attempt. What you return is checked again against the same package and the assessor is shown the result before any of it reaches the report.
+
+`
+
+/** The strict response schema for a repair: one section, nothing else. */
+const REPAIR_OUTPUT_CONTRACT = `# Output format — STRICT
+Return ONLY a JSON object. No preamble. No markdown. No code fence. Exact schema:
+
+{
+  "section": "the complete repaired section"
+}
+
+No key outside this schema is permitted. Separate paragraphs within the string with a blank line. Cite a standard or numeric value ONLY if it appears in \`criteria\` or \`references\`, and cite it as the package provides it.`
+
+/**
+ * The repair prompt. The constitution and the voice are the SAME objects the
+ * authoring prompt uses, so a boundary tightened for generation is tightened
+ * for repair in the same edit. Only the task and the output schema differ.
+ */
+const REPORT_SECTION_REPAIR_SYSTEM_PROMPT = [
+  AUTHORING_CONSTITUTION,
+  REPAIR_CONTRACT,
+  STYLE_CONTRACT,
+  REPAIR_OUTPUT_CONTRACT,
+].join('')
+
 module.exports = {
   REPORT_SECTIONS_SYSTEM_PROMPT,
+  REPORT_SECTION_REPAIR_SYSTEM_PROMPT, REPAIR_CONTRACT, REPAIR_OUTPUT_CONTRACT,
   AUTHORING_CONSTITUTION, ROLE, EVIDENCE_CONTRACT, BOUNDARIES,
   PLANNING_CONTRACT, SECTIONS_PREAMBLE, SECTION_CONTRACTS, SECTION_CONTRACT_ORDER,
   STYLE_CONTRACT, OUTPUT_CONTRACT,

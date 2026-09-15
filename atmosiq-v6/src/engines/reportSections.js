@@ -21,7 +21,7 @@
  */
 
 import { supabase } from '../utils/supabaseClient'
-import { buildAiSectionsRecord } from '../report/aiSections'
+import { buildAiSectionsRecord, sectionText } from '../report/aiSections'
 import { assembleRenderModel } from '../report/reportModel'
 import { buildEvidencePackage, packageForWriter } from '../report/evidencePackage'
 import { validateAuthoringPlan } from '../report/authoringPlan.js'
@@ -191,6 +191,61 @@ export const REPORT_SECTIONS_SYSTEM_PROMPT = [
 ].join('')
 
 /**
+ * The repair contract — what to do when a section that was already written
+ * failed the deterministic evidence check.
+ *
+ * This is a DIFFERENT job from writing the section, and the difference is the
+ * whole point. Generation starts from the package. A repair starts from prose
+ * the assessor has already read, plus the exact findings against it, so the
+ * governing instruction is "change what the finding names and nothing else"
+ * rather than "write this better".
+ *
+ * It replaced a generic Refine action that opened the assistant sheet asking
+ * for a tightened paragraph "so I can paste it into the section editor". That
+ * action was never given the finding, and it instructed the model to "keep
+ * every limitation it states" — the exact wrong instruction when the finding
+ * IS that a required limitation is missing. It could therefore hand back
+ * prose that failed the same check for the same reason, having been asked to.
+ */
+export const REPAIR_CONTRACT = `# This is a repair, not a rewrite
+You are given ONE section that was already written and the exact findings a deterministic evidence check raised against it. The check compared that section against the package above. It is not an opinion and it is not negotiable.
+
+Repair what the findings name. Leave everything else alone.
+
+- Keep every sentence the findings do not implicate, in the words it already has. Returning a fresh draft of the whole section is a failed repair, even when the new draft reads better.
+- Add no fact, figure, criterion, standard or recommendation that is not already in the package. A repair is the moment it is most tempting to reach outside it, and the package is still the whole world.
+- Where a finding says a required limitation is not stated, add it in the words the finding quotes. You may fit it to the surrounding voice, but every word the check looks for has to survive, so the quoted sentence itself is always a safe repair.
+- Never drop a limitation, qualifier or caveat the section already carries. Answering one finding by removing another disclosure is the worst result available to you.
+- Where a finding says a claim is not supported, say instead what the package does support, or drop the claim. Softening the wording until it slips past the check is not a repair.
+- Return the COMPLETE section. Not a diff, not a fragment, not a list of what you changed.
+
+You get one attempt. What you return is checked again against the same package and the assessor is shown the result before any of it reaches the report.
+
+`
+
+/** The strict response schema for a repair: one section, nothing else. */
+export const REPAIR_OUTPUT_CONTRACT = `# Output format — STRICT
+Return ONLY a JSON object. No preamble. No markdown. No code fence. Exact schema:
+
+{
+  "section": "the complete repaired section"
+}
+
+No key outside this schema is permitted. Separate paragraphs within the string with a blank line. Cite a standard or numeric value ONLY if it appears in \`criteria\` or \`references\`, and cite it as the package provides it.`
+
+/**
+ * The repair prompt. The constitution and the voice are the SAME objects the
+ * authoring prompt uses, so a boundary tightened for generation is tightened
+ * for repair in the same edit. Only the task and the output schema differ.
+ */
+export const REPORT_SECTION_REPAIR_SYSTEM_PROMPT = [
+  AUTHORING_CONSTITUTION,
+  REPAIR_CONTRACT,
+  STYLE_CONTRACT,
+  REPAIR_OUTPUT_CONTRACT,
+].join('')
+
+/**
  * Generates the five AI-eligible AtmosFlow DOCX sections via the serverless
  * proxy at /api/report-sections.
  *
@@ -208,12 +263,42 @@ export const REPORT_SECTIONS_SYSTEM_PROMPT = [
  *   the server's own classification where there is one (api/_upstream-error.js),
  *   because "try again" is the wrong advice for an exhausted API account.
  */
+/**
+ * The closed universe both calls work from.
+ *
+ * Extracted so generation and repair cannot drift onto differently-built
+ * packages. `wire` is THE object the model is given; `evidence` is the
+ * richer package the record is fingerprinted and audited against. A caller
+ * that checks a model's output must check it against `wire`, which sheds
+ * context under budget pressure — checking against `evidence` would accept
+ * a name the writer had no way to know.
+ */
+function buildWirePackage(data) {
+  const model = assembleRenderModel(data || {})
+  const evidence = buildEvidencePackage(model, {
+    zoneScores: (data && data.zoneScores) || [],
+    causalChains: (data && data.causalChains) || [],
+  })
+  return { evidence, wire: packageForWriter(evidence) }
+}
+
+/** The session bearer token, where there is one. Absent, the handler says so. */
+async function authHeaders() {
+  const headers = { 'Content-Type': 'application/json' }
+  if (!supabase) return headers
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session && session.access_token) headers.Authorization = `Bearer ${session.access_token}`
+  } catch { /* unauthenticated — the handler will say so */ }
+  return headers
+}
+
 export async function generateReportSections(data) {
   const fail = (error) => ({ record: null, error, plan: null, planUsable: false, planRejected: [] })
   let evidence = null
+  let wire = null
   try {
-    const model = assembleRenderModel(data || {})
-    evidence = buildEvidencePackage(model, { zoneScores: (data && data.zoneScores) || [], causalChains: (data && data.causalChains) || [] })
+    ({ evidence, wire } = buildWirePackage(data))
   } catch (e) {
     // Without a package there is no closed universe to write from and
     // nothing to audit against — the deterministic report is the correct
@@ -221,21 +306,10 @@ export async function generateReportSections(data) {
     console.error('Evidence package could not be built; report sections not requested:', e && e.message)
     return fail('Report sections could not be prepared from this assessment. The report itself is unaffected.')
   }
-  // THE object the model is given. The plan's references are resolved
-  // against this and never against `evidence`, which is richer: the wire
-  // form sheds observations under budget pressure and rebuilds findings with
-  // a narrower field set, so checking against the fuller package would
-  // accept a name the writer had no way to know.
-  const wire = packageForWriter(evidence)
+  // The plan's references resolve against `wire` — see buildWirePackage.
   const payload = { evidence: wire }
   try {
-    const headers = { 'Content-Type': 'application/json' }
-    if (supabase) {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session && session.access_token) headers.Authorization = `Bearer ${session.access_token}`
-      } catch {}
-    }
+    const headers = await authHeaders()
     const res = await fetch('/api/report-sections', {
       method: 'POST',
       headers,
@@ -292,5 +366,94 @@ export async function generateReportSections(data) {
   } catch (e) {
     console.error('Report sections generation error:', e)
     return fail('Report sections could not be generated — the service could not be reached. Please try again.')
+  }
+}
+
+/**
+ * Repair ONE section the deterministic evidence check could not support.
+ *
+ * The third remedy, made reachable. A blocked section has three answers and
+ * they are not interchangeable: falling back is silent and costs the reader
+ * a paragraph; an override keeps the prose by WAIVING the finding and
+ * disclosing that in the report's QA notes; a repair changes the prose so the
+ * finding no longer holds. Only the third answers the check, and until now
+ * the only way to reach it was for the assessor to write the fix themselves.
+ *
+ * What this is NOT is a rewrite. The model is given the section it already
+ * wrote, the exact findings against it, and the same closed package it wrote
+ * from — see REPAIR_CONTRACT. It is asked to change what the findings name
+ * and nothing else.
+ *
+ * ── The returned text is a PROPOSAL, and that is deliberate ────────────
+ * This resolves to text, never to a record. The caller puts it in the section
+ * editor for the assessor to read, adjust and save, and the existing edit
+ * path (`applyEdit`) is what re-audits it against the same package and stores
+ * the new verdict. Two reasons, both load-bearing:
+ *
+ *   1. **Provenance.** A saved revision prints "AI-assisted, revised by the
+ *      assessor" — the label for a paragraph with two authors, which is
+ *      exactly what a repair the assessor reviewed and kept is. Applying it
+ *      silently would put that label on words nobody had read, or the
+ *      AI-only label on words the assessor is standing behind.
+ *   2. **One attempt.** A repair that lands in the editor degrades into a
+ *      manual edit the moment it is not good enough, which is the fallback
+ *      the assessor already knows. Nothing loops, and nothing spends a second
+ *      generation on its own initiative.
+ *
+ * A repair that comes back empty, or that the server's banned-language floor
+ * rejected, resolves to an error and changes nothing — the section keeps the
+ * text and the verdict it had.
+ *
+ * @param {object} data   the same object `assembleRenderModel` takes
+ * @param {object} opts
+ * @param {object} opts.aiSections  the record carrying the section and its findings
+ * @param {string} opts.key         which section — `discussion`, `parameter_background.co2`, …
+ * @returns {Promise<{text: string|null, error: string|null}>}
+ */
+export async function repairReportSection(data, opts = {}) {
+  const { aiSections, key } = opts
+  const fail = (error) => ({ text: null, error })
+  const current = aiSections && key ? sectionText(aiSections, key) : null
+  if (!current) return fail('There is no section here to repair.')
+  // Only a section with something to answer is repairable. A repair with no
+  // finding is a rewrite, which is the thing this deliberately is not.
+  const findings = ((aiSections.audit && aiSections.audit[key]) || [])
+    .filter((f) => f && typeof f.message === 'string' && f.message.trim())
+    .map((f) => ({ id: f.id || null, where: f.where || null, message: f.message }))
+  if (!findings.length) return fail('This section has no finding for a repair to answer.')
+
+  let wire = null
+  try {
+    ({ wire } = buildWirePackage(data))
+  } catch (e) {
+    console.error('Evidence package could not be built; repair not requested:', e && e.message)
+    return fail('This section could not be prepared for repair. The report itself is unaffected.')
+  }
+
+  const payload = { evidence: wire, repair: { section: key, current_text: current, findings } }
+  try {
+    const res = await fetch('/api/report-sections', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ payload }),
+    })
+    const body = await res.json()
+    if (!res.ok) {
+      if (res.status === 429) console.warn('Report-section repair rate limit hit:', body && body.scope)
+      else console.error('Report-section repair proxy error:', body && body.error)
+      return fail((body && body.message) || 'This section could not be repaired. Please try again, or edit it yourself.')
+    }
+    // The liability floor is the server's and it is not assessor-waivable:
+    // prose it rejected never becomes a proposal the assessor can accept.
+    if (body && body.language_review === 'failed') {
+      console.warn('Report-section repair suppressed — banned language detected')
+      return fail('The repair came back with language the report may not carry, so it was discarded. Edit the section yourself instead.')
+    }
+    const text = body && typeof body.section === 'string' ? body.section.trim() : ''
+    if (!text) return fail('The repair came back empty. Edit the section yourself instead.')
+    return { text, error: null }
+  } catch (e) {
+    console.error('Report-section repair error:', e)
+    return fail('This section could not be repaired — the service could not be reached. Please try again, or edit it yourself.')
   }
 }

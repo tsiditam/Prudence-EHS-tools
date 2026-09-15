@@ -153,6 +153,68 @@ export function lockAiSections(aiSections) {
   return { ...aiSections, locked: true }
 }
 
+/**
+ * How many times a targeted AI repair has been spent on one section, and
+ * whether another is available.
+ *
+ * A repair is FREE and CAPPED rather than priced, and the two go together.
+ * AtmosFlow generated the section, AtmosFlow's own check found the problem,
+ * so billing the assessor to have it corrected reads as "the AI made a
+ * mistake, pay again" — not the bargain this product offers. A hard cap
+ * protects the cost instead of a charge, and it is the same rule the repair
+ * already followed in the prompt: one attempt, then fall back to the editor.
+ *
+ * Counted ON THE RECORD, so it survives closing the report and resets where
+ * it should: `buildAiSectionsRecord` emits no `repairs`, so regenerating the
+ * sections restores the attempt along with the prose it applies to. An edit,
+ * a revert and an override all spread the record forward, so none of them
+ * hands back an attempt that was already spent.
+ */
+export const MAX_REPAIRS_PER_SECTION = 1
+
+/**
+ * Whether this section has a blocker the DETERMINISTIC fix cannot answer.
+ *
+ * The two repairs are not alternatives to choose between. A missing required
+ * limitation has an exact answer already in the package, so where every
+ * blocker is one of those, the deterministic fix covers the row completely
+ * and a model call would add nothing but a second button and a wait.
+ *
+ * Only a blocker counts. A warning does not stop the section reaching the
+ * report, so a row whose blockers are all missing limitations is fully served
+ * by the exact fix even if a warning remains beside it.
+ */
+export function needsModelRepair(aiSections, key) {
+  const issues = (aiSections && aiSections.audit && aiSections.audit[key]) || []
+  return issues.some((i) => i && i.severity === 'blocking' && i.id !== 'limitation-missing')
+}
+
+
+export function repairAttempts(aiSections, key) {
+  const n = aiSections && aiSections.repairs ? aiSections.repairs[key] : 0
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/** Whether a targeted repair is still available for this section. */
+export function canRepairSection(aiSections, key) {
+  return repairAttempts(aiSections, key) < MAX_REPAIRS_PER_SECTION
+}
+
+/**
+ * Spend one repair attempt.
+ *
+ * Called only where a proposal was actually produced. A repair that failed
+ * because the service could not be reached cost the assessor nothing and took
+ * nothing from them either.
+ */
+export function recordRepairAttempt(aiSections, key) {
+  if (!aiSections || !key) return aiSections
+  return {
+    ...aiSections,
+    repairs: { ...(aiSections.repairs || {}), [key]: repairAttempts(aiSections, key) + 1 },
+  }
+}
+
 /** The shortest justification an override is allowed to carry. */
 export const MIN_OVERRIDE_JUSTIFICATION = 20
 
@@ -214,6 +276,68 @@ export function removeOverride(aiSections, key) {
 
 /** The shortest a revised section may be and still be a section. */
 export const MIN_SECTION_TEXT = 40
+
+/**
+ * The required limitations a section is missing, with the exact sentence each
+ * one needs, in the order the check raised them.
+ *
+ * `limitation-missing` is much the most common blocker, and it is the one the
+ * audit can already answer in full: the rule fires per entry in the package's
+ * `required_limitations`, and the finding carries that entry's id in `where`,
+ * so the sentence that is absent is a lookup rather than a guess. This is
+ * what makes a deterministic repair possible at all — no model is involved,
+ * the words come from the package, and the result is exact.
+ *
+ * Every entry's own `text` satisfies its own `must_mention` tokens, which is
+ * the invariant that makes inserting it actually clear the finding. It is
+ * asserted over every limitation the package builder can produce, rather than
+ * trusted, because a future limitation whose prose drifted from its tokens
+ * would produce a fix button that silently does not fix anything.
+ */
+export function missingLimitations(aiSections, key, pkg) {
+  const issues = (aiSections && aiSections.audit && aiSections.audit[key]) || []
+  const byId = new Map(((pkg && pkg.required_limitations) || []).map((l) => [l && l.id, l]))
+  const out = []
+  const seen = new Set()
+  for (const issue of issues) {
+    if (!issue || issue.id !== 'limitation-missing') continue
+    const lim = byId.get(issue.where)
+    const text = lim && typeof lim.text === 'string' ? lim.text.trim() : ''
+    if (!text || seen.has(lim.id)) continue
+    seen.add(lim.id)
+    out.push({ id: lim.id, text })
+  }
+  return out
+}
+
+/** Sentence-final punctuation, so an inserted limitation does not run on. */
+const ENDS_SENTENCE = /[.!?]["'”’)\]]?$/
+
+/**
+ * This section's text with every missing required limitation added, or null
+ * when none is missing.
+ *
+ * A PROPOSAL, not a write. The caller puts this in the section editor for the
+ * assessor to read and save, and `applyEdit` is what re-audits it — the same
+ * path a hand-typed revision takes, so a deterministic fix is checked exactly
+ * as strictly as anything else and cannot enter the report unreviewed.
+ *
+ * Placement: appended to the closing paragraph, which is where a limitation
+ * reads as part of the account rather than as a stub bolted on beneath it.
+ * The assessor can move it; the point is that the words are already right.
+ */
+export function withRequiredLimitations(aiSections, key, pkg) {
+  const missing = missingLimitations(aiSections, key, pkg)
+  if (!missing.length) return null
+  const current = sectionText(aiSections, key)
+  const paragraphs = splitParagraphs(current)
+  if (!paragraphs.length) return null
+  const last = paragraphs[paragraphs.length - 1]
+  const closing = ENDS_SENTENCE.test(last) ? last : `${last}.`
+  paragraphs[paragraphs.length - 1] = [closing, ...missing.map((m) => m.text)].join(' ')
+  return paragraphs.join('\n\n')
+}
+
 
 /**
  * The text a section renders from — the assessor's revision where one exists,
