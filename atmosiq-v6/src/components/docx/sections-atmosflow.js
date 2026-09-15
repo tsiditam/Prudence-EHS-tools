@@ -759,15 +759,35 @@ export function atmosFlowReportChildren(model) {
     if (M.results.rows && M.results.rows.length) {
       const rows = M.results.rows
       const emphRows = rows.map((r, i) => (r.__bold ? i : -1)).filter((i) => i >= 0)
+      // No Outcome column, and its absence is the point.
+      //
+      // It printed the worst outcome among the SIX PARAMETERS IN THIS TABLE,
+      // in a column headed "Outcome" beside the room's name — where a
+      // facility manager reads it as a verdict on the room. On Larkin Hall
+      // that made Room 214 "Acceptable" while the same report carried an
+      // elevated finding, three advisory findings and four recommended
+      // actions for it, because formaldehyde is not one of the six columns
+      // and an odor, a symptom pattern and a visible condition are not
+      // parameters at all.
+      //
+      // It is NOT replaced by a whole-zone severity, status or rollup. There
+      // is no honest single label for a room here: building one would make
+      // observations, occupant symptoms, logger evidence and measurements
+      // compete in a severity calculation this platform deliberately does not
+      // perform. Measurement Results is technical evidence; the room-level
+      // question is answered in What Needs Attention, from the whole census.
+      //
+      // `sev` stays ON THE MODEL — four modelConsistency rules and the
+      // cross-layer test read it, and deleting the field would delete real
+      // invariants. It is simply not printed.
       c.push(
         table(
-          ['Zone', 'Use', ['CO₂', 'ppm'], ['CO', 'ppm'], ['T', '°F'], ['RH', '%'], ['PM2.5', 'µg/m³'], ['TVOC', 'µg/m³'], 'Outcome'],
-          rows.map((z) => [z.role ? `${fmt(z.id)} (${z.role.toLowerCase()})` : fmt(z.id), fmt(z.use), fmt(z.co2), fmt(z.co), fmt(z.t), fmt(z.rh), fmt(z.pm), fmt(z.tvoc), sev(z.sev).label]),
-          [1333, 789, 871, 789, 735, 680, 1034, 1034, 2095],
+          ['Zone', 'Use', ['CO₂', 'ppm'], ['CO', 'ppm'], ['T', '°F'], ['RH', '%'], ['PM2.5', 'µg/m³'], ['TVOC', 'µg/m³']],
+          rows.map((z) => [z.role ? `${fmt(z.id)} (${z.role.toLowerCase()})` : fmt(z.id), fmt(z.use), fmt(z.co2), fmt(z.co), fmt(z.t), fmt(z.rh), fmt(z.pm), fmt(z.tvoc)]),
+          [2408, 1264, 1046, 947, 883, 817, 1000, 995],
           {
-            align: [null, null, CEN, CEN, CEN, CEN, CEN, CEN, null],
+            align: [null, null, CEN, CEN, CEN, CEN, CEN, CEN],
             emphRows,
-            cellSpec: (r, ci) => (ci === 8 ? { bold: true, color: sev(rows[r].sev).color } : {}),
           },
         ),
       )

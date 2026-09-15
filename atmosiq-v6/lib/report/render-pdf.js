@@ -562,15 +562,19 @@ function buildContent() {
     if (M.results.rows && M.results.rows.length) {
       table(
         [
-          { label: 'Zone', width: 52, key: 'id' },
-          { label: 'Use', width: 120, key: 'use' },
+          { label: 'Zone', width: 80, key: 'id' },
+          { label: 'Use', width: 152, key: 'use' },
           { label: 'CO2\nppm', width: 50, align: 'right', render: z => fmt(z.co2) },
           { label: 'CO\nppm', width: 42, align: 'right', render: z => fmt(z.co) },
           { label: 'T\n°F', width: 42, align: 'right', render: z => fmt(z.t) },
           { label: 'RH\n%', width: 38, align: 'right', render: z => fmt(z.rh) },
           { label: 'PM2.5\nµg/m³', width: 48, align: 'right', render: z => fmt(z.pm) },
           { label: 'TVOC\nµg/m³', width: 50, align: 'right', render: z => fmt(z.tvoc) },
-          { label: 'Outcome', width: 60, render: z => ({ t: sevOf(z.sev).label, color: sevOf(z.sev).color, bold: true }) },
+          // No Outcome column — see sections-atmosflow.js. It labeled a room
+          // from the six parameters in this table while the report carried
+          // findings the table cannot see, and it is not replaced by a
+          // whole-zone verdict. `sev` stays on the model for the consistency
+          // rules; it is simply not printed.
         ],
         M.results.rows, { fontSize: 8, rowH: 22 },
       )
