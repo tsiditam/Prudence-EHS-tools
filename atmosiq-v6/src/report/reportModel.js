@@ -1284,8 +1284,20 @@ function whyItMatters(rowFindings, chain) {
     const unsettled = withCriterion.find(f => f.determinative === false)
     if (unsettled) {
       const avg = AVERAGING[unsettled.averaging]
-      parts.push(`A short-duration reading cannot settle a comparison against ${avg && avg.label ? avg.label.replace(/^an? /, '') : 'this averaging period'}, so the result identifies a condition rather than establishing an exposure.`)
+      // The registry's own `phrase`, not its `label`: it carries the article
+      // and reads as a sentence ("a 10-hour time-weighted average", "a
+      // 15-minute short-term exposure limit"), where the label is a bare tag
+      // that produced "against 10-hour TWA".
+      parts.push(`A short-duration reading cannot settle a comparison against ${avg && avg.phrase ? avg.phrase : 'this averaging period'}, so the result identifies a condition rather than establishing an exposure.`)
     }
+  } else if ((rowFindings || []).some(f => f && (f.basis === 'Measured' || f.basis === 'Qualitative'))) {
+    // Measured, but the engine attached no criterion CLASS to it — the CO2
+    // ventilation-indicator findings are built outside `evaluateCriteria` and
+    // carry a source without a class. Saying "this rests on the walkthrough"
+    // here would be false, and assigning it a class the engine did not stamp
+    // would be manufacturing provenance downstream. So the row says what its
+    // own fields support and points at where the reference is named.
+    parts.push('This rests on an instrument reading; the reference it is read against is named with the finding in Discussion & Conclusions.')
   } else {
     parts.push('This rests on what was observed and reported during the walkthrough rather than on an instrument reading.')
   }

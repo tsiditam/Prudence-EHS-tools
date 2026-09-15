@@ -329,18 +329,23 @@ export function buildOverallStatement({ flaggedCount, attentionZones = [], atten
 
   // What. Named rather than counted, because a count says how much was found
   // and not what — the reason the summary stopped closing on one in 2026-09.
+  // "Further characterization is warranted for X" rather than "X warrants
+  // further characterization": the subject is a list of labels whose number
+  // is not knowable from the list's length — "walkthrough observations" is
+  // one entry and a plural noun, which produced "Walkthrough observations
+  // warrants". One form is grammatical for every case.
   const subjects = attentionSubjects.length
-    ? `${listOf(attentionSubjects)} warrant${attentionSubjects.length === 1 ? 's' : ''} further characterization, and ${items}.`
+    ? `Further characterization is warranted for ${listOf(attentionSubjects, { lower: true })}, and ${items}.`
     : (affected ? `${items.charAt(0).toUpperCase()}${items.slice(1)}.` : '')
   return `${where}${subjects ? ` ${subjects}` : ''}${tail}`
 }
 
-/** "a", "a and b", "a, b and c" — sentence-cased on the first item. */
-function listOf(parts) {
+/** "a", "a and b", "a, b and c" — sentence-cased unless `lower` is set. */
+function listOf(parts, opts = {}) {
   const list = (parts || []).filter(Boolean).map(String)
   if (!list.length) return ''
   const joined = list.length === 1
     ? list[0]
     : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`
-  return joined.charAt(0).toUpperCase() + joined.slice(1)
+  return opts.lower ? joined : joined.charAt(0).toUpperCase() + joined.slice(1)
 }

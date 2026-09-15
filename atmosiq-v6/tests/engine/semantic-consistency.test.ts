@@ -137,6 +137,21 @@ describe('the overall statement answers to the findings census, not to one table
     expect(checkRenderModel(model).filter((i: any) => i.id === 'summary-all-clear')).toEqual([])
   })
 
+  it('is grammatical whatever the subjects are', () => {
+    // "Walkthrough observations warrants further characterization" — the
+    // subject is a list of labels whose number is not knowable from the
+    // list's length. One sentence form is grammatical for every case.
+    for (const zones of [
+      DEMO_HCHO_ZONES.map((z: any) => { const c = { ...z }; delete c.hc; return c }),
+      DEMO_HCHO_ZONES,
+    ]) {
+      const { model } = build(zones, DEMO_HCHO_BUILDING, DEMO_HCHO_PRESURVEY)
+      expect(model.overallStatement).not.toMatch(/observations warrants/)
+      expect(model.overallStatement).not.toMatch(/\bwarrant\b(?! )/)
+      if (model.findings) expect(model.overallStatement).toMatch(/Further characterization is warranted for /)
+    }
+  })
+
   it('still says so plainly when there is genuinely nothing to report', () => {
     const { model } = build([clean('Suite 200'), clean('Suite 210')], PLAIN_BLDG, PLAIN_PRE)
     expect(model.findings).toBeNull()
@@ -274,6 +289,22 @@ describe('why it matters carries decision significance only', () => {
     ]) {
       expect(text, forbidden.source).not.toMatch(forbidden)
     }
+  })
+
+  it('does not call a measured finding an observation when the engine attached no criterion class', () => {
+    // CO2 ventilation-indicator findings are built outside `evaluateCriteria`
+    // and carry a source without a class. The first draft of this projection
+    // read "no criterion class" as "not measured" and told the reader a 1385
+    // ppm instrument reading rested on the walkthrough. Assigning it a class
+    // the engine did not stamp would be manufacturing provenance downstream,
+    // so the row says what its own fields support.
+    const { model: m2 } = build([clean('A'), { ...clean('B'), co2: '1385' }], PLAIN_BLDG, PLAIN_PRE)
+    const row = m2.managerSummary.attention.items.find((i: any) => i.location === 'B')
+    const finding = m2.findings.rows.find((r: any) => r.parameter === 'co2')
+    expect(finding.basis).toBe('Measured')
+    expect(finding.criterionClass).toBeNull()
+    expect(row.whyItMatters).toContain('rests on an instrument reading')
+    expect(row.whyItMatters).not.toContain('observed and reported during the walkthrough')
   })
 
   it('says plainly when a row rests on the walkthrough rather than an instrument', () => {
