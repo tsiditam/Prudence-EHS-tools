@@ -260,7 +260,7 @@ describe('the lock stops regeneration, not the assessor', () => {
     const panel = code.slice(code.indexOf('Checked against the assessment record —'))
     const remedies = [
       'Add required limitation',     // the deterministic fix
-      'Fix with AI',                 // the targeted repair
+      'Repair section',              // the targeted repair
       'Use this section anyway…',   // record an override
       'Edit this section…',          // revise the prose
       'Restore the AI text',         // drop a revision
@@ -279,15 +279,23 @@ describe('the lock stops regeneration, not the assessor', () => {
     // the waiver comes last — after the deterministic fix, the targeted
     // repair, and the assessor's own editor.
     const at = (label: string) => panel.indexOf(label)
-    expect(at('Add required limitation')).toBeLessThan(at('Fix with AI'))
-    expect(at('Fix with AI')).toBeLessThan(at('Edit this section…'))
+    expect(at('Add required limitation')).toBeLessThan(at('Repair section'))
+    expect(at('Repair section')).toBeLessThan(at('Edit this section…'))
     expect(at('Edit this section…')).toBeLessThan(at('Use this section anyway…'))
 
-    // A repair answers a finding, so it is offered only where there is one.
-    // Left on every row it would be the generic rewrite button this replaced,
-    // and `repairReportSection` refuses a section with nothing to answer.
-    const fixAt = at('Fix with AI')
-    expect(panel.slice(Math.max(0, fixAt - 300), fixAt)).toContain('blocked && !kept')
+    // A repair answers a finding, so it is offered only where there is one,
+    // and only while an attempt is left. Left on every row it would be the
+    // generic rewrite button this replaced, and `repairReportSection` refuses
+    // a section with nothing to answer.
+    const fixAt = at('Repair section')
+    expect(panel.slice(Math.max(0, fixAt - 300), fixAt)).toContain('repairable')
+    expect(panel).toContain('canRepairSection(aiSections, key)')
+
+    // The repair is FREE. AtmosFlow wrote the section and AtmosFlow's check
+    // found the problem, so a price on the correction reads as "the AI made a
+    // mistake, pay again". The cap protects the cost instead — never a charge.
+    expect(panel).not.toMatch(/REPAIR_CREDIT_COST/)
+    expect(panel.slice(fixAt, fixAt + 400)).not.toMatch(/credit/i)
     // The old generic Refine detoured through the assistant sheet and was
     // never given the finding — it could return prose that failed the same
     // check for the same reason. It must not come back.

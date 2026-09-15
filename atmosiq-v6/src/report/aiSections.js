@@ -153,6 +153,50 @@ export function lockAiSections(aiSections) {
   return { ...aiSections, locked: true }
 }
 
+/**
+ * How many times a targeted AI repair has been spent on one section, and
+ * whether another is available.
+ *
+ * A repair is FREE and CAPPED rather than priced, and the two go together.
+ * AtmosFlow generated the section, AtmosFlow's own check found the problem,
+ * so billing the assessor to have it corrected reads as "the AI made a
+ * mistake, pay again" — not the bargain this product offers. A hard cap
+ * protects the cost instead of a charge, and it is the same rule the repair
+ * already followed in the prompt: one attempt, then fall back to the editor.
+ *
+ * Counted ON THE RECORD, so it survives closing the report and resets where
+ * it should: `buildAiSectionsRecord` emits no `repairs`, so regenerating the
+ * sections restores the attempt along with the prose it applies to. An edit,
+ * a revert and an override all spread the record forward, so none of them
+ * hands back an attempt that was already spent.
+ */
+export const MAX_REPAIRS_PER_SECTION = 1
+
+export function repairAttempts(aiSections, key) {
+  const n = aiSections && aiSections.repairs ? aiSections.repairs[key] : 0
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/** Whether a targeted repair is still available for this section. */
+export function canRepairSection(aiSections, key) {
+  return repairAttempts(aiSections, key) < MAX_REPAIRS_PER_SECTION
+}
+
+/**
+ * Spend one repair attempt.
+ *
+ * Called only where a proposal was actually produced. A repair that failed
+ * because the service could not be reached cost the assessor nothing and took
+ * nothing from them either.
+ */
+export function recordRepairAttempt(aiSections, key) {
+  if (!aiSections || !key) return aiSections
+  return {
+    ...aiSections,
+    repairs: { ...(aiSections.repairs || {}), [key]: repairAttempts(aiSections, key) + 1 },
+  }
+}
+
 /** The shortest justification an override is allowed to carry. */
 export const MIN_OVERRIDE_JUSTIFICATION = 20
 

@@ -26,7 +26,7 @@ import { resolvePrimaryDriver } from '../utils/primaryDriver'
 import { resolveVerdict, countFindings, worstZoneIndex, worstFindingSeverity } from '../utils/assessmentVerdict'
 import { groupPathways, groupSamplingPlan, groupActionsByText } from '../utils/resultsGrouping'
 import { buildReadinessVerdict } from '../engines/readiness-verdict'
-import { withAiSections, evidencePackageFor, lockAiSections, applyOverride, removeOverride, isOverridden, applyEdit, removeEdit, isEdited, sectionText, withRequiredLimitations, MIN_OVERRIDE_JUSTIFICATION, MIN_SECTION_TEXT } from '../report/aiSections'
+import { withAiSections, evidencePackageFor, lockAiSections, applyOverride, removeOverride, isOverridden, applyEdit, removeEdit, isEdited, sectionText, withRequiredLimitations, canRepairSection, recordRepairAttempt, MIN_OVERRIDE_JUSTIFICATION, MIN_SECTION_TEXT } from '../report/aiSections'
 import { checkRenderModel } from '../report/modelConsistency'
 import { detectReportConsistency, asConsistencyRow } from '../engines/integrity/report-consistency.js'
 import { resolveAssessmentDate, todayLocalISO } from '../utils/assessmentDate'
@@ -295,10 +295,6 @@ const auditFromMeta = (meta) => (meta && Array.isArray(meta.audit) ? { issues: m
 // Reader-facing names for the AI-sections audit breakdown (src/report/aiSections.js
 // keys). Matches the WRITABLE_SECTIONS names, plus the per-parameter
 // `parameter_background.<key>` keys reportModel.js's own grouping produces.
-// A targeted repair is one small call against one section, not the five-section
-// generation above it, and it is priced as the exception it is.
-const REPAIR_CREDIT_COST = 1
-
 const AI_SECTION_LABELS = {
   executive_summary: 'Executive Summary',
   discussion: 'Discussion & Conclusions',
@@ -2429,13 +2425,22 @@ export default function MobileApp() {
    * nothing spends a second generation on its own initiative.
    */
   const repairSection = async (key) => {
-    if (!PAYWALL_DISABLED && credits < REPAIR_CREDIT_COST) { setShowPricing(true); return }
+    // Free, and capped instead of priced. AtmosFlow wrote the section and
+    // AtmosFlow's own check found the problem, so charging to have it
+    // corrected would read as "the AI made a mistake, pay again". The cap is
+    // what protects the cost, and it is the rule the repair already stated:
+    // one attempt, then the editor.
+    if (!canRepairSection(aiSections, key)) return
     setSectionRepairError(null)
     setRepairPhase({ key, phase: 'working' })
     const { text, error } = await repairReportSection(reportDataForAi(), { aiSections, key })
     setRepairPhase({ key, phase: text ? 'done' : 'failed' })
     if (!text) { setSectionRepairError({ key, message: error || 'This section could not be repaired.' }); return }
-    consumeCredit(REPAIR_CREDIT_COST, 'report_section_repair')
+    // Spent only where a proposal was produced. A repair the service could
+    // not deliver takes nothing from the assessor.
+    const spent = recordRepairAttempt(aiSections, key)
+    setAiSections(spent)
+    await persistAiOutput({ aiSections: spent })
     setEditDraft({ key, text, source: 'repair' })
     trackEvent('ai_section_repaired', { section: key })
   }
@@ -3908,6 +3913,7 @@ export default function MobileApp() {
                       const limitationMissing = blocked && !kept
                         && ((aiSections.audit && aiSections.audit[key]) || []).some(i => i && i.id === 'limitation-missing')
                       const repairing = repairPhase.key === key && repairPhase.phase !== 'idle'
+                      const repairable = blocked && !kept && canRepairSection(aiSections, key)
                       return (
                         <div key={key} style={{...V3.T.bodyDim,fontSize:13,lineHeight:1.5,padding:'10px 0',borderTop: si === 0 ? 'none' : `1px solid ${V3.BORDER_SUBTLE}`}}>
                           {/* A status dot and the section name in the primary
@@ -3972,24 +3978,19 @@ export default function MobileApp() {
                                   Add required limitation
                                 </TactileButton>
                               )}
-                              {blocked && !kept && (
-                                /* The action and its price wrap as ONE unit. Left
-                                   as siblings of the row they separate at phone
-                                   width, and the orphaned "1 credit" comes to
-                                   rest beside the edit button, where it reads as
-                                   that button's price. */
-                                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                                  <AiAction
-                                    label="Fix with AI"
-                                    title="Jasper revises this section to answer the check, from this assessment only"
-                                    onClick={()=>repairSection(key)} />
-                                  <span style={V3.T.captionDim}>{REPAIR_CREDIT_COST} credit</span>
-                                </span>
+                              {repairable && (
+                                <AiAction
+                                  label="Repair section"
+                                  title="Jasper revises this section to answer the check, from this assessment only"
+                                  onClick={()=>repairSection(key)} />
                               )}
                               <TactileButton variant="neutral" size="sm" pill onClick={()=>setEditDraft({ key, text: sectionText(aiSections, key) || '', source: 'manual' })}>
                                 {revised ? 'Edit your wording…' : 'Edit this section…'}
                               </TactileButton>
                               {revised && <TactileButton variant="neutral" size="sm" pill onClick={()=>revertSection(key)}>Restore the AI text</TactileButton>}
+                              {blocked && !kept && !repairable && (
+                                <span style={V3.T.captionDim}>Repaired once already — edit it here, or regenerate the sections.</span>
+                              )}
                               {blocked && !kept && !editing && (
                                 <button type="button" onClick={()=>setOverrideDraft({ key, text: '' })} style={{background:'none',border:'none',padding:'6px 0',font:'inherit',fontSize:12,fontWeight:600,color:SUB,cursor:'pointer',minHeight:32,WebkitTapHighlightColor:'transparent'}}>
                                   Use this section anyway…

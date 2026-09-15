@@ -41,8 +41,9 @@ import { buildEvidencePackage } from '../../src/report/evidencePackage.js'
 import { auditNarrative } from '../../src/report/narrativeAudit.js'
 // @ts-ignore js
 import {
-  buildAiSectionsRecord, applyEdit, applyOverride, isOverridden,
+  buildAiSectionsRecord, applyEdit, applyOverride, isOverridden, removeEdit,
   missingLimitations, withRequiredLimitations, sectionText,
+  canRepairSection, recordRepairAttempt, repairAttempts, MAX_REPAIRS_PER_SECTION,
 } from '../../src/report/aiSections.js'
 // @ts-ignore js
 import { repairReportSection } from '../../src/engines/reportSections.js'
@@ -201,5 +202,51 @@ describe('the AI repair', () => {
     const out = await repairReportSection(data, { aiSections: blockedOn(pkg), key: 'discussion' })
     expect(out.text).toBeNull()
     expect(out.error).toBe('The AI service account needs attention.')
+  })
+})
+
+describe('a repair is free, and capped instead of priced', () => {
+  it('offers an attempt on a freshly generated section', () => {
+    const { pkg } = build()
+    const rec = blockedOn(pkg)
+    expect(rec.repairs).toBeUndefined()
+    expect(repairAttempts(rec, 'discussion')).toBe(0)
+    expect(canRepairSection(rec, 'discussion')).toBe(true)
+  })
+
+  it('spends the attempt once and does not offer another', () => {
+    const { pkg } = build()
+    const spent = recordRepairAttempt(blockedOn(pkg), 'discussion')
+    expect(repairAttempts(spent, 'discussion')).toBe(MAX_REPAIRS_PER_SECTION)
+    expect(canRepairSection(spent, 'discussion')).toBe(false)
+    // Per section, not per record: the others are untouched.
+    expect(canRepairSection(spent, 'executive_summary')).toBe(true)
+  })
+
+  it('never hands an attempt back through an edit, a revert or a waiver', () => {
+    const { pkg } = build()
+    const rec = blockedOn(pkg)
+    const spent = recordRepairAttempt(rec, 'discussion')
+    const edited = applyEdit(spent, 'discussion', { text: withRequiredLimitations(spent, 'discussion', pkg) as string }, pkg)
+    expect(canRepairSection(edited, 'discussion')).toBe(false)
+    expect(canRepairSection(removeEdit(edited, 'discussion'), 'discussion')).toBe(false)
+    expect(canRepairSection(applyOverride(spent, 'discussion', { justification: 'Stated in the report already, in the limitations section.' }), 'discussion')).toBe(false)
+  })
+
+  it('restores the attempt when the sections are generated again', () => {
+    const { pkg } = build()
+    const spent = recordRepairAttempt(blockedOn(pkg), 'discussion')
+    expect(canRepairSection(spent, 'discussion')).toBe(false)
+    // Regeneration builds a fresh record, which carries no spent attempts —
+    // the prose the attempt applied to is gone with it.
+    const regenerated = blockedOn(pkg)
+    expect(canRepairSection(regenerated, 'discussion')).toBe(true)
+  })
+
+  it('leaves the record untouched when there is nothing to spend it on', () => {
+    const { pkg } = build()
+    const rec = blockedOn(pkg)
+    expect(recordRepairAttempt(rec, null as any)).toBe(rec)
+    expect(recordRepairAttempt(null as any, 'discussion')).toBeNull()
   })
 })
