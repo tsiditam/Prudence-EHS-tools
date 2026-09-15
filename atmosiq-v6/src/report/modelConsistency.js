@@ -303,6 +303,171 @@ function registerTimeframeAgrees(M) {
   return out
 }
 
+/**
+ * A non-determinative comparison may not be presented as a demonstrated
+ * exceedance of the reference's averaging-period exposure limit.
+ *
+ * The engine computes `determinative` from the criterion's averaging period
+ * against the measurement's evidence basis: a 15-minute walkthrough reading
+ * cannot settle a 10-hour TWA. Being NUMERICALLY ABOVE a reference value and
+ * DEMONSTRATING EXCEEDANCE of that reference's exposure limit are different
+ * claims, and only the first is available from a short-duration measurement.
+ *
+ * This rule reads the flag rather than the prose, so a new wording cannot
+ * escape it — the check is that the management row carrying the finding says
+ * the comparison is unsettled, and that no layer upgrades it to an exposure.
+ */
+function nonDeterminativeNotAnExceedance(M) {
+  const rows = (M.findings && M.findings.rows) || []
+  const unsettled = rows.filter(r => r && r.determinative === false)
+  if (!unsettled.length) return []
+  const out = []
+  const items = ((M.managerSummary && M.managerSummary.attention && M.managerSummary.attention.items) || [])
+  for (const r of unsettled) {
+    const row = items.find(it => (it.zones || []).some(z => (r.zones || [r.z]).includes(z)))
+    if (row && !/cannot settle/i.test(String(row.whyItMatters || ''))) {
+      out.push(issue('unsettled-comparison', 'What needs attention',
+        `"${String(r.f).slice(0, 60)}…" rests on a comparison this measurement cannot settle, and the management row does not say so.`))
+    }
+  }
+  // No layer may turn it into an exposure determination. Scoped to the prose
+  // a reader meets, not to the engine's own finding sentence.
+  const EXPOSURE = /\b(?:exposure (?:limit|standard) (?:was |is )?exceeded|exceeded the (?:PEL|REL|TLV|OEL)|demonstrated exceedance|in excess of the (?:permissible|recommended) exposure)\b/i
+  for (const [where, text] of proseOf(M)) {
+    if (EXPOSURE.test(text)) {
+      out.push(issue('exposure-asserted', where,
+        `"${text.slice(0, 70)}…" states an exposure-limit exceedance. A short-duration measurement compares against a reference value; it does not demonstrate exceedance of its averaging-period limit.`))
+    }
+  }
+  return out
+}
+
+/**
+ * The Executive Summary and the management layer name the SAME primary
+ * hypothesis, because both are handed the same chains.
+ *
+ * They disagreed on a live report: the summary said chemical exposure, from
+ * `pickPrimaryChain`, while What Needs Attention said ventilation deficiency,
+ * because it took the first chain in array order. One room, one evidence set,
+ * two leading hypotheses decided by list position.
+ */
+function oneLeadingHypothesis(M) {
+  const es = M.execSummary
+  if (!es || typeof es === 'string') return []
+  const conclusion = (es.paragraphs || []).find(p => /leading working hypothesis/i.test(p))
+  if (!conclusion) return []
+  const named = /^(.+?) in .+? is the leading working hypothesis/i.exec(String(conclusion).trim())
+  if (!named) return []
+  const claim = named[1].toLowerCase().trim()
+  const items = ((M.managerSummary && M.managerSummary.attention && M.managerSummary.attention.items) || [])
+    .filter(it => /working hypothesis:/i.test(String(it.status || '')))
+  const out = []
+  for (const it of items) {
+    const m = /working hypothesis:\s*([^—]+)—/i.exec(String(it.status))
+    if (!m) continue
+    const mgr = m[1].toLowerCase().trim()
+    if (mgr && claim && mgr !== claim) {
+      out.push(issue('hypothesis-disagreement', 'What needs attention',
+        `The executive summary names "${claim}" as the leading working hypothesis; the management row for ${it.location} names "${mgr}". Both read the same chains.`))
+    }
+  }
+  return out
+}
+
+/**
+ * A hypothesis stays a hypothesis, and a screening measurement stays a
+ * screening measurement.
+ *
+ * Four claim shapes no layer of this report may make, checked over the prose
+ * a reader actually meets. Each one is a class the report has the evidence to
+ * state properly and would be wrong to state strongly.
+ */
+function claimsStayWithinEvidence(M) {
+  const out = []
+  const CLAIMS = [
+    [/\b(?:established|confirmed|identified|proven) (?:cause|source)\b|\bthe cause (?:is|was)\b|\bcaused the\b/i,
+      'cause-asserted',
+      'states an established cause. Every pathway in this report is a working hypothesis pending verification.'],
+    [/\b(?:TVOC|total VOCs?)\b[^.]{0,60}\b(?:identifies|identified|is|are) (?:the )?(?:compound|chemical|formaldehyde|benzene)/i,
+      'screening-as-identification',
+      'reads a non-specific screening measurement as a compound identification. Speciation is what identifies a compound.'],
+    [/\b(?:complies with|compliant with|in compliance with|meets the) (?:the )?(?:NAAQS|EPA (?:standard|NAAQS)|ambient standard)/i,
+      'context-as-compliance',
+      'presents a contextual ambient reference as a compliance criterion. NAAQS are outdoor, population-level standards.'],
+    [/\b(?:no (?:findings?|conditions?)[^.]{0,30}(?:therefore|so|which means)[^.]{0,40}(?:safe|healthy|no risk))\b|\bis safe\b|\bproves? (?:the building|it) (?:is )?safe\b/i,
+      'absence-as-safety',
+      'reads the absence of a flagged result as proof of safety. An assessment reports what it found in the areas and window assessed.'],
+  ]
+  for (const [where, text] of proseOf(M)) {
+    for (const [re, id, why] of CLAIMS) {
+      if (assertsPositively(text, re)) out.push(issue(id, where, `"${text.slice(0, 70)}…" ${why}`))
+    }
+  }
+  return out
+}
+
+/**
+ * Does the text make this claim, or deny it?
+ *
+ * The report's own conceptual-site-model intro ends "The chain is a working
+ * hypothesis, NOT AN ESTABLISHED CAUSE" — which is the report doing exactly
+ * the right thing, and which a bare /established cause/ matched on its first
+ * run. A rule that fires on the sentence disclaiming the claim is worse than
+ * no rule: it trains a reader to ignore it, and the pressure is then to
+ * delete the disclaimer rather than the rule.
+ *
+ * So a match counts only when the words immediately before it do not negate
+ * it. The window is short on purpose — a negation four clauses back does not
+ * govern this one.
+ */
+const NEGATION = /\b(?:not|never|no|nor|cannot|can't|without|rather than|instead of)\b[^.]{0,24}$/i
+function assertsPositively(text, re) {
+  const str = String(text || '')
+  const rx = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`)
+  let m
+  while ((m = rx.exec(str)) !== null) {
+    if (!NEGATION.test(str.slice(Math.max(0, m.index - 40), m.index))) return true
+    if (m[0].length === 0) rx.lastIndex += 1
+  }
+  return false
+}
+
+/**
+ * The client-facing prose this file checks, by section.
+ *
+ * Deliberately NOT the engine's own finding sentences: those are the
+ * authoritative output of the deterministic layer and are governed by the
+ * criterion registry and `api/_banned-language.js`. What is checked here is
+ * every place a projection RESTATES them — the summary, the management layer,
+ * the section intros — because that is where a restatement can get stronger
+ * than the thing it restates.
+ */
+function proseOf(M) {
+  const out = []
+  const push = (where, v) => { if (typeof v === 'string' && v.trim()) out.push([where, v]) }
+  const es = M.execSummary
+  if (es && typeof es !== 'string') {
+    ;(es.paragraphs || []).forEach(p => push('Executive summary', p))
+    push('Executive summary', es.nextStep)
+  } else push('Executive summary', es)
+  push('Overall statement', M.overallStatement)
+  const mgr = M.managerSummary || {}
+  const att = mgr.attention || {}
+  push('What needs attention', att.intro)
+  push('What needs attention', att.none)
+  ;(att.items || []).forEach(it => {
+    push('What needs attention', it.status)
+    push('What needs attention', it.whyItMatters)
+  })
+  ;((mgr.scope || {}).did || []).forEach(l => push('Assessment scope', l))
+  ;(M.discussion && M.discussion.paragraphs ? M.discussion.paragraphs : []).forEach(p => push('Discussion', p))
+  push('Conceptual site model', Array.isArray((M.conceptualModel || {}).intro) ? (M.conceptualModel.intro || []).join(' ') : (M.conceptualModel || {}).intro)
+  ;((M.workingHypotheses || {}).items || []).forEach(i => push('Working hypotheses', i))
+  ;((M.co2Bars || {}).caption ? [M.co2Bars.caption] : []).forEach(c => push('Charts', c))
+  ;(((M.loggerImages || {}).images) || []).forEach(g => push('Logger evidence', g.caption))
+  return out
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────
 
 const RULES = [
@@ -317,6 +482,9 @@ const RULES = [
   limitationsAgreeWithSections,
   floorPlanPinsResolve,
   conclusionAgreesWithSiteModel,
+  nonDeterminativeNotAnExceedance,
+  oneLeadingHypothesis,
+  claimsStayWithinEvidence,
 ]
 
 /**
@@ -339,4 +507,6 @@ export const RULE_IDS = [
   'reference-orphan', 'register-location', 'register-owner', 'register-evidence', 'register-action', 'register-timeframe',
   'qa-tvoc', 'qa-tvoc-limitation', 'qa-hcho-limitation', 'observation-verdict',
   'limitation-photos', 'limitation-logger', 'gap-undisclosed', 'floorplan-pin', 'conclusion-vs-site-model',
+  'unsettled-comparison', 'exposure-asserted', 'hypothesis-disagreement',
+  'cause-asserted', 'screening-as-identification', 'context-as-compliance', 'absence-as-safety',
 ]

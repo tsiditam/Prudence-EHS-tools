@@ -92,6 +92,58 @@ describe('every rule bites on a deliberately broken model', () => {
     // the report opened by calling the assessment clean.
     m.overallStatement = 'All measured parameters were within recognized references during the assessment window. Routine operation and periodic reassessment are appropriate; no corrective action is indicated at this time.'
   }))
+  // ── The semantic invariants (2026-09) ──────────────────────────────────
+  //
+  // Each of these is a real contradiction a live report shipped, reduced to
+  // the shape that produced it. They read STRUCTURED FIELDS wherever the
+  // defect is structural — `determinative`, the chain selection — and prose
+  // only where the claim is the prose.
+  it('unsettled-comparison — a non-determinative finding whose row does not say so', () => expectRule('unsettled-comparison', m => {
+    // A 15-minute reading against a 10-hour TWA. The engine knows it cannot
+    // settle the comparison; the management row has to say so.
+    m.findings.rows[0].determinative = false
+    m.findings.rows[0].averaging = 'hour10'
+    m.managerSummary.attention.items[0].zones = [m.findings.rows[0].z]
+    m.managerSummary.attention.items[0].whyItMatters = 'An occupational exposure limit.'
+  }))
+  it('exposure-asserted — prose upgrading a comparison to an exceedance', () => expectRule('exposure-asserted', m => {
+    m.findings.rows[0].determinative = false
+    m.managerSummary.attention.items[0].whyItMatters = 'The reading exceeded the REL for this compound.'
+  }))
+  it('hypothesis-disagreement — summary and manager layer name different pathways', () => expectRule('hypothesis-disagreement', m => {
+    // Both read the same chains, so they can only differ by HOW they choose.
+    // They did: the summary used `pickPrimaryChain` and the manager layer
+    // took the first chain in array order.
+    m.execSummary.paragraphs = ['Chemical exposure in 4th Floor Open Office — North is the leading working hypothesis on the observations available.']
+    m.managerSummary.attention.items[0].status = 'Corrective action recommended. Working hypothesis: ventilation deficiency — no causal relationship has been established.'
+  }))
+  it('cause-asserted — an established cause', () => expectRule('cause-asserted', m => {
+    m.overallStatement = 'The identified source of the complaints is the new furniture.'
+  }))
+  it('screening-as-identification — TVOC naming a compound', () => expectRule('screening-as-identification', m => {
+    m.overallStatement = 'TVOC readings identified formaldehyde as the compound present.'
+  }))
+  it('context-as-compliance — a contextual reference as a pass', () => expectRule('context-as-compliance', m => {
+    m.overallStatement = 'Indoor particulate complies with the EPA NAAQS.'
+  }))
+  it('absence-as-safety — no findings read as proof of safety', () => expectRule('absence-as-safety', m => {
+    m.overallStatement = 'Nothing was flagged, so the building is safe for occupancy.'
+  }))
+
+  it('does not fire on the report DISCLAIMING the same claim', () => {
+    // The conceptual-site-model intro ends "The chain is a working
+    // hypothesis, not an established cause" — the report doing exactly the
+    // right thing, and what a bare /established cause/ matched on its first
+    // run. A rule that fires on the sentence disclaiming the claim trains a
+    // reader to ignore it, and the pressure becomes to delete the disclaimer.
+    const m = clone(base())
+    m.overallStatement = 'The chain is a working hypothesis, not an established cause, and no source has been established.'
+    expect(ids(m)).not.toContain('cause-asserted')
+    const n = clone(base())
+    n.overallStatement = 'Indoor particulate does not comply with the EPA NAAQS.'
+    expect(ids(n)).not.toContain('context-as-compliance')
+  })
+
   it('summary-finding-orphan', () => expectRule('summary-finding-orphan', m => { m.execSummary.findings.push('4th Floor Open Office — North — Radon 9 pCi/L') }))
   it('citation-missing', () => expectRule('citation-missing', m => { m.findings.rows[0].std = 'ISO 16000-99'; m.findings.rows[0].cite = '' }))
   it('citation-number', () => expectRule('citation-number', m => { const r = m.findings.rows.find((x: any) => x.cite); r.cite = '[99]' }))

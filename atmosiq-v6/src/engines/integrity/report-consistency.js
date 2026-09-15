@@ -104,6 +104,17 @@ export const RENDER_RULE_MAP = Object.freeze({
   // otherwise. A contradiction between two sections of one document, which is
   // what this layer exists to surface.
   'summary-all-clear': { issue_type: 'contradiction', severity: 'warning', kind: 'section' },
+  // The semantic invariants (2026-09). Each is a claim one layer of the
+  // report makes that the evidence behind it does not support — an
+  // unsupported conclusion where the claim is about the evidence, a
+  // contradiction where two sections disagree.
+  'unsettled-comparison': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'finding' },
+  'exposure-asserted': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'section' },
+  'hypothesis-disagreement': { issue_type: 'contradiction', severity: 'warning', kind: 'section' },
+  'cause-asserted': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'section' },
+  'screening-as-identification': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'section' },
+  'context-as-compliance': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'section' },
+  'absence-as-safety': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'section' },
   'summary-finding-orphan': { issue_type: 'contradiction', severity: 'warning', kind: 'finding' },
   'citation-missing': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'finding' },
   'citation-number': { issue_type: 'unsupported_conclusion', severity: 'warning', kind: 'finding' },
