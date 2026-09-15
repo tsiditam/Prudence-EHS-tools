@@ -678,6 +678,71 @@ When working on report generation:
   `tests/engine/report-sections-generate.test.ts` (the client call),
   `tests/lib/supabase-storage-cloud-shape.test.ts` (the generic-payload
   round trip).
+- **The client report is manager-first on top and CIH-defensible underneath,
+  and the top is a PROJECTION of the bottom.** The first pages answer a
+  property, facility or EHS manager's questions — why was this done, what was
+  found, where, does it need attention, what do I do, what does it NOT
+  establish — and everything after them is the evidence a CIH needs to check
+  those answers. One evidence record, one set of conclusions, two depths of
+  explanation.
+
+  The rule that keeps it one record: `buildManagerSummary(model, { chains,
+  limitationEntries })` (`reportModel.js`) is called LAST, on the finished
+  render model, so it can only read fields that already exist. It may not and
+  does not score a reading, choose a threshold, decide a severity, invent a
+  recommendation, infer a source, rank a pathway, or decide whether a
+  reference applies. **The presentation layer is where a second scientific
+  opinion hides**, and `tests/engine/manager-summary.test.ts` asserts the
+  absence structurally rather than by inspection — including by building the
+  summary from a hand-written model with no assessment behind it at all,
+  which is only possible because everything it states is already a value on
+  the model.
+
+  Four things make that hold without a second source of truth, each of which
+  would otherwise have become one:
+
+  1. **`SEVERITY_DECISION` (`narrativeLibrary.js`) is the one decision
+     vocabulary.** The severity legend has always glossed the four outcome
+     tokens in decision terms ("corrective action recommended", "prompt action
+     recommended"), which is exactly what the management status column needs,
+     so the legend is BUILT from the map instead of stating it again beside
+     it. `SEVERITY_LEGEND_NOTE` is unchanged, byte for byte.
+  2. **`buildLimitationEntries` tags, it does not rewrite.** Same strings,
+     same order, plus a `boundary` flag; `buildLimitations` is
+     `entries.map(e => e.text)`. The management scope summary quotes the
+     boundary statements VERBATIM. A shortened plain-language paraphrase would
+     be a second limitation list, free to drift from section 7.
+  3. **`managerSummary.actionPlan.rows` IS `recommendations.register`** — the
+     same array instance, asserted by identity. The register prints ONCE, as
+     the Action Plan; section 6 keeps its (AI-writable) framing prose, the
+     confirmatory sampling plan, and a pointer back to it.
+  4. **The fold is `collectFindings`'s, not a second one.** One row per
+     location SCOPE, where the scope is the one that function already folded
+     to — so a condition the engine emitted once per zone reaches the manager
+     once, and two findings whose sentences differ stay apart. An action or a
+     pathway attaches to a row only when it covers EVERY location the row
+     names; a `notEvaluated` chain is an absence rather than a hypothesis, and
+     a building-wide chain would print the identical clause on every row, so
+     neither is read there.
+
+  **"Findings at a glance" is now "Measurement overview", inside section 4.**
+  It is a per-PARAMETER summary against a reference basis, which asks a
+  facility manager to work out for themselves what "CO2 | 618 ppm | ASHRAE
+  62.1 | Acceptable" means for their building. The model key is unchanged —
+  the evidence package, the consistency rules and the cross-layer tests all
+  index `findingsAtGlance`, and renaming a field to rename a heading is how a
+  rename becomes a migration.
+
+  **Both client exports carry it.** `sections-atmosflow.js` and
+  `lib/report/render-pdf.js`, and the parity test reads it back out of the
+  rendered DOCX and the rendered PDF rather than comparing the two renderers'
+  source — a source comparison passes while both print nothing.
+  `reportText.js` gained a `management_summary` section (VERSION 2) so the new
+  client-facing prose is quotable by a semantic reviewer; its scope lines are
+  the same strings as `limitations`, in two sections, which is correct and
+  which quote resolution handles because it is scoped to the section a
+  reviewer names.
+
 - **Qualitative-only propagation.** Findings derived from instruments
   not in the accuracy database inherit a `qualitative_only: true` flag
   that propagates to every rendered output of that finding.
@@ -1306,6 +1371,43 @@ on this codebase. Watch for them.
    failed (env var, supabase init, auth, conversation, history,
    rate-limit). The user-visible message stays "Server error (500).
    Please try again." — the code is for debugging only.
+
+6. **A shape change does not reach a consumer that was never rewritten, and
+   nothing tells you.** Three defects in the server-rendered PDF path, all
+   found at once in 2026-09 while giving it the manager-first architecture,
+   all the same shape: a field changed and a consumer kept reading the old
+   form.
+
+   - `execSummary` became `{ paragraphs, findings, actions }` for the DOCX.
+     `lib/report/render-pdf.js` still did `p(M.execSummary)`, so the opening
+     paragraph of the PDF deliverable printed **"[object Object]"**.
+   - `collectProse` in `api/report-pdf.js` pushed the same field through a
+     `typeof v === 'string'` filter, so the **banned-language gate silently
+     stopped scanning the executive summary** and reported clean.
+   - `SEV[x] || SEV.ok` had no entry for `not_evaluated` or `reference`, so a
+     TVOC reading this platform has no basis to judge, and the outdoor
+     baseline row, both printed a green **"Acceptable"**.
+
+   Every gate was green throughout: the PDF test only ever passed a string
+   summary, and its one text assertion (`not.toMatch(/Page \d+ of 0/)` over
+   `buf.toString()`) could not fail, because **pdfkit deflates its content
+   streams and writes text runs as hex** — nothing greps out of a PDF buffer.
+   A PDF assertion has to inflate the streams and decode the runs (`pdfText`
+   in `tests/lib/render-pdf.test.js`, `tests/engine/manager-summary.test.ts`),
+   or it is asserting about a string that was never going to be there.
+
+   A fourth, from the same reading: this renderer draws with base-14
+   Helvetica declared `/WinAnsiEncoding` and not embedded, so **every byte in
+   a text run IS a WinAnsi code point**, and pdfkit encodes an unmappable
+   character by writing its raw code point — two bytes, two wrong glyphs. The
+   engine's own `CO₂ 1385 ppm (Δ955 ppm above outdoor)` reached the client as
+   `CO ‚ 1385 ppm (…)` while the DOCX, which is UTF-8, printed it correctly.
+   `pdfSafe` folds what the base-14 fonts cannot print, wrapped once onto
+   `doc.text` and `doc.heightOfString` so a call site added later cannot miss
+   it. **When you change a model field, grep for every renderer of it** — this
+   repo has two client renderers and they are written in different languages
+   of the same model.
+
 
 ## The 100-point score was removed (engine v3.0)
 
