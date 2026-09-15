@@ -519,75 +519,123 @@ export function atmosFlowReportChildren(model) {
     const es = typeof M.execSummary === 'string' ? { paragraphs: [M.execSummary] } : M.execSummary
     if (isAiAuthored(M, 'executive_summary')) c.push(aiNote(M, 'executive_summary'))
     ;(es.paragraphs || []).forEach((para) => c.push(body(para)))
+    // The broad result, immediately under the summary that sets it up rather
+    // than below a parameter table further down. It is the one-sentence
+    // answer to "how did the building do", and a manager reading only the
+    // first page should not have to scroll past a table to reach it.
+    if (M.overallStatement) {
+      c.push(...label('Overall statement'))
+      c.push(body(M.overallStatement))
+    }
     if ((es.findings || []).length) {
       c.push(...label('Leading findings'))
       es.findings.forEach((f) => c.push(bullet(f)))
     }
-    if ((es.actions || []).length) {
-      c.push(...label('First actions'))
-      es.actions.forEach((a2) => c.push(bullet(a2)))
+    // The most important next step, in prose and as ONE sentence. It was a
+    // "First actions" bullet list until the management layer put the Action
+    // Plan a page below this, and the What-Needs-Attention table named a next
+    // step per location — three presentations of the same action inside two
+    // pages. The Action Plan is the canonical structured list; this is the
+    // sentence a reader who stops here still needs.
+    //
+    // Rendered OUTSIDE the AI-authored paragraphs above, and not covered by
+    // the provenance note, because it is not AI-writable: the action text is
+    // the engine's, quoted verbatim (reportModel.js / narrativeLibrary.js).
+    if (es.nextStep) c.push(body(es.nextStep))
+  }
+
+
+  // ═══ THE MANAGEMENT LAYER ═══════════════════════════════════════════════
+  //
+  // The first pages, and who they are for. A property, facility or EHS
+  // manager reads this far and has to be able to answer: why was this done,
+  // what was found, where, does it need attention, what do I do about it, and
+  // what does the assessment NOT establish. Everything after it is the
+  // evidence a CIH needs to check those answers.
+  //
+  // It is deliberately plainer than the technical body — four short blocks,
+  // two tables, no standards language, no dense caveats. Nothing here is
+  // derived: every value comes off `M.managerSummary`, which is a projection
+  // of this same model (reportModel.js buildManagerSummary).
+  //
+  // The parameter-centric "Findings at a glance" table used to sit here. It
+  // moved to section 4 as the measurement overview, which is what it is: a
+  // manager reading "CO2 | 618 ppm | ASHRAE 62.1 | Acceptable" is being asked
+  // to do the interpreting. What replaced it is organized around places,
+  // conditions and decisions instead.
+  const mgr = M.managerSummary
+
+  // ═══ What Needs Attention ═══
+  if (mgr && mgr.attention) {
+    const att = mgr.attention
+    c.push(h1('What Needs Attention', { before: 300 }))
+    if (att.items && att.items.length) {
+      if (att.intro) c.push(body(att.intro))
+      const rows = att.items
+      c.push(
+        table(
+          ['Location', 'What we found', 'Current status', 'What happens next'],
+          rows.map((it) => [
+            fmt(it.location),
+            [...it.issues, ...(it.more ? [`+${it.more} more in Discussion & Conclusions`] : [])],
+            fmt(it.status),
+            fmt(it.nextAction),
+          ]),
+          [1700, 2960, 2300, 2400],
+          { cellSpec: (r, ci) => (ci === 0 ? { bold: true } : ci === 2 ? { color: sev(rows[r].severity).color } : {}) },
+        ),
+      )
+      c.push(caption('What happens next is the highest-priority action the register already carries for that location; the register itself, with every action and its own location, is the Action Plan below. Findings are stated in full, with the criterion applied and the measurements behind them, in Discussion & Conclusions.'))
+    } else if (att.none) {
+      // No row, and no empty table either — an empty table with a heading
+      // over it reads as a section that failed to render. The statement is
+      // bounded to the areas assessed and to the assessment window, and
+      // certifies nothing about the building.
+      c.push(body(att.none, { after: 0 }))
     }
   }
 
-  // Findings at a glance.
-  if (M.findingsAtGlance && M.findingsAtGlance.length) {
-    const rows = M.findingsAtGlance
-    c.push(...label('Findings at a glance'))
+  // ═══ Action Plan ═══
+  //
+  // The action register, brought forward. It is the SAME register section 6
+  // used to print — `mgr.actionPlan.rows` is `M.recommendations.register`,
+  // the same array — and it is printed ONCE, here, where the person who has
+  // to commission the work reads it. Section 6 keeps the framing prose, the
+  // confirmatory sampling plan, and a pointer back to this table.
+  const mgrPlan = mgr && mgr.actionPlan
+  if (mgrPlan && mgrPlan.rows && mgrPlan.rows.length) {
+    c.push(h1('Action Plan', { before: 300 }))
+    const rows = mgrPlan.rows
     c.push(
       table(
-        ['Parameter', 'Site range', 'Reference basis', 'Outcome'],
-        rows.map((r) => [r.parameter, r.range, r.basis, sev(r.outcome).label]),
-        [2660, 1380, 3160, 2160],
-        { cellSpec: (r, ci) => (ci === 3 ? { bold: true, color: sev(rows[r].outcome).color } : { bold: ci === 0 }) },
+        ['Priority', 'Action', 'Location', 'Owner (role)', 'Completion evidence'],
+        rows.map((r) => [[fmt(r.priority), fmt(r.timeframe)], fmt(r.action), fmt(r.location), [fmt(r.owner), fmt(r.control)], fmt(r.evidence)]),
+        [1150, 3260, 1450, 1500, 2000],
+        { cellSpec: (_r, ci) => ({ bold: ci === 0 }) },
       ),
     )
+    if (mgrPlan.note) c.push(caption(mgrPlan.note))
   }
 
-  // Severity legend.
-  if (M.showSeverityLegend) {
-    c.push(...label('Severity legend'))
-    c.push(
-      new Table({
-        columnWidths: [2340, 2340, 2340, 2340],
-        width: { size: CW, type: WidthType.DXA },
-        rows: [
-          new TableRow({
-            children: [
-              ['ACCEPTABLE', PILL.grn],
-              ['ADVISORY', PILL.amb],
-              ['ELEVATED', PILL.org],
-              ['PRIORITY', PILL.red],
-            ].map(
-              ([t, col]) =>
-                new TableCell({
-                  width: { size: 2340, type: WidthType.DXA },
-                  shading: { type: ShadingType.CLEAR, color: 'auto', fill: col },
-                  margins: { top: 105, bottom: 105, left: 90, right: 90 },
-                  borders: {
-                    top: { style: BorderStyle.SINGLE, size: 12, color: WHITE },
-                    bottom: { style: BorderStyle.SINGLE, size: 12, color: WHITE },
-                    left: { style: BorderStyle.SINGLE, size: 12, color: WHITE },
-                    right: { style: BorderStyle.SINGLE, size: 12, color: WHITE },
-                  },
-                  children: [
-                    new Paragraph({
-                      alignment: AlignmentType.CENTER,
-                      children: [new TextRun({ text: t, font: F, size: 18, bold: true, color: WHITE, characterSpacing: 10 })],
-                    }),
-                  ],
-                }),
-            ),
-          }),
-        ],
-      }),
-    )
-    if (M.severityLegendNote) c.push(caption(M.severityLegendNote))
-  }
-
-  // Overall statement.
-  if (M.overallStatement) {
-    c.push(...label('Overall statement'))
-    c.push(body(M.overallStatement, { after: 0 }))
+  // ═══ Assessment Scope ═══
+  //
+  // What was done and what was not, in one place, before the reader reaches
+  // any number. The "what we did not do" lines are the report's OWN
+  // limitation sentences, quoted verbatim from section 7 rather than
+  // paraphrased — a second wording of a boundary is a second boundary.
+  const mgrScope = mgr && mgr.scope
+  if (mgrScope && ((mgrScope.did || []).length || (mgrScope.notDone || []).length)) {
+    c.push(h1('Assessment Scope', { before: 300 }))
+    if (mgrScope.intro) c.push(body(mgrScope.intro))
+    if ((mgrScope.did || []).length) {
+      c.push(...label('What we did'))
+      mgrScope.did.forEach((line) => c.push(bullet(line)))
+    }
+    if ((mgrScope.notDone || []).length) {
+      c.push(...label('What we did not do'))
+      mgrScope.notDone.forEach((line) => c.push(bullet(line)))
+      if (mgrScope.note) c.push(caption(mgrScope.note))
+    }
   }
 
   // ═══ 1. Purpose, Scope & Site Background ═══
@@ -725,6 +773,72 @@ export function atmosFlowReportChildren(model) {
       )
       if (M.results.note) c.push(caption(M.results.note))
     }
+
+    // Measurement overview — one row per parameter, across the site.
+    //
+    // This table opened the report until 2026-09, under the heading "Findings
+    // at a glance". It is a per-PARAMETER summary against a reference basis,
+    // which is a technical reading: it asks a facility manager to work out
+    // for themselves what "CO2 | 618 ppm | ASHRAE 62.1 | Acceptable" means
+    // for their building. It belongs beside the measurements it summarizes,
+    // and the management layer answers the manager's question by LOCATION
+    // instead. The model key is unchanged (`findingsAtGlance`) — the evidence
+    // package, the consistency rules and the cross-layer tests all index it,
+    // and renaming a field to rename a heading is how a rename becomes a
+    // migration.
+    if (M.findingsAtGlance && M.findingsAtGlance.length) {
+      const grows = M.findingsAtGlance
+      c.push(...label('Measurement overview'))
+      c.push(
+        table(
+          ['Parameter', 'Site range', 'Reference basis', 'Outcome'],
+          grows.map((r) => [r.parameter, r.range, r.basis, sev(r.outcome).label]),
+          [2660, 1380, 3160, 2160],
+          { cellSpec: (r, ci) => (ci === 3 ? { bold: true, color: sev(grows[r].outcome).color } : { bold: ci === 0 }) },
+        ),
+      )
+    }
+
+    // Severity legend — beside the outcomes it decodes, for the same reason.
+    if (M.showSeverityLegend) {
+      c.push(...label('Severity legend'))
+      c.push(
+        new Table({
+          columnWidths: [2340, 2340, 2340, 2340],
+          width: { size: CW, type: WidthType.DXA },
+          rows: [
+            new TableRow({
+              children: [
+                ['ACCEPTABLE', PILL.grn],
+                ['ADVISORY', PILL.amb],
+                ['ELEVATED', PILL.org],
+                ['PRIORITY', PILL.red],
+              ].map(
+                ([t, col]) =>
+                  new TableCell({
+                    width: { size: 2340, type: WidthType.DXA },
+                    shading: { type: ShadingType.CLEAR, color: 'auto', fill: col },
+                    margins: { top: 105, bottom: 105, left: 90, right: 90 },
+                    borders: {
+                      top: { style: BorderStyle.SINGLE, size: 12, color: WHITE },
+                      bottom: { style: BorderStyle.SINGLE, size: 12, color: WHITE },
+                      left: { style: BorderStyle.SINGLE, size: 12, color: WHITE },
+                      right: { style: BorderStyle.SINGLE, size: 12, color: WHITE },
+                    },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: t, font: F, size: 18, bold: true, color: WHITE, characterSpacing: 10 })],
+                      }),
+                    ],
+                  }),
+              ),
+            }),
+          ],
+        }),
+      )
+      if (M.severityLegendNote) c.push(caption(M.severityLegendNote))
+    }
   }
 
   // 3.1 Environmental Evidence Graphs (logger PNGs only; vector charts omitted
@@ -799,36 +913,36 @@ export function atmosFlowReportChildren(model) {
 
   // ═══ 6. Recommended Actions & Verification ═══
   //
-  // ONE action register, not three bullet lists. The CIH review asked for a
-  // table carrying finding, action, priority, responsible party, deadline and
-  // verification. Four of those are built from the data; RESPONSIBLE PARTY
-  // and DEADLINE are not, because no intake field, engine output or stored
-  // column in this platform records an owner or a due date. Printing empty
-  // columns for them would look like an oversight, and inventing values would
-  // assert a commitment nobody made — so the register says whose job it is to
-  // add them. See actionRegister() in report/reportModel.js.
+  // The register itself is printed ONCE, in the Action Plan of the management
+  // layer, where the person who commissions the work reads it. Printing the
+  // identical five-column table again here would not add a technical reading
+  // of it — it would just be the same table twice, and the reader would have
+  // to check whether the two agreed.
+  //
+  // What stays here is what section 6 is for: the framing prose (which is one
+  // of the five AI-writable slots, so its provenance marker travels with it),
+  // the pointer back to the table, and 6.1's confirmatory sampling plan —
+  // the methods that would settle what the actions are verifying.
+  //
+  // RESPONSIBLE PARTY and DEADLINE are still not in the register, and still
+  // deliberately: no intake field, engine output or stored column in this
+  // platform records an owner or a due date. Printing empty columns for them
+  // would look like an oversight and inventing values would assert a
+  // commitment nobody made. See actionRegister() in report/reportModel.js.
   const rec = M.recommendations
-  if (rec && rec.register && rec.register.length) {
+  const hasRegister = !!(rec && rec.register && rec.register.length)
+  const hasLegacyList = !!(rec && ((rec.immediate || []).length || (rec.shortTerm || []).length || (rec.mediumTerm || []).length))
+  if (hasRegister || hasLegacyList) {
     c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
     if (isAiAuthored(M, 'recommendations_prose')) c.push(aiNote(M, 'recommendations_prose'))
     toParas(rec.intro).forEach((para) => c.push(body(para)))
-    const rows = rec.register
-    // Priority and timeframe share a cell, as do control and owner, so the
-    // action and its completion evidence get the width a reader needs.
-    c.push(
-      table(
-        ['Priority', 'Action', 'Location', 'Owner (role)', 'Completion evidence'],
-        rows.map((r) => [[fmt(r.priority), fmt(r.timeframe)], fmt(r.action), fmt(r.location), [fmt(r.owner), fmt(r.control)], fmt(r.evidence)]),
-        [1150, 3260, 1450, 1500, 2000],
-        { cellSpec: (_r, ci) => ({ bold: ci === 0 }) },
-      ),
-    )
-    if (rec.registerNote) c.push(caption(rec.registerNote))
-  } else if (rec && ((rec.immediate || []).length || (rec.shortTerm || []).length || (rec.mediumTerm || []).length)) {
-    // Fallback for a stored report predating the register.
-    c.push(h1('6. Recommended Actions & Verification', { pbb: true }))
-    if (isAiAuthored(M, 'recommendations_prose')) c.push(aiNote(M, 'recommendations_prose'))
-    toParas(rec.intro).forEach((para) => c.push(body(para)))
+  }
+  if (hasRegister) {
+    c.push(body('The prioritized action register — each action with its location, the role proposed to own it, and the evidence that would show it complete — is in the Action Plan at the front of this report.'))
+  } else if (hasLegacyList) {
+    // Fallback for a stored report predating the register: those actions have
+    // no location, owner or completion evidence to table, so the management
+    // Action Plan has nothing to print and the bullet lists stay here.
     if ((rec.immediate || []).length) {
       c.push(...label('Immediate (0–7 days)'))
       rec.immediate.forEach((it) => c.push(bullet(it)))
