@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { I } from './Icons'
 import STO from '../utils/storage'
 import JasperBrainIcon from './JasperBrainIcon'
+import JasperActivity from './ui/JasperActivity'
 import VoiceInputButton, { appendWithSpace } from './VoiceInputButton'
 import { useFieldAssistant, MAX_PHOTOS_PER_REQUEST } from '../hooks/useFieldAssistant'
 import { ATTACHMENT_ACCEPT, MAX_ATTACHMENTS_PER_REQUEST } from '../utils/chatAttachments'
@@ -100,24 +101,16 @@ const ATTACHMENT_KIND_LABEL = {
   text: 'Document',
 }
 
-// "Thinking" status treatment — the indicator shown while the agent is
-// reasoning cycles through these phrases instead of a static "Thinking".
-// Wording stays screening-safe (research / analyze / cross-reference —
-// never "diagnose" or "determine"). Rendered in Bitcount Grid Single
-// (a free pixel/dot-matrix Google Font, loaded in index.html), then the
-// bold jasper stack as fallback. Color is the bright thinking-cyan that
-// matches the neon brain.
+// The "thinking" status FACE — this surface's own, and the one thing it
+// does not take from the shared activity component: Bitcount Grid Single
+// (a free pixel/dot-matrix Google Font, loaded in index.html) over the
+// bold jasper stack, in the bright thinking-cyan that matches the brain.
+// The phrases themselves moved to JasperActivity's `assistant` context,
+// so every Jasper surface rotates them the same way; wording there stays
+// screening-safe (research / analyze / cross-reference — never "diagnose"
+// or "determine"), which the shared contexts are tested for.
 const THINKING_CYAN = '#22E0F2'
 const THINKING_FONT = "'Bitcount Grid Single', var(--font-jasper)"
-const THINKING_PHRASES = [
-  'Searching standards manifest',
-  'Analyzing data',
-  'Researching standards',
-  'Cross-referencing thresholds',
-  'Reviewing measurements',
-  'Consulting the corpus',
-  'Synthesizing findings',
-]
 
 // Serif face for AtmosFlow AI response copy — gives Jasper's answers
 // an editorial, "considered" feel distinct from the sans UI chrome and
@@ -394,130 +387,34 @@ function describeTool(tool) {
 }
 
 /**
- * Thinking / tool-status indicator. When the agent is between
- * tokens (no active tool), renders the classic 3-dot pulse. When
- * a tool is running, renders a small spinner + a short status line
- * describing what the tool is doing. Same bubble surface either
- * way so the rhythm of the conversation doesn't jump.
+ * Thinking / tool-status indicator — AtmosFlow AI at work, between the
+ * question and the first token.
+ *
+ * One component for both states, because they are the same fact told at
+ * two resolutions. A RUNNING TOOL is a real stage, so its own description
+ * ("Searching the standards corpus…") is handed to the status as live
+ * text and stands until the tool ends. Between tools there is no stage to
+ * report, so the status walks the assistant context's phrases on a timer
+ * and then cycles the later ones — it never rewinds to "Reading your
+ * question…" after a tool has already run.
+ *
+ * Bubble-less either way — no background, no border — so the indicator
+ * flows on the sheet canvas instead of jumping into a card. The brain is
+ * the only moving part: `JasperActivity` breathes it and carries the
+ * accent halo, which is also why the small ring spinner is gone. The
+ * pixel status face is this surface's own and is passed in rather than
+ * replaced; the brain's identity is shared, the typography is not.
  */
 function ToolStatus({ tool }) {
-  // Cycle the "thinking" phrases on a steady cadence. The hook runs on
-  // every render (before the tool-status early-return below) so hook
-  // order stays stable whether or not a tool is active.
-  const [phraseIdx, setPhraseIdx] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setPhraseIdx(i => (i + 1) % THINKING_PHRASES.length), 1900)
-    return () => clearInterval(id)
-  }, [])
-  const status = describeTool(tool)
-  // Both states are bubble-less — no background, no border — so the
-  // indicator flows on the sheet canvas instead of jumping into a card.
-  // Tool-running keeps a small spinner + status line ("Searching…");
-  // the plain "thinking" state is the neon-cyan brain that flickers
-  // while the system reasons.
-  if (status) {
-    return (
-      <div
-        className="jasper-msg-in"
-        role="status"
-        style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14, padding: '2px 2px' }}>
-        {/* Small inline spinner. CSS rotation only — no JS. */}
-        <span
-          aria-hidden="true"
-          style={{
-            width: 13, height: 13, borderRadius: '50%',
-            border: `1.5px solid ${BORDER}`,
-            borderTopColor: ACCENT,
-            animation: 'faSpin 0.9s linear infinite',
-            flexShrink: 0,
-          }}
-        />
-        <span style={{ fontSize: 12, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}>
-          {status}
-        </span>
-      </div>
-    )
-  }
-  // Bubble-less neon brain. NEON_CYAN is hard-coded (not the themeable
-  // --accent) so the glow reads as an intentional "thinking" signal in
-  // both light and dark themes. The flicker + glow pulse live in
-  // faBrainFlicker / faBrainGlow keyframes at the bottom of this file;
-  // Neon runs THROUGH the brain's grooves: a dim base outline sits
-  // underneath, and a bright cyan layer traces each stroke on in
-  // sequence (stroke-dashoffset), holds fully lit, then loops. The
-  // brain therefore wakes from dim → fully energized continuously
-  // while the system thinks. pathLength="100" normalizes every path
-  // so they trace at a uniform rate regardless of true length.
-  const NEON_CYAN = '#22E0F2'
-  const BRAIN_PATHS = [
-    'M12 18V5',
-    'M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4',
-    'M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5',
-    'M17.997 5.125a4 4 0 0 1 2.526 5.77',
-    'M18 18a4 4 0 0 0 2-7.464',
-    'M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517',
-    'M6 18a4 4 0 0 1-2-7.464',
-    'M6.003 5.125a4 4 0 0 0-2.526 5.77',
-  ]
-  // One full run-through, staggered across the paths.
-  const TRACE_DURATION = 2.6
-  const TRACE_STAGGER = 0.12
   return (
-    <div
-      className="jasper-msg-in"
-      role="status"
-      aria-label="Thinking"
-      style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14, padding: '2px 2px' }}>
-      <span
-        aria-hidden="true"
-        className="jasper-brain"
-        style={{
-          display: 'inline-flex',
-          // Tight glow that hugs the strokes. A wider blur blooms into
-          // the gaps between grooves and reads as a tinted box around
-          // the icon; keeping it to ~1.5px traces the neon edge only,
-          // so just the brain shows.
-          filter: `drop-shadow(0 0 1.5px ${NEON_CYAN})`,
-        }}>
-        <svg
-          width={18}
-          height={18}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={NEON_CYAN}
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round">
-          {/* Dim base layer — the unlit neon tube. Always faintly
-              visible so the brain reads as "off / idle" before the
-              run-through energizes it. */}
-          <g stroke={NEON_CYAN} opacity={0.22}>
-            {BRAIN_PATHS.map((d, i) => <path key={`base-${i}`} d={d} />)}
-          </g>
-          {/* Bright trace layer — neon races through each groove. */}
-          <g className="jasper-brain-trace">
-            {BRAIN_PATHS.map((d, i) => (
-              <path
-                key={`trace-${i}`}
-                d={d}
-                pathLength="100"
-                style={{
-                  strokeDasharray: 100,
-                  strokeDashoffset: 100,
-                  animation: `jasperBrainTrace ${TRACE_DURATION}s ease-in-out infinite`,
-                  animationDelay: `${i * TRACE_STAGGER}s`,
-                }}
-              />
-            ))}
-          </g>
-        </svg>
-      </span>
-      <span
-        key={phraseIdx}
-        aria-hidden="true"
-        style={{ fontSize: 12, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px', animation: 'fadeIn .35s ease' }}>
-        {THINKING_PHRASES[phraseIdx]}…
-      </span>
+    <div className="jasper-msg-in" style={{ marginBottom: 14, padding: '2px 2px' }}>
+      <JasperActivity
+        context="assistant"
+        phrase={describeTool(tool) || undefined}
+        size={18}
+        style={{ height: 'auto', padding: 0, gap: 9 }}
+        textStyle={{ fontSize: 12, color: THINKING_CYAN, fontFamily: THINKING_FONT, fontWeight: 700, lineHeight: 1.4, letterSpacing: '0.2px' }}
+      />
     </div>
   )
 }
@@ -2456,15 +2353,11 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
 
       <style>{`
         /* Surface-local keyframes — used only by this file's
-           thinking-dot pulse, tool-spinner, and Stop-button entrance.
-           Anything reusable across AI surfaces lives in jasper-tokens. */
+           Stop-button entrance. Anything reusable across AI surfaces lives
+           in jasper-tokens or, for the activity status, in JasperActivity. */
         @keyframes faDot {
           0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
           40% { opacity: 1; transform: translateY(-3px); }
-        }
-        @keyframes faSpin {
-          0%   { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
         }
         @keyframes faStopIn {
           from { opacity: 0; transform: scale(0.8); }
@@ -2478,26 +2371,9 @@ export default function FieldAssistant({ onClose, context, onNavigate, initialMe
         @media (prefers-reduced-motion: reduce) {
           .jasper-sheet { animation: none !important; }
         }
-        /* Neon-brain "thinking" indicator. The bright trace layer draws
-           through each groove (stroke-dashoffset 100 → 0), holds fully
-           lit, then fades the stroke back so the loop restarts from the
-           dim base. Per-path animation-delay staggers the fill so the
-           neon appears to RUN through the brain rather than every groove
-           lighting at once. */
-        @keyframes jasperBrainTrace {
-          0%   { stroke-dashoffset: 100; opacity: 0.35; }
-          45%  { stroke-dashoffset: 0;   opacity: 1; }
-          80%  { stroke-dashoffset: 0;   opacity: 1; }
-          100% { stroke-dashoffset: 0;   opacity: 0.15; }
-        }
-        /* Respect motion sensitivity: hold the brain fully lit + steady. */
-        @media (prefers-reduced-motion: reduce) {
-          .jasper-brain-trace path {
-            animation: none !important;
-            stroke-dashoffset: 0 !important;
-            opacity: 1 !important;
-          }
-        }
+        /* The brain's own trace keyframe and its reduced-motion rule are
+           injected by JasperBrainIcon, which owns that animation for every
+           surface that renders the mark; this file kept a second copy. */
         ${JASPER_KEYFRAMES_CSS}
       `}</style>
     </>

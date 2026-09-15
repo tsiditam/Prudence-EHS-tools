@@ -66,6 +66,7 @@ import StatusPill from './ui/StatusPill'
 import EmptyState from './ui/EmptyState'
 import Reading from './ui/Reading'
 import AiAction from './ui/AiAction'
+import JasperActivity, { JASPER_REVEAL_CLASS } from './ui/JasperActivity'
 import DrawnCheck from './ui/DrawnCheck'
 import Exhibit from './ui/Exhibit'
 // The Investigation tab reads a zone the way the report does — the same
@@ -2251,11 +2252,20 @@ export default function MobileApp() {
   // already points at the rpt- id, so the index is the reliable tell.
   const viewingIssuedReport = () => !!viewRpt || (index.reports || []).some(r => r.id === draftId)
 
+  // Jasper's activity status owns the moment between the answer arriving
+  // and the status having faded, so the button must not reappear underneath
+  // it. 'writing' while the call is out, then 'done' or 'failed' until the
+  // status reports it has left. Both calls are one round trip with no
+  // intermediate stages, so the status keeps its own time.
+  const [narrativePhase, setNarrativePhase] = useState('idle')
+  const narrativeBusy = narrativeLoading || narrativePhase !== 'idle'
+
   const requestNarrative = async () => {
     if (!PAYWALL_DISABLED && credits < 3) { setShowPricing(true); return }
     consumeCredit(3, 'narrative')
     trackEvent('narrative_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setNarrativeLoading(true)
+    setNarrativePhase('writing')
     setNarrativeMeta(null)
     // The rest of the report data rides along so the evidence package the
     // model writes from describes the same report the client will receive —
@@ -2272,6 +2282,7 @@ export default function MobileApp() {
     setNarrative(text || null)
     setNarrativeMeta(meta)
     setNarrativeLoading(false)
+    setNarrativePhase(text ? 'done' : 'failed')
     if (!text) toast.error((result && result.error) || 'The narrative could not be generated. Please try again.')
     if (text) {
       await persistAiOutput({ narrative: text, narrativeMeta: meta })
@@ -2284,6 +2295,8 @@ export default function MobileApp() {
   }
 
   const [reportSectionsLoading, setReportSectionsLoading] = useState(false)
+  const [reportSectionsPhase, setReportSectionsPhase] = useState('idle')
+  const reportSectionsBusy = reportSectionsLoading || reportSectionsPhase !== 'idle'
   // Which blocked section has its override editor open, and what has been
   // typed into it. Never persisted — only the committed override is.
   const [overrideDraft, setOverrideDraft] = useState({ key: null, text: '' })
@@ -2384,6 +2397,7 @@ export default function MobileApp() {
     if (!PAYWALL_DISABLED && credits < 5) { setShowPricing(true); return }
     trackEvent('report_sections_requested', { facility: bldg.fn || '', findings: comp?.findings?.total })
     setReportSectionsLoading(true)
+    setReportSectionsPhase('writing')
     // Same report data narrative already threads through, so the evidence
     // package this writes from and the one the DOCX export will fingerprint
     // against (src/report/aiSections.js) describe the same assessment.
@@ -2394,6 +2408,7 @@ export default function MobileApp() {
     // on a later export because the model was asked again.
     const record = rec && viewingIssuedReport() ? lockAiSections(rec) : rec
     setReportSectionsLoading(false)
+    setReportSectionsPhase(record ? 'done' : 'failed')
     if (!record) {
       // A failed call is not a generation: nothing is charged, and the
       // assessor is told WHY rather than left looking at an unchanged screen.
@@ -3780,14 +3795,14 @@ export default function MobileApp() {
                     : 'This report is finalized, so the sections are not written again — they are saved with it and reused by every export at no further cost. You can still edit any of them below.'}
                 </div>
               )}
-              {!reportSectionsLoading && !aiSectionsLocked && aiSections && aiSectionsSummaryCounts.total > 0 && (
+              {!reportSectionsBusy && !aiSectionsLocked && aiSections && aiSectionsSummaryCounts.total > 0 && (
                 <div style={{...V3.T.caption, color:aiSectionsStale?WARN:SUB, marginBottom:10}}>
                   {aiSectionsStale
                     ? 'The assessment changed since these were written; the export uses the report’s own text until they are regenerated.'
                     : 'Saved with this assessment and reused by every export at no further cost.'}
                 </div>
               )}
-              {!reportSectionsLoading && !aiSectionsLocked && (
+              {!reportSectionsBusy && !aiSectionsLocked && (
                 <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                   {/* Neutral, not the accent: the export above is the one
                       primary on this tab, and this refines what it produces. */}
@@ -3797,8 +3812,21 @@ export default function MobileApp() {
                   <span style={V3.T.captionDim}>5 credits</span>
                 </div>
               )}
-              {reportSectionsLoading && <div style={{padding:'8px 0',display:'flex',alignItems:'center',gap:12}}><div style={{width:20,height:20,borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite',flexShrink:0}} /><div style={V3.T.bodyDim}>Writing report sections from assessment data…</div></div>}
-              {aiSections && aiSectionsSummaryCounts.total > 0 && !reportSectionsLoading && (
+              {/* Jasper at work, in the assistant's own idiom: the brain is
+                  the indicator and the phrases name the sections being
+                  written. No spinner — the mark does that job everywhere
+                  else on this tab. */}
+              {reportSectionsBusy && (
+                <div style={{padding:'8px 0',marginLeft:-8}}>
+                  <JasperActivity
+                    context="report-sections"
+                    active={reportSectionsPhase === 'writing'}
+                    brighten={reportSectionsPhase === 'done'}
+                    onSettled={() => setReportSectionsPhase('idle')}
+                  />
+                </div>
+              )}
+              {aiSections && aiSectionsSummaryCounts.total > 0 && !reportSectionsBusy && (
                 <div style={{marginTop:14}}>
                   {/* The check's result as rows parting with a hairline, like
                       every other list on the results screen — the tinted box
@@ -3922,7 +3950,7 @@ export default function MobileApp() {
                   <FeedbackButton label="Flag" onClick={()=>openFeedback('AI narrative')} />
                 </div>}
               </div>
-              {!narrative&&!narrativeLoading&&<div>
+              {!narrative&&!narrativeBusy&&<div>
                 <div style={{...V3.T.bodyDim, maxWidth:420, marginBottom:14}}>Written from the deterministic findings, not from a free reading of the data. You review and approve before delivery.</div>
                 {/* The AtmosFlow AI mark, not a pill: the assistant writes
                     this narrative, and the brain is how every other surface
@@ -3937,8 +3965,17 @@ export default function MobileApp() {
                   <span style={V3.T.captionDim}>3 credits</span>
                 </div>
               </div>}
-              {narrativeLoading&&<div style={{padding:'8px 0',display:'flex',alignItems:'center',gap:12}}><div style={{width:20,height:20,borderRadius:'50%',border:'2px solid transparent',borderTopColor:ACCENT,animation:'spin 1s linear infinite',flexShrink:0}} /><div style={V3.T.bodyDim}>Generating narrative from assessment data…</div></div>}
-              {narrative&&<div>
+              {narrativeBusy && (
+                <div style={{padding:'8px 0',marginLeft:-8}}>
+                  <JasperActivity
+                    context="report-narrative"
+                    active={narrativePhase === 'writing'}
+                    brighten={narrativePhase === 'done'}
+                    onSettled={() => setNarrativePhase('idle')}
+                  />
+                </div>
+              )}
+              {narrative&&<div className={narrativePhase==='done'?JASPER_REVEAL_CLASS:undefined}>
                 <Markdown style={{fontSize:14,color:TEXT,lineHeight:1.75}}>{narrative}</Markdown>
                 {/* What the deterministic audit could not support in the prose
                     above (src/report/narrativeAudit.js). Advisory, like the
@@ -3982,7 +4019,7 @@ export default function MobileApp() {
                     handing the document on is not, so it keeps the neutral
                     glass. */}
                 <div style={{marginTop:14,display:'flex',gap:10,rowGap:12,flexWrap:'wrap',alignItems:'center'}}>
-                  {narrativeStale && !narrativeLoading && (
+                  {narrativeStale && !narrativeBusy && (
                     <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:-8}}>
                       <AiAction label="Regenerate narrative" onClick={requestNarrative}
                         title="AtmosFlow AI writes the findings narrative again, from the assessment as it stands now" />

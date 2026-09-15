@@ -121,7 +121,28 @@ describe('the reading is asked for once, stored, and labeled', () => {
     expect(within(reading).getByText(/consistent with scheduled occupancy/)).toBeTruthy()
     expect(within(reading).getByText(/HVAC operating schedule\./)).toBeTruthy()
     expect(screen.getByText(/AI-assisted reading — verify before use/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Read again/ })).toBeTruthy()
+    // The action returns once the activity status has finished leaving.
+    expect(await screen.findByRole('button', { name: /Read again/ })).toBeTruthy()
+  })
+
+  it('shows Jasper at work in place of the action while the reading is requested', async () => {
+    const env = envelope()
+    let finish
+    const generate = vi.fn(() => new Promise((resolve) => { finish = resolve }))
+    render(<Harness initial={env} generate={generate} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Read the patterns/ })) })
+    // No button to press twice, no static label: the status is the indicator.
+    expect(screen.queryByRole('button', { name: /Read/ })).toBeNull()
+    expect(screen.queryByText('Reading…')).toBeNull()
+    const activity = screen.getByTestId('jasper-activity')
+    expect(activity.getAttribute('data-active')).toBe('true')
+    expect(activity.textContent).toMatch(/Jasper is analyzing the forensic patterns\./)
+    expect(screen.getByTestId('jasper-activity-phrase').textContent).toBe('Reading the patterns…')
+    await act(async () => { finish({ record: null, bundle: null, validation: null, error: 'The AI service account needs attention.' }) })
+    // A failure leaves quietly: no brighten, and the action comes back.
+    expect(screen.getByTestId('jasper-activity').className).not.toMatch(/af-ja-done/)
+    expect(await screen.findByRole('button', { name: /Read the patterns/ })).toBeTruthy()
+    expect(screen.getByText('The AI service account needs attention.')).toBeTruthy()
   })
 
   it('shows a stored reading on mount without asking again', () => {
